@@ -1,0 +1,22 @@
+{
+  "name": "lamp-kit-generator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "張型スタジオ — あかりランプ(岐阜提灯/AKARI方式)の3Dプリント用張型ジェネレーター",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.2.0",
+    "playwright": "^1.61.1",
+    "vite": "^7.3.6"
+  }
+}
