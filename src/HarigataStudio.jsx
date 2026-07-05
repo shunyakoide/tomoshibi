@@ -261,12 +261,15 @@ export default function HarigataStudio() {
   const [p, setP] = useState(DEFAULTS);
   const [view, setView] = useState("mold");
   const [open, setOpen] = useState(false);
+  const [glError, setGlError] = useState(null);
   const mountRef = useRef(null);
   const T = useRef({});
 
   useEffect(() => {
     const mount = mountRef.current;
-    const scene = new THREE.Scene();
+    let cleanup;
+    try {
+      const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0c0c0d);
     scene.fog = new THREE.Fog(0x0c0c0d, 1000, 2400);
     const camera = new THREE.PerspectiveCamera(36, 1, 1, 4000);
@@ -374,7 +377,13 @@ export default function HarigataStudio() {
       s.renderer.render(s.scene, s.camera);
     };
     animate();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); mount.removeChild(el); renderer.dispose(); };
+      cleanup = () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); if (el.parentNode === mount) mount.removeChild(el); renderer.dispose(); };
+    } catch (e) {
+      // WebGL 初期化失敗(古い端末 / コンテキスト取得不可 等)。
+      // 画面全体を黒にせず UI は残し、原因メッセージだけ表示する。
+      setGlError((e && e.message) || String(e));
+    }
+    return () => { if (cleanup) cleanup(); };
   }, []);
 
   // プレビュー再構築 + 自動フレーミング
@@ -582,6 +591,22 @@ export default function HarigataStudio() {
       fontFamily: "'Hiragino Sans', system-ui, sans-serif",
     }}>
       <div ref={mountRef} style={{ position: "absolute", inset: 0 }} />
+
+      {glError && (
+        <div style={{
+          position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: 10, padding: 24,
+          textAlign: "center", pointerEvents: "none",
+        }}>
+          <div style={{ fontSize: 13, color: "#e0a060", fontWeight: 600 }}>⚠ 3Dプレビューを初期化できませんでした</div>
+          <div style={{ fontSize: 11, color: "#8a8a96", fontFamily: "ui-monospace, monospace", wordBreak: "break-word" }}>
+            {glError}
+          </div>
+          <div style={{ fontSize: 11, color: "#6f6f7a" }}>
+            お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。
+          </div>
+        </div>
+      )}
 
       {view === "print" && (
         <div style={{

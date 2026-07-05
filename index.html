@@ -15,9 +15,59 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="あかりランプ(岐阜提灯 / イサム・ノグチAKARI方式)の3Dプリント用 張型ジェネレーター" />
     <title>張型スタジオ — Lamp Kit Generator</title>
+    <script>
+      // 診断用:黒画面の代わりに実際のエラーを画面へ出す。
+      // モジュール読込前に登録するので、バンドルの評価時エラーも捕捉できる。
+      (function () {
+        function show(title, detail) {
+          var r = document.getElementById("root");
+          if (!r) return;
+          // Reactが正常マウントすると #root は上書きされる。
+          // ここに文字が残る=JSが動いていない、という切り分けになる。
+          r.innerHTML =
+            '<div style="position:fixed;inset:0;padding:20px;overflow:auto;' +
+            'font:13px/1.5 ui-monospace,monospace;color:#e8e8ec;background:#0c0c0d;' +
+            '-webkit-user-select:text;user-select:text;z-index:99999">' +
+            '<div style="color:#e0a060;font-weight:600;margin-bottom:8px">⚠ ' +
+            title +
+            '</div><pre style="white-space:pre-wrap;word-break:break-word;margin:0">' +
+            (detail || "").replace(/</g, "&lt;") +
+            "</pre></div>";
+        }
+        window.addEventListener("error", function (e) {
+          show(
+            "エラー: " + (e.message || "unknown"),
+            (e.filename || "") + (e.lineno ? ":" + e.lineno : "") + "\n" +
+              (e.error && e.error.stack ? e.error.stack : "")
+          );
+        });
+        window.addEventListener("unhandledrejection", function (e) {
+          var reason = e.reason || {};
+          show(
+            "未処理のPromise: " + (reason.message || String(reason)),
+            reason.stack || ""
+          );
+        });
+      })();
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div
+        style="
+          position: fixed;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #6f6f7a;
+          font: 13px/1.5 ui-monospace, monospace;
+          background: #0c0c0d;
+        "
+      >
+        読み込み中…
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
