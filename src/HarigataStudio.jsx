@@ -61,6 +61,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 // ============ プロファイル ============
 function prof(p, t) {
@@ -165,37 +166,102 @@ function komaGeometry(p, top) {
   return new THREE.ExtrudeGeometry(shape, { depth: p.komaT, bevelEnabled: false });
 }
 
-// ============ 土台(コマの縁を直接受けるサドル・左右で径が違う) ============
-// Ozekiの作業台と同じく、端の丸板を受けて型ごと回せる
-function standGeometry(p, top) {
-  const R = maxRadius(p);
-  const kR = komaR(p, top);
-  const H = R + 15;                 // コマ中心高さ(最大径+床クリアランス15mm)
-  const saddleR = kR + 0.8;         // コマ縁の受け半径
-  const halfOpen = Math.PI * 0.38;  // サドルの開き(浅めのU)
-  const baseW = Math.max(100, saddleR * 2.2), baseH = 12;
-  const colW = saddleR * Math.sin(halfOpen) + 12;
+// ============ 土台(コマの縁を溝で受けて型ごと回す作業台) ============
+// 「柱(受け本体)×2」を「連結板×2」で繋いだ H 型フレーム。各部品は別々に平置き印刷し、
+// 柱下部のスロットに連結板を差し込んで左右を連結する(柱は薄板で単体では前後に倒れるため)。
+//  - 受けを「溝」化: コマ厚+クリアランスの溝の両脇にフランジ壁 → 回転可・軸ズレ防止
+const BOARD_T = 6;      // 連結板の厚み(mm)
+const BOARD_H = 30;     // 連結板の高さ(mm)
+const BOARD_FIT = 0.5;  // スロットのはめあいクリアランス
+function standFullW(p) { return p.komaT + 1.0 + 8; } // 柱の全幅(溝幅+両フランジ4mm)
+
+function standProfile(seatR, H, halfOpen, colW) {
   const s = new THREE.Shape();
-  const lipY = H - saddleR * Math.cos(halfOpen); // サドル縁の高さ
-  const lipX = saddleR * Math.sin(halfOpen);
+  const lipY = H - seatR * Math.cos(halfOpen);
+  const lipX = seatR * Math.sin(halfOpen);
   const topY = lipY + 10;
-  s.moveTo(-baseW / 2, 0);
-  s.lineTo(baseW / 2, 0);
-  s.lineTo(baseW / 2, baseH);
-  s.lineTo(colW, baseH);
+  s.moveTo(-colW, 0);          // 平らなベース(接地面)
+  s.lineTo(colW, 0);
   s.lineTo(colW, topY);
   s.lineTo(lipX, topY);
   s.lineTo(lipX, lipY);
   for (let i = 0; i <= 32; i++) {
     const a = halfOpen - (i / 32) * (2 * halfOpen); // 右縁→底→左縁
-    s.lineTo(saddleR * Math.sin(a), H - saddleR * Math.cos(a));
+    s.lineTo(seatR * Math.sin(a), H - seatR * Math.cos(a));
   }
   s.lineTo(-lipX, topY);
   s.lineTo(-colW, topY);
-  s.lineTo(-colW, baseH);
-  s.lineTo(-baseW / 2, baseH);
   s.closePath();
-  return new THREE.ExtrudeGeometry(s, { depth: p.komaT + 6, bevelEnabled: false });
+  { // 連結板を通すスロット(中央1枚)
+    const w = (BOARD_T + BOARD_FIT) / 2, hh = (BOARD_H + BOARD_FIT) / 2;
+    const cy = BOARD_H / 2 + 2; // 底からわずかに浮かせて囲う
+    const slot = new THREE.Path();
+    slot.moveTo(-w, cy - hh);
+    slot.lineTo(w, cy - hh);
+    slot.lineTo(w, cy + hh);
+    slot.lineTo(-w, cy + hh);
+    slot.closePath();
+    s.holes.push(slot);
+  }
+  return s;
+}
+function standGeometry(p, top) {
+  const R = maxRadius(p);
+  const kR = komaR(p, top);
+  const H = R + 15;                  // コマ中心高さ(最大径+床クリアランス15mm)
+  const saddleR = kR + 0.8;          // 溝の受け半径(コマ縁+0.8クリアランス)
+  const halfOpen = Math.PI * 0.40;
+  const colW = saddleR * Math.sin(halfOpen) + 12;
+  const grooveW = p.komaT + 1.0;     // 溝幅 = コマ厚 + クリアランス
+  const flangeT = 4;
+  const fullW = grooveW + flangeT * 2;
+  const wallH = 4;                   // フランジがコマ縁に被る高さ(軸方向の保持)
+
+  const geos = [];
+  const core = new THREE.ExtrudeGeometry(
+    standProfile(saddleR, H, halfOpen, colW), { depth: grooveW, bevelEnabled: false });
+  core.translate(0, 0, -grooveW / 2); // 溝(受け面)は全幅の中央
+  geos.push(core);
+  for (const zside of [-1, 1]) {      // 両脇に高い壁のフランジ
+    const fl = new THREE.ExtrudeGeometry(
+      standProfile(saddleR - wallH, H, halfOpen, colW), { depth: flangeT, bevelEnabled: false });
+    fl.translate(0, 0, zside < 0 ? -fullW / 2 : fullW / 2 - flangeT);
+    geos.push(fl);
+  }
+  return mergeGeometries(geos, false);
+}
+// 連結板: 左右の柱のスロットに通して H 型に繋ぐ。中身は三角骨組み(ワーレントラス)で
+// 肉抜きし、平板比で材料を大きく削減(剛性は上下弦+斜材が担う)。両端は柱スロットに
+// 掛かるため中実のまま残す。平置きで印刷しやすい。
+function standBoardLength(p) { return p.height + 2 * p.tabLen + standFullW(p) + 16; }
+function boardGeometry(p) {
+  const len = standBoardLength(p);
+  const H = BOARD_H, T = BOARD_T;
+  const c = 4;                        // 上下弦の太さ
+  const wt = 4;                       // 斜材の太さ
+  const em = standFullW(p) + 16;      // 両端の中実マージン(柱スロットに掛かる部分)
+  const parts = [];
+  const box = (w, h, cx, cy, rot) => {
+    const g = new THREE.BoxGeometry(w, h, T);
+    if (rot) g.rotateZ(rot);
+    g.translate(cx, cy, T / 2);       // 押し出しを他部品と同じ z:0..T に揃える
+    parts.push(g);
+  };
+  box(em, H, -len / 2 + em / 2, 0, 0);       // 両端の中実ブロック
+  box(em, H, len / 2 - em / 2, 0, 0);
+  const Lt = len - 2 * em;                    // トラス区間
+  box(Lt, c, 0, H / 2 - c / 2, 0);           // 上弦
+  box(Lt, c, 0, -H / 2 + c / 2, 0);          // 下弦
+  const hw = H - 2 * c;                       // 弦間の高さ
+  const n = Math.max(2, Math.round(Lt / 42)); // ベイ数
+  const bay = Lt / n;
+  const ang = Math.atan2(hw, bay);
+  const diagLen = Math.hypot(bay, hw) + wt;   // 端で弦に少し食い込ませる
+  for (let j = 0; j < n; j++) {               // 斜材をジグザグに
+    const cx = -Lt / 2 + (j + 0.5) * bay;
+    box(diagLen, wt, cx, 0, j % 2 === 0 ? ang : -ang);
+  }
+  return mergeGeometries(parts, false);
 }
 
 // ============ STL ============
@@ -525,6 +591,8 @@ export default function HarigataStudio() {
         { geo: standGeometry(p, false), mat: s.standMat },
         { geo: standGeometry(p, true), mat: s.standMat },
       ];
+      // 連結板は長さが火袋高さで変わるため別プレートに。柱の配置が動かないようにする
+      const boards = [{ geo: boardGeometry(p), mat: s.standMat }];
 
       let plateIdx = 0;
       const placed = [];
@@ -555,6 +623,7 @@ export default function HarigataStudio() {
       layout(ribs);
       layout(komas);
       layout(stands);
+      layout(boards);
 
       const plates = plateIdx;
       const pCols = Math.ceil(Math.sqrt(plates));
@@ -611,9 +680,18 @@ export default function HarigataStudio() {
     exportSTL([gb, gt], "harigata_koma.stl");
   };
   const dlStands = () => {
-    const g1 = standGeometry(p, false), g2 = standGeometry(p, true);
-    g2.translate(Math.max(100, komaR(p, false) * 2.2) + 40, 0, 0);
-    exportSTL([g1, g2], "harigata_stands_LR.stl");
+    const parts = [
+      standGeometry(p, false), standGeometry(p, true),
+      boardGeometry(p),
+    ];
+    let x = 0;
+    for (const g of parts) {
+      g.computeBoundingBox();
+      const bb = g.boundingBox;
+      g.translate(x - bb.min.x, -bb.min.y, 0);
+      x += (bb.max.x - bb.min.x) + 20;
+    }
+    exportSTL(parts, "harigata_stands.stl");
   };
 
   const maxDia = Math.round(maxRadius(p) * 2);
