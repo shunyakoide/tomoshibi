@@ -80,16 +80,21 @@ function maxRadius(p) {
   for (let i = 0; i <= 120; i++) m = Math.max(m, prof(p, i / 120));
   return m + p.higoD;
 }
-// コマ外径(端の外周半径+縁マージン)
+// コマ外径 = 端の外周半径。縁マージンを持たせず羽根の外縁と揃える(縁の一番外側がフラッシュ)。
 function komaR(p, top) {
-  return prof(p, top ? 1 : 0) + 5;
+  return prof(p, top ? 1 : 0);
+}
+// タブ(羽根の差し込み部)の半径方向の奥行き。コマのノッチ深さと共有することで
+// 「差し込む深さ」と「羽根の奥行き」が常に一致し、外縁が揃う。0番のみ+3で深い=キー。
+function tabDepth(p, o, key) {
+  return Math.min(key ? p.tabW + 3 : p.tabW, Math.max(6, o * 0.4));
 }
 
 // ============ 羽根板 ============
 function ribShape(p, k) {
   const { height, boardWidth, higoD, pitch, spiral, boards, tabLen } = p;
   const oB = prof(p, 0), oT = prof(p, 1); // 端の外周半径
-  const tw = (o) => Math.min(k === 0 ? p.tabW + 3 : p.tabW, Math.max(6, o * 0.4));
+  const tw = (o) => tabDepth(p, o, k === 0);
   const twB = tw(oB), twT = tw(oT);
   const gR = higoD / 2 + 0.15;
   const off = spiral ? (k * pitch) / boards : 0;
@@ -121,11 +126,6 @@ function ribShape(p, k) {
   s.lineTo(ixH, height);
   for (let y = height - STEP; y >= 0; y -= STEP) s.lineTo(innerX(Math.max(y, 0)), Math.max(y, 0));
   s.closePath();
-  for (let i = 0; i <= k; i++) {
-    const h = new THREE.Path();
-    h.absarc(oB - 8, 14 + i * 5.5, 1.1, 0, Math.PI * 2, true);
-    s.holes.push(h);
-  }
   return s;
 }
 const ribGeometry = (p, k) => {
@@ -142,10 +142,8 @@ function komaGeometry(p, top) {
   const sw = boardT + fit; // ノッチ幅 = 板厚 + 公差(平行壁)
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
-  const depth = (idx) => {
-    const tabW = Math.min(idx === 0 ? p.tabW + 3 : p.tabW, Math.max(6, oEnd * 0.4));
-    return Math.max(oEnd * 0.55, oEnd - tabW - 0.6);
-  };
+  // ノッチ深さ = タブの奥行き(外径 R=端の外周 から同じだけ入れる → 外縁が揃う)
+  const depth = (idx) => R - tabDepth(p, oEnd, idx === 0);
   const shape = new THREE.Shape();
   shape.moveTo(R * Math.cos(eps), R * Math.sin(eps));
   for (let k = 0; k < boards; k++) {
@@ -235,10 +233,7 @@ function exportSTL(geometries, filename) {
 const PRESETS = [
   { name: "たまご", curve: "egg", bulge: 62, topR: 22, bottomR: 34, height: 260 },
   { name: "球", curve: "sphere", bulge: 75, topR: 25, bottomR: 25, height: 210 },
-  { name: "まゆ", curve: "cocoon", bulge: 45, topR: 38, bottomR: 42, height: 250 },
   { name: "ひょうたん", curve: "gourd", bulge: 65, topR: 28, bottomR: 30, height: 280 },
-  { name: "俵", curve: "barrel", bulge: 40, topR: 45, bottomR: 45, height: 240 },
-  { name: "つぼみ", curve: "bud", bulge: 55, topR: 26, bottomR: 44, height: 230 },
 ];
 const SLIDERS = [
   { key: "height", label: "火袋の高さ", min: 100, max: 320, step: 5, unit: "mm" },
@@ -247,14 +242,13 @@ const SLIDERS = [
   { key: "bulge", label: "ふくらみ量", min: 0, max: 90, step: 1, unit: "mm" },
   { key: "boards", label: "羽根板の枚数", min: 6, max: 12, step: 2, unit: "枚" },
   { key: "boardWidth", label: "板の幅", min: 20, max: 60, step: 1, unit: "mm" },
-  { key: "boardT", label: "板厚", min: 4, max: 10, step: 0.5, unit: "mm" },
+  { key: "boardT", label: "板厚", min: 2, max: 10, step: 0.5, unit: "mm" },
   { key: "higoD", label: "竹ひご径", min: 1, max: 4, step: 0.1, unit: "mm" },
   { key: "pitch", label: "ひごピッチ", min: 8, max: 40, step: 1, unit: "mm" },
-  { key: "tabW", label: "タブ掛かり", min: 6, max: 20, step: 1, unit: "mm" },
   { key: "fit", label: "はめあい公差", min: 0.1, max: 0.6, step: 0.05, unit: "mm" },
 ];
 const DEFAULTS = {
-  ...PRESETS[0], boards: 8, boardWidth: 35, boardT: 6, higoD: 2,
+  ...PRESETS[0], boards: 8, boardWidth: 35, boardT: 2, higoD: 2,
   pitch: 15, fit: 0.3, spiral: true, tabLen: 10, tabW: 10, komaT: 8,
 };
 // インスペクタのセクション分け(キーは SLIDERS の key を参照)
@@ -262,13 +256,16 @@ const GROUPS = [
   { title: "シルエット", keys: ["height", "topR", "bottomR", "bulge"] },
   { title: "骨組み", keys: ["boards", "boardWidth", "boardT"] },
   { title: "竹ひご", keys: ["higoD", "pitch"] },
-  { title: "組立公差", keys: ["tabW", "fit"] },
+  { title: "組立公差", keys: ["fit"] },
 ];
 const SLIDER_BY_KEY = Object.fromEntries(SLIDERS.map((s) => [s.key, s]));
 
 export default function HarigataStudio() {
   const [p, setP] = useState(DEFAULTS);
   const [view, setView] = useState("mold");
+  const [printRibs, setPrintRibs] = useState(1); // 印刷ビューで一度に並べる羽根板の枚数
+  const [bedW, setBedW] = useState(256); // プリントベッド幅(mm)。機種で異なるので可変
+  const [bedD, setBedD] = useState(256); // プリントベッド奥行き(mm)
   const [glError, setGlError] = useState(null);
   const [narrow, setNarrow] = useState(
     typeof window !== "undefined" ? window.innerWidth < 860 : false
@@ -515,13 +512,19 @@ export default function HarigataStudio() {
       frame((p.height + p.tabLen * 2 + p.komaT * 2) * 1.1, R, p.height * 0.5 + p.tabLen);
     } else {
       // 印刷ビュー: Bambu Lab A1 (256×256mm)。種別ごとにセル計算しプレートを田の字配置
-      const BED = 256, GAP = 8;
-      const ribs = [], smalls = [];
-      for (let k = 0; k < p.boards; k++) ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
-      smalls.push({ geo: komaGeometry(p, false), mat: s.komaMat });
-      smalls.push({ geo: komaGeometry(p, true), mat: s.komaMat });
-      smalls.push({ geo: standGeometry(p, false), mat: s.standMat });
-      smalls.push({ geo: standGeometry(p, true), mat: s.standMat });
+      const BEDW = bedW, BEDD = bedD, GAP = 8;
+      const nRibs = Math.min(printRibs, p.boards); // 印刷する羽根板の枚数(1..boards)
+      const ribs = [];
+      for (let k = 0; k < nRibs; k++) ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
+      // コマと土台は STL 出力が別々なので、プレビューでも別プレートに分ける
+      const komas = [
+        { geo: komaGeometry(p, false), mat: s.komaMat },
+        { geo: komaGeometry(p, true), mat: s.komaMat },
+      ];
+      const stands = [
+        { geo: standGeometry(p, false), mat: s.standMat },
+        { geo: standGeometry(p, true), mat: s.standMat },
+      ];
 
       let plateIdx = 0;
       const placed = [];
@@ -535,8 +538,8 @@ export default function HarigataStudio() {
           mD = Math.max(mD, pt.bb.max.y - pt.bb.min.y);
         });
         const cW = mW + GAP, cD = mD + GAP;
-        const cols = Math.max(1, Math.floor((BED - GAP) / cW));
-        const rows = Math.max(1, Math.floor((BED - GAP) / cD));
+        const cols = Math.max(1, Math.floor((BEDW - GAP) / cW));
+        const rows = Math.max(1, Math.floor((BEDD - GAP) / cD));
         const per = cols * rows;
         items.forEach((pt, i) => {
           const w = pt.bb.max.x - pt.bb.min.x, d = pt.bb.max.y - pt.bb.min.y;
@@ -550,20 +553,23 @@ export default function HarigataStudio() {
         plateIdx += Math.ceil(items.length / per);
       };
       layout(ribs);
-      layout(smalls);
+      layout(komas);
+      layout(stands);
 
       const plates = plateIdx;
       const pCols = Math.ceil(Math.sqrt(plates));
       const pRows = Math.ceil(plates / pCols);
       const plateMat = new THREE.MeshStandardMaterial({ color: 0x1e1e23, roughness: 0.9 });
-      const platePos = (pl) => [(pl % pCols) * (BED + 40), Math.floor(pl / pCols) * (BED + 40)];
+      const platePos = (pl) => [(pl % pCols) * (BEDW + 40), Math.floor(pl / pCols) * (BEDD + 40)];
+      const gridDivs = Math.max(2, Math.round(BEDW / 32)); // ≒32mm セル
       for (let pl = 0; pl < plates; pl++) {
         const [px, pz] = platePos(pl);
-        const plate = new THREE.Mesh(new THREE.BoxGeometry(BED, 2, BED), plateMat);
-        plate.position.set(px + BED / 2, -1, pz + BED / 2);
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(BEDW, 2, BEDD), plateMat);
+        plate.position.set(px + BEDW / 2, -1, pz + BEDD / 2);
         s.group.add(plate);
-        const grid = new THREE.GridHelper(BED, 8, 0x3f3f46, 0x2c2c31);
-        grid.position.set(px + BED / 2, 0.15, pz + BED / 2);
+        const grid = new THREE.GridHelper(BEDW, gridDivs, 0x3f3f46, 0x2c2c31);
+        grid.scale.z = BEDD / BEDW; // 長方形ベッドに合わせて奥行き方向を伸縮
+        grid.position.set(px + BEDW / 2, 0.15, pz + BEDD / 2);
         s.group.add(grid);
       }
       placed.forEach((pt) => {
@@ -574,27 +580,30 @@ export default function HarigataStudio() {
         s.group.add(m);
       });
 
-      const totalW = pCols * (BED + 40) - 40;
-      const totalD = pRows * (BED + 40) - 40;
+      const totalW = pCols * (BEDW + 40) - 40;
+      const totalD = pRows * (BEDD + 40) - 40;
       s.group.children.forEach((m) => { m.position.x -= totalW / 2; m.position.z -= totalD / 2; });
       const span = Math.max(totalW, totalD) + 50;
       s.rot.x = -1.35;
       s.rot.y = 0;
       frame(span * 0.95, span / 2, 0);
     }
-  }, [p, view]);
+  }, [p, view, printRibs, bedW, bedD]);
 
   const set = (key) => (e) => setP((o) => ({ ...o, [key]: parseFloat(e.target.value) }));
+
+  // 印刷する羽根板の枚数(1..boards)。boards が減った場合に備えて clamp。
+  const nRibs = Math.min(printRibs, p.boards);
 
   const dlRibs = () => {
     const geos = [];
     const w = maxRadius(p) + 12;
-    for (let k = 0; k < p.boards; k++) {
+    for (let k = 0; k < nRibs; k++) {
       const g = ribGeometry(p, k);
       g.translate(k * w, p.tabLen, p.boardT / 2);
       geos.push(g);
     }
-    exportSTL(geos, `harigata_ribs_x${p.boards}.stl`);
+    exportSTL(geos, `harigata_ribs_x${nRibs}.stl`);
   };
   const dlKoma = () => {
     const gb = komaGeometry(p, false), gt = komaGeometry(p, true);
@@ -609,7 +618,12 @@ export default function HarigataStudio() {
 
   const maxDia = Math.round(maxRadius(p) * 2);
   const boardLen = Math.round(p.height + p.tabLen * 2); // 羽根板の全長(印刷サイズ)
-  const bedOver = boardLen > 256;
+  const bedOver = boardLen > bedD; // 羽根板は奥行き方向に並ぶのでベッド奥行きと比較
+  // 抜き取り判定: 乾燥後、コマを外して羽根を上下どちらかの開口から抜く。
+  // 開口=上端/下端の円(半径)。羽根の幅より広い開口が片側にあれば取り出せる。
+  const topOpen = Math.round(prof(p, 1)); // 上の円 半径
+  const botOpen = Math.round(prof(p, 0)); // 下の円 半径
+  const canExtract = Math.max(topOpen, botOpen) >= p.boardWidth;
 
   const PANEL = 340; // インスペクタ幅(px)
   const mono = "ui-monospace, SFMono-Regular, Menlo, monospace";
@@ -655,6 +669,74 @@ export default function HarigataStudio() {
       border: primary ? "none" : `1px solid ${UI.ctrlEdge}`,
       transition: "all 0.15s",
     }}>{label}</button>
+  );
+
+  // ±ボタンのステッパー(離散的な整数値向け。スライダー単独UIを避ける)
+  const stepper = (key, label, value, min, max, step, onChange, valueText) => {
+    const clampStep = (v) => Math.min(max, Math.max(min, +v.toFixed(2)));
+    const sq = (txt, fn, off) => (
+      <button onClick={off ? undefined : fn} disabled={off} style={{
+        width: 30, height: 30, borderRadius: 8, cursor: off ? "default" : "pointer",
+        background: UI.ctrlBg, color: off ? UI.muted : accent,
+        border: `1px solid ${UI.ctrlEdge}`, fontSize: 18, fontWeight: 600, lineHeight: 1,
+        opacity: off ? 0.45 : 1, padding: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>{txt}</button>
+    );
+    return (
+      <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <span style={{ fontSize: 11.5, color: UI.label }}>{label}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {sq("−", () => onChange(clampStep(value - step)), value <= min)}
+          <span style={{ fontFamily: mono, fontSize: 13, color: UI.value, minWidth: 60, textAlign: "center" }}>{valueText}</span>
+          {sq("+", () => onChange(clampStep(value + step)), value >= max)}
+        </div>
+      </div>
+    );
+  };
+
+  // GROUPS のキーを描画: 離散整数はステッパー、それ以外はスライダー
+  const paramRow = (k) => {
+    if (k === "boards") {
+      return stepper("boards", "羽根板の枚数", p.boards, 6, 12, 2,
+        (v) => setP((o) => ({ ...o, boards: v })),
+        <>{p.boards}<span style={{ color: UI.muted, fontSize: 11 }}> 枚</span></>);
+    }
+    return sliderRow(k);
+  };
+
+  // 抜き取り警告(関連する「板の幅」スライダーの直下に表示)
+  const extractWarn = !canExtract && (
+    <div style={{
+      margin: "2px 0 14px", padding: "9px 11px", borderRadius: 8,
+      background: "rgba(198,57,43,0.10)", border: `1px solid ${UI.warn}`,
+      color: UI.warn, fontFamily: "'Hiragino Sans', system-ui, sans-serif",
+      fontSize: 11, lineHeight: 1.55,
+    }}>
+      ⚠ 羽根が抜けません — 乾燥後に上下どちらの開口からも取り出せません。
+      板の幅を {Math.max(topOpen, botOpen)}mm 以下にするか、広い方の端の半径を {p.boardWidth}mm 以上にしてください。
+    </div>
+  );
+
+  // 数値入力(値域が広く任意入力したいもの向け。Enter/フォーカス外しで確定・クランプ)
+  const numInput = (label, value, setValue, min, max) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
+      <span style={{ fontSize: 11.5, color: UI.label }}>{label}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <input key={value} type="number" defaultValue={value} min={min} max={max} step={1}
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+          onBlur={(e) => {
+            const v = Math.round(Number(e.target.value));
+            setValue(Number.isFinite(v) && v > 0 ? Math.min(max, Math.max(min, v)) : value);
+          }}
+          style={{
+            width: 66, padding: "6px 8px", borderRadius: 8, textAlign: "right",
+            fontFamily: mono, fontSize: 13, color: UI.value,
+            background: UI.ctrlBg, border: `1px solid ${UI.ctrlEdge}`,
+          }} />
+        <span style={{ fontSize: 11, color: UI.muted }}>mm</span>
+      </div>
+    </div>
   );
 
   // ============ 左:3Dビューポート ============
@@ -713,9 +795,9 @@ export default function HarigataStudio() {
           background: chip.bg, backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)", border: `1px solid ${chip.edge}`,
         }}>
-          Bambu Lab A1 ／ 256×256mm ／ グリッド32mm
+          プリントベッド {bedW}×{bedD}mm
           {bedOver && (
-            <span style={{ color: UI.warn }}> ⚠ 羽根板がベッド超過 — 高さを{256 - p.tabLen * 2}mm以下に</span>
+            <span style={{ color: UI.warn }}> ⚠ 羽根板がベッド超過 — 高さを{bedD - p.tabLen * 2}mm以下に</span>
           )}
         </div>
       )}
@@ -765,7 +847,12 @@ export default function HarigataStudio() {
         {GROUPS.map((g) => (
           <div key={g.title} style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 12, textTransform: "uppercase" }}>{g.title}</div>
-            {g.keys.map((k) => sliderRow(k))}
+            {g.keys.map((k) => (
+              <React.Fragment key={k}>
+                {paramRow(k)}
+                {k === "boardWidth" && extractWarn}
+              </React.Fragment>
+            ))}
             {g.title === "竹ひご" && (
               <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: UI.label, cursor: "pointer", marginTop: 2 }}>
                 <input type="checkbox" checked={p.spiral}
@@ -788,24 +875,48 @@ export default function HarigataStudio() {
             <span style={{ color: bedOver ? UI.warn : UI.value }}>{boardLen} mm{bedOver ? " ⚠" : ""}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}><span>羽根板の枚数</span><span style={{ color: UI.value }}>{p.boards} 枚</span></div>
-          <div style={{ color: UI.muted, marginTop: 6, fontFamily: "'Hiragino Sans', system-ui, sans-serif", lineHeight: 1.6 }}>
-            土台はコマの縁を直接受けて回転(心棒不要)
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>上下の開口(半径)</span>
+            <span style={{ color: canExtract ? UI.value : UI.warn }}>{topOpen} / {botOpen} mm{canExtract ? "" : " ⚠"}</span>
           </div>
         </div>
       </div>
 
-      {/* ダウンロード(スティッキー) */}
-      <div style={{
-        padding: "12px 18px 16px", borderTop: `1px solid ${UI.edge}`,
-        background: "#eeeae3",
-      }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 9, textTransform: "uppercase" }}>STL 書き出し</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {dlBtn(`羽根板 ×${p.boards}`, dlRibs, true)}
-          {dlBtn("コマ", dlKoma, false)}
-          {dlBtn("土台", dlStands, false)}
+      {/* 印刷ビューでのみ表示: 印刷枚数の選択 + STL 書き出し(スティッキー) */}
+      {view === "print" && (
+        <div style={{
+          padding: "14px 18px 16px", borderTop: `1px solid ${UI.edge}`,
+          background: "#eeeae3",
+        }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 9, textTransform: "uppercase" }}>プリントベッド</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+            {[180, 220, 250, 256, 300, 350].map((sz) => {
+              const active = bedW === sz && bedD === sz;
+              return (
+                <button key={sz} onClick={() => { setBedW(sz); setBedD(sz); }} style={{
+                  padding: "6px 11px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", borderRadius: 8,
+                  background: active ? accent : UI.ctrlBg, color: active ? "#fff" : UI.label,
+                  border: "1px solid " + (active ? accent : UI.ctrlEdge),
+                }}>{sz}</button>
+              );
+            })}
+          </div>
+          {numInput("幅", bedW, setBedW, 100, 420)}
+          {numInput("奥行き", bedD, setBedD, 100, 420)}
+          <div style={{ height: 1, background: UI.edge, margin: "10px 0 14px" }} />
+
+          {stepper("printRibs", "印刷する羽根板", nRibs, 1, p.boards, 1,
+            (v) => setPrintRibs(v),
+            <>{nRibs}<span style={{ color: UI.muted, fontSize: 11 }}> / {p.boards} 枚</span></>)}
+
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, margin: "4px 0 9px", textTransform: "uppercase" }}>STL 書き出し</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {dlBtn(`羽根板 ×${nRibs}`, dlRibs, true)}
+            {dlBtn("コマ", dlKoma, false)}
+            {dlBtn("土台", dlStands, false)}
+          </div>
         </div>
-      </div>
+      )}
     </aside>
   );
 
