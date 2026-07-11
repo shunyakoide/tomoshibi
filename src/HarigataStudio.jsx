@@ -60,6 +60,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 // ============ プロファイル ============
 function prof(p, t) {
@@ -287,12 +288,21 @@ export default function HarigataStudio() {
     let cleanup;
     try {
       const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0c0c0d);
-    scene.fog = new THREE.Fog(0x0c0c0d, 1000, 2400);
+    // 背景は mount 側の CSS グラデーションで描く。canvas は透過にして
+    // ビューごとに CAD調(明) / 点灯(暗) を切り替える。fog は再構築側で設定。
     const camera = new THREE.PerspectiveCamera(36, 1, 1, 4000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
     mount.appendChild(renderer.domElement);
+
+    // スタジオ風の環境光(IBL)。Standard/Physical マテリアルに柔らかな映り込みを与え、
+    // のっぺり感を解消する。組立/印刷ビューで使用(点灯ビューは暗室演出のため外す)。
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
 
     const amb = new THREE.AmbientLight(0xffffff, 0.55);
     scene.add(amb);
@@ -300,12 +310,11 @@ export default function HarigataStudio() {
     const rim = new THREE.DirectionalLight(0x8890a8, 0.35); rim.position.set(-260, 120, -260); scene.add(rim);
     const bulb = new THREE.PointLight(0xffc37a, 0, 900, 1.5); scene.add(bulb);
 
-    const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(1400, 64),
-      new THREE.MeshStandardMaterial({ color: 0x121214, roughness: 0.96 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
+    // CAD調の地面グリッド(組立ビューのみ表示)。遠方はフォグでbgへ溶ける。
+    const groundGrid = new THREE.GridHelper(2400, 48, 0xc0b8a8, 0xd6cfc6);
+    groundGrid.position.y = 0;
+    groundGrid.visible = false;
+    scene.add(groundGrid);
     const shadowTex = (() => {
       const cv = document.createElement("canvas");
       cv.width = cv.height = 128;
@@ -327,10 +336,16 @@ export default function HarigataStudio() {
     const group = new THREE.Group();
     scene.add(group);
     T.current = {
-      scene, camera, renderer, group, bulb, shadow, amb, key,
-      ribMat: new THREE.MeshStandardMaterial({ color: 0xe7e7e9, roughness: 0.55 }),
-      komaMat: new THREE.MeshStandardMaterial({ color: 0x8a8a90, roughness: 0.5 }),
-      standMat: new THREE.MeshStandardMaterial({ color: 0x333338, roughness: 0.7 }),
+      scene, camera, renderer, group, bulb, shadow, amb, key, groundGrid, envMap,
+      // 羽根板: コート系フィラメント風にごく薄いクリアコートを載せて上質な艶を出す
+      ribMat: new THREE.MeshPhysicalMaterial({
+        color: 0xc3b291, roughness: 0.5, metalness: 0.0,
+        clearcoat: 0.25, clearcoatRoughness: 0.5, envMapIntensity: 0.9,
+      }),
+      // コマ: マットな樹脂。羽根板と仕上げ差をつけて部品の区別を明快に
+      komaMat: new THREE.MeshStandardMaterial({ color: 0x94897c, roughness: 0.62, metalness: 0.05, envMapIntensity: 0.85 }),
+      // 土台: 焼き締めた陶のような暗いつや消し
+      standMat: new THREE.MeshStandardMaterial({ color: 0x6b6156, roughness: 0.7, metalness: 0.05, envMapIntensity: 0.75 }),
       washiMat: new THREE.MeshStandardMaterial({
         color: 0xf7f3ea, roughness: 0.9, transparent: true, opacity: 0.94,
         emissive: 0xffb96a, emissiveIntensity: 0, side: THREE.DoubleSide,
@@ -418,11 +433,19 @@ export default function HarigataStudio() {
       m.traverse((o) => o.geometry && o.geometry.dispose());
     }
     const R = maxRadius(p);
+    const lightVP = view !== "lit"; // 組立/印刷は CAD調の明るい背景、点灯だけ暗い
     s.shadow.scale.set(R * 3.2, R * 3.2, 1);
     s.shadow.visible = view !== "print";
-    s.scene.fog = view === "print" ? null : new THREE.Fog(0x0c0c0d, 1000, 2400);
-    s.amb.intensity = view === "print" ? 1.3 : 0.55;
-    s.key.intensity = view === "print" ? 1.1 : 0.85;
+    s.shadow.material.opacity = lightVP ? 0.3 : 1; // 明背景ではコンタクトシャドウを淡く
+    s.groundGrid.visible = view === "mold";
+    // 環境光は明ビューのみ。点灯は暗室に灯りだけ浮かせたいので外す。
+    s.scene.environment = lightVP ? s.envMap : null;
+    s.scene.fog = view === "print" ? null
+      : new THREE.Fog(lightVP ? 0xbfb5a3 : 0x050506, 1000, 2400);
+    // IBL がフィルを担うぶんアンビエントは控えめに。キーを強めてフォルムの陰影を立て、
+    // 背景から浮かせる(白飛び防止しつつ図と地のコントラストを確保)。
+    s.amb.intensity = view === "print" ? 0.5 : lightVP ? 0.3 : 0.5;
+    s.key.intensity = view === "print" ? 0.85 : lightVP ? 1.1 : 0.85;
     s.key.position.set(view === "print" ? 80 : 240, view === "print" ? 500 : 380, view === "print" ? 120 : 280);
     s.bulb.intensity = 0;
     s.washiMat.emissiveIntensity = 0;
@@ -590,6 +613,23 @@ export default function HarigataStudio() {
 
   const PANEL = 340; // インスペクタ幅(px)
   const mono = "ui-monospace, SFMono-Regular, Menlo, monospace";
+  const isLit = view === "lit";   // 点灯ビューだけ暗背景(グローを映えさせる)
+  const accent = "#e8590c";       // アクセント = あかりの灯りのオレンジ
+
+  // インスペクタは常に明るい暖色ニュートラルのパネル(和紙・竹の世界に寄せる)
+  const UI = {
+    panel: "#f6f4f0", edge: "#e5e1d9", head: "#1d1a16",
+    muted: "#8e867a", label: "#5e574c", value: "#242019",
+    ctrlBg: "#ffffff", ctrlEdge: "#dbd5cb", warn: "#c6392b",
+  };
+  // ビューポート背景(組立/印刷=明るい暖色CAD調、点灯=暗)
+  const vpBg = isLit
+    ? "radial-gradient(circle at 50% 38%, #17171c 0%, #050506 100%)"
+    : "radial-gradient(circle at 50% 34%, #f4efe7 0%, #cec6b6 52%, #a89e8c 100%)";
+  // ビューポート上のオーバーレイ・チップ(背景の明暗に追従)
+  const chip = isLit
+    ? { bg: "rgba(16,16,18,0.72)", edge: "rgba(255,255,255,0.08)", txt: "#8a8a96", val: "#c8c8d0" }
+    : { bg: "rgba(255,255,255,0.82)", edge: "#d6dae0", txt: "#5a626c", val: "#1b1c20" };
 
   const sliderRow = (key) => {
     const s = SLIDER_BY_KEY[key];
@@ -597,11 +637,11 @@ export default function HarigataStudio() {
     return (
       <label key={key} style={{ display: "block", marginBottom: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 4 }}>
-          <span style={{ color: "#9a9aa4" }}>{s.label}</span>
-          <span style={{ fontFamily: mono, color: "#e8e8ec" }}>{p[key]}<span style={{ color: "#6f6f7a" }}>{s.unit}</span></span>
+          <span style={{ color: UI.label }}>{s.label}</span>
+          <span style={{ fontFamily: mono, color: UI.value }}>{p[key]}<span style={{ color: UI.muted }}>{s.unit}</span></span>
         </div>
         <input type="range" min={s.min} max={s.max} step={s.step} value={p[key]}
-          onChange={set(key)} style={{ width: "100%", accentColor: "#fafafa", display: "block" }} />
+          onChange={set(key)} style={{ width: "100%", accentColor: accent, display: "block" }} />
       </label>
     );
   };
@@ -610,9 +650,9 @@ export default function HarigataStudio() {
     <button onClick={onClick} style={{
       flex: 1, padding: "11px 0", borderRadius: 10, fontSize: 12.5, fontWeight: 600,
       cursor: "pointer", whiteSpace: "nowrap",
-      background: primary ? "#fafafa" : "rgba(255,255,255,0.06)",
-      color: primary ? "#111113" : "#d8d8de",
-      border: primary ? "none" : "1px solid rgba(255,255,255,0.1)",
+      background: primary ? accent : UI.ctrlBg,
+      color: primary ? "#fff" : UI.label,
+      border: primary ? "none" : `1px solid ${UI.ctrlEdge}`,
       transition: "all 0.15s",
     }}>{label}</button>
   );
@@ -624,7 +664,7 @@ export default function HarigataStudio() {
       flex: narrow ? "0 0 auto" : "1 1 auto",
       height: narrow ? "44vh" : "auto",
     }}>
-      <div ref={mountRef} style={{ position: "absolute", inset: 0 }} />
+      <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg, transition: "background 0.3s" }} />
 
       {glError && (
         <div style={{
@@ -643,23 +683,23 @@ export default function HarigataStudio() {
       {/* ビュー切替(セグメンテッド) */}
       <div style={{
         position: "absolute", top: 14, left: 14, display: "flex", gap: 3, padding: 3,
-        borderRadius: 11, background: "rgba(16,16,18,0.72)",
+        borderRadius: 11, background: chip.bg,
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        border: `1px solid ${chip.edge}`,
       }}>
         {[["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]].map(([k, l]) => (
           <button key={k} onClick={() => setView(k)} style={{
             padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
             borderRadius: 8, border: "none",
-            background: view === k ? "#fafafa" : "transparent",
-            color: view === k ? "#111113" : "#8a8a96", transition: "all 0.15s",
+            background: view === k ? accent : "transparent",
+            color: view === k ? "#fff" : chip.txt, transition: "all 0.15s",
           }}>{l}</button>
         ))}
       </div>
 
       {/* 寸法リードアウト */}
       <div style={{
-        position: "absolute", top: 16, right: 16, fontSize: 11, color: "#8a8a96",
+        position: "absolute", top: 16, right: 16, fontSize: 11, color: chip.txt,
         fontFamily: mono, textAlign: "right", pointerEvents: "none",
       }}>
         ⌀{maxDia} × H{p.height} mm
@@ -669,13 +709,13 @@ export default function HarigataStudio() {
       {view === "print" && (
         <div style={{
           position: "absolute", bottom: 16, left: 16, padding: "7px 12px",
-          borderRadius: 9, fontSize: 10.5, color: "#a0a0aa", fontFamily: mono,
-          background: "rgba(16,16,18,0.72)", backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 9, fontSize: 10.5, color: chip.txt, fontFamily: mono,
+          background: chip.bg, backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)", border: `1px solid ${chip.edge}`,
         }}>
           Bambu Lab A1 ／ 256×256mm ／ グリッド32mm
           {bedOver && (
-            <span style={{ color: "#e0a060" }}> ⚠ 羽根板がベッド超過 — 高さを{256 - p.tabLen * 2}mm以下に</span>
+            <span style={{ color: UI.warn }}> ⚠ 羽根板がベッド超過 — 高さを{256 - p.tabLen * 2}mm以下に</span>
           )}
         </div>
       )}
@@ -688,34 +728,33 @@ export default function HarigataStudio() {
       display: "flex", flexDirection: "column",
       width: narrow ? "auto" : PANEL, flex: narrow ? "1 1 auto" : `0 0 ${PANEL}px`,
       minHeight: 0,
-      background: "rgba(20,20,22,0.86)",
-      backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-      borderLeft: narrow ? "none" : "1px solid rgba(255,255,255,0.07)",
-      borderTop: narrow ? "1px solid rgba(255,255,255,0.07)" : "none",
+      background: UI.panel, color: UI.value,
+      borderLeft: narrow ? "none" : `1px solid ${UI.edge}`,
+      borderTop: narrow ? `1px solid ${UI.edge}` : "none",
     }}>
       {/* ヘッダー */}
       <div style={{
-        padding: "16px 18px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)",
+        padding: "16px 18px 14px", borderBottom: `1px solid ${UI.edge}`,
         display: "flex", alignItems: "baseline", gap: 10,
       }}>
-        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.14em" }}>張型</span>
-        <span style={{ fontSize: 11, color: "#6f6f7a" }}>スタジオ</span>
-        <span style={{ marginLeft: "auto", fontSize: 10.5, color: "#6f6f7a", fontFamily: mono }}>Lamp Kit</span>
+        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.14em", color: UI.head }}>張型</span>
+        <span style={{ fontSize: 11, color: UI.muted }}>スタジオ</span>
+        <span style={{ marginLeft: "auto", fontSize: 10.5, color: UI.muted, fontFamily: mono }}>Lamp Kit</span>
       </div>
 
       {/* スクロール領域 */}
       <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "16px 18px 18px" }}>
         {/* プリセット */}
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: "#6f6f7a", marginBottom: 10, textTransform: "uppercase" }}>形</div>
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 10, textTransform: "uppercase" }}>形</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 22 }}>
           {PRESETS.map((pr) => {
             const active = p.curve === pr.curve;
             return (
               <button key={pr.name} onClick={() => setP((o) => ({ ...o, ...pr }))} style={{
                 padding: "9px 4px", fontSize: 12, fontWeight: 500, cursor: "pointer", borderRadius: 9,
-                background: active ? "#fafafa" : "rgba(255,255,255,0.05)",
-                color: active ? "#111113" : "#a0a0aa",
-                border: "1px solid " + (active ? "#fafafa" : "rgba(255,255,255,0.08)"),
+                background: active ? accent : UI.ctrlBg,
+                color: active ? "#fff" : UI.label,
+                border: "1px solid " + (active ? accent : UI.ctrlEdge),
                 transition: "all 0.15s",
               }}>{pr.name}</button>
             );
@@ -725,13 +764,13 @@ export default function HarigataStudio() {
         {/* パラメータ(セクション別) */}
         {GROUPS.map((g) => (
           <div key={g.title} style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: "#6f6f7a", marginBottom: 12, textTransform: "uppercase" }}>{g.title}</div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 12, textTransform: "uppercase" }}>{g.title}</div>
             {g.keys.map((k) => sliderRow(k))}
             {g.title === "竹ひご" && (
-              <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: "#9a9aa4", cursor: "pointer", marginTop: 2 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: UI.label, cursor: "pointer", marginTop: 2 }}>
                 <input type="checkbox" checked={p.spiral}
                   onChange={(e) => setP((o) => ({ ...o, spiral: e.target.checked }))}
-                  style={{ accentColor: "#fafafa", width: 15, height: 15 }} />
+                  style={{ accentColor: accent, width: 15, height: 15 }} />
                 螺旋巻き用に溝をずらす
               </label>
             )}
@@ -740,16 +779,16 @@ export default function HarigataStudio() {
 
         {/* 情報 */}
         <div style={{
-          borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 14, marginTop: 4,
-          fontSize: 11, color: "#8a8a96", fontFamily: mono, lineHeight: 1.9,
+          borderTop: `1px solid ${UI.edge}`, paddingTop: 14, marginTop: 4,
+          fontSize: 11, color: UI.label, fontFamily: mono, lineHeight: 1.9,
         }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>最大径</span><span style={{ color: "#e8e8ec" }}>⌀{maxDia} mm</span></div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span>最大径</span><span style={{ color: UI.value }}>⌀{maxDia} mm</span></div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>羽根板の全長</span>
-            <span style={{ color: bedOver ? "#e0a060" : "#e8e8ec" }}>{boardLen} mm{bedOver ? " ⚠" : ""}</span>
+            <span style={{ color: bedOver ? UI.warn : UI.value }}>{boardLen} mm{bedOver ? " ⚠" : ""}</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>羽根板の枚数</span><span style={{ color: "#e8e8ec" }}>{p.boards} 枚</span></div>
-          <div style={{ color: "#6f6f7a", marginTop: 6, fontFamily: "'Hiragino Sans', system-ui, sans-serif", lineHeight: 1.6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span>羽根板の枚数</span><span style={{ color: UI.value }}>{p.boards} 枚</span></div>
+          <div style={{ color: UI.muted, marginTop: 6, fontFamily: "'Hiragino Sans', system-ui, sans-serif", lineHeight: 1.6 }}>
             土台はコマの縁を直接受けて回転(心棒不要)
           </div>
         </div>
@@ -757,10 +796,10 @@ export default function HarigataStudio() {
 
       {/* ダウンロード(スティッキー) */}
       <div style={{
-        padding: "12px 18px 16px", borderTop: "1px solid rgba(255,255,255,0.07)",
-        background: "rgba(14,14,16,0.6)",
+        padding: "12px 18px 16px", borderTop: `1px solid ${UI.edge}`,
+        background: "#eeeae3",
       }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: "#6f6f7a", marginBottom: 9, textTransform: "uppercase" }}>STL 書き出し</div>
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 9, textTransform: "uppercase" }}>STL 書き出し</div>
         <div style={{ display: "flex", gap: 8 }}>
           {dlBtn(`羽根板 ×${p.boards}`, dlRibs, true)}
           {dlBtn("コマ", dlKoma, false)}
@@ -774,7 +813,7 @@ export default function HarigataStudio() {
     <div style={{
       display: "flex", flexDirection: narrow ? "column" : "row",
       height: "100%", overflow: "hidden",
-      background: "#0c0c0d", color: "#e8e8ec",
+      background: "#ece8e2", color: UI.value,
       fontFamily: "'Hiragino Sans', system-ui, sans-serif",
     }}>
       {viewport}
