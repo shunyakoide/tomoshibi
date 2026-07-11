@@ -256,14 +256,31 @@ const DEFAULTS = {
   ...PRESETS[0], boards: 8, boardWidth: 35, boardT: 6, higoD: 2,
   pitch: 15, fit: 0.3, spiral: true, tabLen: 10, tabW: 10, komaT: 8,
 };
+// インスペクタのセクション分け(キーは SLIDERS の key を参照)
+const GROUPS = [
+  { title: "シルエット", keys: ["height", "topR", "bottomR", "bulge"] },
+  { title: "骨組み", keys: ["boards", "boardWidth", "boardT"] },
+  { title: "竹ひご", keys: ["higoD", "pitch"] },
+  { title: "組立公差", keys: ["tabW", "fit"] },
+];
+const SLIDER_BY_KEY = Object.fromEntries(SLIDERS.map((s) => [s.key, s]));
 
 export default function HarigataStudio() {
   const [p, setP] = useState(DEFAULTS);
   const [view, setView] = useState("mold");
-  const [open, setOpen] = useState(false);
   const [glError, setGlError] = useState(null);
+  const [narrow, setNarrow] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 860 : false
+  );
   const mountRef = useRef(null);
   const T = useRef({});
+
+  // 画面幅で左右レイアウト / 縦積みを切替
+  useEffect(() => {
+    const onResize = () => setNarrow(window.innerWidth < 860);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -322,12 +339,17 @@ export default function HarigataStudio() {
     };
 
     const resize = () => {
-      renderer.setSize(mount.clientWidth, mount.clientHeight);
-      camera.aspect = mount.clientWidth / mount.clientHeight;
+      const w = mount.clientWidth, h = mount.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
     };
     resize();
     window.addEventListener("resize", resize);
+    // ビューポートの実サイズ変化(左右レイアウト切替・パネル幅など)にも追従
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
+    if (ro) ro.observe(mount);
 
     let drag = false, px = 0, py = 0, pinch = 0;
     const el = renderer.domElement;
@@ -377,7 +399,7 @@ export default function HarigataStudio() {
       s.renderer.render(s.scene, s.camera);
     };
     animate();
-      cleanup = () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); if (el.parentNode === mount) mount.removeChild(el); renderer.dispose(); };
+      cleanup = () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); if (ro) ro.disconnect(); if (el.parentNode === mount) mount.removeChild(el); renderer.dispose(); };
     } catch (e) {
       // WebGL 初期化失敗(古い端末 / コンテキスト取得不可 等)。
       // 画面全体を黒にせず UI は残し、原因メッセージだけ表示する。
@@ -563,32 +585,44 @@ export default function HarigataStudio() {
   };
 
   const maxDia = Math.round(maxRadius(p) * 2);
+  const boardLen = Math.round(p.height + p.tabLen * 2); // 羽根板の全長(印刷サイズ)
+  const bedOver = boardLen > 256;
 
-  const glass = {
-    background: "rgba(16,16,18,0.72)",
-    backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-    border: "1px solid rgba(255,255,255,0.06)",
+  const PANEL = 340; // インスペクタ幅(px)
+  const mono = "ui-monospace, SFMono-Regular, Menlo, monospace";
+
+  const sliderRow = (key) => {
+    const s = SLIDER_BY_KEY[key];
+    if (!s) return null;
+    return (
+      <label key={key} style={{ display: "block", marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 4 }}>
+          <span style={{ color: "#9a9aa4" }}>{s.label}</span>
+          <span style={{ fontFamily: mono, color: "#e8e8ec" }}>{p[key]}<span style={{ color: "#6f6f7a" }}>{s.unit}</span></span>
+        </div>
+        <input type="range" min={s.min} max={s.max} step={s.step} value={p[key]}
+          onChange={set(key)} style={{ width: "100%", accentColor: "#fafafa", display: "block" }} />
+      </label>
+    );
   };
-  const chip = (active) => ({
-    padding: "6px 13px", fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap",
-    borderRadius: 20,
-    background: active ? "#fafafa" : "rgba(255,255,255,0.05)",
-    color: active ? "#111113" : "#a0a0aa",
-    border: "1px solid " + (active ? "#fafafa" : "rgba(255,255,255,0.08)"),
-    transition: "all 0.15s",
-  });
-  const btn = (primary) => ({
-    flex: 1, padding: "12px 0", borderRadius: 12, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-    background: primary ? "#fafafa" : "rgba(255,255,255,0.05)",
-    color: primary ? "#111113" : "#d8d8de",
-    border: primary ? "none" : "1px solid rgba(255,255,255,0.08)",
-  });
 
-  return (
-    <div style={{
-      position: "relative", height: "100%", overflow: "hidden",
-      background: "#0c0c0d", color: "#e8e8ec",
-      fontFamily: "'Hiragino Sans', system-ui, sans-serif",
+  const dlBtn = (label, onClick, primary) => (
+    <button onClick={onClick} style={{
+      flex: 1, padding: "11px 0", borderRadius: 10, fontSize: 12.5, fontWeight: 600,
+      cursor: "pointer", whiteSpace: "nowrap",
+      background: primary ? "#fafafa" : "rgba(255,255,255,0.06)",
+      color: primary ? "#111113" : "#d8d8de",
+      border: primary ? "none" : "1px solid rgba(255,255,255,0.1)",
+      transition: "all 0.15s",
+    }}>{label}</button>
+  );
+
+  // ============ 左:3Dビューポート ============
+  const viewport = (
+    <main style={{
+      position: "relative", minWidth: 0, minHeight: 0,
+      flex: narrow ? "0 0 auto" : "1 1 auto",
+      height: narrow ? "44vh" : "auto",
     }}>
       <div ref={mountRef} style={{ position: "absolute", inset: 0 }} />
 
@@ -599,96 +633,152 @@ export default function HarigataStudio() {
           textAlign: "center", pointerEvents: "none",
         }}>
           <div style={{ fontSize: 13, color: "#e0a060", fontWeight: 600 }}>⚠ 3Dプレビューを初期化できませんでした</div>
-          <div style={{ fontSize: 11, color: "#8a8a96", fontFamily: "ui-monospace, monospace", wordBreak: "break-word" }}>
-            {glError}
-          </div>
+          <div style={{ fontSize: 11, color: "#8a8a96", fontFamily: mono, wordBreak: "break-word" }}>{glError}</div>
           <div style={{ fontSize: 11, color: "#6f6f7a" }}>
             お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。
           </div>
         </div>
       )}
 
+      {/* ビュー切替(セグメンテッド) */}
+      <div style={{
+        position: "absolute", top: 14, left: 14, display: "flex", gap: 3, padding: 3,
+        borderRadius: 11, background: "rgba(16,16,18,0.72)",
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        border: "1px solid rgba(255,255,255,0.08)",
+      }}>
+        {[["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]].map(([k, l]) => (
+          <button key={k} onClick={() => setView(k)} style={{
+            padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+            borderRadius: 8, border: "none",
+            background: view === k ? "#fafafa" : "transparent",
+            color: view === k ? "#111113" : "#8a8a96", transition: "all 0.15s",
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {/* 寸法リードアウト */}
+      <div style={{
+        position: "absolute", top: 16, right: 16, fontSize: 11, color: "#8a8a96",
+        fontFamily: mono, textAlign: "right", pointerEvents: "none",
+      }}>
+        ⌀{maxDia} × H{p.height} mm
+      </div>
+
+      {/* 印刷ビューの補足 */}
       {view === "print" && (
         <div style={{
-          position: "absolute", top: 74, left: 12, padding: "6px 11px",
-          borderRadius: 10, fontSize: 10.5, color: "#a0a0aa",
-          fontFamily: "ui-monospace, monospace", ...glass,
+          position: "absolute", bottom: 16, left: 16, padding: "7px 12px",
+          borderRadius: 9, fontSize: 10.5, color: "#a0a0aa", fontFamily: mono,
+          background: "rgba(16,16,18,0.72)", backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.06)",
         }}>
           Bambu Lab A1 ／ 256×256mm ／ グリッド32mm
-          {(p.height + p.tabLen * 2 > 256) && (
+          {bedOver && (
             <span style={{ color: "#e0a060" }}> ⚠ 羽根板がベッド超過 — 高さを{256 - p.tabLen * 2}mm以下に</span>
           )}
         </div>
       )}
+    </main>
+  );
 
+  // ============ 右:インスペクタ ============
+  const inspector = (
+    <aside style={{
+      display: "flex", flexDirection: "column",
+      width: narrow ? "auto" : PANEL, flex: narrow ? "1 1 auto" : `0 0 ${PANEL}px`,
+      minHeight: 0,
+      background: "rgba(20,20,22,0.86)",
+      backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+      borderLeft: narrow ? "none" : "1px solid rgba(255,255,255,0.07)",
+      borderTop: narrow ? "1px solid rgba(255,255,255,0.07)" : "none",
+    }}>
+      {/* ヘッダー */}
       <div style={{
-        position: "absolute", top: 12, left: 12, right: 12, display: "flex",
-        justifyContent: "space-between", alignItems: "center", gap: 10,
-        padding: "9px 14px", borderRadius: 14, ...glass,
+        padding: "16px 18px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)",
+        display: "flex", alignItems: "baseline", gap: 10,
       }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "baseline", minWidth: 0 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: "0.12em", whiteSpace: "nowrap" }}>張型</span>
-          <span style={{ fontSize: 10.5, color: "#6f6f7a", fontFamily: "ui-monospace, monospace", whiteSpace: "nowrap" }}>⌀{maxDia}×H{p.height}</span>
-        </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          {[["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]].map(([k, l]) => (
-            <button key={k} onClick={() => setView(k)} style={{
-              padding: "5px 11px", fontSize: 11.5, fontWeight: 600, cursor: "pointer",
-              borderRadius: 8, whiteSpace: "nowrap", border: "none",
-              background: view === k ? "#fafafa" : "transparent",
-              color: view === k ? "#111113" : "#8a8a96",
-              transition: "all 0.15s",
-            }}>{l}</button>
-          ))}
-        </div>
+        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.14em" }}>張型</span>
+        <span style={{ fontSize: 11, color: "#6f6f7a" }}>スタジオ</span>
+        <span style={{ marginLeft: "auto", fontSize: 10.5, color: "#6f6f7a", fontFamily: mono }}>Lamp Kit</span>
       </div>
 
-      <div style={{
-        position: "absolute", left: 12, right: 12, bottom: 12,
-        borderRadius: 18, padding: "10px 14px 12px",
-        maxHeight: open ? "58%" : 116,
-        overflow: "hidden", transition: "max-height 0.32s cubic-bezier(0.3,0.9,0.3,1)", ...glass,
-      }}>
-        <div onClick={() => setOpen(!open)} style={{ cursor: "pointer" }}>
-          <div style={{ width: 34, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.18)", margin: "0 auto 9px" }} />
-          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, scrollbarWidth: "none" }}>
-            {PRESETS.map((pr) => (
-              <button key={pr.name} onClick={(e) => { e.stopPropagation(); setP((o) => ({ ...o, ...pr })); }}
-                style={chip(p.curve === pr.curve)}>{pr.name}</button>
-            ))}
-          </div>
+      {/* スクロール領域 */}
+      <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "16px 18px 18px" }}>
+        {/* プリセット */}
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: "#6f6f7a", marginBottom: 10, textTransform: "uppercase" }}>形</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 22 }}>
+          {PRESETS.map((pr) => {
+            const active = p.curve === pr.curve;
+            return (
+              <button key={pr.name} onClick={() => setP((o) => ({ ...o, ...pr }))} style={{
+                padding: "9px 4px", fontSize: 12, fontWeight: 500, cursor: "pointer", borderRadius: 9,
+                background: active ? "#fafafa" : "rgba(255,255,255,0.05)",
+                color: active ? "#111113" : "#a0a0aa",
+                border: "1px solid " + (active ? "#fafafa" : "rgba(255,255,255,0.08)"),
+                transition: "all 0.15s",
+              }}>{pr.name}</button>
+            );
+          })}
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={dlRibs} style={btn(true)}>羽根板 ×{p.boards}</button>
-          <button onClick={dlKoma} style={btn(false)}>コマ</button>
-          <button onClick={dlStands} style={btn(false)}>土台</button>
-        </div>
-
-        <div style={{ overflowY: "auto", maxHeight: "calc(58vh - 140px)", marginTop: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(215px, 1fr))", gap: "8px 20px" }}>
-            {SLIDERS.map((s) => (
-              <label key={s.key}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 2 }}>
-                  <span style={{ color: "#8a8a96" }}>{s.label}</span>
-                  <span style={{ fontFamily: "ui-monospace, monospace", color: "#e8e8ec" }}>{p[s.key]}{s.unit}</span>
-                </div>
-                <input type="range" min={s.min} max={s.max} step={s.step} value={p[s.key]}
-                  onChange={set(s.key)} style={{ width: "100%", accentColor: "#fafafa" }} />
+        {/* パラメータ(セクション別) */}
+        {GROUPS.map((g) => (
+          <div key={g.title} style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: "#6f6f7a", marginBottom: 12, textTransform: "uppercase" }}>{g.title}</div>
+            {g.keys.map((k) => sliderRow(k))}
+            {g.title === "竹ひご" && (
+              <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: "#9a9aa4", cursor: "pointer", marginTop: 2 }}>
+                <input type="checkbox" checked={p.spiral}
+                  onChange={(e) => setP((o) => ({ ...o, spiral: e.target.checked }))}
+                  style={{ accentColor: "#fafafa", width: 15, height: 15 }} />
+                螺旋巻き用に溝をずらす
               </label>
-            ))}
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#8a8a96" }}>
-              <input type="checkbox" checked={p.spiral}
-                onChange={(e) => setP((o) => ({ ...o, spiral: e.target.checked }))}
-                style={{ accentColor: "#fafafa", width: 16, height: 16 }} />
-              螺旋巻き用に溝をずらす
-            </label>
+            )}
           </div>
-          <div style={{ fontSize: 10.5, color: "#6f6f7a", marginTop: 10, fontFamily: "ui-monospace, monospace" }}>
+        ))}
+
+        {/* 情報 */}
+        <div style={{
+          borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 14, marginTop: 4,
+          fontSize: 11, color: "#8a8a96", fontFamily: mono, lineHeight: 1.9,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span>最大径</span><span style={{ color: "#e8e8ec" }}>⌀{maxDia} mm</span></div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>羽根板の全長</span>
+            <span style={{ color: bedOver ? "#e0a060" : "#e8e8ec" }}>{boardLen} mm{bedOver ? " ⚠" : ""}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span>羽根板の枚数</span><span style={{ color: "#e8e8ec" }}>{p.boards} 枚</span></div>
+          <div style={{ color: "#6f6f7a", marginTop: 6, fontFamily: "'Hiragino Sans', system-ui, sans-serif", lineHeight: 1.6 }}>
             土台はコマの縁を直接受けて回転(心棒不要)
           </div>
         </div>
       </div>
+
+      {/* ダウンロード(スティッキー) */}
+      <div style={{
+        padding: "12px 18px 16px", borderTop: "1px solid rgba(255,255,255,0.07)",
+        background: "rgba(14,14,16,0.6)",
+      }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: "#6f6f7a", marginBottom: 9, textTransform: "uppercase" }}>STL 書き出し</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {dlBtn(`羽根板 ×${p.boards}`, dlRibs, true)}
+          {dlBtn("コマ", dlKoma, false)}
+          {dlBtn("土台", dlStands, false)}
+        </div>
+      </div>
+    </aside>
+  );
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: narrow ? "column" : "row",
+      height: "100%", overflow: "hidden",
+      background: "#0c0c0d", color: "#e8e8ec",
+      fontFamily: "'Hiragino Sans', system-ui, sans-serif",
+    }}>
+      {viewport}
+      {inspector}
     </div>
   );
 }
