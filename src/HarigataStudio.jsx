@@ -109,20 +109,23 @@ function ribShape(p, k) {
     }
     return x;
   };
-  const innerX = (y) => Math.max(6, prof(p, y / height) - boardWidth);
+  // 内縁の下限。低すぎ(6mm)だと下端で平坦部が極短→急立ち上がりで軸側にトゲが出るため、
+  // 板幅に応じた下限にして下端の尖りを無くす。
+  const mInner = Math.max(8, boardWidth * 0.4);
+  const innerX = (y) => Math.max(mInner, prof(p, y / height) - boardWidth);
   const s = new THREE.Shape();
-  const STEP = 0.4, CH = 1.2;
+  const STEP = 0.4;
   const ix0 = innerX(0), ixH = innerX(height);
   // 内縁下 → 下辺 → 下タブ(外縁側) → 外周 → 上タブ(外縁側) → 上辺 → 内縁
   s.moveTo(ix0, 0);
   s.lineTo(oB - twB, 0);
-  s.lineTo(oB - twB + CH, -tabLen);
-  s.lineTo(oB - CH, -tabLen);
+  s.lineTo(oB - twB, -tabLen);   // はめ込み部は素直な長方形
+  s.lineTo(oB, -tabLen);
   s.lineTo(oB, 0);
   for (let y = STEP; y <= height; y += STEP) s.lineTo(outerX(Math.min(y, height)), Math.min(y, height));
   s.lineTo(oT, height);
-  s.lineTo(oT - CH, height + tabLen);
-  s.lineTo(oT - twT + CH, height + tabLen);
+  s.lineTo(oT, height + tabLen);       // はめ込み部は素直な長方形
+  s.lineTo(oT - twT, height + tabLen);
   s.lineTo(oT - twT, height);
   s.lineTo(ixH, height);
   for (let y = height - STEP; y >= 0; y -= STEP) s.lineTo(innerX(Math.max(y, 0)), Math.max(y, 0));
@@ -265,7 +268,8 @@ function boardGeometry(p) {
 }
 
 // ============ STL ============
-function exportSTL(geometries, filename) {
+// バイナリSTLを ArrayBuffer で生成(DL/ZIP どちらにも使う)
+function buildSTL(geometries) {
   const geos = geometries.map((g) => (g.index ? g.toNonIndexed() : g));
   let tri = 0;
   for (const g of geos) tri += g.attributes.position.count / 3;
@@ -289,10 +293,59 @@ function exportSTL(geometries, filename) {
       dv.setUint16(off, 0, true); off += 2;
     }
   }
-  const url = URL.createObjectURL(new Blob([buf], { type: "application/octet-stream" }));
+  return buf;
+}
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
+}
+function exportSTL(geometries, filename) {
+  triggerDownload(new Blob([buildSTL(geometries)], { type: "application/octet-stream" }), filename);
+}
+
+// ---- 最小 ZIP(無圧縮 STORE + CRC32)。依存を増やさず複数STLを1ファイルに ----
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(u8) {
+  let c = 0xffffffff;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function makeZip(files) { // files: [{ name, bytes: Uint8Array }]
+  const enc = new TextEncoder();
+  const u16 = (n) => [n & 0xff, (n >> 8) & 0xff];
+  const u32 = (n) => [n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff];
+  const chunks = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = f.bytes, crc = crc32(data);
+    const lh = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+      ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)]);
+    chunks.push(lh, name, data);
+    central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+      ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+      ...u32(0), ...u32(offset)]), name);
+    offset += lh.length + name.length + data.length;
+  }
+  const cdStart = offset;
+  let cdSize = 0;
+  for (const c of central) { chunks.push(c); cdSize += c.length; }
+  chunks.push(new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0),
+    ...u16(files.length), ...u16(files.length), ...u32(cdSize), ...u32(cdStart), ...u16(0)]));
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const c of chunks) { out.set(c, pos); pos += c.length; }
+  return out;
+}
+function exportZip(parts, filename) { // parts: [{ name, geos }]
+  const files = parts.map((pt) => ({ name: pt.name, bytes: new Uint8Array(buildSTL(pt.geos)) }));
+  triggerDownload(new Blob([makeZip(files)], { type: "application/zip" }), filename);
 }
 
 // ============ プリセット / スライダー ============
@@ -307,7 +360,6 @@ const SLIDERS = [
   { key: "bottomR", label: "下部半径", min: 20, max: 90, step: 1, unit: "mm" },
   { key: "bulge", label: "ふくらみ量", min: 0, max: 90, step: 1, unit: "mm" },
   { key: "boards", label: "羽根板の枚数", min: 6, max: 12, step: 2, unit: "枚" },
-  { key: "boardWidth", label: "板の幅", min: 20, max: 60, step: 1, unit: "mm" },
   { key: "boardT", label: "板厚", min: 2, max: 10, step: 0.5, unit: "mm" },
   { key: "higoD", label: "竹ひご径", min: 1, max: 4, step: 0.1, unit: "mm" },
   { key: "pitch", label: "ひごピッチ", min: 8, max: 40, step: 1, unit: "mm" },
@@ -320,7 +372,7 @@ const DEFAULTS = {
 // インスペクタのセクション分け(キーは SLIDERS の key を参照)
 const GROUPS = [
   { title: "シルエット", keys: ["height", "topR", "bottomR", "bulge"] },
-  { title: "骨組み", keys: ["boards", "boardWidth", "boardT"] },
+  { title: "骨組み", keys: ["boards", "boardT"] },
   { title: "竹ひご", keys: ["higoD", "pitch"] },
   { title: "組立公差", keys: ["fit"] },
 ];
@@ -645,7 +697,9 @@ export default function HarigataStudio() {
         const [px, pz] = platePos(pt.plate);
         const m = new THREE.Mesh(pt.geo, pt.mat);
         m.rotation.x = -Math.PI / 2;
-        m.position.set(px + pt.ox - pt.bb.min.x, 0.6, pz + pt.oz + pt.bb.max.y);
+        // rotation.x=-90° で local z → world y。部品の z 下端がプレートに乗るよう持ち上げる
+        // (土台の柱は z 中央基準なので、固定 0.6 だと厚みの半分めり込む)
+        m.position.set(px + pt.ox - pt.bb.min.x, 0.6 - pt.bb.min.z, pz + pt.oz + pt.bb.max.y);
         s.group.add(m);
       });
 
@@ -664,34 +718,33 @@ export default function HarigataStudio() {
   // 印刷する羽根板の枚数(1..boards)。boards が減った場合に備えて clamp。
   const nRibs = Math.min(printRibs, p.boards);
 
-  const dlRibs = () => {
-    const geos = [];
+  const dlAll = () => { // 全部品を別STLとして1つのZIPにまとめる
+    const spread = (geos, gap) => { // X方向に並べて重なり回避
+      let x = 0;
+      for (const g of geos) {
+        g.computeBoundingBox();
+        const bb = g.boundingBox;
+        g.translate(x - bb.min.x, 0, 0);
+        x += (bb.max.x - bb.min.x) + gap;
+      }
+      return geos;
+    };
+    const ribs = [];
     const w = maxRadius(p) + 12;
     for (let k = 0; k < nRibs; k++) {
       const g = ribGeometry(p, k);
       g.translate(k * w, p.tabLen, p.boardT / 2);
-      geos.push(g);
+      ribs.push(g);
     }
-    exportSTL(geos, `harigata_ribs_x${nRibs}.stl`);
-  };
-  const dlKoma = () => {
-    const gb = komaGeometry(p, false), gt = komaGeometry(p, true);
-    gt.translate(komaR(p, false) + komaR(p, true) + 30, 0, 0);
-    exportSTL([gb, gt], "harigata_koma.stl");
-  };
-  const dlStands = () => {
-    const parts = [
-      standGeometry(p, false), standGeometry(p, true),
-      boardGeometry(p),
-    ];
-    let x = 0;
-    for (const g of parts) {
-      g.computeBoundingBox();
-      const bb = g.boundingBox;
-      g.translate(x - bb.min.x, -bb.min.y, 0);
-      x += (bb.max.x - bb.min.x) + 20;
-    }
-    exportSTL(parts, "harigata_stands.stl");
+    const komas = spread([komaGeometry(p, false), komaGeometry(p, true)], 30);
+    const cols = spread([standGeometry(p, false), standGeometry(p, true)], 20);
+    const board = boardGeometry(p);
+    exportZip([
+      { name: `harigata_ribs_x${nRibs}.stl`, geos: ribs },
+      { name: "harigata_koma.stl", geos: komas },
+      { name: "harigata_stand_columns.stl", geos: cols },
+      { name: "harigata_stand_board.stl", geos: [board] },
+    ], "harigata_kit.zip");
   };
 
   const maxDia = Math.round(maxRadius(p) * 2);
@@ -792,7 +845,7 @@ export default function HarigataStudio() {
       fontSize: 11, lineHeight: 1.55,
     }}>
       ⚠ 羽根が抜けません — 乾燥後に上下どちらの開口からも取り出せません。
-      板の幅を {Math.max(topOpen, botOpen)}mm 以下にするか、広い方の端の半径を {p.boardWidth}mm 以上にしてください。
+      上下いずれかの端の半径を {p.boardWidth}mm 以上にしてください。
     </div>
   );
 
@@ -925,12 +978,8 @@ export default function HarigataStudio() {
         {GROUPS.map((g) => (
           <div key={g.title} style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 12, textTransform: "uppercase" }}>{g.title}</div>
-            {g.keys.map((k) => (
-              <React.Fragment key={k}>
-                {paramRow(k)}
-                {k === "boardWidth" && extractWarn}
-              </React.Fragment>
-            ))}
+            {g.keys.map((k) => paramRow(k))}
+            {g.title === "シルエット" && extractWarn}
             {g.title === "竹ひご" && (
               <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: UI.label, cursor: "pointer", marginTop: 2 }}>
                 <input type="checkbox" checked={p.spiral}
@@ -989,9 +1038,7 @@ export default function HarigataStudio() {
 
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, margin: "4px 0 9px", textTransform: "uppercase" }}>STL 書き出し</div>
           <div style={{ display: "flex", gap: 8 }}>
-            {dlBtn(`羽根板 ×${nRibs}`, dlRibs, true)}
-            {dlBtn("コマ", dlKoma, false)}
-            {dlBtn("土台", dlStands, false)}
+            {dlBtn("ダウンロード", dlAll, true)}
           </div>
         </div>
       )}
