@@ -85,18 +85,24 @@ function maxRadius(p) {
 function komaR(p, top) {
   return prof(p, top ? 1 : 0);
 }
-// タブ(羽根の差し込み部)の半径方向の奥行き。コマのノッチ深さと共有することで
-// 「差し込む深さ」と「羽根の奥行き」が常に一致し、外縁が揃う。0番のみ+3で深い=キー。
-function tabDepth(p, o, key) {
-  return Math.min(key ? p.tabW + 3 : p.tabW, Math.max(6, o * 0.4));
+// タブ(羽根の差し込み部)の半径方向の奥行き = コマのノッチ深さ。
+// 上下・全羽根で一律(細い方の端に合わせる)。→ どの羽根もどちらのコマにも同じ深さで嵌まる。
+function tabDepth(p) {
+  const minEnd = Math.min(prof(p, 0), prof(p, 1));
+  return Math.min(p.tabW, Math.max(6, minEnd * 0.4));
+}
+// 羽根幅の上限: 乾燥後に大きい方の開口(端半径)から抜けるよう、開口以下に抑える
+function effBoardWidth(p) {
+  return Math.min(p.boardWidth, Math.max(prof(p, 0), prof(p, 1)) - 1);
 }
 
 // ============ 羽根板 ============
-function ribShape(p, k) {
-  const { height, boardWidth, higoD, pitch, spiral, boards, tabLen } = p;
-  const oB = prof(p, 0), oT = prof(p, 1); // 端の外周半径
-  const tw = (o) => tabDepth(p, o, k === 0);
-  const twB = tw(oB), twT = tw(oT);
+// 羽根板の内外エッジ関数(通常/分割で共有)
+function ribEdges(p, k) {
+  const { height, higoD, pitch, spiral, boards } = p;
+  const boardWidth = effBoardWidth(p); // 抜き取り可能な幅に制限
+  const oB = prof(p, 0), oT = prof(p, 1);
+  const twB = tabDepth(p), twT = tabDepth(p); // 上下一律
   const gR = higoD / 2 + 0.15;
   const off = spiral ? (k * pitch) / boards : 0;
   const grooves = [];
@@ -109,25 +115,28 @@ function ribShape(p, k) {
     }
     return x;
   };
-  // 内縁の下限。低すぎ(6mm)だと下端で平坦部が極短→急立ち上がりで軸側にトゲが出るため、
-  // 板幅に応じた下限にして下端の尖りを無くす。
+  // 内縁の下限。板幅に応じた下限で下端の尖り(トゲ)を防ぐ。
   const mInner = Math.max(8, boardWidth * 0.4);
   const innerX = (y) => Math.max(mInner, prof(p, y / height) - boardWidth);
+  return { oB, oT, twB, twT, outerX, innerX };
+}
+function ribShape(p, k) {
+  const { height, tabLen } = p;
+  const { oB, oT, twB, twT, outerX, innerX } = ribEdges(p, k);
   const s = new THREE.Shape();
   const STEP = 0.4;
-  const ix0 = innerX(0), ixH = innerX(height);
-  // 内縁下 → 下辺 → 下タブ(外縁側) → 外周 → 上タブ(外縁側) → 上辺 → 内縁
-  s.moveTo(ix0, 0);
+  // 内縁下 → 下辺 → 下タブ(長方形) → 外周 → 上タブ(長方形) → 上辺 → 内縁
+  s.moveTo(innerX(0), 0);
   s.lineTo(oB - twB, 0);
-  s.lineTo(oB - twB, -tabLen);   // はめ込み部は素直な長方形
+  s.lineTo(oB - twB, -tabLen);
   s.lineTo(oB, -tabLen);
   s.lineTo(oB, 0);
   for (let y = STEP; y <= height; y += STEP) s.lineTo(outerX(Math.min(y, height)), Math.min(y, height));
   s.lineTo(oT, height);
-  s.lineTo(oT, height + tabLen);       // はめ込み部は素直な長方形
+  s.lineTo(oT, height + tabLen);
   s.lineTo(oT - twT, height + tabLen);
   s.lineTo(oT - twT, height);
-  s.lineTo(ixH, height);
+  s.lineTo(innerX(height), height);
   for (let y = height - STEP; y >= 0; y -= STEP) s.lineTo(innerX(Math.max(y, 0)), Math.max(y, 0));
   s.closePath();
   return s;
@@ -138,16 +147,69 @@ const ribGeometry = (p, k) => {
   return g;
 };
 
+// ---- 羽根板の上下2分割(大型ランプ用) ----
+// 割り面で突き合わせ、内側の面に「当て板(スプライス)＋一体スタッド」を差して繋ぐ。
+// 薄板なので当て板が面外曲げを支える。位置決め穴はスタッドで兼ねる。
+const SPLICE_T = 3, SPLICE_HALF = 22, PIN_D = 3, PIN_FIT = 0.5;
+function ribBandShape(p, k, y0, y1, pins) {
+  const { height, tabLen } = p;
+  const { oB, oT, twB, twT, outerX, innerX } = ribEdges(p, k);
+  const STEP = 0.4;
+  const s = new THREE.Shape();
+  s.moveTo(innerX(y0), y0);
+  if (y0 <= 0.001) { // 実際の下端: 底辺＋タブ
+    s.lineTo(oB - twB, 0); s.lineTo(oB - twB, -tabLen); s.lineTo(oB, -tabLen); s.lineTo(oB, 0);
+  } else {
+    s.lineTo(outerX(y0), y0); // 割り面で真っ直ぐ横断
+  }
+  for (let y = y0 + STEP; y < y1; y += STEP) s.lineTo(outerX(y), y);
+  if (y1 >= height - 0.001) { // 実際の上端: タブ
+    s.lineTo(oT, height); s.lineTo(oT, height + tabLen); s.lineTo(oT - twT, height + tabLen); s.lineTo(oT - twT, height);
+    s.lineTo(innerX(height), height);
+  } else {
+    s.lineTo(outerX(y1), y1); s.lineTo(innerX(y1), y1);
+  }
+  for (let y = y1 - STEP; y > y0; y -= STEP) s.lineTo(innerX(y), y);
+  s.closePath();
+  if (pins) for (const [hx, hy] of pins) { const h = new THREE.Path(); h.absarc(hx, hy, (PIN_D + PIN_FIT) / 2, 0, Math.PI * 2, true); s.holes.push(h); }
+  return s;
+}
+function ribSplitParts(p, k) {
+  const { height, boardT } = p;
+  const splitY = height / 2;
+  const { outerX, innerX } = ribEdges(p, k);
+  const wLo = innerX(splitY), wHi = outerX(splitY);
+  const px1 = wLo + 9, px2 = wHi - 9;
+  const pinsB = [[px1, splitY - 10], [px2, splitY - 10]];
+  const pinsT = [[px1, splitY + 10], [px2, splitY + 10]];
+  const bottom = new THREE.ExtrudeGeometry(ribBandShape(p, k, 0, splitY, pinsB), { depth: boardT, bevelEnabled: false });
+  const top = new THREE.ExtrudeGeometry(ribBandShape(p, k, splitY, height, pinsT), { depth: boardT, bevelEnabled: false });
+  const sh = new THREE.Shape(); // 当て板
+  const sx0 = wLo + 3, sx1 = wHi - 3;
+  sh.moveTo(sx0, splitY - SPLICE_HALF); sh.lineTo(sx1, splitY - SPLICE_HALF);
+  sh.lineTo(sx1, splitY + SPLICE_HALF); sh.lineTo(sx0, splitY + SPLICE_HALF); sh.closePath();
+  const parts = [new THREE.ExtrudeGeometry(sh, { depth: SPLICE_T, bevelEnabled: false })];
+  for (const [hx, hy] of [...pinsB, ...pinsT]) { // 一体スタッド
+    const stud = new THREE.CylinderGeometry(PIN_D / 2 - 0.1, PIN_D / 2 - 0.1, boardT, 16);
+    stud.rotateX(Math.PI / 2);
+    stud.translate(hx, hy, SPLICE_T + boardT / 2);
+    parts.push(stud);
+  }
+  // ExtrudeGeometry(非index) と CylinderGeometry(index) が混在するので揃える
+  const splice = mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)), false);
+  return { bottom, top, splice };
+}
+
 // ============ コマ(端の丸板 = 回転の軸受も兼ねる) ============
-function komaGeometry(p, top) {
+function komaShape(p, top) {
   const { boards, boardT, fit } = p;
-  const oEnd = prof(p, top ? 1 : 0);
   const R = komaR(p, top);
   const sw = boardT + fit; // ノッチ幅 = 板厚 + 公差(平行壁)
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
-  // ノッチ深さ = タブの奥行き(外径 R=端の外周 から同じだけ入れる → 外縁が揃う)
-  const depth = (idx) => R - tabDepth(p, oEnd, idx === 0);
+  // ノッチ深さ = タブの奥行き + 0.5mm クリアランス(印刷公差でタブが突き出て面一に
+  // ならないのを防ぐ)。外縁(rim)は揃えたまま、底側に0.5mmの逃げ。
+  const notchR = R - tabDepth(p) - 0.5;
   const shape = new THREE.Shape();
   shape.moveTo(R * Math.cos(eps), R * Math.sin(eps));
   for (let k = 0; k < boards; k++) {
@@ -159,14 +221,27 @@ function komaGeometry(p, top) {
       shape.lineTo(R * Math.cos(a), R * Math.sin(a));
     }
     // ノッチ: 平行壁で内側へ→底→外側へ(縁で開放)
-    const r0 = depth((k + 1) % boards);
+    const r0 = notchR;
     const dx = Math.cos(a1), dy = Math.sin(a1), nx = -dy, ny = dx;
     shape.lineTo(r0 * dx - nx * sw / 2, r0 * dy - ny * sw / 2);
     shape.lineTo(r0 * dx + nx * sw / 2, r0 * dy + ny * sw / 2);
     shape.lineTo(rOut * dx + nx * sw / 2, rOut * dy + ny * sw / 2);
   }
   shape.closePath();
-  return new THREE.ExtrudeGeometry(shape, { depth: p.komaT, bevelEnabled: false });
+  return shape;
+}
+function komaGeometry(p, top) {
+  if (!top) return new THREE.ExtrudeGeometry(komaShape(p, false), { depth: p.komaT, bevelEnabled: false });
+  // 上コマは中央に窪み(ディンプル)を付けて上下を判別できるようにする
+  const dR = Math.min(komaR(p, true) * 0.4, 12), dD = Math.min(3, p.komaT - 3);
+  const lower = new THREE.ExtrudeGeometry(komaShape(p, true), { depth: p.komaT - dD, bevelEnabled: false });
+  const ring = komaShape(p, true);
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, dR, 0, Math.PI * 2, true);
+  ring.holes.push(hole);
+  const upper = new THREE.ExtrudeGeometry(ring, { depth: dD, bevelEnabled: false });
+  upper.translate(0, 0, p.komaT - dD);
+  return mergeGeometries([lower, upper].map((g) => (g.index ? g.toNonIndexed() : g)), false);
 }
 
 // ============ 土台(コマの縁を溝で受けて型ごと回す作業台) ============
@@ -236,7 +311,7 @@ function standGeometry(p, top) {
 // 連結板: 左右の柱のスロットに通して H 型に繋ぐ。中身は三角骨組み(ワーレントラス)で
 // 肉抜きし、平板比で材料を大きく削減(剛性は上下弦+斜材が担う)。両端は柱スロットに
 // 掛かるため中実のまま残す。平置きで印刷しやすい。
-function standBoardLength(p) { return p.height + 2 * p.tabLen + standFullW(p) + 16; }
+function standBoardLength(p) { return p.height + 2 * p.tabLen + standFullW(p) + 6; }
 function boardGeometry(p) {
   const len = standBoardLength(p);
   const H = BOARD_H, T = BOARD_T;
@@ -350,15 +425,15 @@ function exportZip(parts, filename) { // parts: [{ name, geos }]
 
 // ============ プリセット / スライダー ============
 const PRESETS = [
-  { name: "たまご", curve: "egg", bulge: 62, topR: 22, bottomR: 34, height: 260 },
+  { name: "たまご", curve: "egg", bulge: 62, topR: 22, bottomR: 34, height: 200 },
   { name: "球", curve: "sphere", bulge: 75, topR: 25, bottomR: 25, height: 210 },
   { name: "ひょうたん", curve: "gourd", bulge: 65, topR: 28, bottomR: 30, height: 280 },
 ];
 const SLIDERS = [
-  { key: "height", label: "火袋の高さ", min: 100, max: 320, step: 5, unit: "mm" },
-  { key: "topR", label: "上部半径", min: 20, max: 90, step: 1, unit: "mm" },
-  { key: "bottomR", label: "下部半径", min: 20, max: 90, step: 1, unit: "mm" },
-  { key: "bulge", label: "ふくらみ量", min: 0, max: 90, step: 1, unit: "mm" },
+  { key: "height", label: "火袋の高さ", min: 100, max: 500, step: 5, unit: "mm" },
+  { key: "topR", label: "上部半径", min: 20, max: 120, step: 1, unit: "mm" },
+  { key: "bottomR", label: "下部半径", min: 20, max: 120, step: 1, unit: "mm" },
+  { key: "bulge", label: "ふくらみ量", min: 0, max: 160, step: 1, unit: "mm" },
   { key: "boards", label: "羽根板の枚数", min: 6, max: 12, step: 2, unit: "枚" },
   { key: "boardT", label: "板厚", min: 2, max: 10, step: 0.5, unit: "mm" },
   { key: "higoD", label: "竹ひご径", min: 1, max: 4, step: 0.1, unit: "mm" },
@@ -367,7 +442,7 @@ const SLIDERS = [
 ];
 const DEFAULTS = {
   ...PRESETS[0], boards: 8, boardWidth: 35, boardT: 2, higoD: 2,
-  pitch: 15, fit: 0.3, spiral: true, tabLen: 10, tabW: 10, komaT: 8,
+  pitch: 15, fit: 0.3, spiral: true, tabLen: 7.5, tabW: 10, komaT: 8, // tabLen=komaT-0.5(コマ内に収める)
 };
 // インスペクタのセクション分け(キーは SLIDERS の key を参照)
 const GROUPS = [
@@ -382,6 +457,7 @@ export default function HarigataStudio() {
   const [p, setP] = useState(DEFAULTS);
   const [view, setView] = useState("mold");
   const [printRibs, setPrintRibs] = useState(1); // 印刷ビューで一度に並べる羽根板の枚数
+  const [splitRibs, setSplitRibs] = useState(false); // 羽根板を上下2分割(大型ランプ用)
   const [bedW, setBedW] = useState(256); // プリントベッド幅(mm)。機種で異なるので可変
   const [bedD, setBedD] = useState(256); // プリントベッド奥行き(mm)
   const [glError, setGlError] = useState(null);
@@ -633,7 +709,14 @@ export default function HarigataStudio() {
       const BEDW = bedW, BEDD = bedD, GAP = 8;
       const nRibs = Math.min(printRibs, p.boards); // 印刷する羽根板の枚数(1..boards)
       const ribs = [];
-      for (let k = 0; k < nRibs; k++) ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
+      for (let k = 0; k < nRibs; k++) {
+        if (splitRibs) {
+          const sp = ribSplitParts(p, k);
+          ribs.push({ geo: sp.bottom, mat: s.ribMat }, { geo: sp.top, mat: s.ribMat }, { geo: sp.splice, mat: s.komaMat });
+        } else {
+          ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
+        }
+      }
       // コマと土台は STL 出力が別々なので、プレビューでも別プレートに分ける
       const komas = [
         { geo: komaGeometry(p, false), mat: s.komaMat },
@@ -711,7 +794,7 @@ export default function HarigataStudio() {
       s.rot.y = 0;
       frame(span * 0.95, span / 2, 0);
     }
-  }, [p, view, printRibs, bedW, bedD]);
+  }, [p, view, printRibs, bedW, bedD, splitRibs]);
 
   const set = (key) => (e) => setP((o) => ({ ...o, [key]: parseFloat(e.target.value) }));
 
@@ -729,12 +812,18 @@ export default function HarigataStudio() {
       }
       return geos;
     };
-    const ribs = [];
-    const w = maxRadius(p) + 12;
-    for (let k = 0; k < nRibs; k++) {
-      const g = ribGeometry(p, k);
-      g.translate(k * w, p.tabLen, p.boardT / 2);
-      ribs.push(g);
+    let ribs = [];
+    if (splitRibs) {
+      const parts = [];
+      for (let k = 0; k < nRibs; k++) { const sp = ribSplitParts(p, k); parts.push(sp.bottom, sp.top, sp.splice); }
+      ribs = spread(parts, 15);
+    } else {
+      const w = maxRadius(p) + 12;
+      for (let k = 0; k < nRibs; k++) {
+        const g = ribGeometry(p, k);
+        g.translate(k * w, p.tabLen, p.boardT / 2);
+        ribs.push(g);
+      }
     }
     const komas = spread([komaGeometry(p, false), komaGeometry(p, true)], 30);
     const cols = spread([standGeometry(p, false), standGeometry(p, true)], 20);
@@ -748,13 +837,16 @@ export default function HarigataStudio() {
   };
 
   const maxDia = Math.round(maxRadius(p) * 2);
-  const boardLen = Math.round(p.height + p.tabLen * 2); // 羽根板の全長(印刷サイズ)
-  const bedOver = boardLen > bedD; // 羽根板は奥行き方向に並ぶのでベッド奥行きと比較
+  const boardLen = Math.round(p.height + p.tabLen * 2); // 羽根板の全長
+  const connLen = Math.round(standBoardLength(p));      // 連結板の全長(最も長い部品)
+  const partMax = Math.max(boardLen, connLen);
+  const bedOver = partMax > bedD; // 最長部品がベッド奥行きに収まるか
+  const heightLimit = bedD - Math.round(standBoardLength(p) - p.height); // 収めるための高さ上限
   // 抜き取り判定: 乾燥後、コマを外して羽根を上下どちらかの開口から抜く。
   // 開口=上端/下端の円(半径)。羽根の幅より広い開口が片側にあれば取り出せる。
   const topOpen = Math.round(prof(p, 1)); // 上の円 半径
   const botOpen = Math.round(prof(p, 0)); // 下の円 半径
-  const canExtract = Math.max(topOpen, botOpen) >= p.boardWidth;
+  const canExtract = Math.max(topOpen, botOpen) >= effBoardWidth(p);
 
   const PANEL = 340; // インスペクタ幅(px)
   const mono = "ui-monospace, SFMono-Regular, Menlo, monospace";
@@ -928,7 +1020,7 @@ export default function HarigataStudio() {
         }}>
           プリントベッド {bedW}×{bedD}mm
           {bedOver && (
-            <span style={{ color: UI.warn }}> ⚠ 羽根板がベッド超過 — 高さを{bedD - p.tabLen * 2}mm以下に</span>
+            <span style={{ color: UI.warn }}> ⚠ ベッド超過（羽根{boardLen}／連結板{connLen}mm）— 高さを{heightLimit}mm以下に</span>
           )}
         </div>
       )}
@@ -980,6 +1072,14 @@ export default function HarigataStudio() {
             <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 12, textTransform: "uppercase" }}>{g.title}</div>
             {g.keys.map((k) => paramRow(k))}
             {g.title === "シルエット" && extractWarn}
+            {g.title === "骨組み" && (
+              <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: UI.label, cursor: "pointer", marginTop: 2 }}>
+                <input type="checkbox" checked={splitRibs}
+                  onChange={(e) => setSplitRibs(e.target.checked)}
+                  style={{ accentColor: accent, width: 15, height: 15 }} />
+                羽根板を上下2分割(大型ランプ用)
+              </label>
+            )}
             {g.title === "竹ひご" && (
               <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: UI.label, cursor: "pointer", marginTop: 2 }}>
                 <input type="checkbox" checked={p.spiral}
