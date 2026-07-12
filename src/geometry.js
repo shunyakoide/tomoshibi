@@ -244,99 +244,81 @@ export function komaGeometry(p) {
 }
 
 // ============ 土台(シンプルな差し込み式) ============
-// コマの縁をU字サドルで受ける薄板の柱×2を、1枚の薄いベース板に差し込むだけ。
-// 柱は下端が中央ホゾ(差し込み)まで絞り込まれ、ベース板のスリットへ落とし込む。
+// コマの縁をU字サドル(切り欠き)で受ける「均一厚の平板」の柱×2を、
+// 1枚の薄いベース板のスリットへ差し込むだけ。柱は一定厚なので底面が完全に
+// フラット → 平置きで宙に浮く箇所なく(サポート不要で)印刷できる。
 // 両柱を1枚の板が正しい間隔で保持 → クリップや連結金具は不要。
-const GROOVE_FIT = 1.0;   // サドル溝のコマ厚クリアランス
-const WALL_H = 4;         // サドルフランジがコマ縁に被る深さ(軸方向保持)
-const FLANGE_T = 3;       // サドルフランジ厚(z)
+const GROOVE_FIT = 1.0;   // U字サドルのコマ厚クリアランス(コマがすっと嵌まる遊び)
 const BASE_T = 5;         // ベース板の厚み(mm, 薄く)
 const TENON_W = 44;       // 柱の差し込みホゾ幅(mm)
 const TENON_D = BASE_T + 1; // ホゾ差し込み深さ(板を貫通)
 const FOOT_HW = 29;       // 柱脚の半幅(ベース板に接地する足)
 const SLOT_FIT = 0.4;     // スリットのはめあいクリアランス
 const BASE_MARGIN = 8;    // ベース板の端マージン
-function standFullW(p) { return p.komaT + GROOVE_FIT + FLANGE_T * 2; } // 柱の厚み(z)
+// 柱の厚み(z) = コマ厚 + クリアランス。この一定厚の平板1枚で柱を作る。
+function standFullW(p) { return p.komaT + GROOVE_FIT; }
 
-// 柱プロファイル(局所 x=幅, y=高さ)。foot=true で下端の差し込みホゾ＋肉抜き窓を作る。
-function standProfile(seatR, H, halfOpen, colW, opts = {}) {
-  const { yBase = 0, foot = false } = opts;
+// 柱プロファイル(局所 x=幅, y=高さ)。下端の差し込みホゾ＋上端のU字サドル＋肉抜き窓を含む。
+function standProfile(seatR, H, halfOpen, colW) {
   const lipY = H - seatR * Math.cos(halfOpen);
   const lipX = seatR * Math.sin(halfOpen);
   const topY = lipY + 8;
   const shoulder = 26;               // 脚→本体へ広がる高さ
   const s = new THREE.Shape();
-  if (foot) {                        // 下端: 中央ホゾ→足→肩へテーパ
-    s.moveTo(-TENON_W / 2, -TENON_D);
-    s.lineTo(TENON_W / 2, -TENON_D);
-    s.lineTo(TENON_W / 2, 0);
-    s.lineTo(FOOT_HW, 0);
-    s.lineTo(colW, shoulder);
-  } else {
-    s.moveTo(-colW, yBase);
-    s.lineTo(colW, yBase);
-  }
+  s.moveTo(-TENON_W / 2, -TENON_D);  // 下端: 中央ホゾ→足→肩へテーパ
+  s.lineTo(TENON_W / 2, -TENON_D);
+  s.lineTo(TENON_W / 2, 0);
+  s.lineTo(FOOT_HW, 0);
+  s.lineTo(colW, shoulder);
   s.lineTo(colW, topY);
   s.lineTo(lipX, topY);
   s.lineTo(lipX, lipY);
   for (let i = 0; i <= 32; i++) {
-    const a = halfOpen - (i / 32) * (2 * halfOpen); // 右縁→底→左縁
+    const a = halfOpen - (i / 32) * (2 * halfOpen); // 右縁→底→左縁(U字サドル)
     s.lineTo(seatR * Math.sin(a), H - seatR * Math.cos(a));
   }
   s.lineTo(-lipX, topY);
   s.lineTo(-colW, topY);
-  if (foot) {
-    s.lineTo(-colW, shoulder);
-    s.lineTo(-FOOT_HW, 0);
-    s.lineTo(-TENON_W / 2, 0);
-    s.lineTo(-TENON_W / 2, -TENON_D);
-  }
+  s.lineTo(-colW, shoulder);
+  s.lineTo(-FOOT_HW, 0);
+  s.lineTo(-TENON_W / 2, 0);
+  s.lineTo(-TENON_W / 2, -TENON_D);
   s.closePath();
-  if (foot) {                        // 肉抜き窓(大きめ)。縁の脚を残しつつ中央を広く抜く。
-    const wx = colW - 8;             // 外脚を8mmだけ残す
-    const wy0 = shoulder + 5, wy1 = H - seatR - 6; // 足の肩上〜サドル底の直下まで
-    if (wx > 8 && wy1 - wy0 > 40) {  // 高い柱は2分割(桟を残す)
-      const mid = (wy0 + wy1) / 2, strut = 8;
-      for (const [a, b] of [[wy0, mid - strut / 2], [mid + strut / 2, wy1]]) {
-        if (b - a < 14) continue;
-        const w = new THREE.Path();
-        w.moveTo(-wx, a); w.lineTo(wx, a); w.lineTo(wx, b); w.lineTo(-wx, b); w.closePath();
-        s.holes.push(w);
-      }
-    } else if (wx > 8 && wy1 - wy0 > 16) {
+  // 肉抜き窓。縁の脚を残しつつ中央を広く抜く(高い柱は桟で2分割し剛性を残す)。
+  const wx = colW - 8;               // 外脚を8mmだけ残す
+  const wy0 = shoulder + 5, wy1 = H - seatR - 6; // 足の肩上〜サドル底の直下まで
+  if (wx > 8 && wy1 - wy0 > 40) {    // 高い柱は2分割(桟を残す)
+    const mid = (wy0 + wy1) / 2, strut = 8;
+    for (const [a, b] of [[wy0, mid - strut / 2], [mid + strut / 2, wy1]]) {
+      if (b - a < 14) continue;
       const w = new THREE.Path();
-      w.moveTo(-wx, wy0); w.lineTo(wx, wy0); w.lineTo(wx, wy1); w.lineTo(-wx, wy1); w.closePath();
+      w.moveTo(-wx, a); w.lineTo(wx, a); w.lineTo(wx, b); w.lineTo(-wx, b); w.closePath();
       s.holes.push(w);
     }
+  } else if (wx > 8 && wy1 - wy0 > 16) {
+    const w = new THREE.Path();
+    w.moveTo(-wx, wy0); w.lineTo(wx, wy0); w.lineTo(wx, wy1); w.lineTo(-wx, wy1); w.closePath();
+    s.holes.push(w);
   }
   return s;
 }
+// 柱 = 一定厚(=コマ厚+クリアランス)の平板1枚。上端のU字切り欠きでコマの縁を受け、
+// 下端の中央ホゾをベース板スリットへ差し込む。厚みが均一なので平置き印刷で底面が
+// 完全フラット → 宙に浮く箇所なし・サポート不要。コマの厚み方向はU字溝に嵌まって
+// 収まり、軸方向は左右2つの柱で挟んで位置決めする。
 export function standGeometry(p) {
   const R = maxRadius(p);
   const kR = komaR(p);
-  const H = R + 15;                  // コマ中心高さ(最大径+床クリアランス15mm)
-  const saddleR = kR + 0.8;          // 溝の受け半径(コマ縁+0.8クリアランス)
-  const halfOpen = Math.PI * 0.40;
+  const H = R + 15;                  // サドル底(コマ中心)の高さ(最大径+床クリアランス15mm)
+  const saddleR = kR + 0.8;          // U字溝の受け半径(コマ縁+0.8クリアランス)
+  const halfOpen = Math.PI * 0.40;   // サドルの開き(下半分でコマを抱える)
   const colW = saddleR * Math.sin(halfOpen) + 12;
-  const grooveW = p.komaT + GROOVE_FIT;      // 溝幅 = コマ厚 + クリアランス
-  const fullW = grooveW + FLANGE_T * 2;
-  const geos = [];
-  const core = new THREE.ExtrudeGeometry(
-    standProfile(saddleR, H, halfOpen, colW, { foot: true }),
-    { depth: grooveW, bevelEnabled: false });
-  core.translate(0, 0, -grooveW / 2);         // 溝(受け面)は全幅の中央
-  geos.push(core);
-  const flSeat = saddleR - WALL_H;
-  const flColW = flSeat * Math.sin(halfOpen) + 8;
-  const flBase = H - flSeat - 8;              // サドル直下だけの小フランジ(コマ軸抜け止め)
-  for (const zside of [-1, 1]) {
-    const fl = new THREE.ExtrudeGeometry(
-      standProfile(flSeat, H, halfOpen, flColW, { yBase: flBase }),
-      { depth: FLANGE_T, bevelEnabled: false });
-    fl.translate(0, 0, zside < 0 ? -fullW / 2 : fullW / 2 - FLANGE_T);
-    geos.push(fl);
-  }
-  return mergeGeometries(geos.map((g) => (g.index ? g.toNonIndexed() : g)), false);
+  const T = standFullW(p);           // 板厚 = コマ厚 + クリアランス
+  const g = new THREE.ExtrudeGeometry(
+    standProfile(saddleR, H, halfOpen, colW),
+    { depth: T, bevelEnabled: false });
+  g.translate(0, 0, -T / 2);
+  return g;
 }
 // 2つの柱(サドル)は、2つのコマの真下に来なければ溝に嵌まらない。
 // → 柱スリット間隔 = コマ間隔 = 羽根板の全長(火袋+爪×2)。
@@ -363,17 +345,12 @@ export function boardGeometry(p) {
     slot.lineTo(cx + sx, sy); slot.lineTo(cx - sx, sy); slot.closePath();
     s.holes.push(slot);
   }
-  // 肉抜き: スリットより内側(中央)を窓で大きく抜く。桟で分割し、端とスリット周りは残す。
+  // 肉抜き: スリット間の中央を1つの大きな窓で抜く(桟なし)。端とスリット周りだけ残す。
   const wall = 9, hw = W / 2 - wall, innerHalf = sep / 2 - sx - wall;
-  if (hw > 4 && innerHalf > 16) {
-    const nWin = Math.max(1, Math.round((innerHalf * 2) / 70)), cellL = (innerHalf * 2) / nWin;
-    for (let i = 0; i < nWin; i++) {
-      const cx = -innerHalf + (i + 0.5) * cellL, hl = (cellL - wall) / 2;
-      if (hl < 6) continue;
-      const h = new THREE.Path();
-      h.moveTo(cx - hl, -hw); h.lineTo(cx + hl, -hw); h.lineTo(cx + hl, hw); h.lineTo(cx - hl, hw); h.closePath();
-      s.holes.push(h);
-    }
+  if (hw > 4 && innerHalf > 8) {
+    const h = new THREE.Path();
+    h.moveTo(-innerHalf, -hw); h.lineTo(innerHalf, -hw); h.lineTo(innerHalf, hw); h.lineTo(-innerHalf, hw); h.closePath();
+    s.holes.push(h);
   }
   return new THREE.ExtrudeGeometry(s, { depth: BASE_T, bevelEnabled: false });
 }
