@@ -19,8 +19,8 @@ html {
 }
 
 body {
-  background: #0c0c0d;
-  color: #e8e8ec;
+  background: #ece8e2;
+  color: #242019;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   /* タッチ操作をアプリ側(オービット/ズーム)で完結させ、
@@ -42,30 +42,33 @@ input[type="range"] {
   background: transparent;
 }
 input[type="range"]::-webkit-slider-runnable-track {
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.16);
+  background: #ccd2da;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
-  background: #fafafa;
-  margin-top: -6.5px;
+  background: #e8590c;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4);
+  margin-top: -6px;
   cursor: pointer;
 }
 input[type="range"]::-moz-range-track {
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.16);
+  background: #ccd2da;
 }
 input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border: none;
+  width: 15px;
+  height: 15px;
+  border: 2px solid #fff;
   border-radius: 50%;
-  background: #fafafa;
+  background: #e8590c;
+  box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4);
   cursor: pointer;
 }
