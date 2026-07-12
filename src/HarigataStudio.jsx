@@ -9,7 +9,8 @@
  *   1. 羽根板 (rib)   … 型の縦骨。外周縁に竹ひご用の半円溝を持つ板×N枚
  *   2. コマ (koma)    … 上下端の丸板。縁から切り込む開放ノッチ(歯車状)で
  *                        羽根板の端タブを保持。和紙乾燥後に外して型を抜く
- *   3. 土台 (stand)   … 作業台。コマの縁を直接受けるU字サドル×左右2個。
+ *   3. 土台 (stand)   … 作業台。コマの縁をU字サドルで受ける薄板の柱×2 を、
+ *                        1枚の薄いベース板のスリットへ差し込むだけのシンプル構成。
  *                        型を横置きし回しながらひご巻き/和紙張りできる
  *                        (心棒は使わない — akari-ozeki.com/make/ の写真準拠)
  *
@@ -81,19 +82,84 @@ function maxRadius(p) {
   for (let i = 0; i <= 120; i++) m = Math.max(m, prof(p, i / 120));
   return m + p.higoD;
 }
-// コマ外径 = 端の外周半径。縁マージンを持たせず羽根の外縁と揃える(縁の一番外側がフラッシュ)。
+// 首(くび): 上下端に cutBottom(mm) の高さぶん、外周を「肩の外径のままま垂直」にした
+// まっすぐな首を作る。外側へ張り出さず、爪(タブ)は羽根の一番外側の縁(この外径)に来る。
+// 首には竹ひごを巻かない。cutT = 首の正規化高さ。
+function cutT(p) {
+  return Math.min(0.45, Math.max(0, (p.cutBottom || 0) / Math.max(1, p.height)));
+}
+function cutY(p) {
+  return cutT(p) * p.height; // 首の高さ(mm)
+}
+// 実効外周半径。上下端の首は肩の外径(prof(cutT)/prof(1-cutT))で垂直、中央は本体カーブ。
+function outerR(p, t) {
+  const c = cutT(p);
+  if (c <= 0) return prof(p, t);
+  if (t < c) return prof(p, c);          // 下の首(垂直, 爪=外端)
+  if (t > 1 - c) return prof(p, 1 - c);  // 上の首(垂直, 爪=外端)
+  return prof(p, t);
+}
+// コマ外径 = 爪を纏める小さなハブの半径。爪(内端Ri〜Ri+td)がコマの縁(外周)に来る。
+// 上下共通(Ri・tabDepthは共通)。土台は別途、羽根の外周円で受ける。
 function komaR(p, top) {
-  return prof(p, top ? 1 : 0);
+  return innerRi(p) + tabDepth(p) + 3;
 }
 // タブ(羽根の差し込み部)の半径方向の奥行き = コマのノッチ深さ。
 // 上下・全羽根で一律(細い方の端に合わせる)。→ どの羽根もどちらのコマにも同じ深さで嵌まる。
 function tabDepth(p) {
-  const minEnd = Math.min(prof(p, 0), prof(p, 1));
+  const minEnd = Math.min(outerR(p, 0), outerR(p, 1));
   return Math.min(p.tabW, Math.max(6, minEnd * 0.4));
 }
 // 羽根幅の上限: 乾燥後に大きい方の開口(端半径)から抜けるよう、開口以下に抑える
 function effBoardWidth(p) {
-  return Math.min(p.boardWidth, Math.max(prof(p, 0), prof(p, 1)) - 1);
+  return Math.min(p.boardWidth, Math.max(outerR(p, 0), outerR(p, 1)) - 1);
+}
+
+// ============ 2D断面(確定形状) ============
+// 内縁をまっすぐな芯(半径 Ri = tabR)にし、その内側に上下同じ位置で爪。外縁は本体カーブ＋首。
+// 中央は肉抜き(外縁の帯=溝を保持 と 内縁の芯=爪を支える を残す)。羽根の断面ビューで使う。
+function innerRi(p) {
+  const td = tabDepth(p);
+  const lim = Math.min(outerR(p, 0), outerR(p, 1)) - td - 2;
+  return Math.max(6, Math.min(p.tabR ?? 15, lim));
+}
+// 羽根の外形点列 + 溝位置 + outerX関数を返す(2D描画 と 3D羽根geometry で共有)。
+// k = 羽根番号(螺旋巻きで溝を k*pitch/boards ずらす)。
+function ribOutline2D(p, k = 0) {
+  const h = p.height, tl = p.tabLen, gR = p.higoD / 2 + 0.15;
+  const off = p.spiral ? (k * p.pitch) / p.boards : 0;
+  const yBot = cutY(p), yTop = h - yBot;
+  const grooves = [];
+  for (let y = yBot + p.pitch / 2 + off; y < yTop - gR; y += p.pitch) grooves.push(y);
+  const outerX = (y) => {
+    let x = outerR(p, y / h);
+    for (const g of grooves) { const dy = Math.abs(y - g); if (dy < gR) x = Math.min(x, outerR(p, g / h) - Math.sqrt(gR * gR - dy * dy) - 0.01); }
+    return x;
+  };
+  const Ri = innerRi(p), td = tabDepth(p), STEP = 1.0, pts = [];
+  pts.push([Ri, 0], [Ri, -tl], [Ri + td, -tl], [Ri + td, 0], [outerR(p, 0), 0]);
+  for (let y = STEP; y <= h; y += STEP) pts.push([outerX(Math.min(y, h)), Math.min(y, h)]);
+  pts.push([outerR(p, 1), h], [Ri + td, h], [Ri + td, h + tl], [Ri, h + tl], [Ri, h], [Ri, 0]);
+  return { pts, grooves, outerX, Ri, td, gR };
+}
+// 肉抜き窓(外縁の帯 bandW と 内縁の芯 spineW を残し、桟 strut で分割)。
+// 窓の外側境界は溝の凹凸を無視した「滑らかな外周(outerR)」基準にする(ぼこぼこ防止)。
+function lightenHoles2D(p) {
+  const h = p.height, Ri = innerRi(p), td = tabDepth(p);
+  const spineW = Math.max(9, td + 3), bandW = 11, strut = 8;
+  const oS = (y) => outerR(p, Math.min(Math.max(y, 0), h) / h); // 滑らかな外周
+  const xi = Ri + spineW, yBot = 10, yTop = h - 10;
+  const nWin = Math.max(1, Math.round((yTop - yBot) / 46)), winH = (yTop - yBot) / nWin, holes = [];
+  for (let i = 0; i < nWin; i++) {
+    const y0 = yBot + i * winH + strut / 2, y1 = yBot + (i + 1) * winH - strut / 2;
+    if (y1 - y0 < 10) continue;
+    if (oS((y0 + y1) / 2) - bandW - xi < 12) continue;
+    const poly = [[xi, y0]];
+    for (let y = y0; y <= y1; y += 2) poly.push([Math.max(xi + 2, oS(y) - bandW), y]);
+    poly.push([xi, y1]);
+    holes.push(poly);
+  }
+  return { holes, spineW, bandW };
 }
 
 // ============ 羽根板 ============
@@ -101,44 +167,40 @@ function effBoardWidth(p) {
 function ribEdges(p, k) {
   const { height, higoD, pitch, spiral, boards } = p;
   const boardWidth = effBoardWidth(p); // 抜き取り可能な幅に制限
-  const oB = prof(p, 0), oT = prof(p, 1);
+  const oB = outerR(p, 0), oT = outerR(p, 1);
   const twB = tabDepth(p), twT = tabDepth(p); // 上下一律
   const gR = higoD / 2 + 0.15;
   const off = spiral ? (k * pitch) / boards : 0;
+  const yBot = cutY(p), yTop = height - yBot; // 首の範囲。首(上下端)には竹ひごの溝を作らない
   const grooves = [];
-  for (let y = pitch / 2 + off; y < height - gR; y += pitch) grooves.push(y);
+  for (let y = yBot + pitch / 2 + off; y < yTop - gR; y += pitch) grooves.push(y);
   const outerX = (y) => {
-    let x = prof(p, y / height);
+    let x = outerR(p, y / height);
     for (const g of grooves) {
       const dy = Math.abs(y - g);
-      if (dy < gR) x = Math.min(x, prof(p, g / height) - Math.sqrt(gR * gR - dy * dy) - 0.01);
+      if (dy < gR) x = Math.min(x, outerR(p, g / height) - Math.sqrt(gR * gR - dy * dy) - 0.01);
     }
     return x;
   };
   // 内縁の下限。板幅に応じた下限で下端の尖り(トゲ)を防ぐ。
   const mInner = Math.max(8, boardWidth * 0.4);
-  const innerX = (y) => Math.max(mInner, prof(p, y / height) - boardWidth);
+  const innerX = (y) => Math.max(mInner, outerR(p, y / height) - boardWidth);
   return { oB, oT, twB, twT, outerX, innerX };
 }
+// 3D羽根板 = 2D確定形状(内縁まっすぐ＋上下同位置の内側の爪＋外縁カーブ＋肉抜き)を押し出す。
 function ribShape(p, k) {
-  const { height, tabLen } = p;
-  const { oB, oT, twB, twT, outerX, innerX } = ribEdges(p, k);
+  const { pts } = ribOutline2D(p, k);
   const s = new THREE.Shape();
-  const STEP = 0.4;
-  // 内縁下 → 下辺 → 下タブ(長方形) → 外周 → 上タブ(長方形) → 上辺 → 内縁
-  s.moveTo(innerX(0), 0);
-  s.lineTo(oB - twB, 0);
-  s.lineTo(oB - twB, -tabLen);
-  s.lineTo(oB, -tabLen);
-  s.lineTo(oB, 0);
-  for (let y = STEP; y <= height; y += STEP) s.lineTo(outerX(Math.min(y, height)), Math.min(y, height));
-  s.lineTo(oT, height);
-  s.lineTo(oT, height + tabLen);
-  s.lineTo(oT - twT, height + tabLen);
-  s.lineTo(oT - twT, height);
-  s.lineTo(innerX(height), height);
-  for (let y = height - STEP; y >= 0; y -= STEP) s.lineTo(innerX(Math.max(y, 0)), Math.max(y, 0));
+  pts.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
   s.closePath();
+  if (p.lighten) {
+    for (const hole of lightenHoles2D(p).holes) {
+      const path = new THREE.Path();
+      hole.forEach(([x, y], i) => (i ? path.lineTo(x, y) : path.moveTo(x, y)));
+      path.closePath();
+      s.holes.push(path);
+    }
+  }
   return s;
 }
 const ribGeometry = (p, k) => {
@@ -200,66 +262,70 @@ function ribSplitParts(p, k) {
   return { bottom, top, splice };
 }
 
-// ============ コマ(端の丸板 = 回転の軸受も兼ねる) ============
+// ============ コマ(爪を纏める小さな歯車ハブ) ============
+// main 同様、縁が開いたノッチ(平行壁)を持つ小さな歯車。爪(内端 Ri〜Ri+td)がコマの縁に来る。
+// ノッチは爪の内端(Ri)まで届き、羽根はノッチを通って外へ伸びる。土台はコマを受ける。
 function komaShape(p, top) {
   const { boards, boardT, fit } = p;
   const R = komaR(p, top);
   const sw = boardT + fit; // ノッチ幅 = 板厚 + 公差(平行壁)
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
-  // ノッチ深さ = タブの奥行き + 0.5mm クリアランス(印刷公差でタブが突き出て面一に
-  // ならないのを防ぐ)。外縁(rim)は揃えたまま、底側に0.5mmの逃げ。
-  const notchR = R - tabDepth(p) - 0.5;
+  const notchR = Math.max(1, innerRi(p) - 0.5); // 爪の内端(Ri)まで届く深さ
   const shape = new THREE.Shape();
   shape.moveTo(R * Math.cos(eps), R * Math.sin(eps));
   for (let k = 0; k < boards; k++) {
     const a0 = (k / boards) * Math.PI * 2;
     const a1 = ((k + 1) / boards) * Math.PI * 2;
-    // 歯の外周円弧(ノッチ縁からノッチ縁まで)
     for (let i = 1; i <= 12; i++) {
       const a = a0 + eps + (i / 12) * (a1 - a0 - 2 * eps);
       shape.lineTo(R * Math.cos(a), R * Math.sin(a));
     }
-    // ノッチ: 平行壁で内側へ→底→外側へ(縁で開放)
-    const r0 = notchR;
     const dx = Math.cos(a1), dy = Math.sin(a1), nx = -dy, ny = dx;
-    shape.lineTo(r0 * dx - nx * sw / 2, r0 * dy - ny * sw / 2);
-    shape.lineTo(r0 * dx + nx * sw / 2, r0 * dy + ny * sw / 2);
+    shape.lineTo(notchR * dx - nx * sw / 2, notchR * dy - ny * sw / 2);
+    shape.lineTo(notchR * dx + nx * sw / 2, notchR * dy + ny * sw / 2);
     shape.lineTo(rOut * dx + nx * sw / 2, rOut * dy + ny * sw / 2);
   }
   shape.closePath();
   return shape;
 }
 function komaGeometry(p, top) {
-  if (!top) return new THREE.ExtrudeGeometry(komaShape(p, false), { depth: p.komaT, bevelEnabled: false });
-  // 上コマは中央に窪み(ディンプル)を付けて上下を判別できるようにする
-  const dR = Math.min(komaR(p, true) * 0.4, 12), dD = Math.min(3, p.komaT - 3);
-  const lower = new THREE.ExtrudeGeometry(komaShape(p, true), { depth: p.komaT - dD, bevelEnabled: false });
-  const ring = komaShape(p, true);
-  const hole = new THREE.Path();
-  hole.absarc(0, 0, dR, 0, Math.PI * 2, true);
-  ring.holes.push(hole);
-  const upper = new THREE.ExtrudeGeometry(ring, { depth: dD, bevelEnabled: false });
-  upper.translate(0, 0, p.komaT - dD);
-  return mergeGeometries([lower, upper].map((g) => (g.index ? g.toNonIndexed() : g)), false);
+  return new THREE.ExtrudeGeometry(komaShape(p, top), { depth: p.komaT, bevelEnabled: false });
 }
 
-// ============ 土台(コマの縁を溝で受けて型ごと回す作業台) ============
-// 「柱(受け本体)×2」を「連結板×2」で繋いだ H 型フレーム。各部品は別々に平置き印刷し、
-// 柱下部のスロットに連結板を差し込んで左右を連結する(柱は薄板で単体では前後に倒れるため)。
-//  - 受けを「溝」化: コマ厚+クリアランスの溝の両脇にフランジ壁 → 回転可・軸ズレ防止
-const BOARD_T = 6;      // 連結板の厚み(mm)
-const BOARD_H = 30;     // 連結板の高さ(mm)
-const BOARD_FIT = 0.5;  // スロットのはめあいクリアランス
-function standFullW(p) { return p.komaT + 1.0 + 8; } // 柱の全幅(溝幅+両フランジ4mm)
+// ============ 土台(シンプルな差し込み式) ============
+// コマの縁をU字サドルで受ける薄板の柱×2を、1枚の薄いベース板に差し込むだけ。
+// 柱は下端が中央ホゾ(差し込み)まで絞り込まれ、ベース板のスリットへ落とし込む。
+// 両柱を1枚の板が正しい間隔で保持 → クリップや連結金具は不要。
+const GROOVE_FIT = 1.0;   // サドル溝のコマ厚クリアランス
+const WALL_H = 4;         // サドルフランジがコマ縁に被る深さ(軸方向保持)
+const FLANGE_T = 3;       // サドルフランジ厚(z)
+const BASE_T = 5;         // ベース板の厚み(mm, 薄く)
+const TENON_W = 44;       // 柱の差し込みホゾ幅(mm)
+const TENON_D = BASE_T + 1; // ホゾ差し込み深さ(板を貫通)
+const FOOT_HW = 29;       // 柱脚の半幅(ベース板に接地する足)
+const SLOT_FIT = 0.4;     // スリットのはめあいクリアランス
+const BASE_MARGIN = 8;    // ベース板の端マージン
+function standFullW(p) { return p.komaT + GROOVE_FIT + FLANGE_T * 2; } // 柱の厚み(z)
 
-function standProfile(seatR, H, halfOpen, colW) {
-  const s = new THREE.Shape();
+// 柱プロファイル(局所 x=幅, y=高さ)。foot=true で下端の差し込みホゾ＋肉抜き窓を作る。
+function standProfile(seatR, H, halfOpen, colW, opts = {}) {
+  const { yBase = 0, foot = false } = opts;
   const lipY = H - seatR * Math.cos(halfOpen);
   const lipX = seatR * Math.sin(halfOpen);
-  const topY = lipY + 10;
-  s.moveTo(-colW, 0);          // 平らなベース(接地面)
-  s.lineTo(colW, 0);
+  const topY = lipY + 8;
+  const shoulder = 26;               // 脚→本体へ広がる高さ
+  const s = new THREE.Shape();
+  if (foot) {                        // 下端: 中央ホゾ→足→肩へテーパ
+    s.moveTo(-TENON_W / 2, -TENON_D);
+    s.lineTo(TENON_W / 2, -TENON_D);
+    s.lineTo(TENON_W / 2, 0);
+    s.lineTo(FOOT_HW, 0);
+    s.lineTo(colW, shoulder);
+  } else {
+    s.moveTo(-colW, yBase);
+    s.lineTo(colW, yBase);
+  }
   s.lineTo(colW, topY);
   s.lineTo(lipX, topY);
   s.lineTo(lipX, lipY);
@@ -269,17 +335,29 @@ function standProfile(seatR, H, halfOpen, colW) {
   }
   s.lineTo(-lipX, topY);
   s.lineTo(-colW, topY);
+  if (foot) {
+    s.lineTo(-colW, shoulder);
+    s.lineTo(-FOOT_HW, 0);
+    s.lineTo(-TENON_W / 2, 0);
+    s.lineTo(-TENON_W / 2, -TENON_D);
+  }
   s.closePath();
-  { // 連結板を通すスロット(中央1枚)
-    const w = (BOARD_T + BOARD_FIT) / 2, hh = (BOARD_H + BOARD_FIT) / 2;
-    const cy = BOARD_H / 2 + 2; // 底からわずかに浮かせて囲う
-    const slot = new THREE.Path();
-    slot.moveTo(-w, cy - hh);
-    slot.lineTo(w, cy - hh);
-    slot.lineTo(w, cy + hh);
-    slot.lineTo(-w, cy + hh);
-    slot.closePath();
-    s.holes.push(slot);
+  if (foot) {                        // 肉抜き窓(大きめ)。縁の脚を残しつつ中央を広く抜く。
+    const wx = colW - 8;             // 外脚を8mmだけ残す
+    const wy0 = shoulder + 5, wy1 = H - seatR - 6; // 足の肩上〜サドル底の直下まで
+    if (wx > 8 && wy1 - wy0 > 40) {  // 高い柱は2分割(桟を残す)
+      const mid = (wy0 + wy1) / 2, strut = 8;
+      for (const [a, b] of [[wy0, mid - strut / 2], [mid + strut / 2, wy1]]) {
+        if (b - a < 14) continue;
+        const w = new THREE.Path();
+        w.moveTo(-wx, a); w.lineTo(wx, a); w.lineTo(wx, b); w.lineTo(-wx, b); w.closePath();
+        s.holes.push(w);
+      }
+    } else if (wx > 8 && wy1 - wy0 > 16) {
+      const w = new THREE.Path();
+      w.moveTo(-wx, wy0); w.lineTo(wx, wy0); w.lineTo(wx, wy1); w.lineTo(-wx, wy1); w.closePath();
+      s.holes.push(w);
+    }
   }
   return s;
 }
@@ -290,56 +368,60 @@ function standGeometry(p, top) {
   const saddleR = kR + 0.8;          // 溝の受け半径(コマ縁+0.8クリアランス)
   const halfOpen = Math.PI * 0.40;
   const colW = saddleR * Math.sin(halfOpen) + 12;
-  const grooveW = p.komaT + 1.0;     // 溝幅 = コマ厚 + クリアランス
-  const flangeT = 4;
-  const fullW = grooveW + flangeT * 2;
-  const wallH = 4;                   // フランジがコマ縁に被る高さ(軸方向の保持)
-
+  const grooveW = p.komaT + GROOVE_FIT;      // 溝幅 = コマ厚 + クリアランス
+  const fullW = grooveW + FLANGE_T * 2;
   const geos = [];
   const core = new THREE.ExtrudeGeometry(
-    standProfile(saddleR, H, halfOpen, colW), { depth: grooveW, bevelEnabled: false });
-  core.translate(0, 0, -grooveW / 2); // 溝(受け面)は全幅の中央
+    standProfile(saddleR, H, halfOpen, colW, { foot: true }),
+    { depth: grooveW, bevelEnabled: false });
+  core.translate(0, 0, -grooveW / 2);         // 溝(受け面)は全幅の中央
   geos.push(core);
-  for (const zside of [-1, 1]) {      // 両脇に高い壁のフランジ
+  const flSeat = saddleR - WALL_H;
+  const flColW = flSeat * Math.sin(halfOpen) + 8;
+  const flBase = H - flSeat - 8;              // サドル直下だけの小フランジ(コマ軸抜け止め)
+  for (const zside of [-1, 1]) {
     const fl = new THREE.ExtrudeGeometry(
-      standProfile(saddleR - wallH, H, halfOpen, colW), { depth: flangeT, bevelEnabled: false });
-    fl.translate(0, 0, zside < 0 ? -fullW / 2 : fullW / 2 - flangeT);
+      standProfile(flSeat, H, halfOpen, flColW, { yBase: flBase }),
+      { depth: FLANGE_T, bevelEnabled: false });
+    fl.translate(0, 0, zside < 0 ? -fullW / 2 : fullW / 2 - FLANGE_T);
     geos.push(fl);
   }
-  return mergeGeometries(geos, false);
+  return mergeGeometries(geos.map((g) => (g.index ? g.toNonIndexed() : g)), false);
 }
-// 連結板: 左右の柱のスロットに通して H 型に繋ぐ。中身は三角骨組み(ワーレントラス)で
-// 肉抜きし、平板比で材料を大きく削減(剛性は上下弦+斜材が担う)。両端は柱スロットに
-// 掛かるため中実のまま残す。平置きで印刷しやすい。
-function standBoardLength(p) { return p.height + 2 * p.tabLen + standFullW(p) + 6; }
+// ベース板: 薄い平板に柱ホゾ用スリットを2つ。羽根板とほぼ同じ全長(=火袋+爪×2)。
+function standBoardLength(p) {
+  return p.height + 2 * p.tabLen; // 羽根板と同じ全長
+}
 function boardGeometry(p) {
   const len = standBoardLength(p);
-  const H = BOARD_H, T = BOARD_T;
-  const c = 4;                        // 上下弦の太さ
-  const wt = 4;                       // 斜材の太さ
-  const em = standFullW(p) + 16;      // 両端の中実マージン(柱スロットに掛かる部分)
-  const parts = [];
-  const box = (w, h, cx, cy, rot) => {
-    const g = new THREE.BoxGeometry(w, h, T);
-    if (rot) g.rotateZ(rot);
-    g.translate(cx, cy, T / 2);       // 押し出しを他部品と同じ z:0..T に揃える
-    parts.push(g);
-  };
-  box(em, H, -len / 2 + em / 2, 0, 0);       // 両端の中実ブロック
-  box(em, H, len / 2 - em / 2, 0, 0);
-  const Lt = len - 2 * em;                    // トラス区間
-  box(Lt, c, 0, H / 2 - c / 2, 0);           // 上弦
-  box(Lt, c, 0, -H / 2 + c / 2, 0);          // 下弦
-  const hw = H - 2 * c;                       // 弦間の高さ
-  const n = Math.max(2, Math.round(Lt / 42)); // ベイ数
-  const bay = Lt / n;
-  const ang = Math.atan2(hw, bay);
-  const diagLen = Math.hypot(bay, hw) + wt;   // 端で弦に少し食い込ませる
-  for (let j = 0; j < n; j++) {               // 斜材をジグザグに
-    const cx = -Lt / 2 + (j + 0.5) * bay;
-    box(diagLen, wt, cx, 0, j % 2 === 0 ? ang : -ang);
+  const W = TENON_W + 2 * BASE_MARGIN;                   // ベース板の幅
+  const sep = len - standFullW(p) - 2 * BASE_MARGIN;     // スリットは端から余白を空けて配置
+  const s = new THREE.Shape();
+  s.moveTo(-len / 2, -W / 2);
+  s.lineTo(len / 2, -W / 2);
+  s.lineTo(len / 2, W / 2);
+  s.lineTo(-len / 2, W / 2);
+  s.closePath();
+  const sx = (standFullW(p) + SLOT_FIT) / 2, sy = (TENON_W + SLOT_FIT) / 2;
+  for (const cx of [-sep / 2, sep / 2]) {                // 柱ホゾ用スリット×2
+    const slot = new THREE.Path();
+    slot.moveTo(cx - sx, -sy); slot.lineTo(cx + sx, -sy);
+    slot.lineTo(cx + sx, sy); slot.lineTo(cx - sx, sy); slot.closePath();
+    s.holes.push(slot);
   }
-  return mergeGeometries(parts, false);
+  // 肉抜き: スリットより内側(中央)を窓で大きく抜く。桟で分割し、端とスリット周りは残す。
+  const wall = 9, hw = W / 2 - wall, innerHalf = sep / 2 - sx - wall;
+  if (hw > 4 && innerHalf > 16) {
+    const nWin = Math.max(1, Math.round((innerHalf * 2) / 70)), cellL = (innerHalf * 2) / nWin;
+    for (let i = 0; i < nWin; i++) {
+      const cx = -innerHalf + (i + 0.5) * cellL, hl = (cellL - wall) / 2;
+      if (hl < 6) continue;
+      const h = new THREE.Path();
+      h.moveTo(cx - hl, -hw); h.lineTo(cx + hl, -hw); h.lineTo(cx + hl, hw); h.lineTo(cx - hl, hw); h.closePath();
+      s.holes.push(h);
+    }
+  }
+  return new THREE.ExtrudeGeometry(s, { depth: BASE_T, bevelEnabled: false });
 }
 
 // ============ STL ============
@@ -434,6 +516,9 @@ const SLIDERS = [
   { key: "topR", label: "上部半径", min: 20, max: 120, step: 1, unit: "mm" },
   { key: "bottomR", label: "下部半径", min: 20, max: 120, step: 1, unit: "mm" },
   { key: "bulge", label: "ふくらみ量", min: 0, max: 160, step: 1, unit: "mm" },
+  { key: "cutBottom", label: "首の高さ(上下)", min: 0, max: 80, step: 5, unit: "mm" },
+  { key: "tabR", label: "爪の位置(内縁半径)", min: 6, max: 45, step: 1, unit: "mm" },
+  { key: "tabLen", label: "爪の長さ", min: 10, max: 45, step: 1, unit: "mm" },
   { key: "boards", label: "羽根板の枚数", min: 6, max: 12, step: 2, unit: "枚" },
   { key: "boardT", label: "板厚", min: 2, max: 10, step: 0.5, unit: "mm" },
   { key: "higoD", label: "竹ひご径", min: 1, max: 4, step: 0.1, unit: "mm" },
@@ -442,11 +527,15 @@ const SLIDERS = [
 ];
 const DEFAULTS = {
   ...PRESETS[0], boards: 8, boardWidth: 35, boardT: 2, higoD: 2,
-  pitch: 15, fit: 0.3, spiral: true, tabLen: 7.5, tabW: 10, komaT: 8, // tabLen=komaT-0.5(コマ内に収める)
+  pitch: 15, fit: 0.3, spiral: true, tabLen: 10, tabW: 10, komaT: 8, // 爪は短く(先端にコマ)
+  cutBottom: 15, // 上下端のまっすぐな首
+  tabR: 15,      // 爪(タブ)の半径 = 内縁のまっすぐな芯。上下同じ位置で内側
+  lighten: true, // 羽根の中央を肉抜き(外縁の帯と内縁の芯を残す)
 };
 // インスペクタのセクション分け(キーは SLIDERS の key を参照)
 const GROUPS = [
-  { title: "シルエット", keys: ["height", "topR", "bottomR", "bulge"] },
+  { title: "シルエット", keys: ["height", "topR", "bottomR", "bulge", "cutBottom"] },
+  { title: "羽根の芯・爪", keys: ["tabR", "tabLen"] },
   { title: "骨組み", keys: ["boards", "boardT"] },
   { title: "竹ひご", keys: ["higoD", "pitch"] },
   { title: "組立公差", keys: ["fit"] },
@@ -455,7 +544,8 @@ const SLIDER_BY_KEY = Object.fromEntries(SLIDERS.map((s) => [s.key, s]));
 
 export default function HarigataStudio() {
   const [p, setP] = useState(DEFAULTS);
-  const [view, setView] = useState("mold");
+  const [view, setView] = useState("2d"); // 既定は2D断面ビュー(形が分かりやすい)
+  const cv2dRef = useRef(null);           // 2D断面キャンバス
   const [printRibs, setPrintRibs] = useState(1); // 印刷ビューで一度に並べる羽根板の枚数
   const [splitRibs, setSplitRibs] = useState(false); // 羽根板を上下2分割(大型ランプ用)
   const [bedW, setBedW] = useState(256); // プリントベッド幅(mm)。機種で異なるので可変
@@ -502,7 +592,7 @@ export default function HarigataStudio() {
     const bulb = new THREE.PointLight(0xffc37a, 0, 900, 1.5); scene.add(bulb);
 
     // CAD調の地面グリッド(組立ビューのみ表示)。遠方はフォグでbgへ溶ける。
-    const groundGrid = new THREE.GridHelper(2400, 48, 0xc0b8a8, 0xd6cfc6);
+    const groundGrid = new THREE.GridHelper(2400, 48, 0xaab0ba, 0xc7ccd4);
     groundGrid.position.y = 0;
     groundGrid.visible = false;
     scene.add(groundGrid);
@@ -539,7 +629,7 @@ export default function HarigataStudio() {
       standMat: new THREE.MeshStandardMaterial({ color: 0x6b6156, roughness: 0.7, metalness: 0.05, envMapIntensity: 0.75 }),
       washiMat: new THREE.MeshStandardMaterial({
         color: 0xf7f3ea, roughness: 0.9, transparent: true, opacity: 0.94,
-        emissive: 0xffb96a, emissiveIntensity: 0, side: THREE.DoubleSide,
+        emissive: 0xffb96a, emissiveIntensity: 0, side: THREE.FrontSide,
       }),
       rot: { x: -0.15, y: 0.5 }, baseDist: 700, zoom: 1, idle: 0,
     };
@@ -623,6 +713,7 @@ export default function HarigataStudio() {
       s.group.remove(m);
       m.traverse((o) => o.geometry && o.geometry.dispose());
     }
+    if (view === "2d") return; // 2D断面ビューは別キャンバスで描画(3D構築はスキップ)
     const R = maxRadius(p);
     const lightVP = view !== "lit"; // 組立/印刷は CAD調の明るい背景、点灯だけ暗い
     s.shadow.scale.set(R * 3.2, R * 3.2, 1);
@@ -632,7 +723,7 @@ export default function HarigataStudio() {
     // 環境光は明ビューのみ。点灯は暗室に灯りだけ浮かせたいので外す。
     s.scene.environment = lightVP ? s.envMap : null;
     s.scene.fog = view === "print" ? null
-      : new THREE.Fog(lightVP ? 0xbfb5a3 : 0x050506, 1000, 2400);
+      : new THREE.Fog(lightVP ? 0xbfb5a3 : 0x070a11, 1000, 2400);
     // IBL がフィルを担うぶんアンビエントは控えめに。キーを強めてフォルムの陰影を立て、
     // 背景から浮かせる(白飛び防止しつつ図と地のコントラストを確保)。
     s.amb.intensity = view === "print" ? 0.5 : lightVP ? 0.3 : 0.5;
@@ -656,16 +747,20 @@ export default function HarigataStudio() {
 
     if (view === "lit") {
       const legH = p.height * 0.42; // 三本脚(1AYスタイル)
+      // 首(上下端の垂直部)には竹ひご・和紙が無い ＝ 何も張られないので描かない。
+      // 火袋(和紙が張られる中央)だけを発光スキンとして表示し、首は開いたまま。
+      const cB = cutT(p); // 首の割合(0..0.45)
+      const t0 = cB, t1 = 1 - cB;
       const pts = [];
-      for (let i = 0; i <= 80; i++) {
-        const t = i / 80;
-        pts.push(new THREE.Vector2(prof(p, t) + p.higoD, legH + t * p.height));
+      const N = 48;
+      for (let i = 0; i <= N; i++) {
+        const t = t0 + (t1 - t0) * (i / N);
+        pts.push(new THREE.Vector2(outerR(p, t) + p.higoD, legH + t * p.height));
       }
-      const skin = new THREE.Mesh(new THREE.LatheGeometry(pts, 96), s.washiMat);
-      s.group.add(skin);
-      // 脚: 火袋の底縁から外に開いて床へ
-      const legMat = new THREE.MeshStandardMaterial({ color: 0x232326, roughness: 0.5 });
-      const r0 = prof(p, 0.06) * 0.75, r1 = maxRadius(p) * 0.62;
+      s.group.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 96), s.washiMat));
+      // 脚: 火袋の底縁から外に開いて床へ。暗背景に沈まないグラファイト(黒鉄の質感は保つ)
+      const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
+      const r0 = outerR(p, 0) * 0.75, r1 = maxRadius(p) * 0.62;
       for (let i = 0; i < 3; i++) {
         const a = (i / 3) * Math.PI * 2 + Math.PI / 6;
         const topP = new THREE.Vector3(r0 * Math.cos(a), legH + p.height * 0.04, r0 * Math.sin(a));
@@ -694,14 +789,14 @@ export default function HarigataStudio() {
       mold.add(mesh);
     }
     const kb = new THREE.Mesh(komaGeometry(p, false), s.komaMat);
-    kb.rotation.x = -Math.PI / 2; kb.position.y = -p.tabLen;
+    kb.rotation.x = -Math.PI / 2; kb.position.y = -p.tabLen; // 下コマ(開口=首の外径)
     mold.add(kb);
     const kt = new THREE.Mesh(komaGeometry(p, true), s.komaMat);
     kt.rotation.x = Math.PI / 2; kt.position.y = p.height + p.tabLen;
     mold.add(kt);
 
     if (view === "mold") {
-      mold.position.y = p.tabLen; // 下コマぶん持ち上げ(床埋まり防止)
+      mold.position.y = p.tabLen; // 下コマ/タブ先端を床へ(埋まり防止)
       s.group.add(mold);
       frame((p.height + p.tabLen * 2 + p.komaT * 2) * 1.1, R, p.height * 0.5 + p.tabLen);
     } else {
@@ -726,7 +821,7 @@ export default function HarigataStudio() {
         { geo: standGeometry(p, false), mat: s.standMat },
         { geo: standGeometry(p, true), mat: s.standMat },
       ];
-      // 連結板は長さが火袋高さで変わるため別プレートに。柱の配置が動かないようにする
+      // ベース板は長さが火袋高さで変わるため別プレートに。柱の配置が動かないようにする
       const boards = [{ geo: boardGeometry(p), mat: s.standMat }];
 
       let plateIdx = 0;
@@ -746,11 +841,15 @@ export default function HarigataStudio() {
         const per = cols * rows;
         items.forEach((pt, i) => {
           const w = pt.bb.max.x - pt.bb.min.x, d = pt.bb.max.y - pt.bb.min.y;
+          const onPlate = Math.min(per, items.length - Math.floor(i / per) * per); // このプレートの部品数
+          const uc = Math.min(cols, onPlate), ur = Math.ceil(onPlate / cols);       // 実使用の列・行数
+          const gridW = uc * cW - GAP, gridD = ur * cD - GAP;
+          const ox0 = Math.max(2, (BEDW - gridW) / 2), oz0 = Math.max(2, (BEDD - gridD) / 2); // ベッド中央に配置
           placed.push({
             ...pt,
             plate: plateIdx + Math.floor(i / per),
-            ox: GAP + (i % per % cols) * cW + (mW - w) / 2,
-            oz: GAP + Math.floor((i % per) / cols) * cD + (mD - d) / 2,
+            ox: ox0 + (i % per % cols) * cW + (mW - w) / 2,
+            oz: oz0 + Math.floor((i % per) / cols) * cD + (mD - d) / 2,
           });
         });
         plateIdx += Math.ceil(items.length / per);
@@ -796,6 +895,89 @@ export default function HarigataStudio() {
     }
   }, [p, view, printRibs, bedW, bedD, splitRibs]);
 
+  // ---- 2D断面ビューの描画(羽根板の輪郭・爪・首・溝・肉抜き) ----
+  useEffect(() => {
+    if (view !== "2d") return;
+    const cv = cv2dRef.current;
+    if (!cv) return;
+    const drawn = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = cv.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      cv.width = rect.width * dpr; cv.height = rect.height * dpr;
+      const ctx = cv.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const W = rect.width, H = rect.height;
+      ctx.clearRect(0, 0, W, H);
+      const C = { rib: "#cdbb96", ribLine: "#7a6a48", neck: "#e79b6a", groove: "#b98a4e",
+        axis: "#b9b0a0", grid: "#e6e0d5", ink: "#242019", muted: "#8f8676", accent: "#e8590c" };
+
+      const h = p.height, tl = p.tabLen, c = cutT(p);
+      const { pts, grooves, outerX, Ri, td } = ribOutline2D(p);
+      const maxX = Math.max(...Array.from({ length: 121 }, (_, i) => outerR(p, i / 120)));
+      const pad = 60, sc = Math.min((W - pad * 2) / (maxX * 1.75), (H - pad * 2) / (h + 2 * tl));
+      const ax = pad + 20, baseY = H - pad;
+      const Y = (y) => baseY - (y + tl) * sc, X = (x) => ax + x * sc;
+      const line = (x1, y1, x2, y2) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); };
+
+      ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+      for (let r = 0; r <= maxX; r += 20) line(X(r), Y(h + tl), X(r), Y(-tl));
+      ctx.strokeStyle = C.axis; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
+      line(ax, Y(-tl) - 8, ax, Y(h + tl) + 8); ctx.setLineDash([]);
+      ctx.fillStyle = C.muted; ctx.font = "11px ui-monospace, Menlo, monospace";
+      ctx.save(); ctx.translate(ax - 10, (Y(0) + Y(h)) / 2); ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = "center"; ctx.fillText("中心軸", 0, 0); ctx.restore();
+
+      const outline = new Path2D();
+      pts.forEach((q, i) => { const sx = X(q[0]), sy = Y(q[1]); i ? outline.lineTo(sx, sy) : outline.moveTo(sx, sy); });
+      outline.closePath();
+      const lh = p.lighten ? lightenHoles2D(p) : { holes: [], bandW: 11, spineW: Math.max(9, td + 3) };
+      const holePaths = lh.holes.map((hole) => { const hp = new Path2D();
+        hole.forEach((q, i) => { const sx = X(q[0]), sy = Y(q[1]); i ? hp.lineTo(sx, sy) : hp.moveTo(sx, sy); }); hp.closePath(); return hp; });
+      const fill = new Path2D(); fill.addPath(outline); holePaths.forEach((hp) => fill.addPath(hp));
+      ctx.fillStyle = C.rib; ctx.fill(fill, "evenodd");
+
+      // 外縁の帯(溝=連続) と 内縁の芯 を色分け
+      ctx.save(); ctx.clip(fill, "evenodd");
+      const oS = (y) => outerR(p, Math.min(y, h) / h); // 滑らかな外周(帯の内側=穴と揃える)
+      const band = new Path2D(); let f = true;
+      for (let y = 0; y <= h; y += 2) { const xo = outerX(Math.min(y, h)); f ? (band.moveTo(X(xo), Y(y)), f = false) : band.lineTo(X(xo), Y(y)); }
+      for (let y = h; y >= 0; y -= 2) band.lineTo(X(oS(y) - lh.bandW), Y(y));
+      band.closePath();
+      ctx.fillStyle = C.groove; ctx.globalAlpha = 0.20; ctx.fill(band);
+      ctx.fillStyle = C.accent; ctx.globalAlpha = 0.15;
+      ctx.fillRect(X(Ri), Y(h + tl), X(Ri + lh.spineW) - X(Ri), Y(-tl) - Y(h + tl));
+      ctx.globalAlpha = 1; ctx.restore();
+
+      ctx.strokeStyle = C.groove; ctx.lineWidth = 2;
+      for (const g of grooves) { const rr = outerR(p, g / h); ctx.beginPath(); ctx.arc(X(rr), Y(g), (p.higoD / 2 + 0.15) * sc, -Math.PI / 2, Math.PI / 2); ctx.stroke(); }
+      ctx.strokeStyle = C.ribLine; ctx.lineWidth = 2; ctx.stroke(outline);
+      ctx.lineWidth = 1.4; holePaths.forEach((hp) => ctx.stroke(hp));
+
+      // 爪(上下とも Ri の内側で同じ位置)
+      ctx.fillStyle = C.accent;
+      const tab = (yy) => { const P = new Path2D(); P.moveTo(X(Ri), Y(yy)); P.lineTo(X(Ri), Y(yy < 1 ? -tl : h + tl)); P.lineTo(X(Ri + td), Y(yy < 1 ? -tl : h + tl)); P.lineTo(X(Ri + td), Y(yy)); P.closePath(); ctx.fill(P); };
+      tab(0); tab(h);
+      ctx.strokeStyle = C.accent; ctx.globalAlpha = 0.5; ctx.setLineDash([3, 4]); ctx.lineWidth = 1.4;
+      line(X(Ri), Y(0), X(Ri), Y(h)); ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+      // 注釈
+      ctx.font = "600 12px 'Hiragino Sans', system-ui"; ctx.textAlign = "left";
+      const note = (x, y, txt, col) => { ctx.fillStyle = col; ctx.fillText(txt, x, y); };
+      const farR = X(maxX);
+      ctx.strokeStyle = C.accent; ctx.lineWidth = 1.2;
+      line(X(Ri + td), Y(-tl / 2), farR + 12, Y(-tl / 2)); note(farR + 16, Y(-tl / 2) + 4, "爪（上下同位置・内側）", C.accent);
+      ctx.strokeStyle = C.groove;
+      const midY = (cutY(p) + h - cutY(p)) / 2;
+      line(X(outerR(p, midY / h)) + 4, Y(midY), farR + 12, Y(midY)); note(farR + 16, Y(midY) + 4, "外縁の帯（溝）", C.groove);
+      if (c > 0) { ctx.strokeStyle = C.neck; line(X(outerR(p, 0)) + 4, Y(cutY(p) * 0.5), farR + 12, Y(cutY(p) * 0.5)); note(farR + 16, Y(cutY(p) * 0.5) + 4, "首（竹ひご無し）", C.neck); }
+    };
+    drawn();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(drawn) : null;
+    if (ro) ro.observe(cv);
+    return () => { if (ro) ro.disconnect(); };
+  }, [p, view, narrow]);
+
   const set = (key) => (e) => setP((o) => ({ ...o, [key]: parseFloat(e.target.value) }));
 
   // 印刷する羽根板の枚数(1..boards)。boards が減った場合に備えて clamp。
@@ -832,7 +1014,7 @@ export default function HarigataStudio() {
       { name: `harigata_ribs_x${nRibs}.stl`, geos: ribs },
       { name: "harigata_koma.stl", geos: komas },
       { name: "harigata_stand_columns.stl", geos: cols },
-      { name: "harigata_stand_board.stl", geos: [board] },
+      { name: "harigata_stand_base.stl", geos: [board] },
     ], "harigata_kit.zip");
   };
 
@@ -844,8 +1026,8 @@ export default function HarigataStudio() {
   const heightLimit = bedD - Math.round(standBoardLength(p) - p.height); // 収めるための高さ上限
   // 抜き取り判定: 乾燥後、コマを外して羽根を上下どちらかの開口から抜く。
   // 開口=上端/下端の円(半径)。羽根の幅より広い開口が片側にあれば取り出せる。
-  const topOpen = Math.round(prof(p, 1)); // 上の円 半径
-  const botOpen = Math.round(prof(p, 0)); // 下の円 半径
+  const topOpen = Math.round(outerR(p, 1)); // 上の円 半径
+  const botOpen = Math.round(outerR(p, 0)); // 下の円 半径
   const canExtract = Math.max(topOpen, botOpen) >= effBoardWidth(p);
 
   const PANEL = 340; // インスペクタ幅(px)
@@ -861,8 +1043,9 @@ export default function HarigataStudio() {
   };
   // ビューポート背景(組立/印刷=明るい暖色CAD調、点灯=暗)
   const vpBg = isLit
-    ? "radial-gradient(circle at 50% 38%, #17171c 0%, #050506 100%)"
-    : "radial-gradient(circle at 50% 34%, #f4efe7 0%, #cec6b6 52%, #a89e8c 100%)";
+    ? "radial-gradient(circle at 50% 40%, #1b2230 0%, #070a11 100%)"
+    // 暖色のフィラメント部品(タン系)が沈まないよう、ステージ背景は寒色ニュートラルに。
+    : "radial-gradient(circle at 50% 34%, #eef0f3 0%, #c3c8d0 52%, #939ba6 100%)";
   // ビューポート上のオーバーレイ・チップ(背景の明暗に追従)
   const chip = isLit
     ? { bg: "rgba(16,16,18,0.72)", edge: "rgba(255,255,255,0.08)", txt: "#8a8a96", val: "#c8c8d0" }
@@ -970,6 +1153,12 @@ export default function HarigataStudio() {
       height: narrow ? "44vh" : "auto",
     }}>
       <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg, transition: "background 0.3s" }} />
+      {/* 2D断面ビュー(WebGLキャンバスの上に重ねる) */}
+      <canvas ref={cv2dRef} style={{
+        position: "absolute", inset: 0, width: "100%", height: "100%",
+        display: view === "2d" ? "block" : "none",
+        background: "radial-gradient(circle at 50% 40%, #f6f1e9 0%, #e6ddcd 100%)",
+      }} />
 
       {glError && (
         <div style={{
@@ -992,7 +1181,7 @@ export default function HarigataStudio() {
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         border: `1px solid ${chip.edge}`,
       }}>
-        {[["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]].map(([k, l]) => (
+        {[["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]].map(([k, l]) => (
           <button key={k} onClick={() => setView(k)} style={{
             padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
             borderRadius: 8, border: "none",
@@ -1072,6 +1261,14 @@ export default function HarigataStudio() {
             <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 12, textTransform: "uppercase" }}>{g.title}</div>
             {g.keys.map((k) => paramRow(k))}
             {g.title === "シルエット" && extractWarn}
+            {g.title === "羽根の芯・爪" && (
+              <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: UI.label, cursor: "pointer", marginTop: 2 }}>
+                <input type="checkbox" checked={p.lighten}
+                  onChange={(e) => setP((o) => ({ ...o, lighten: e.target.checked }))}
+                  style={{ accentColor: accent, width: 15, height: 15 }} />
+                中央を肉抜き(フィラメント節約)
+              </label>
+            )}
             {g.title === "骨組み" && (
               <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: UI.label, cursor: "pointer", marginTop: 2 }}>
                 <input type="checkbox" checked={splitRibs}
