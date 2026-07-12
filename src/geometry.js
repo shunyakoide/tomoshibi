@@ -50,8 +50,8 @@ export function outerR(p, t) {
   return prof(p, t);
 }
 // コマ外径 = 爪を纏める小さなハブの半径。爪(内端Ri〜Ri+td)がコマの縁(外周)に来る。
-// 上下共通(Ri・tabDepthは共通)。土台は別途、羽根の外周円で受ける。
-export function komaR(p, top) {
+// Ri・tabDepth は上下対称なので、コマは上下で完全に同一(1種類のみ)。
+export function komaR(p) {
   return innerRi(p) + tabDepth(p) + 3;
 }
 // タブ(羽根の差し込み部)の半径方向の奥行き = コマのノッチ深さ。
@@ -215,9 +215,9 @@ export function ribSplitParts(p, k) {
 // ============ コマ(爪を纏める小さな歯車ハブ) ============
 // main 同様、縁が開いたノッチ(平行壁)を持つ小さな歯車。爪(内端 Ri〜Ri+td)がコマの縁に来る。
 // ノッチは爪の内端(Ri)まで届き、羽根はノッチを通って外へ伸びる。土台はコマを受ける。
-export function komaShape(p, top) {
+export function komaShape(p) {
   const { boards, boardT, fit } = p;
-  const R = komaR(p, top);
+  const R = komaR(p);
   const sw = boardT + fit; // ノッチ幅 = 板厚 + 公差(平行壁)
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
@@ -239,8 +239,8 @@ export function komaShape(p, top) {
   shape.closePath();
   return shape;
 }
-export function komaGeometry(p, top) {
-  return new THREE.ExtrudeGeometry(komaShape(p, top), { depth: p.komaT, bevelEnabled: false });
+export function komaGeometry(p) {
+  return new THREE.ExtrudeGeometry(komaShape(p), { depth: p.komaT, bevelEnabled: false });
 }
 
 // ============ 土台(シンプルな差し込み式) ============
@@ -311,9 +311,9 @@ function standProfile(seatR, H, halfOpen, colW, opts = {}) {
   }
   return s;
 }
-export function standGeometry(p, top) {
+export function standGeometry(p) {
   const R = maxRadius(p);
-  const kR = komaR(p, top);
+  const kR = komaR(p);
   const H = R + 15;                  // コマ中心高さ(最大径+床クリアランス15mm)
   const saddleR = kR + 0.8;          // 溝の受け半径(コマ縁+0.8クリアランス)
   const halfOpen = Math.PI * 0.40;
