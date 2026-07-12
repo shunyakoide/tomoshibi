@@ -338,14 +338,18 @@ export function standGeometry(p) {
   }
   return mergeGeometries(geos.map((g) => (g.index ? g.toNonIndexed() : g)), false);
 }
-// ベース板: 薄い平板に柱ホゾ用スリットを2つ。羽根板とほぼ同じ全長(=火袋+爪×2)。
+// 2つの柱(サドル)は、2つのコマの真下に来なければ溝に嵌まらない。
+// → 柱スリット間隔 = コマ間隔 = 羽根板の全長(火袋+爪×2)。
+function standSlotSep(p) { return p.height + 2 * p.tabLen; }
+// ベース板: 薄い平板に柱ホゾ用スリットを2つ。全長 = コマ間隔 + スリット幅 + 両端マージン。
+// (スリットをコマ真下=±間隔/2 に置き、その外側に材料を残すため羽根板より少し長い)
 export function standBoardLength(p) {
-  return p.height + 2 * p.tabLen; // 羽根板と同じ全長
+  return standSlotSep(p) + standFullW(p) + SLOT_FIT + 2 * BASE_MARGIN;
 }
 export function boardGeometry(p) {
   const len = standBoardLength(p);
+  const sep = standSlotSep(p);                          // 柱スリット間隔 = コマ間隔
   const W = TENON_W + 2 * BASE_MARGIN;                   // ベース板の幅
-  const sep = len - standFullW(p) - 2 * BASE_MARGIN;     // スリットは端から余白を空けて配置
   const s = new THREE.Shape();
   s.moveTo(-len / 2, -W / 2);
   s.lineTo(len / 2, -W / 2);
