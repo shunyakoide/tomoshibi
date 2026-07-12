@@ -275,11 +275,12 @@ export default function HarigataStudio() {
       mesh.rotation.y = (k / p.boards) * Math.PI * 2;
       mold.add(mesh);
     }
-    const kb = new THREE.Mesh(komaGeometry(p, false), s.komaMat);
-    kb.rotation.x = -Math.PI / 2; kb.position.y = -p.tabLen; // 下コマ(開口=首の外径)
+    // コマは上下同一形状。組立ビューでは上下2箇所に同じジオメトリを配置する。
+    const kb = new THREE.Mesh(komaGeometry(p), s.komaMat);
+    kb.rotation.x = -Math.PI / 2; kb.position.y = -p.tabLen; // 下コマ
     mold.add(kb);
-    const kt = new THREE.Mesh(komaGeometry(p, true), s.komaMat);
-    kt.rotation.x = Math.PI / 2; kt.position.y = p.height + p.tabLen;
+    const kt = new THREE.Mesh(komaGeometry(p), s.komaMat);
+    kt.rotation.x = Math.PI / 2; kt.position.y = p.height + p.tabLen; // 上コマ(同一)
     mold.add(kt);
 
     if (view === "mold") {
@@ -299,15 +300,10 @@ export default function HarigataStudio() {
           ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
         }
       }
-      // コマと土台は STL 出力が別々なので、プレビューでも別プレートに分ける
-      const komas = [
-        { geo: komaGeometry(p, false), mat: s.komaMat },
-        { geo: komaGeometry(p, true), mat: s.komaMat },
-      ];
-      const stands = [
-        { geo: standGeometry(p, false), mat: s.standMat },
-        { geo: standGeometry(p, true), mat: s.standMat },
-      ];
+      // コマ・柱は上下同一なので各1つだけ出力(印刷時にユーザーが複製・配置)。
+      // STL 出力が別々なので、プレビューでも別プレートに分ける。
+      const komas = [{ geo: komaGeometry(p), mat: s.komaMat }];
+      const stands = [{ geo: standGeometry(p), mat: s.standMat }];
       // ベース板は長さが火袋高さで変わるため別プレートに。柱の配置が動かないようにする
       const boards = [{ geo: boardGeometry(p), mat: s.standMat }];
 
@@ -423,13 +419,12 @@ export default function HarigataStudio() {
         ribs.push(g);
       }
     }
-    const komas = spread([komaGeometry(p, false), komaGeometry(p, true)], 30);
-    const cols = spread([standGeometry(p, false), standGeometry(p, true)], 20);
+    // コマ・柱は上下同一なので各1つだけ書き出す(印刷時に2つ複製して使う)。
     const board = boardGeometry(p);
     exportZip([
       { name: `harigata_ribs_x${nRibs}.stl`, geos: ribs },
-      { name: "harigata_koma.stl", geos: komas },
-      { name: "harigata_stand_columns.stl", geos: cols },
+      { name: "harigata_koma_print2.stl", geos: [komaGeometry(p)] },
+      { name: "harigata_stand_column_print2.stl", geos: [standGeometry(p)] },
       { name: "harigata_stand_base.stl", geos: [board] },
     ], "harigata_kit.zip");
   };
@@ -752,6 +747,9 @@ export default function HarigataStudio() {
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, margin: "4px 0 9px", textTransform: "uppercase" }}>STL 書き出し</div>
           <div style={{ display: "flex", gap: 8 }}>
             {dlBtn("ダウンロード", dlAll, true)}
+          </div>
+          <div style={{ fontSize: 10.5, color: UI.muted, lineHeight: 1.6, marginTop: 9 }}>
+            コマ・柱は上下同一のため各1つ入っています。スライサーで<strong style={{ color: UI.label }}>2つに複製</strong>して印刷してください。
           </div>
         </div>
       )}
