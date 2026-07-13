@@ -249,6 +249,7 @@ export function komaGeometry(p) {
 // フラット → 平置きで宙に浮く箇所なく(サポート不要で)印刷できる。
 // 両柱を1枚の板が正しい間隔で保持 → クリップや連結金具は不要。
 const GROOVE_FIT = 1.0;   // U字サドルのコマ厚クリアランス(コマがすっと嵌まる遊び)
+const SADDLE_FIT = 1.5;   // サドル受け半径のクリアランス(コマ縁を上から落とし込む余裕)
 const BASE_T = 5;         // ベース板の厚み(mm, 薄く)
 const TENON_W = 44;       // 柱の差し込みホゾ幅(mm)
 const TENON_D = BASE_T + 1; // ホゾ差し込み深さ(板を貫通)
@@ -310,8 +311,8 @@ export function standGeometry(p) {
   const R = maxRadius(p);
   const kR = komaR(p);
   const H = R + 15;                  // サドル底(コマ中心)の高さ(最大径+床クリアランス15mm)
-  const saddleR = kR + 0.8;          // U字溝の受け半径(コマ縁+0.8クリアランス)
-  const halfOpen = Math.PI * 0.40;   // サドルの開き(下半分でコマを抱える)
+  const saddleR = kR + SADDLE_FIT;   // U字溝の受け半径(コマ縁+クリアランス)
+  const halfOpen = Math.PI * 0.5;    // 半円サドル: 口の幅=直径 → コマを上から落として載せられる
   const colW = saddleR * Math.sin(halfOpen) + 12;
   const T = standFullW(p);           // 板厚 = コマ厚 + クリアランス
   const g = new THREE.ExtrudeGeometry(
