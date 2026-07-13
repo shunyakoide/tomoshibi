@@ -234,7 +234,9 @@ export function komaShape(p) {
     const dx = Math.cos(a1), dy = Math.sin(a1), nx = -dy, ny = dx;
     shape.lineTo(notchR * dx - nx * sw / 2, notchR * dy - ny * sw / 2);
     shape.lineTo(notchR * dx + nx * sw / 2, notchR * dy + ny * sw / 2);
-    shape.lineTo(rOut * dx + nx * sw / 2, rOut * dy + ny * sw / 2);
+    // ノッチ外側の戻り点は次の歯の起点。最後の板の分は開始点(moveTo)と厳密に一致
+    // するため省略し、closePath に任せる(重複点による退化三角形を防ぐ)。
+    if (k < boards - 1) shape.lineTo(rOut * dx + nx * sw / 2, rOut * dy + ny * sw / 2);
   }
   shape.closePath();
   return shape;
@@ -329,6 +331,20 @@ function standSlotSep(p) { return p.height + 2 * p.tabLen; }
 export function standBoardLength(p) {
   return standSlotSep(p) + standFullW(p) + SLOT_FIT + 2 * BASE_MARGIN;
 }
+// 角丸長方形の穴パス(中心cx,cy / 半幅hx,hy / 角半径r)。
+// 角を丸めると「複数の穴が同じ走査線を共有する」退化を避けられ、three.js の
+// ExtrudeGeometry が非多様体(open edge)を出さずに済む。ホゾ差し込みにも優しい。
+function roundedRectPath(cx, cy, hx, hy, r) {
+  r = Math.max(0.2, Math.min(r, hx - 0.05, hy - 0.05));
+  const p = new THREE.Path();
+  p.moveTo(cx - hx + r, cy - hy);
+  p.lineTo(cx + hx - r, cy - hy); p.absarc(cx + hx - r, cy - hy + r, r, -Math.PI / 2, 0, false);
+  p.lineTo(cx + hx, cy + hy - r); p.absarc(cx + hx - r, cy + hy - r, r, 0, Math.PI / 2, false);
+  p.lineTo(cx - hx + r, cy + hy); p.absarc(cx - hx + r, cy + hy - r, r, Math.PI / 2, Math.PI, false);
+  p.lineTo(cx - hx, cy - hy + r); p.absarc(cx - hx + r, cy - hy + r, r, Math.PI, Math.PI * 1.5, false);
+  p.closePath();
+  return p;
+}
 export function boardGeometry(p) {
   const len = standBoardLength(p);
   const sep = standSlotSep(p);                          // 柱スリット間隔 = コマ間隔
@@ -340,18 +356,13 @@ export function boardGeometry(p) {
   s.lineTo(-len / 2, W / 2);
   s.closePath();
   const sx = (standFullW(p) + SLOT_FIT) / 2, sy = (TENON_W + SLOT_FIT) / 2;
-  for (const cx of [-sep / 2, sep / 2]) {                // 柱ホゾ用スリット×2
-    const slot = new THREE.Path();
-    slot.moveTo(cx - sx, -sy); slot.lineTo(cx + sx, -sy);
-    slot.lineTo(cx + sx, sy); slot.lineTo(cx - sx, sy); slot.closePath();
-    s.holes.push(slot);
+  for (const cx of [-sep / 2, sep / 2]) {                // 柱ホゾ用スリット×2(角丸)
+    s.holes.push(roundedRectPath(cx, 0, sx, sy, 1.5));
   }
   // 肉抜き: スリット間の中央を1つの大きな窓で抜く(桟なし)。端とスリット周りだけ残す。
   const wall = 9, hw = W / 2 - wall, innerHalf = sep / 2 - sx - wall;
   if (hw > 4 && innerHalf > 8) {
-    const h = new THREE.Path();
-    h.moveTo(-innerHalf, -hw); h.lineTo(innerHalf, -hw); h.lineTo(innerHalf, hw); h.lineTo(-innerHalf, hw); h.closePath();
-    s.holes.push(h);
+    s.holes.push(roundedRectPath(0, 0, innerHalf, hw, 2));
   }
   return new THREE.ExtrudeGeometry(s, { depth: BASE_T, bevelEnabled: false });
 }
