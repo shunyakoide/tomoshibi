@@ -252,10 +252,12 @@ export function komaGeometry(p) {
 // 両柱を1枚の板が正しい間隔で保持 → クリップや連結金具は不要。
 const GROOVE_FIT = 1.0;   // U字サドルのコマ厚クリアランス(コマがすっと嵌まる遊び)
 const SADDLE_FIT = 1.5;   // サドル受け半径のクリアランス(コマ縁を上から落とし込む余裕)
-const BASE_T = 5;         // ベース板の厚み(mm, 薄く)
+const BASE_T = 5;         // ベース板の厚み(mm, 中央は薄く保つ)
+const COLLAR_H = 10;      // スリット周りに立てる襟(ソケット)の高さ → 差し込みを深くしぐらつき抑制
+const COLLAR_W = 4;       // 襟の壁厚(mm)
 const TENON_W = 44;       // 柱の差し込みホゾ幅(mm)
-const TENON_D = BASE_T + 1; // ホゾ差し込み深さ(板を貫通)
-const FOOT_HW = 29;       // 柱脚の半幅(ベース板に接地する足)
+const TENON_D = BASE_T + COLLAR_H; // ホゾ差し込み深さ = 襟の天面〜板の底(全長で受ける)
+const FOOT_HW = 29;       // 柱脚の半幅(襟の天面に接地する足)
 const SLOT_FIT = 0.4;     // スリットのはめあいクリアランス
 const BASE_MARGIN = 8;    // ベース板の端マージン
 // 柱の厚み(z) = コマ厚 + クリアランス。この一定厚の平板1枚で柱を作る。
@@ -361,16 +363,33 @@ export function boardGeometry(p) {
   // 出るので、上下に ±0.1mm だけ互い違いにずらして退化を回避する
   // (ずれは SLOT_FIT=0.4mm 内なので嵌合には影響しない)。
   const STAGGER = 0.1;
-  for (const [cx, dy] of [[-sep / 2, STAGGER], [sep / 2, -STAGGER]]) {
-    const slot = new THREE.Path();
-    slot.moveTo(cx - sx, -sy + dy); slot.lineTo(cx + sx, -sy + dy);
-    slot.lineTo(cx + sx, sy + dy); slot.lineTo(cx - sx, sy + dy); slot.closePath();
-    s.holes.push(slot);
-  }
+  const slots = [[-sep / 2, STAGGER], [sep / 2, -STAGGER]];
+  const slotRect = (cx, dy, hx, hy) => {
+    const p = new THREE.Path();
+    p.moveTo(cx - hx, dy - hy); p.lineTo(cx + hx, dy - hy);
+    p.lineTo(cx + hx, dy + hy); p.lineTo(cx - hx, dy + hy); p.closePath();
+    return p;
+  };
+  for (const [cx, dy] of slots) s.holes.push(slotRect(cx, dy, sx, sy));
   // 肉抜き: スリット間の中央を1つの大きな窓で抜く(桟なし)。端とスリット周りだけ残す。
   const wall = 9, hw = W / 2 - wall, innerHalf = sep / 2 - sx - wall;
   if (hw > 4 && innerHalf > 8) {
     s.holes.push(roundedRectPath(0, 0, innerHalf, hw, 2));
   }
-  return new THREE.ExtrudeGeometry(s, { depth: BASE_T, bevelEnabled: false });
+  const geos = [new THREE.ExtrudeGeometry(s, { depth: BASE_T, bevelEnabled: false })];
+  // スリット周りに襟(ソケット)を立て、差し込み深さを BASE_T→BASE_T+COLLAR_H に。
+  // 各襟は独立した密閉ソリッド。板へ僅かに沈めて自己交差(=スライサでunion)させ、
+  // 面の完全一致による非多様体エッジを避ける。中央は薄いままなので材料は最小。
+  const SINK = 1.5, EPS = 0.03;
+  for (const [cx, dy] of slots) {
+    const c = new THREE.Shape();
+    const oX = sx + COLLAR_W, oY = sy + COLLAR_W;
+    c.moveTo(cx - oX, dy - oY); c.lineTo(cx + oX, dy - oY);
+    c.lineTo(cx + oX, dy + oY); c.lineTo(cx - oX, dy + oY); c.closePath();
+    c.holes.push(slotRect(cx, dy, sx + EPS, sy + EPS)); // 板スリットと僅かに非一致
+    const g = new THREE.ExtrudeGeometry(c, { depth: COLLAR_H + SINK, bevelEnabled: false });
+    g.translate(0, 0, BASE_T - SINK);
+    geos.push(g);
+  }
+  return mergeGeometries(geos.map((g) => (g.index ? g.toNonIndexed() : g)), false);
 }
