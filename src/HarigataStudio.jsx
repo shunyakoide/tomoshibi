@@ -28,16 +28,17 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   maxRadius, outerR, cutT, effBoardWidth, standBoardLength,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
-  standCollarTop, standSaddleH,
+  standCollarTop, standSaddleH, standSlotSep,
 } from "./geometry.js";
 import { exportZip } from "./stl.js";
-import { drawSection } from "./draw2d.js";
-import { PRESETS, DEFAULTS, GROUPS, SLIDER_BY_KEY } from "./config.js";
+import SectionEditor from "./SectionEditor.jsx";
+import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
 
 export default function HarigataStudio() {
   const [p, setP] = useState(DEFAULTS);
   const [view, setView] = useState("2d"); // 既定は2D断面ビュー(形が分かりやすい)
-  const cv2dRef = useRef(null);           // 2D断面キャンバス
+  const [drag, setDrag] = useState(null);  // ドラッグ中のキー(ハンドル/スクラブ行のハイライト用)
+  const [higoOpen, setHigoOpen] = useState(false); // 竹ひごアコーディオンの開閉
   const [printRibs, setPrintRibs] = useState(1); // 印刷ビューで一度に並べる羽根板の枚数
   const [splitRibs, setSplitRibs] = useState(false); // 羽根板を上下2分割(大型ランプ用)
   const [bedW, setBedW] = useState(256); // プリントベッド幅(mm)。機種で異なるので可変
@@ -290,12 +291,12 @@ export default function HarigataStudio() {
       const cB = cutT(p); // 首の割合(0..0.45)
       const t0 = cB, t1 = 1 - cB;
       const pts = [];
-      const N = 48;
+      const N = 160; // 縦方向を細かくサンプルして曲面(シルエット)を滑らかに
       for (let i = 0; i <= N; i++) {
         const t = t0 + (t1 - t0) * (i / N);
         pts.push(new THREE.Vector2(outerR(p, t) + p.higoD, legH + t * p.height));
       }
-      s.group.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 96), s.washiMat));
+      s.group.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 128), s.washiMat));
       // 脚: 火袋の底縁から外に開いて床へ。暗背景に沈まないグラファイト(黒鉄の質感は保つ)
       const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
       const r0 = outerR(p, 0) * 0.75, r1 = maxRadius(p) * 0.62;
@@ -353,7 +354,7 @@ export default function HarigataStudio() {
       // 実際の作業姿勢: 型を横倒しにして土台の2つのサドルに載せた状態を見せる。
       const collarTop = standCollarTop();           // 柱脚が乗る高さ(襟の天面)
       const komaY = collarTop + standSaddleH(p);     // コマ中心 = サドル中心の高さ
-      const sep = p.height + 2 * p.tabLen;           // コマ間隔 = 柱間隔
+      const sep = standSlotSep(p);                   // コマ中心間隔 = 柱間隔(コマ着座位置基準)
       // 型を横倒し(軸をX方向へ)。回転後コマ中心が X=±sep/2, Y=komaY に来るよう配置。
       mold.rotation.z = Math.PI / 2;
       mold.position.set(p.height / 2, komaY, 0);
@@ -463,20 +464,6 @@ export default function HarigataStudio() {
     }
   }, [p, view, printRibs, bedW, bedD, splitRibs]);
 
-  // ---- 2D断面ビューの描画(羽根板の輪郭・爪・首・溝・肉抜き) ----
-  useEffect(() => {
-    if (view !== "2d") return;
-    const cv = cv2dRef.current;
-    if (!cv) return;
-    const draw = () => drawSection(cv, p);
-    draw();
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(draw) : null;
-    if (ro) ro.observe(cv);
-    return () => { if (ro) ro.disconnect(); };
-  }, [p, view, narrow]);
-
-  const set = (key) => (e) => setP((o) => ({ ...o, [key]: parseFloat(e.target.value) }));
-
   // 印刷する羽根板の枚数(1..boards)。boards が減った場合に備えて clamp。
   const nRibs = Math.min(printRibs, p.boards);
 
@@ -517,8 +504,6 @@ export default function HarigataStudio() {
   const maxDia = Math.round(maxRadius(p) * 2);
   const boardLen = Math.round(p.height + p.tabLen * 2); // 羽根板の全長
   const connLen = Math.round(standBoardLength(p));      // 連結板の全長(最も長い部品)
-  const partMax = Math.max(boardLen, connLen);
-  const bedOver = partMax > bedD; // 最長部品がベッド奥行きに収まるか
   const heightLimit = bedD - Math.round(standBoardLength(p) - p.height); // 収めるための高さ上限
   // 抜き取り判定: 乾燥後、コマを外して羽根を上下どちらかの開口から抜く。
   // 開口=上端/下端の円(半径)。羽根の幅より広い開口が片側にあれば取り出せる。
@@ -526,122 +511,153 @@ export default function HarigataStudio() {
   const botOpen = Math.round(outerR(p, 0)); // 下の円 半径
   const canExtract = Math.max(topOpen, botOpen) >= effBoardWidth(p);
 
-  const PANEL = 340; // インスペクタ幅(px)
-  const mono = "ui-monospace, SFMono-Regular, Menlo, monospace";
-  const isLit = view === "lit";   // 点灯ビューだけ暗背景(グローを映えさせる)
-  const accent = "#e8590c";       // アクセント = あかりの灯りのオレンジ
+  // ベッド超過の判定。羽根板は上下2分割で半分にできる(→アクションで解決)。連結板は
+  // 高さを下げるしかない。どの部品が超過しているかを可視化し、可能ならその場で分割適用。
+  const ribLen = splitRibs ? Math.round(boardLen / 2) + 12 : boardLen; // 分割時は継手ぶん+12
+  const overParts = [];
+  if (ribLen > bedD) overParts.push(`羽根板 ${ribLen}mm`);
+  if (connLen > bedD) overParts.push(`連結板 ${connLen}mm`);
+  const bedWarn = overParts.length > 0;
+  const canSplitFix = boardLen > bedD && !splitRibs; // 羽根板の超過は分割で解決できる
 
-  // インスペクタは常に明るい暖色ニュートラルのパネル(和紙・竹の世界に寄せる)
+  const PANEL = 336; // インスペクタ幅(px)
+  const mono = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const sans = "'IBM Plex Sans JP', 'Hiragino Sans', system-ui, sans-serif";
+  const isLit = view === "lit";   // 点灯ビュー=鑑賞モード(パネル非表示・暗背景)
+  const accent = "#D95B18";       // アクセント = 和紙の灯りのオレンジ
+
+  // インスペクタ:和紙色の明るい暖色ニュートラル(README Design Tokens)
   const UI = {
-    panel: "#f6f4f0", edge: "#e5e1d9", head: "#1d1a16",
-    muted: "#8e867a", label: "#5e574c", value: "#242019",
-    ctrlBg: "#ffffff", ctrlEdge: "#dbd5cb", warn: "#c6392b",
+    panel: "#fbf8f1", edge: "rgba(59,52,43,0.1)", head: "#3b342b",
+    text: "#3b342b", sub: "#8a7c66", faint: "#a1937c", faintest: "#c0b298",
+    card: "#fff", cardEdge: "rgba(59,52,43,0.09)", warn: "#c23c12",
   };
-  // ビューポート背景(組立/印刷=明るい暖色CAD調、点灯=暗)
+  // ビューポート背景(組立/印刷=寒色ニュートラルCAD調、点灯=暗)。断面は SectionEditor 側。
   const vpBg = isLit
     ? "radial-gradient(circle at 50% 40%, #1b2230 0%, #070a11 100%)"
-    // 暖色のフィラメント部品(タン系)が沈まないよう、ステージ背景は寒色ニュートラルに。
     : "radial-gradient(circle at 50% 34%, #eef0f3 0%, #c3c8d0 52%, #939ba6 100%)";
-  // ビューポート上のオーバーレイ・チップ(背景の明暗に追従)
   const chip = isLit
-    ? { bg: "rgba(16,16,18,0.72)", edge: "rgba(255,255,255,0.08)", txt: "#8a8a96", val: "#c8c8d0" }
-    : { bg: "rgba(255,255,255,0.82)", edge: "#d6dae0", txt: "#5a626c", val: "#1b1c20" };
+    ? { bg: "rgba(16,16,18,0.72)", edge: "rgba(255,255,255,0.08)", txt: "#8a8a96" }
+    : { bg: "rgba(255,255,255,0.85)", edge: "rgba(59,52,43,0.08)", txt: "#8a7c66" };
 
-  const sliderRow = (key) => {
-    const s = SLIDER_BY_KEY[key];
-    if (!s) return null;
+  const clamp = (lo, hi, v) => Math.max(lo, Math.min(hi, v));
+
+  // 左右ドラッグで数値を微調整(スクラブ)。ドラッグ中は drag=key でハイライト。
+  const startScrub = (e, cfg) => {
+    e.preventDefault();
+    const start = cfg.value, sx = e.clientX;
+    const move = (ev) => {
+      let v = start + (ev.clientX - sx) * cfg.sens;
+      v = Math.round(v / cfg.round) * cfg.round;
+      cfg.onChange(clamp(cfg.min, cfg.max, +v.toFixed(2)));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setDrag(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    setDrag(cfg.key);
+  };
+
+  // スクラブ行(ラベル + 値)。card=白カード内の行(区切り線あり)。
+  const scrubRow = (cfg, opts = {}) => {
+    const on = drag === cfg.key;
     return (
-      <label key={key} style={{ display: "block", marginBottom: 12 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 4 }}>
-          <span style={{ color: UI.label }}>{s.label}</span>
-          <span style={{ fontFamily: mono, color: UI.value }}>{p[key]}<span style={{ color: UI.muted }}>{s.unit}</span></span>
-        </div>
-        <input type="range" min={s.min} max={s.max} step={s.step} value={p[key]}
-          onChange={set(key)} style={{ width: "100%", accentColor: accent, display: "block" }} />
-      </label>
+      <div key={cfg.key} onPointerDown={(e) => startScrub(e, cfg)}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: opts.card ? "9px 13px" : "7px 0", cursor: "ew-resize",
+          borderBottom: opts.card && !opts.last ? `1px solid ${UI.cardEdge}` : "none",
+          background: on ? "rgba(217,91,24,0.06)" : "transparent",
+        }}>
+        <span style={{ fontSize: 12.5, color: UI.text }}>{cfg.label}</span>
+        <span style={{ fontFamily: mono, fontSize: 12.5, fontWeight: 600, color: on ? accent : UI.text }}>
+          {cfg.display ?? cfg.value}
+          <span style={{ color: UI.faintest, fontWeight: 400 }}> {cfg.unit}</span>
+        </span>
+      </div>
     );
   };
 
-  const dlBtn = (label, onClick, primary) => (
-    <button onClick={onClick} style={{
-      flex: 1, padding: "11px 0", borderRadius: 10, fontSize: 12.5, fontWeight: 600,
-      cursor: "pointer", whiteSpace: "nowrap",
-      background: primary ? accent : UI.ctrlBg,
-      color: primary ? "#fff" : UI.label,
-      border: primary ? "none" : `1px solid ${UI.ctrlEdge}`,
-      transition: "all 0.15s",
-    }}>{label}</button>
+  const checkbox = (checked, onToggle, label) => (
+    <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", cursor: "pointer" }}>
+      <span style={{
+        width: 16, height: 16, borderRadius: 5, flex: "none",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 11, color: "#fff",
+        background: checked ? accent : UI.card,
+        border: checked ? "none" : "1px solid rgba(59,52,43,0.3)",
+      }}>{checked ? "✓" : ""}</span>
+      <span style={{ fontSize: 12.5, color: UI.text }}>{label}</span>
+    </div>
   );
 
-  // ±ボタンのステッパー(離散的な整数値向け。スライダー単独UIを避ける)
+  // プリセットアイコン:実プロファイル(スプライン)から生成した小さなシルエット
+  const miniPath = (pr) => {
+    const q = { height: 280, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts };
+    const N = 40, rr = []; let mx = 0;
+    for (let i = 0; i <= N; i++) { const r = outerR(q, i / N); rr.push(r); if (r > mx) mx = r; }
+    const kx = 16 / mx;
+    const Xc = (r) => 30 + r * kx, Xm = (r) => 30 - r * kx, Yc = (t) => 42 - t * 36;
+    let dd = `M ${Xc(rr[0]).toFixed(1)} ${Yc(0).toFixed(1)}`;
+    for (let i = 1; i <= N; i++) dd += ` L ${Xc(rr[i]).toFixed(1)} ${Yc(i / N).toFixed(1)}`;
+    for (let i = N; i >= 0; i--) dd += ` L ${Xm(rr[i]).toFixed(1)} ${Yc(i / N).toFixed(1)}`;
+    return dd + " Z";
+  };
+
+  // ±ボタンのステッパー(離散整数向け)
   const stepper = (key, label, value, min, max, step, onChange, valueText) => {
-    const clampStep = (v) => Math.min(max, Math.max(min, +v.toFixed(2)));
     const sq = (txt, fn, off) => (
       <button onClick={off ? undefined : fn} disabled={off} style={{
-        width: 30, height: 30, borderRadius: 8, cursor: off ? "default" : "pointer",
-        background: UI.ctrlBg, color: off ? UI.muted : accent,
-        border: `1px solid ${UI.ctrlEdge}`, fontSize: 18, fontWeight: 600, lineHeight: 1,
-        opacity: off ? 0.45 : 1, padding: 0,
-        display: "flex", alignItems: "center", justifyContent: "center",
+        width: 26, height: 26, borderRadius: 7, cursor: off ? "default" : "pointer",
+        background: UI.card, color: off ? UI.faintest : accent,
+        border: `1px solid ${off ? UI.cardEdge : "rgba(217,91,24,0.45)"}`, fontSize: 15, fontWeight: 600, lineHeight: 1,
+        opacity: off ? 0.5 : 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center",
       }}>{txt}</button>
     );
     return (
-      <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ fontSize: 11.5, color: UI.label }}>{label}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {sq("−", () => onChange(clampStep(value - step)), value <= min)}
-          <span style={{ fontFamily: mono, fontSize: 13, color: UI.value, minWidth: 60, textAlign: "center" }}>{valueText}</span>
-          {sq("+", () => onChange(clampStep(value + step)), value >= max)}
+      <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
+        <span style={{ fontSize: 12.5, color: UI.text }}>{label}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {sq("−", () => onChange(clamp(min, max, +(value - step).toFixed(2))), value <= min)}
+          <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: UI.text, minWidth: 44, textAlign: "center" }}>{valueText}</span>
+          {sq("＋", () => onChange(clamp(min, max, +(value + step).toFixed(2))), value >= max)}
         </div>
       </div>
     );
   };
 
-  // GROUPS のキーを描画: 離散整数はステッパー、それ以外はスライダー
-  const paramRow = (k) => {
-    if (k === "boards") {
-      return stepper("boards", "羽根板の枚数", p.boards, 6, 12, 2,
-        (v) => setP((o) => ({ ...o, boards: v })),
-        <>{p.boards}<span style={{ color: UI.muted, fontSize: 11 }}> 枚</span></>);
-    }
-    return sliderRow(k);
-  };
-
-  // 抜き取り警告(関連する「板の幅」スライダーの直下に表示)
-  const extractWarn = !canExtract && (
-    <div style={{
-      margin: "2px 0 14px", padding: "9px 11px", borderRadius: 8,
-      background: "rgba(198,57,43,0.10)", border: `1px solid ${UI.warn}`,
-      color: UI.warn, fontFamily: "'Hiragino Sans', system-ui, sans-serif",
-      fontSize: 11, lineHeight: 1.55,
-    }}>
-      ⚠ 羽根が抜けません — 乾燥後に上下どちらの開口からも取り出せません。
-      上下いずれかの端の半径を {p.boardWidth}mm 以上にしてください。
-    </div>
-  );
-
-  // 数値入力(値域が広く任意入力したいもの向け。Enter/フォーカス外しで確定・クランプ)
+  // 数値入力(ベッド寸法向け。Enter/フォーカス外しで確定・クランプ)
   const numInput = (label, value, setValue, min, max) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
-      <span style={{ fontSize: 11.5, color: UI.label }}>{label}</span>
+      <span style={{ fontSize: 12.5, color: UI.text }}>{label}</span>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <input key={value} type="number" defaultValue={value} min={min} max={max} step={1}
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
           onBlur={(e) => {
             const v = Math.round(Number(e.target.value));
-            setValue(Number.isFinite(v) && v > 0 ? Math.min(max, Math.max(min, v)) : value);
+            setValue(Number.isFinite(v) && v > 0 ? clamp(min, max, v) : value);
           }}
           style={{
             width: 66, padding: "6px 8px", borderRadius: 8, textAlign: "right",
-            fontFamily: mono, fontSize: 13, color: UI.value,
-            background: UI.ctrlBg, border: `1px solid ${UI.ctrlEdge}`,
+            fontFamily: mono, fontSize: 13, color: UI.text,
+            background: UI.card, border: `1px solid ${UI.cardEdge}`,
           }} />
-        <span style={{ fontSize: 11, color: UI.muted }}>mm</span>
+        <span style={{ fontSize: 11, color: UI.sub }}>mm</span>
       </div>
     </div>
   );
 
-  // ============ 左:3Dビューポート ============
+  const sectionLabel = (txt, extra) => (
+    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", color: UI.faint }}>{txt}</span>
+      {extra && <span style={{ fontSize: 10, color: UI.faintest }}>{extra}</span>}
+    </div>
+  );
+
+  // ============ 左:ビューポート ============
   const viewport = (
     <main style={{
       position: "relative", minWidth: 0, minHeight: 0,
@@ -649,12 +665,8 @@ export default function HarigataStudio() {
       height: narrow ? "44vh" : "auto",
     }}>
       <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg, transition: "background 0.3s" }} />
-      {/* 2D断面ビュー(WebGLキャンバスの上に重ねる) */}
-      <canvas ref={cv2dRef} style={{
-        position: "absolute", inset: 0, width: "100%", height: "100%",
-        display: view === "2d" ? "block" : "none",
-        background: "radial-gradient(circle at 50% 40%, #f6f1e9 0%, #e6ddcd 100%)",
-      }} />
+      {/* 断面ビュー:直接操作エディタ(WebGLキャンバスの上に重ねる) */}
+      {view === "2d" && <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag} />}
 
       {glError && (
         <div style={{
@@ -670,174 +682,216 @@ export default function HarigataStudio() {
         </div>
       )}
 
-      {/* ビュー切替(セグメンテッド) */}
+      {/* モードタブ */}
       <div style={{
-        position: "absolute", top: 14, left: 14, display: "flex", gap: 3, padding: 3,
-        borderRadius: 11, background: chip.bg,
-        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-        border: `1px solid ${chip.edge}`,
+        position: "absolute", top: 16, left: 16, display: "flex", gap: 2, padding: 4,
+        borderRadius: 10, background: chip.bg,
+        backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+        border: `1px solid ${chip.edge}`, boxShadow: "0 2px 10px rgba(59,52,43,0.07)",
       }}>
         {[["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]].map(([k, l]) => (
           <button key={k} onClick={() => setView(k)} style={{
-            padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
-            borderRadius: 8, border: "none",
+            padding: "7px 14px", fontSize: 12.5, cursor: "pointer",
+            borderRadius: 7, border: "none", fontFamily: sans,
+            fontWeight: view === k ? 700 : 500,
             background: view === k ? accent : "transparent",
-            color: view === k ? "#fff" : chip.txt, transition: "all 0.15s",
+            color: view === k ? "#fff" : "#6f6350", transition: "all 0.15s",
           }}>{l}</button>
         ))}
       </div>
 
-      {/* 寸法リードアウト */}
+      {/* 寸法チップ(常時ライブ更新) */}
       <div style={{
-        position: "absolute", top: 16, right: 16, fontSize: 11, color: chip.txt,
-        fontFamily: mono, textAlign: "right", pointerEvents: "none",
+        position: "absolute", top: 24, right: 24, fontSize: 12, color: chip.txt,
+        fontFamily: mono, letterSpacing: "0.05em", textAlign: "right", pointerEvents: "none",
       }}>
         ⌀{maxDia} × H{p.height} mm
       </div>
 
-      {/* 印刷ビューの補足 */}
-      {view === "print" && (
+      {/* ベッド超過警告(クリックで羽根板を上下2分割) */}
+      {!isLit && bedWarn && (
+        <button
+          onClick={canSplitFix ? () => setSplitRibs(true) : undefined}
+          style={{
+            position: "absolute", bottom: 20, left: 20, display: "flex", alignItems: "center", gap: 10,
+            padding: "10px 14px", background: "#fff", border: "1px solid rgba(217,91,24,0.4)",
+            borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
+            fontSize: 12.5, color: UI.text, textAlign: "left",
+            cursor: canSplitFix ? "pointer" : "default", maxWidth: "60%",
+          }}>
+          <span style={{ fontSize: 15 }}>⚠️</span>
+          <span>
+            {overParts.join(" · ")} がベッド {bedD}mm を超過<br />
+            {canSplitFix
+              ? <span style={{ color: accent, fontWeight: 700 }}>→ 羽根板を上下2分割にする</span>
+              : <span style={{ color: UI.sub }}>→ 火袋の高さを {heightLimit}mm 以下に</span>}
+          </span>
+        </button>
+      )}
+
+      {/* 点灯モードの補足 */}
+      {isLit && (
         <div style={{
-          position: "absolute", bottom: 16, left: 16, padding: "7px 12px",
-          borderRadius: 9, fontSize: 10.5, color: chip.txt, fontFamily: mono,
-          background: chip.bg, backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)", border: `1px solid ${chip.edge}`,
+          position: "absolute", bottom: 20, left: 20, fontSize: 11.5, color: "#8a8a96",
+          fontFamily: sans, pointerEvents: "none",
         }}>
-          プリントベッド {bedW}×{bedD}mm
-          {bedOver && (
-            <span style={{ color: UI.warn }}> ⚠ ベッド超過（羽根{boardLen}／連結板{connLen}mm）— 高さを{heightLimit}mm以下に</span>
-          )}
+          鑑賞モード — 編集はタブで「断面」へ
         </div>
       )}
     </main>
   );
 
-  // ============ 右:インスペクタ ============
-  const inspector = (
+  // ============ 右:インスペクタ(点灯モードでは非表示) ============
+  const inspector = isLit ? null : (
     <aside style={{
       display: "flex", flexDirection: "column",
       width: narrow ? "auto" : PANEL, flex: narrow ? "1 1 auto" : `0 0 ${PANEL}px`,
-      minHeight: 0,
-      background: UI.panel, color: UI.value,
+      minHeight: 0, background: UI.panel, color: UI.text,
       borderLeft: narrow ? "none" : `1px solid ${UI.edge}`,
       borderTop: narrow ? `1px solid ${UI.edge}` : "none",
     }}>
       {/* ヘッダー */}
-      <div style={{
-        padding: "16px 18px 14px", borderBottom: `1px solid ${UI.edge}`,
-        display: "flex", alignItems: "baseline", gap: 10,
-      }}>
-        <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.14em", color: UI.head }}>張型</span>
-        <span style={{ fontSize: 11, color: UI.muted }}>スタジオ</span>
-        <span style={{ marginLeft: "auto", fontSize: 10.5, color: UI.muted, fontFamily: mono }}>Lamp Kit</span>
+      <div style={{ padding: "20px 20px 14px", display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "0.04em", color: UI.head }}>
+          張型 <span style={{ fontSize: 11.5, fontWeight: 400, color: UI.faint }}>スタジオ</span>
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.12em", color: UI.faintest }}>LAMP KIT</div>
       </div>
 
       {/* スクロール領域 */}
-      <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "16px 18px 18px" }}>
-        {/* プリセット */}
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 10, textTransform: "uppercase" }}>形</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 22 }}>
-          {PRESETS.map((pr) => {
-            const active = p.curve === pr.curve;
-            return (
-              <button key={pr.name} onClick={() => setP((o) => ({ ...o, ...pr }))} style={{
-                padding: "9px 4px", fontSize: 12, fontWeight: 500, cursor: "pointer", borderRadius: 9,
-                background: active ? accent : UI.ctrlBg,
-                color: active ? "#fff" : UI.label,
-                border: "1px solid " + (active ? accent : UI.ctrlEdge),
-                transition: "all 0.15s",
-              }}>{pr.name}</button>
-            );
-          })}
-        </div>
-
-        {/* パラメータ(セクション別) */}
-        {GROUPS.map((g) => (
-          <div key={g.title} style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 12, textTransform: "uppercase" }}>{g.title}</div>
-            {g.keys.map((k) => paramRow(k))}
-            {g.title === "シルエット" && extractWarn}
-            {g.title === "羽根の芯・爪" && (
-              <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: UI.label, cursor: "pointer", marginTop: 2 }}>
-                <input type="checkbox" checked={p.lighten}
-                  onChange={(e) => setP((o) => ({ ...o, lighten: e.target.checked }))}
-                  style={{ accentColor: accent, width: 15, height: 15 }} />
-                中央を肉抜き(フィラメント節約)
-              </label>
-            )}
-            {g.title === "骨組み" && (
-              <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: UI.label, cursor: "pointer", marginTop: 2 }}>
-                <input type="checkbox" checked={splitRibs}
-                  onChange={(e) => setSplitRibs(e.target.checked)}
-                  style={{ accentColor: accent, width: 15, height: 15 }} />
-                羽根板を上下2分割(大型ランプ用)
-              </label>
-            )}
-            {g.title === "竹ひご" && (
-              <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, color: UI.label, cursor: "pointer", marginTop: 2 }}>
-                <input type="checkbox" checked={p.spiral}
-                  onChange={(e) => setP((o) => ({ ...o, spiral: e.target.checked }))}
-                  style={{ accentColor: accent, width: 15, height: 15 }} />
-                螺旋巻き用に溝をずらす
-              </label>
-            )}
-          </div>
-        ))}
-
-        {/* 情報 */}
-        <div style={{
-          borderTop: `1px solid ${UI.edge}`, paddingTop: 14, marginTop: 4,
-          fontSize: 11, color: UI.label, fontFamily: mono, lineHeight: 1.9,
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>最大径</span><span style={{ color: UI.value }}>⌀{maxDia} mm</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>羽根板の全長</span>
-            <span style={{ color: bedOver ? UI.warn : UI.value }}>{boardLen} mm{bedOver ? " ⚠" : ""}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}><span>羽根板の枚数</span><span style={{ color: UI.value }}>{p.boards} 枚</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span>上下の開口(半径)</span>
-            <span style={{ color: canExtract ? UI.value : UI.warn }}>{topOpen} / {botOpen} mm{canExtract ? "" : " ⚠"}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 印刷ビューでのみ表示: 印刷枚数の選択 + STL 書き出し(スティッキー) */}
-      {view === "print" && (
-        <div style={{
-          padding: "14px 18px 16px", borderTop: `1px solid ${UI.edge}`,
-          background: "#eeeae3",
-        }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, marginBottom: 9, textTransform: "uppercase" }}>プリントベッド</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-            {[180, 220, 250, 256, 300, 350].map((sz) => {
-              const active = bedW === sz && bedD === sz;
+      <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px" }}>
+        {/* 形プリセット */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionLabel("形")}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
+            {PRESETS.map((pr) => {
+              const active = p.shape === pr.key;
               return (
-                <button key={sz} onClick={() => { setBedW(sz); setBedD(sz); }} style={{
-                  padding: "6px 11px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", borderRadius: 8,
-                  background: active ? accent : UI.ctrlBg, color: active ? "#fff" : UI.label,
-                  border: "1px solid " + (active ? accent : UI.ctrlEdge),
-                }}>{sz}</button>
+                <button key={pr.key}
+                  onClick={() => setP((o) => ({ ...o, shape: pr.key, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })) }))}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                    padding: "8px 4px 7px", borderRadius: 10, cursor: "pointer", fontFamily: sans,
+                    background: active ? accent : UI.card, color: active ? "#fff" : UI.text,
+                    border: "1px solid " + (active ? accent : UI.cardEdge),
+                    boxShadow: active ? "0 3px 8px rgba(217,91,24,0.25)" : "none",
+                  }}>
+                  <svg viewBox="0 0 60 46" style={{ width: 40, height: 32, display: "block" }}>
+                    <path d={miniPath(pr)} fill={active ? "rgba(255,255,255,0.25)" : "rgba(59,52,43,0.05)"}
+                      stroke={active ? "#fff" : "#8a7c66"} strokeWidth="2" />
+                  </svg>
+                  <span style={{ fontSize: 11, fontWeight: 500 }}>{pr.name}</span>
+                </button>
               );
             })}
           </div>
-          {numInput("幅", bedW, setBedW, 100, 420)}
-          {numInput("奥行き", bedD, setBedD, 100, 420)}
-          <div style={{ height: 1, background: UI.edge, margin: "10px 0 14px" }} />
+        </div>
 
-          {stepper("printRibs", "印刷する羽根板", nRibs, 1, p.boards, 1,
-            (v) => setPrintRibs(v),
-            <>{nRibs}<span style={{ color: UI.muted, fontSize: 11 }}> / {p.boards} 枚</span></>)}
-
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: UI.muted, margin: "4px 0 9px", textTransform: "uppercase" }}>STL 書き出し</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {dlBtn("ダウンロード", dlAll, true)}
-          </div>
-          <div style={{ fontSize: 10.5, color: UI.muted, lineHeight: 1.6, marginTop: 9 }}>
-            コマ・柱は上下同一のため各1つ入っています。スライサーで<strong style={{ color: UI.label }}>2つに複製</strong>して印刷してください。
+        {/* シルエット(スクラブ) */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionLabel("シルエット", "左右にドラッグで調整")}
+          <div style={{ border: `1px solid ${UI.cardEdge}`, borderRadius: 10, background: UI.card, overflow: "hidden" }}>
+            {SIL_ROWS.map((r, i) => scrubRow(
+              { key: r.key, label: r.label, value: p[r.key], min: r.min, max: r.max, sens: r.sens, round: r.round, unit: r.unit,
+                onChange: (v) => setP((o) => ({ ...o, [r.key]: v })) },
+              { card: true, last: i === SIL_ROWS.length - 1 }
+            ))}
           </div>
         </div>
-      )}
+
+        {/* 骨組み */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionLabel("骨組み")}
+          {stepper("boards", "羽根板の枚数", p.boards, 4, 16, 1,
+            (v) => setP((o) => ({ ...o, boards: v })),
+            <>{p.boards}<span style={{ color: UI.faintest, fontWeight: 400 }}> 枚</span></>)}
+          {scrubRow({ key: "boardT", label: "板厚", value: p.boardT, display: p.boardT.toFixed(1), min: 1, max: 4, sens: 0.02, round: 0.2, unit: "mm",
+            onChange: (v) => setP((o) => ({ ...o, boardT: v })) })}
+          {checkbox(splitRibs, () => setSplitRibs(!splitRibs), <>羽根板を上下2分割 <span style={{ color: UI.faint }}>(大型用)</span></>)}
+        </div>
+
+        {/* 竹ひご(アコーディオン) */}
+        <div style={{ borderTop: `1px solid ${UI.edge}`, marginBottom: 4 }}>
+          <div onClick={() => setHigoOpen((v) => !v)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 0", cursor: "pointer" }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.06em", color: UI.text }}>竹ひご</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>⌀{p.higoD} / {p.pitch}mm</span>
+              <span style={{ color: UI.faint, fontSize: 11, transform: higoOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
+            </span>
+          </div>
+          {higoOpen && (
+            <div style={{ padding: "0 0 10px" }}>
+              {scrubRow({ key: "higoD", label: "竹ひご径", value: p.higoD, display: p.higoD.toFixed(1), min: 1, max: 4, sens: 0.02, round: 0.5, unit: "mm",
+                onChange: (v) => setP((o) => ({ ...o, higoD: v })) })}
+              {scrubRow({ key: "pitch", label: "ひごピッチ", value: p.pitch, min: 8, max: 30, sens: 0.3, round: 1, unit: "mm",
+                onChange: (v) => setP((o) => ({ ...o, pitch: v })) })}
+              {checkbox(p.spiral, () => setP((o) => ({ ...o, spiral: !o.spiral })), "螺旋巻き用に溝をずらす")}
+            </div>
+          )}
+        </div>
+
+        {/* 印刷ビュー:プリントベッド設定 */}
+        {view === "print" && (
+          <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 16, marginTop: 4 }}>
+            {sectionLabel("プリントベッド")}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {[180, 220, 250, 256, 300, 350].map((sz) => {
+                const active = bedW === sz && bedD === sz;
+                return (
+                  <button key={sz} onClick={() => { setBedW(sz); setBedD(sz); }} style={{
+                    padding: "6px 11px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", borderRadius: 8, fontFamily: sans,
+                    background: active ? accent : UI.card, color: active ? "#fff" : UI.text,
+                    border: "1px solid " + (active ? accent : UI.cardEdge),
+                  }}>{sz}</button>
+                );
+              })}
+            </div>
+            {numInput("幅", bedW, setBedW, 100, 420)}
+            {numInput("奥行き", bedD, setBedD, 100, 420)}
+            <div style={{ marginTop: 6 }}>
+              {stepper("printRibs", "印刷する羽根板", nRibs, 1, p.boards, 1,
+                (v) => setPrintRibs(v),
+                <>{nRibs}<span style={{ color: UI.faintest, fontWeight: 400 }}> / {p.boards}</span></>)}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* サマリー(下部固定)+ モード連動 CTA */}
+      <div style={{ padding: "16px 20px 18px", borderTop: `1px solid ${UI.edge}` }}>
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 5, columnGap: 12, fontSize: 12, marginBottom: 14 }}>
+          <span style={{ color: UI.faint }}>最大径</span>
+          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>⌀{maxDia} mm</span>
+          <span style={{ color: UI.faint }}>羽根板の全長</span>
+          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: ribLen > bedD ? UI.warn : UI.text }}>
+            {ribLen} mm{splitRibs ? " (2分割)" : ""}
+          </span>
+          <span style={{ color: UI.faint }}>上下の開口(半径)</span>
+          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: canExtract ? UI.text : UI.warn }}>
+            {topOpen} / {botOpen} mm{canExtract ? "" : " ⚠"}
+          </span>
+        </div>
+
+        {view === "print" ? (
+          <>
+            <button onClick={dlAll} style={{
+              width: "100%", padding: 12, border: "none", borderRadius: 10, background: accent, color: "#fff",
+              fontFamily: sans, fontSize: 13.5, fontWeight: 700, letterSpacing: "0.08em", cursor: "pointer",
+              boxShadow: "0 3px 10px rgba(217,91,24,0.3)",
+            }}>STL 書き出し</button>
+            <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
+              コマ・柱は上下同一のため各1つ入っています。スライサーで<strong style={{ color: UI.text }}>2つに複製</strong>して印刷してください。
+            </div>
+          </>
+        ) : (
+          <button onClick={() => setView("print")} style={{
+            width: "100%", padding: 12, borderRadius: 10, background: "#fff", color: accent,
+            border: "1px solid rgba(217,91,24,0.5)", fontFamily: sans, fontSize: 13.5, fontWeight: 700,
+            letterSpacing: "0.08em", cursor: "pointer",
+          }}>印刷・書き出しへ進む →</button>
+        )}
+      </div>
     </aside>
   );
 
@@ -845,8 +899,7 @@ export default function HarigataStudio() {
     <div style={{
       display: "flex", flexDirection: narrow ? "column" : "row",
       height: "100%", overflow: "hidden",
-      background: "#ece8e2", color: UI.value,
-      fontFamily: "'Hiragino Sans', system-ui, sans-serif",
+      background: "#f2ecdf", color: UI.text, fontFamily: sans,
     }}>
       {viewport}
       {inspector}
