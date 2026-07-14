@@ -136,8 +136,9 @@ export default function HarigataStudio() {
       cv.width = 4; cv.height = 256;
       const ctx = cv.getContext("2d");
       const g = ctx.createLinearGradient(0, 0, 0, 256);
-      g.addColorStop(0.0, "#8a5a2a"); g.addColorStop(0.5, "#ffe6c2");
-      g.addColorStop(1.0, "#8a5a2a");
+      // 中央を広いプラトー(明)にして、細い明線が出ないようにする
+      g.addColorStop(0.0, "#9a6a38"); g.addColorStop(0.32, "#ffe4bc");
+      g.addColorStop(0.68, "#ffe4bc"); g.addColorStop(1.0, "#9a6a38");
       ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
       const t = new THREE.CanvasTexture(cv);
       t.colorSpace = THREE.SRGBColorSpace;
@@ -322,12 +323,14 @@ export default function HarigataStudio() {
       pool.scale.set(pr, pr, 1);
       s.group.add(pool);
       // 自己発光として見せる: 外光は最小限にして火袋の emissive とブルームで光らせる。
+      // 内部電球は使わない(赤道に明るい帯=線が出るため)。emissive の縦グラデで濃淡を付ける。
       s.amb.intensity = 0.12;
-      s.key.intensity = 0.3; s.key.position.set(180, 320, 200);
-      s.washiMat.emissiveIntensity = 1.1;  // 火袋を明るく(縦グラデ+ブルームで滲む)
-      s.bulb.intensity = 2.6;              // 内側から DoubleSide の裏面も照らす
-      s.bulb.position.set(0, legH + p.height * 0.5, 0);
+      s.key.intensity = 0.25; s.key.position.set(180, 320, 200);
+      s.washiMat.roughness = 1.0;          // 完全つや消し(鏡面ハイライトを消す)
+      s.washiMat.emissiveIntensity = 1.15; // 火袋の明るさ
+      s.bulb.intensity = 0;                // 内部電球オフ(透けて出る明線を防ぐ)
       s.bloomPass.enabled = true;          // 発光の滲み → 光っている感
+      s.bloomPass.strength = 0.6; s.bloomPass.radius = 0.7; s.bloomPass.threshold = 0.85; // 柔らかいハロー
       frame((legH + p.height) * 1.16, R * 1.1, (legH + p.height) * 0.5);
       return;
     }
