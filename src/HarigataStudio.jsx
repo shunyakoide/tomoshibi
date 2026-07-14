@@ -24,6 +24,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import {
   maxRadius, outerR, cutT, effBoardWidth, standBoardLength,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
+  standCollarTop, standSaddleH,
 } from "./geometry.js";
 import { exportZip } from "./stl.js";
 import { drawSection } from "./draw2d.js";
@@ -284,9 +285,27 @@ export default function HarigataStudio() {
     mold.add(kt);
 
     if (view === "mold") {
-      mold.position.y = p.tabLen; // 下コマ/タブ先端を床へ(埋まり防止)
+      // 実際の作業姿勢: 型を横倒しにして土台の2つのサドルに載せた状態を見せる。
+      const collarTop = standCollarTop();           // 柱脚が乗る高さ(襟の天面)
+      const komaY = collarTop + standSaddleH(p);     // コマ中心 = サドル中心の高さ
+      const sep = p.height + 2 * p.tabLen;           // コマ間隔 = 柱間隔
+      // 型を横倒し(軸をX方向へ)。回転後コマ中心が X=±sep/2, Y=komaY に来るよう配置。
+      mold.rotation.z = Math.PI / 2;
+      mold.position.set(p.height / 2, komaY, 0);
       s.group.add(mold);
-      frame((p.height + p.tabLen * 2 + p.komaT * 2) * 1.1, R, p.height * 0.5 + p.tabLen);
+      // 土台: ベース板(床に平置き) + 柱×2(サドルでコマを受ける)
+      const board = new THREE.Mesh(boardGeometry(p), s.standMat);
+      board.rotation.x = -Math.PI / 2;              // 厚み(襟)を上向きにして床へ平置き
+      s.group.add(board);
+      for (const sgn of [-1, 1]) {
+        const col = new THREE.Mesh(standGeometry(p), s.standMat);
+        col.rotation.y = Math.PI / 2;               // 板厚方向を型軸(X)へ向ける
+        col.position.set((sgn * sep) / 2, collarTop, 0);
+        s.group.add(col);
+      }
+      s.shadow.scale.set(R * 3.2, R * 3.2, 1);
+      const top = komaY + R;                         // 型の最上点
+      frame(top * 1.2, Math.max(standBoardLength(p) / 2, R) * 1.25, top * 0.5);
     } else {
       // 印刷ビュー: Bambu Lab A1 (256×256mm)。種別ごとにセル計算しプレートを田の字配置
       const BEDW = bedW, BEDD = bedD, GAP = 8;

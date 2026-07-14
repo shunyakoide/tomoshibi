@@ -311,10 +311,13 @@ function standProfile(seatR, H, halfOpen, colW) {
 // 下端の中央ホゾをベース板スリットへ差し込む。厚みが均一なので平置き印刷で底面が
 // 完全フラット → 宙に浮く箇所なし・サポート不要。コマの厚み方向はU字溝に嵌まって
 // 収まり、軸方向は左右2つの柱で挟んで位置決めする。
+// 組立プレビューで土台を正しい高さに置くための寸法(床基準):
+export function standCollarTop() { return BASE_T + COLLAR_H; } // 柱脚が乗る高さ(=襟の天面)
+export function standSaddleH(p) { return maxRadius(p) + 15; }  // 柱ローカルのサドル中心高さ
 export function standGeometry(p) {
   const R = maxRadius(p);
   const kR = komaR(p);
-  const H = R + 15;                  // サドル底(コマ中心)の高さ(最大径+床クリアランス15mm)
+  const H = standSaddleH(p);         // サドル中心(コマ中心)の高さ(最大径+床クリアランス15mm)
   const saddleR = kR + SADDLE_FIT;   // U字溝の受け半径(コマ縁+クリアランス)
   const halfOpen = Math.PI * 0.5;    // 半円サドル: 口の幅=直径 → コマを上から落として載せられる
   const colW = saddleR * Math.sin(halfOpen) + 12;
