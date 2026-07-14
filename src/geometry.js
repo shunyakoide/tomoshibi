@@ -356,8 +356,16 @@ export function boardGeometry(p) {
   s.lineTo(-len / 2, W / 2);
   s.closePath();
   const sx = (standFullW(p) + SLOT_FIT) / 2, sy = (TENON_W + SLOT_FIT) / 2;
-  for (const cx of [-sep / 2, sep / 2]) {                // 柱ホゾ用スリット×2(角丸)
-    s.holes.push(roundedRectPath(cx, 0, sx, sy, 1.5));
+  // 柱ホゾ用スリット×2。角は直角のまま(角柱ホゾがぴったり差し込めるように)。
+  // ただし2スリットのy端が厳密に同一走査線だと earcut が破綻し open edge が
+  // 出るので、上下に ±0.1mm だけ互い違いにずらして退化を回避する
+  // (ずれは SLOT_FIT=0.4mm 内なので嵌合には影響しない)。
+  const STAGGER = 0.1;
+  for (const [cx, dy] of [[-sep / 2, STAGGER], [sep / 2, -STAGGER]]) {
+    const slot = new THREE.Path();
+    slot.moveTo(cx - sx, -sy + dy); slot.lineTo(cx + sx, -sy + dy);
+    slot.lineTo(cx + sx, sy + dy); slot.lineTo(cx - sx, sy + dy); slot.closePath();
+    s.holes.push(slot);
   }
   // 肉抜き: スリット間の中央を1つの大きな窓で抜く(桟なし)。端とスリット周りだけ残す。
   const wall = 9, hw = W / 2 - wall, innerHalf = sep / 2 - sx - wall;
