@@ -21,6 +21,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   maxRadius, outerR, cutT, effBoardWidth, standBoardLength,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
@@ -44,6 +48,7 @@ export default function HarigataStudio() {
   );
   const mountRef = useRef(null);
   const T = useRef({});
+  const prevViewRef = useRef(null); // ビュー切替を検知して初期カメラ角を設定するため
 
   // 画面幅で左右レイアウト / 縦積みを切替
   useEffect(() => {
@@ -66,6 +71,15 @@ export default function HarigataStudio() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
     mount.appendChild(renderer.domElement);
+
+    // ポストプロセス: 点灯ビューだけブルーム(発光の滲み)を効かせて「光っている感」を出す。
+    // 明ビューでは bloomPass を無効化するので見た目は従来どおり。
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.55, 0.7); // strength, radius, threshold
+    bloomPass.enabled = false;
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
 
     // スタジオ風の環境光(IBL)。Standard/Physical マテリアルに柔らかな映り込みを与え、
     // のっぺり感を解消する。組立/印刷ビューで使用(点灯ビューは暗室演出のため外す)。
@@ -102,10 +116,41 @@ export default function HarigataStudio() {
     shadow.position.y = 0.5;
     scene.add(shadow);
 
+    // 点灯ビュー用テクスチャ: 床の暖かい光だまり(中央はやや暗く=真下の影、周りが明るい輪)
+    const poolTex = (() => {
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = 256;
+      const ctx = cv.getContext("2d");
+      const g = ctx.createRadialGradient(128, 128, 6, 128, 128, 128);
+      g.addColorStop(0.0, "rgba(255,190,120,0.10)"); // 真下: 本体が遮り薄暗い
+      g.addColorStop(0.28, "rgba(255,178,105,0.85)"); // 明るい光の輪
+      g.addColorStop(1.0, "rgba(255,150,80,0.0)");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 256);
+      const t = new THREE.CanvasTexture(cv);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    })();
+    // 火袋の発光ムラ: 縦方向に中央が最も明るいグラデーション(のっぺり防止)
+    const washiGrad = (() => {
+      const cv = document.createElement("canvas");
+      cv.width = 4; cv.height = 256;
+      const ctx = cv.getContext("2d");
+      const g = ctx.createLinearGradient(0, 0, 0, 256);
+      g.addColorStop(0.0, "#8a5a2a"); g.addColorStop(0.5, "#ffe6c2");
+      g.addColorStop(1.0, "#8a5a2a");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
+      const t = new THREE.CanvasTexture(cv);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    })();
+
     const group = new THREE.Group();
     scene.add(group);
     T.current = {
-      scene, camera, renderer, group, bulb, shadow, amb, key, groundGrid, envMap,
+      scene, camera, renderer, composer, bloomPass, poolTex, group, bulb, shadow, amb, key, groundGrid, envMap,
+      // 点灯: 床(暗い部屋)と光だまり
+      litFloorMat: new THREE.MeshStandardMaterial({ color: 0x0a0d16, roughness: 1, metalness: 0 }),
+      litPoolMat: new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
       // 羽根板: コート系フィラメント風にごく薄いクリアコートを載せて上質な艶を出す
       ribMat: new THREE.MeshPhysicalMaterial({
         color: 0xc3b291, roughness: 0.5, metalness: 0.0,
@@ -117,7 +162,7 @@ export default function HarigataStudio() {
       standMat: new THREE.MeshStandardMaterial({ color: 0x6b6156, roughness: 0.7, metalness: 0.05, envMapIntensity: 0.75 }),
       washiMat: new THREE.MeshStandardMaterial({
         color: 0xf7f3ea, roughness: 0.9, transparent: true, opacity: 0.94,
-        emissive: 0xffb96a, emissiveIntensity: 0, side: THREE.FrontSide,
+        emissive: 0xffd0a0, emissiveIntensity: 0, emissiveMap: washiGrad, side: THREE.DoubleSide,
       }),
       rot: { x: -0.15, y: 0.5 }, baseDist: 700, zoom: 1, idle: 0,
     };
@@ -126,6 +171,7 @@ export default function HarigataStudio() {
       const w = mount.clientWidth, h = mount.clientHeight;
       if (!w || !h) return;
       renderer.setSize(w, h);
+      composer.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     };
@@ -180,10 +226,10 @@ export default function HarigataStudio() {
         dist * Math.cos(s.rot.y) * Math.cos(s.rot.x)
       );
       s.camera.lookAt(0, s.lookY ?? 120, 0);
-      s.renderer.render(s.scene, s.camera);
+      s.composer.render();
     };
     animate();
-      cleanup = () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); if (ro) ro.disconnect(); if (el.parentNode === mount) mount.removeChild(el); renderer.dispose(); };
+      cleanup = () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); if (ro) ro.disconnect(); if (el.parentNode === mount) mount.removeChild(el); composer.dispose(); renderer.dispose(); };
     } catch (e) {
       // WebGL 初期化失敗(古い端末 / コンテキスト取得不可 等)。
       // 画面全体を黒にせず UI は残し、原因メッセージだけ表示する。
@@ -201,12 +247,14 @@ export default function HarigataStudio() {
       s.group.remove(m);
       m.traverse((o) => o.geometry && o.geometry.dispose());
     }
+    const viewChanged = prevViewRef.current !== view; // 初回/ビュー切替時だけ初期カメラ角を設定
+    prevViewRef.current = view;
     if (view === "2d") return; // 2D断面ビューは別キャンバスで描画(3D構築はスキップ)
     const R = maxRadius(p);
     const lightVP = view !== "lit"; // 組立/印刷は CAD調の明るい背景、点灯だけ暗い
     s.shadow.scale.set(R * 3.2, R * 3.2, 1);
-    s.shadow.visible = view !== "print";
-    s.shadow.material.opacity = lightVP ? 0.3 : 1; // 明背景ではコンタクトシャドウを淡く
+    s.shadow.visible = view === "mold"; // 組立ビューだけコンタクトシャドウ(点灯は床+光だまりで接地)
+    s.shadow.material.opacity = 0.3;
     s.groundGrid.visible = view === "mold";
     // 環境光は明ビューのみ。点灯は暗室に灯りだけ浮かせたいので外す。
     s.scene.environment = lightVP ? s.envMap : null;
@@ -219,6 +267,7 @@ export default function HarigataStudio() {
     s.key.position.set(view === "print" ? 80 : 240, view === "print" ? 500 : 380, view === "print" ? 120 : 280);
     s.bulb.intensity = 0;
     s.washiMat.emissiveIntensity = 0;
+    s.bloomPass.enabled = false; // 点灯ビューでのみ有効化(下の lit ブランチ)
 
     const frame = (contentH, contentR, centerY) => {
       const cam = s.camera;
@@ -263,10 +312,23 @@ export default function HarigataStudio() {
         foot.position.copy(botP);
         s.group.add(foot);
       }
-      s.washiMat.emissiveIntensity = 0.5;
-      s.bulb.intensity = 1.6;
-      s.bulb.position.set(0, legH + p.height * 0.55, 0);
-      frame((legH + p.height) * 1.12, R, (legH + p.height) * 0.55);
+      // 床(暗い部屋) + 暖かい光だまり(あかりが床を照らす)
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), s.litFloorMat);
+      floor.rotation.x = -Math.PI / 2;
+      s.group.add(floor);
+      const pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), s.litPoolMat);
+      pool.rotation.x = -Math.PI / 2; pool.position.y = 0.4;
+      const pr = maxRadius(p) * 7;
+      pool.scale.set(pr, pr, 1);
+      s.group.add(pool);
+      // 自己発光として見せる: 外光は最小限にして火袋の emissive とブルームで光らせる。
+      s.amb.intensity = 0.12;
+      s.key.intensity = 0.3; s.key.position.set(180, 320, 200);
+      s.washiMat.emissiveIntensity = 1.1;  // 火袋を明るく(縦グラデ+ブルームで滲む)
+      s.bulb.intensity = 2.6;              // 内側から DoubleSide の裏面も照らす
+      s.bulb.position.set(0, legH + p.height * 0.5, 0);
+      s.bloomPass.enabled = true;          // 発光の滲み → 光っている感
+      frame((legH + p.height) * 1.16, R * 1.1, (legH + p.height) * 0.5);
       return;
     }
 
@@ -304,6 +366,7 @@ export default function HarigataStudio() {
         s.group.add(col);
       }
       s.shadow.scale.set(R * 3.2, R * 3.2, 1);
+      if (viewChanged) { s.rot.x = -0.12; s.rot.y = 0.32; } // 横から(型軸に沿って)見た初期アングル
       const top = komaY + R;                         // 型の最上点
       frame(top * 1.2, Math.max(standBoardLength(p) / 2, R) * 1.25, top * 0.5);
     } else {
