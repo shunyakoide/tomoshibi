@@ -7,58 +7,123 @@
  * を返すが、React・DOM には一切依存しない(2D断面描画・STL出力の両方から共有)。
  *
  * 【座標系・単位】全寸法mm。羽根板/コマ/土台は XY平面シェイプ + Z押し出し
- *   (=そのまま平置き印刷向き)。prof(p, t): 高さ正規化 t∈[0,1] → 半径mm。
+ *   (=そのまま平置き印刷向き)。outerR(p, t): 高さ正規化 t∈[0,1] → 半径mm(制御点スプライン)。
  * ============================================================================
  */
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-// ============ プロファイル ============
-// curve種別でシルエット決定: egg/sphere/cocoon/gourd/barrel/bud (AKARI系)
-export function prof(p, t) {
-  const base = p.bottomR + (p.topR - p.bottomR) * t;
-  let b = 0;
-  const s = Math.sin(Math.PI * t);
-  if (p.curve === "sphere") b = s;
-  else if (p.curve === "egg") b = Math.sin(Math.PI * Math.pow(t, 0.72)); // たまご(重心低め)
-  else if (p.curve === "cocoon") b = Math.sin(Math.PI * Math.pow(t, 1.25));
-  else if (p.curve === "gourd") b = s - 0.55 * Math.exp(-Math.pow((t - 0.58) / 0.13, 2)) * s;
-  else if (p.curve === "barrel") b = Math.pow(s, 0.4);
-  else if (p.curve === "bud") b = Math.sin(Math.PI * Math.pow(t, 1.8));
-  return Math.max(12, base + p.bulge * b);
+// ============ プロファイル(制御点スプライン) ============
+// シルエットは「制御点配列 pts + 上下半径 rTop/rBot」を Catmull-Rom型エルミート補間で
+// つないだ半径関数で決まる。図面上のハンドルを直接ドラッグして pts を編集する方式。
+// 首(くび=上下端の NECK mm)は rBot/rTop の一定半径で垂直。首には竹ひごを巻かない。
+export const NECK = 10; // 首の既定値(mm)。実値は p.neck(可変)。上下端に垂直な立ち上がり→その内側からカーブ
+
+// エルミート補間(Catmull-Rom接線)。P = 昇順の [{ t, r, sharp? }]、x∈[0,1] → r(mm)。
+// sharp な点は接線を区分直線の勾配に差し替えて「角」を作る(その点で折れる)。
+function splineR(P, x) {
+  if (P.length === 1) return P[0].r; // 制御点1つ = 単一の頂点(接線0扱い)
+  let i = 0;
+  while (i < P.length - 2 && x > P[i + 1].t) i++;
+  const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+  const h = p2.t - p1.t, s = h > 1e-6 ? (x - p1.t) / h : 0;
+  const d02 = (p2.t - p0.t) || 1, d13 = (p3.t - p1.t) || 1;
+  const m1 = p1.sharp ? (p2.r - p1.r) : ((p2.r - p0.r) / d02) * h;
+  const m2 = p2.sharp ? (p2.r - p1.r) : ((p3.r - p1.r) / d13) * h;
+  const s2 = s * s, s3 = s2 * s;
+  return (2 * s3 - 3 * s2 + 1) * p1.r + (s3 - 2 * s2 + s) * m1 + (-2 * s3 + 3 * s2) * p2.r + (s3 - s2) * m2;
+}
+// 火袋スプライン: P=[{首下端,rBot}, …制御点…, {首上端,rTop}]。単調 Hermite(Fritsch–Carlson)で
+// 反り・急な折れを抑えた滑らかな曲線にする。各点の接線 dr/dt を隣接弦から求め、隣接弦と同符号・
+// 3倍以内にクランプ(overshoot と不要な急カーブを防ぐ)。端点は次点への弦。
+function fukuroTangents(P) {
+  const n = P.length, d = new Array(n - 1), T = new Array(n);
+  for (let i = 0; i < n - 1; i++) d[i] = (P[i + 1].r - P[i].r) / ((P[i + 1].t - P[i].t) || 1); // 区間の弦(dr/dt)
+  for (let i = 0; i < n; i++) {
+    let t;
+    if (P[i] && P[i].sharp) t = i === 0 ? d[0] : i === n - 1 ? d[n - 2] : (Math.abs(d[i - 1]) < Math.abs(d[i]) ? d[i - 1] : d[i]);
+    else if (i === 0) t = d[0];
+    else if (i === n - 1) t = d[n - 2];
+    else t = (d[i - 1] + d[i]) / 2;                                   // 中央差分
+    // 単調化: 隣接弦と符号が違えば0、同符号なら弦の3倍以内
+    const near = i === 0 ? d[0] : i === n - 1 ? d[n - 2] : (Math.abs(d[i - 1]) < Math.abs(d[i]) ? d[i - 1] : d[i]);
+    if (near === 0) t = 0;
+    else { const a = t / near; t = (a < 0 ? 0 : Math.min(a, 3)) * near; }
+    T[i] = t;
+  }
+  return T;
+}
+function fukuroSpline(P, x, T) {
+  T = T || fukuroTangents(P);
+  let i = 0;
+  while (i < P.length - 2 && x > P[i + 1].t) i++;
+  const p1 = P[i], p2 = P[i + 1], h = p2.t - p1.t, s = h > 1e-6 ? (x - p1.t) / h : 0;
+  const m1 = T[i] * h, m2 = T[i + 1] * h, s2 = s * s, s3 = s2 * s;
+  return (2 * s3 - 3 * s2 + 1) * p1.r + (s3 - 2 * s2 + s) * m1 + (-2 * s3 + 3 * s2) * p2.r + (s3 - s2) * m2;
+}
+// 実効外周半径。t∈[0,1] → 半径mm。端(t=0/1)から頂点まで1本の連続スプラインにする
+// (垂直の首は作らない)。首を挟むと「平ら→急カーブ」の折れ角が出るため、端も制御点
+// (rBot/rTop)としてスプラインに含め、少ない点でも滑らかな輪郭になるようにする。
+// 竹ひごを巻かない上下端の帯(首)は cutT/cutY で別に扱う(半径は連続のまま)。
+// 火袋(カーブ+竹ひご溝)の t 範囲 = 最外の制御点の間。首は最外制御点より外側(開口側)。
+// 開口(=首)の半径は最外の制御点にちょうど一致 → 首→火袋に無駄なフレア/Sカーブが出ない。
+export function fukuroRange(p) {
+  const pts = (p.pts && p.pts.length >= 2) ? p.pts : null;
+  if (!pts) return { lo: cutTbot(p), hi: 1 - cutTtop(p) };
+  const nB = p.neckBot ?? p.neckOn ?? true, nT = p.neckTop ?? p.neckOn ?? true;
+  return { lo: nB ? pts[0].t : 0, hi: nT ? pts[pts.length - 1].t : 1 };
+}
+// 首・爪の設計基準は「制御点の半径」= 首の有無に依存しない(爪サイズが首トグルで変わらない)。
+function openMin(p) {
+  const pts = p.pts;
+  return (pts && pts.length) ? Math.min(pts[0].r, pts[pts.length - 1].r) : Math.min(p.rTop ?? 60, p.rBot ?? 60);
+}
+function bodyMinR(p) {
+  const pts = p.pts;
+  if (!pts || pts.length < 2) return openMin(p);
+  let m = Math.min(pts[0].r, pts[pts.length - 1].r);
+  for (let i = 0; i <= 40; i++) { const t = pts[0].t + (pts[pts.length - 1].t - pts[0].t) * i / 40; m = Math.min(m, fukuroSpline(pts, t)); }
+  return m;
+}
+export function outerR(p, t) {
+  t = Math.max(0, Math.min(1, t));
+  const pts = (p.pts && p.pts.length) ? p.pts : [{ t: 0.5, r: (p.rTop + p.rBot) / 2 }];
+  if (pts.length === 1) return Math.max(8, pts[0].r);
+  const fp = pts[0], lp = pts[pts.length - 1];
+  const nB = p.neckBot ?? p.neckOn ?? true, nT = p.neckTop ?? p.neckOn ?? true;
+  const kR = komaR(p); // 爪(コマ)の大きさ = 首なし時の開口
+  // 首あり=開口を制御点まで外側へ広げ、そこから y=0/1 まで垂直な長方形。
+  // 首なし=開口が爪の大きさになる(火袋端を kR にして開口へ閉じる。斜めテーパにしない)。
+  const loT = nB ? fp.t : 0, loR = nB ? fp.r : kR;
+  const hiT = nT ? lp.t : 1, hiR = nT ? lp.r : kR;
+  if (t <= loT) return Math.max(8, loR);
+  if (t >= hiT) return Math.max(8, hiR);
+  const P = [{ t: loT, r: loR }, ...pts.slice(1, -1), { t: hiT, r: hiR }];
+  return Math.max(8, fukuroSpline(P, t));                          // 火袋(制御点間)
 }
 export function maxRadius(p) {
   let m = 0;
-  for (let i = 0; i <= 120; i++) m = Math.max(m, prof(p, i / 120));
+  for (let i = 0; i <= 120; i++) m = Math.max(m, outerR(p, i / 120));
   return m + p.higoD;
 }
-// 首(くび): 上下端に cutBottom(mm) の高さぶん、外周を「肩の外径のまま垂直」にした
-// まっすぐな首を作る。外側へ張り出さず、爪(タブ)は羽根の一番外側の縁(この外径)に来る。
-// 首には竹ひごを巻かない。cutT = 首の正規化高さ。
-export function cutT(p) {
-  return Math.min(0.45, Math.max(0, (p.cutBottom || 0) / Math.max(1, p.height)));
-}
-export function cutY(p) {
-  return cutT(p) * p.height; // 首の高さ(mm)
-}
-// 実効外周半径。上下端の首は肩の外径(prof(cutT)/prof(1-cutT))で垂直、中央は本体カーブ。
-export function outerR(p, t) {
-  const c = cutT(p);
-  if (c <= 0) return prof(p, t);
-  if (t < c) return prof(p, c);          // 下の首(垂直, 爪=外端)
-  if (t > 1 - c) return prof(p, 1 - c);  // 上の首(垂直, 爪=外端)
-  return prof(p, t);
-}
+// 首(くび)= 最外の制御点より外側(開口側)の垂直な長方形。首の高さ = 最外制御点の位置。
+// 上下独立に有無選択(neckBot / neckTop)。首なし側は outerR で直線(提灯系)にする。
+export function cutTbot(p) { const pts = p.pts; return (pts && pts.length) ? pts[0].t : 0; }
+export function cutTtop(p) { const pts = p.pts; return (pts && pts.length) ? 1 - pts[pts.length - 1].t : 0; }
+export function cutYbot(p) { return cutTbot(p) * (p.height || 1); }
+export function cutYtop(p) { return cutTtop(p) * (p.height || 1); }
+export function cutY(p) { return Math.max(cutYbot(p), cutYtop(p)); }
+export function cutT(p) { return cutY(p) / Math.max(1, p.height); }
 // コマ外径 = 爪を纏める小さなハブの半径。爪(内端Ri〜Ri+td)がコマの縁(外周)に来る。
 // Ri・tabDepth は上下対称なので、コマは上下で完全に同一(1種類のみ)。
 export function komaR(p) {
-  return innerRi(p) + tabDepth(p) + 3;
+  // コマ外径(=爪の大きさ)は制御点の小さい方の半径(openMin)を基準に決める(首の有無に
+  // 依存しない)。首なしのときはこの kR が開口になる。
+  return Math.min(innerRi(p) + tabDepth(p) + 3, openMin(p));
 }
-// タブ(羽根の差し込み部)の半径方向の奥行き = コマのノッチ深さ。
-// 上下・全羽根で一律(細い方の端に合わせる)。→ どの羽根もどちらのコマにも同じ深さで嵌まる。
+// タブ(羽根の差し込み部)の半径方向の奥行き = コマのノッチ深さ。制御点基準で首に依存しない。
 export function tabDepth(p) {
-  const minEnd = Math.min(outerR(p, 0), outerR(p, 1));
-  return Math.min(p.tabW, Math.max(6, minEnd * 0.4));
+  return Math.min(p.tabW, Math.max(6, openMin(p) * 0.4));
 }
 // 羽根幅の上限: 乾燥後に大きい方の開口(端半径)から抜けるよう、開口以下に抑える
 export function effBoardWidth(p) {
@@ -70,42 +135,92 @@ export function effBoardWidth(p) {
 // 中央は肉抜き(外縁の帯=溝を保持 と 内縁の芯=爪を支える を残す)。羽根の断面ビューで使う。
 export function innerRi(p) {
   const td = tabDepth(p);
-  const lim = Math.min(outerR(p, 0), outerR(p, 1)) - td - 2;
+  // 芯(Ri)は火袋の最小外径内に収める(自己交差防止)。制御点基準=首の有無に依存しない。
+  const lim = Math.min(openMin(p) - td - 2, bodyMinR(p) - 3);
   return Math.max(6, Math.min(p.tabR ?? 15, lim));
+}
+// 竹ひご溝を外縁に彫った outerX 関数を返す(通常/分割/2D で共有)。
+// ・基準は「溝中心の外径」ではなく各 y の局所外径。→ 斜面でも溝が片側だけに寄らず
+//   上下に壁ができ、竹ひごがずり落ちずに引っかかる。
+// ・急斜面(radial の溝は実効深さが cosθ 倍に浅くなる)では深さを 1/cosθ=√(1+勾配²)
+//   倍(上限2.2)して、傾いた面でも竹ひごが嵌まる実効深さを確保する。
+export function grooveOuterX(p, grooves, gR) {
+  const h = p.height, mid = h / 2;
+  const DEEP = 1.7; // 溝を深く=フランクを急に=鋭い歯。竹ひごがしっかり噛む。
+  // 各溝: 深さ + 非対称(返し)。急斜面ほど「中央(赤道)側フランクを緩く・開口側を急に」して
+  // 歯先を中央へ倒す(爪のような返し)→ 開口へ滑ろうとする竹ひごを両側から引っかける。緩斜面は対称。
+  const info = grooves.map((g) => {
+    const sl = (outerR(p, Math.min(1, (g + 0.6) / h)) - outerR(p, Math.max(0, (g - 0.6) / h))) / 1.2; // dR/dy
+    // 深さは竹ひご径ぶんで頭打ち(掘りすぎて反転・自己交差するのを防ぐ)。
+    const depth = Math.min(p.higoD * 1.2, gR * DEEP * Math.min(2.0, Math.hypot(1, sl)));
+    const skew = Math.min(0.5, Math.abs(sl) * 0.3); // 急斜面ほど非対称(0=対称)
+    const centerDir = g < mid ? 1 : -1;             // 中央(赤道)の向き(y方向)
+    return { g, depth, skew, centerDir };
+  });
+  return (y) => {
+    let dip = 0;
+    for (const { g, depth, skew, centerDir } of info) {
+      const delta = y - g;
+      // 中央側を緩く(広い)、開口側を急に(狭い)→ 歯先が中央へ倒れる返し。
+      const w = gR * (delta * centerDir > 0 ? 1 + skew : 1 - skew);
+      const ad = Math.abs(delta);
+      if (ad < w) { const d = depth * (1 - ad / w); if (d > dip) dip = d; }
+    }
+    return outerR(p, Math.min(Math.max(y, 0), h) / h) - dip;
+  };
+}
+// 竹ひごの溝位置。火袋を「等間隔」に割り付けるが、首(開口)のすぐ際には溝を置かない。
+// 上下端に半ピッチのバッファ(=開口/首側のクリアランス)を持たせ、内側から等間隔に並べる。
+export function grooveList(p, gR) {
+  const h = p.height, fr = fukuroRange(p), gM = gR * 1.6;
+  const gLo = fr.lo * h + gM, gHi = fr.hi * h - gM, span = gHi - gLo;
+  if (span <= 0.5) return [];
+  const n = Math.max(1, Math.round(span / p.pitch));
+  const step = span / n, gs = [];
+  for (let i = 0; i < n; i++) gs.push(gLo + step * (i + 0.5)); // 端に step/2 のバッファ
+  return gs;
 }
 // 羽根の外形点列 + 溝位置 + outerX関数を返す(2D描画 と 3D羽根geometry で共有)。
 // k = 羽根番号(螺旋巻きで溝を k*pitch/boards ずらす)。
 export function ribOutline2D(p, k = 0) {
   const h = p.height, tl = p.tabLen, gR = p.higoD / 2 + 0.15;
   const off = p.spiral ? (k * p.pitch) / p.boards : 0;
-  const yBot = cutY(p), yTop = h - yBot;
-  const grooves = [];
-  for (let y = yBot + p.pitch / 2 + off; y < yTop - gR; y += p.pitch) grooves.push(y);
-  const outerX = (y) => {
-    let x = outerR(p, y / h);
-    for (const g of grooves) { const dy = Math.abs(y - g); if (dy < gR) x = Math.min(x, outerR(p, g / h) - Math.sqrt(gR * gR - dy * dy) - 0.01); }
-    return x;
-  };
-  const Ri = innerRi(p), td = tabDepth(p), STEP = 1.0, pts = [];
-  pts.push([Ri, 0], [Ri, -tl], [Ri + td, -tl], [Ri + td, 0], [outerR(p, 0), 0]);
+  // 竹ひごの溝は火袋(最外制御点の間)全体に作る。カーブには必ず溝を入れ、上下端にも溝を置く。
+  const grooves = grooveList(p, gR, off);
+  const outerX = grooveOuterX(p, grooves, gR);
+  const Ri = innerRi(p), td = tabDepth(p), STEP = 0.5, pts = []; // 返しの急フランクを拾うため細かく
+  // 爪 = 真っ直ぐな舌。先端をコマ外径 kR にちょうど合わせる(はみ出さない)。
+  const kR = komaR(p);
+  pts.push([Ri, 0], [Ri, -tl], [kR, -tl], [kR, 0], [outerR(p, 0), 0]);
   for (let y = STEP; y <= h; y += STEP) pts.push([outerX(Math.min(y, h)), Math.min(y, h)]);
-  pts.push([outerR(p, 1), h], [Ri + td, h], [Ri + td, h + tl], [Ri, h + tl], [Ri, h], [Ri, 0]);
+  pts.push([outerR(p, 1), h], [kR, h], [kR, h + tl], [Ri, h + tl], [Ri, h], [Ri, 0]);
   return { pts, grooves, outerX, Ri, td, gR };
 }
 // 肉抜き窓(外縁の帯 bandW と 内縁の芯 spineW を残し、桟 strut で分割)。
 // 窓の外側境界は溝の凹凸を無視した「滑らかな外周(outerR)」基準にする(ぼこぼこ防止)。
 export function lightenHoles2D(p) {
   const h = p.height, Ri = innerRi(p), td = tabDepth(p);
-  const spineW = Math.max(9, td + 3), bandW = 11, strut = 8;
+  const spineW = Math.max(9, td + 3), bandW = 11, strut = 8, MIN_MAT = 12;
   const oS = (y) => outerR(p, Math.min(Math.max(y, 0), h) / h); // 滑らかな外周
-  const xi = Ri + spineW, yBot = 10, yTop = h - 10;
+  const xi = Ri + spineW;
+  // 下端: 首の急な立ち上がり(フレア)を無垢で残し補強 → 折れやすい細い桟を作らない。
+  // 上端: 細く尖るので少しだけ余白。窓は「落とす」のではなく肉の残る範囲まで縮めて作る
+  //       (細る上端でも小さな窓を出して肉抜きの効きを均す)。
+  const yBot = cutYbot(p) + 14, yTop = h - cutYtop(p) - 6;
   const nWin = Math.max(1, Math.round((yTop - yBot) / 46)), winH = (yTop - yBot) / nWin, holes = [];
+  const thin = (y) => oS(y) - bandW - xi < MIN_MAT;
   for (let i = 0; i < nWin; i++) {
-    const y0 = yBot + i * winH + strut / 2, y1 = yBot + (i + 1) * winH - strut / 2;
-    if (y1 - y0 < 10) continue;
-    if (oS((y0 + y1) / 2) - bandW - xi < 12) continue;
+    let y0 = yBot + i * winH + strut / 2, y1 = yBot + (i + 1) * winH - strut / 2;
+    // 肉が薄い端(細る上端など)は窓端をその手前まで詰める(全滅させず縮める)。
+    while (y1 - y0 > 4 && thin(y1)) y1 -= 2;
+    while (y1 - y0 > 4 && thin(y0)) y0 += 2;
+    if (y1 - y0 < 14) continue;
+    // くびれ(中央が細る形)で窓の途中に薄い帯が残ると earcut が破綻するので全域を確認。
+    let ok = true;
+    for (let y = y0; y <= y1; y += 2) if (thin(y)) { ok = false; break; }
+    if (!ok) continue;
     const poly = [[xi, y0]];
-    for (let y = y0; y <= y1; y += 2) poly.push([Math.max(xi + 2, oS(y) - bandW), y]);
+    for (let y = y0; y <= y1; y += 2) poly.push([oS(y) - bandW, y]);
     poly.push([xi, y1]);
     holes.push(poly);
   }
@@ -121,27 +236,29 @@ export function ribEdges(p, k) {
   const twB = tabDepth(p), twT = tabDepth(p); // 上下一律
   const gR = higoD / 2 + 0.15;
   const off = spiral ? (k * pitch) / boards : 0;
-  const yBot = cutY(p), yTop = height - yBot; // 首の範囲。首(上下端)には竹ひごの溝を作らない
-  const grooves = [];
-  for (let y = yBot + pitch / 2 + off; y < yTop - gR; y += pitch) grooves.push(y);
-  const outerX = (y) => {
-    let x = outerR(p, y / height);
-    for (const g of grooves) {
-      const dy = Math.abs(y - g);
-      if (dy < gR) x = Math.min(x, outerR(p, g / height) - Math.sqrt(gR * gR - dy * dy) - 0.01);
-    }
-    return x;
+  // 溝は火袋全体。ribOutline2D と同じ規則(grooveList)で揃える。
+  const grooves = grooveList(p, gR, off);
+  const outerX = grooveOuterX(p, grooves, gR);
+  // 内縁の下限。板幅に応じた下限で下端の尖り(トゲ)を防ぐ。ただしくびれ(細い中央)では
+  // 下限が外縁を上回り帯が反転(自己交差)し得るため、外縁から最低 MIN_BAND を必ず残すよう
+  // 上側もクランプして帯幅を保証する(分割部品の非多様体を防ぐ)。
+  const mInner = Math.max(8, boardWidth * 0.4), MIN_BAND = 6;
+  const innerX = (y) => {
+    const oR = outerR(p, y / height);
+    return Math.min(Math.max(mInner, oR - boardWidth), oR - MIN_BAND);
   };
-  // 内縁の下限。板幅に応じた下限で下端の尖り(トゲ)を防ぐ。
-  const mInner = Math.max(8, boardWidth * 0.4);
-  const innerX = (y) => Math.max(mInner, outerR(p, y / height) - boardWidth);
   return { oB, oT, twB, twT, outerX, innerX };
 }
 // 3D羽根板 = 2D確定形状(内縁まっすぐ＋上下同位置の内側の爪＋外縁カーブ＋肉抜き)を押し出す。
 export function ribShape(p, k) {
   const { pts } = ribOutline2D(p, k);
+  // 返し(非対称の急フランク)や首の合流で近接重複点が出ると earcut が退化三角形→open edge を
+  // 出すため、押し出し前に連続するほぼ重複点を掃除する(分割部品と同じ処理)。
+  const clean = [];
+  for (const q of pts) { const l = clean[clean.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 1e-3) clean.push(q); }
+  while (clean.length > 1 && Math.hypot(clean[0][0] - clean[clean.length - 1][0], clean[0][1] - clean[clean.length - 1][1]) <= 1e-3) clean.pop();
   const s = new THREE.Shape();
-  pts.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
+  clean.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
   s.closePath();
   if (p.lighten) {
     for (const hole of lightenHoles2D(p).holes) {
@@ -167,21 +284,27 @@ function ribBandShape(p, k, y0, y1, pins) {
   const { height, tabLen } = p;
   const { oB, oT, twB, twT, outerX, innerX } = ribEdges(p, k);
   const STEP = 0.4;
-  const s = new THREE.Shape();
-  s.moveTo(innerX(y0), y0);
+  const pts = [];
+  pts.push([innerX(y0), y0]);
   if (y0 <= 0.001) { // 実際の下端: 底辺＋タブ
-    s.lineTo(oB - twB, 0); s.lineTo(oB - twB, -tabLen); s.lineTo(oB, -tabLen); s.lineTo(oB, 0);
+    pts.push([oB - twB, 0], [oB - twB, -tabLen], [oB, -tabLen], [oB, 0]);
   } else {
-    s.lineTo(outerX(y0), y0); // 割り面で真っ直ぐ横断
+    pts.push([outerX(y0), y0]); // 割り面で真っ直ぐ横断
   }
-  for (let y = y0 + STEP; y < y1; y += STEP) s.lineTo(outerX(y), y);
+  for (let y = y0 + STEP; y < y1; y += STEP) pts.push([outerX(y), y]);
   if (y1 >= height - 0.001) { // 実際の上端: タブ
-    s.lineTo(oT, height); s.lineTo(oT, height + tabLen); s.lineTo(oT - twT, height + tabLen); s.lineTo(oT - twT, height);
-    s.lineTo(innerX(height), height);
+    pts.push([oT, height], [oT, height + tabLen], [oT - twT, height + tabLen], [oT - twT, height], [innerX(height), height]);
   } else {
-    s.lineTo(outerX(y1), y1); s.lineTo(innerX(y1), y1);
+    pts.push([outerX(y1), y1], [innerX(y1), y1]);
   }
-  for (let y = y1 - STEP; y > y0; y -= STEP) s.lineTo(innerX(y), y);
+  for (let y = y1 - STEP; y > y0; y -= STEP) pts.push([innerX(y), y]);
+  // 連続するほぼ重複点を除去。内縁が下限で一定になる区間とタブ端の接合で重複頂点が生じ、
+  // ExtrudeGeometry(earcut)が退化三角形→非多様体を出すため、押し出し前に掃除する。
+  const clean = [];
+  for (const q of pts) { const l = clean[clean.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 1e-3) clean.push(q); }
+  while (clean.length > 1 && Math.hypot(clean[0][0] - clean[clean.length - 1][0], clean[0][1] - clean[clean.length - 1][1]) <= 1e-3) clean.pop();
+  const s = new THREE.Shape();
+  clean.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
   s.closePath();
   if (pins) for (const [hx, hy] of pins) { const h = new THREE.Path(); h.absarc(hx, hy, (PIN_D + PIN_FIT) / 2, 0, Math.PI * 2, true); s.holes.push(h); }
   return s;
@@ -191,13 +314,29 @@ export function ribSplitParts(p, k) {
   const splitY = height / 2;
   const { outerX, innerX } = ribEdges(p, k);
   const wLo = innerX(splitY), wHi = outerX(splitY);
-  const px1 = wLo + 9, px2 = wHi - 9;
-  const pinsB = [[px1, splitY - 10], [px2, splitY - 10]];
-  const pinsT = [[px1, splitY + 10], [px2, splitY + 10]];
+  // スタッド穴は「その穴のy位置(splitY±10)と割り面」全てで帯の内側に、穴半径+マージン
+  // 以上のクリアランスを持つ位置に置く。くびれで帯が細ると穴が縁を突き抜け非多様体に
+  // なるため、安全なx区間 [lo, hi] に収める(狭ければ1本・中央、極端に狭ければ当て板のみ)。
+  const pinR = (PIN_D + PIN_FIT) / 2, M = 2.5;
+  const yB = splitY - 10, yT = splitY + 10;
+  // 穴は y方向に ±pinR 広がるので、中心yだけでなく穴の y全域にわたって縁からの安全域を
+  // 確保する(くびれ近くで穴が曲面の縁を突き抜けて非多様体になるのを防ぐ)。上下バンド
+  // 両方で安全な x区間の交わりにピンを置く。狭ければ1本・中央、極端に狭ければ当て板のみ。
+  const span = (py) => {
+    let lo = -Infinity, hi = Infinity;
+    for (let y = py - pinR - 1; y <= py + pinR + 1; y += 0.5) { lo = Math.max(lo, innerX(y)); hi = Math.min(hi, outerX(y)); }
+    return [lo + pinR + M, hi - pinR - M];
+  };
+  const [aLo, aHi] = span(yB), [bLo, bHi] = span(yT);
+  const lo = Math.max(aLo, bLo), hi = Math.min(aHi, bHi);
+  const pxs = hi - lo >= 2 * pinR + 6 ? [lo, hi] : hi > lo ? [(lo + hi) / 2] : [];
+  const pinsB = pxs.map((px) => [px, yB]);
+  const pinsT = pxs.map((px) => [px, yT]);
   const bottom = new THREE.ExtrudeGeometry(ribBandShape(p, k, 0, splitY, pinsB), { depth: boardT, bevelEnabled: false });
   const top = new THREE.ExtrudeGeometry(ribBandShape(p, k, splitY, height, pinsT), { depth: boardT, bevelEnabled: false });
   const sh = new THREE.Shape(); // 当て板
-  const sx0 = wLo + 3, sx1 = wHi - 3;
+  const sm = Math.min(3, (wHi - wLo) / 3);   // 帯が細い時は当て板マージンも縮めて反転を防ぐ
+  const sx0 = wLo + sm, sx1 = wHi - sm;
   sh.moveTo(sx0, splitY - SPLICE_HALF); sh.lineTo(sx1, splitY - SPLICE_HALF);
   sh.lineTo(sx1, splitY + SPLICE_HALF); sh.lineTo(sx0, splitY + SPLICE_HALF); sh.closePath();
   const parts = [new THREE.ExtrudeGeometry(sh, { depth: SPLICE_T, bevelEnabled: false })];
@@ -216,9 +355,9 @@ export function ribSplitParts(p, k) {
 // main 同様、縁が開いたノッチ(平行壁)を持つ小さな歯車。爪(内端 Ri〜Ri+td)がコマの縁に来る。
 // ノッチは爪の内端(Ri)まで届き、羽根はノッチを通って外へ伸びる。土台はコマを受ける。
 export function komaShape(p) {
-  const { boards, boardT, fit } = p;
+  const { boards, boardT } = p;
   const R = komaR(p);
-  const sw = boardT + fit; // ノッチ幅 = 板厚 + 公差(平行壁)
+  const sw = boardT; // ノッチ幅 = 爪(板)厚と同じ(隙間なし)
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
   const notchR = Math.max(1, innerRi(p) - 0.5); // 爪の内端(Ri)まで届く深さ
@@ -329,8 +468,10 @@ export function standGeometry(p) {
   return g;
 }
 // 2つの柱(サドル)は、2つのコマの真下に来なければ溝に嵌まらない。
-// → 柱スリット間隔 = コマ間隔 = 羽根板の全長(火袋+爪×2)。
-function standSlotSep(p) { return p.height + 2 * p.tabLen; }
+// → 柱スリット間隔 = コマ中心の間隔。コマは爪(長さtabLen)に差し込み先端まで押し込むので、
+//   コマ中心は端から komaT/2 の位置に来る。よって間隔 = 火袋 + 2*(tabLen - komaT/2)
+//   = 火袋 + 2*tabLen - komaT(爪の先端＝差し込みの止まり位置基準)。
+export function standSlotSep(p) { return p.height + 2 * p.tabLen - p.komaT; }
 // ベース板: 薄い平板に柱ホゾ用スリットを2つ。全長 = コマ間隔 + スリット幅 + 両端マージン。
 // (スリットをコマ真下=±間隔/2 に置き、その外側に材料を残すため羽根板より少し長い)
 export function standBoardLength(p) {
