@@ -10,20 +10,24 @@
 
 // 形プリセット = 制御点(pts)の初期配置テンプレート。選ぶと rTop/rBot/pts を差し替え、
 // 他パラメータ(高さ・枚数・竹ひご等)は保持する。プリセットアイコンは実プロファイルから生成。
+// 制御点(pts)は火袋の輪郭。最外の制御点(pts[0]/末尾)= 開口=首の半径。首の内側に無駄な
+// フレアが出ないよう、開口は必ず最外制御点に一致する。首の高さ = 最外制御点の t 位置。
 export const PRESETS = [
-  { key: "egg", name: "たまご", rTop: 19, rBot: 58, pts: [{ t: 0.07, r: 84 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.9, r: 45 }] }, // ツール調整版
-  { key: "sphere", name: "球", rTop: 26, rBot: 28, pts: [{ t: 0.5, r: 88 }] },
-  { key: "gourd", name: "ひょうたん", rTop: 28, rBot: 30, pts: [{ t: 0.28, r: 88 }, { t: 0.55, r: 48 }, { t: 0.8, r: 72 }] },
-  { key: "barrel", name: "たる", rTop: 52, rBot: 56, pts: [{ t: 0.1, r: 82, sharp: true }, { t: 0.9, r: 78, sharp: true }] },
+  { key: "egg", name: "たまご", rTop: 19, rBot: 74, pts: [{ t: 0.05, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.95, r: 19 }] },
+  { key: "sphere", name: "球", rTop: 26, rBot: 28, pts: [{ t: 0.05, r: 28 }, { t: 0.5, r: 90 }, { t: 0.95, r: 26 }] },
+  { key: "gourd", name: "ひょうたん", rTop: 28, rBot: 30, pts: [{ t: 0.05, r: 30 }, { t: 0.28, r: 88 }, { t: 0.55, r: 48 }, { t: 0.8, r: 72 }, { t: 0.95, r: 28 }] },
+  { key: "barrel", name: "たる", rTop: 52, rBot: 56, pts: [{ t: 0.05, r: 56 }, { t: 0.14, r: 82, sharp: true }, { t: 0.86, r: 78, sharp: true }, { t: 0.95, r: 52 }] },
 ];
 
-// 初期状態。シルエットは H(火袋の高さ)/ rTop / rBot / pts。首(NECK)は geometry.js で15mm固定。
+// 初期状態。シルエットは H(火袋の高さ)/ rTop / rBot / pts。首(NECK)は geometry.js で10mm固定。
 // 爪(claw=tabR15 / clawLen=tabLen10)・肉抜き(lighten)・公差(fit=tol0.3)は
 // 既定値のまま(UIには出さず内部で使用)。
 export const DEFAULTS = {
-  shape: "egg", height: 205, rTop: 19, rBot: 58,
-  pts: [{ t: 0.07, r: 84 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.9, r: 45 }],
-  boards: 8, boardWidth: 35, boardT: 2, higoD: 2, pitch: 6, // AKARI 1A 風: 竹ひごは密
+  shape: "egg", height: 205, rTop: 19, rBot: 74,
+  pts: [{ t: 0.05, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.95, r: 19 }],
+  neckBot: true, neckTop: true, // 首(垂直な長方形)の有無を上下独立に選択(最外制御点より外側)。
+  neck: 10,                     // 旧: 首高さ。現在は◇(最外制御点)の縦位置で決まる(未使用・互換用に残置)。
+  boards: 8, boardWidth: 35, boardT: 2, higoD: 2, pitch: 9, // 竹ひごの間隔(大きいほど本数少)
   fit: 0.3, spiral: true, tabLen: 10, tabW: 10, komaT: 8,
   tabR: 15, lighten: true,
 };
