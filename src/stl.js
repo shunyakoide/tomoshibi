@@ -2,9 +2,8 @@
  * ============================================================================
  * STL / ZIP 書き出し (EXPORT)
  * ============================================================================
- * BufferGeometry → バイナリSTL(ArrayBuffer)を生成し、単品DL または
- * 複数STLを1つのZIP(無圧縮STORE)にまとめてDLする。依存を増やさないため
- * ZIPは自前実装(CRC32付き)。
+ * BufferGeometry → バイナリSTL(ArrayBuffer)を生成し、複数STLを1つの
+ * ZIP(無圧縮STORE)にまとめてDLする。依存を増やさないため ZIPは自前実装(CRC32付き)。
  * ============================================================================
  */
 import * as THREE from "three";
@@ -41,9 +40,6 @@ function triggerDownload(blob, filename) {
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
-}
-export function exportSTL(geometries, filename) {
-  triggerDownload(new Blob([buildSTL(geometries)], { type: "application/octet-stream" }), filename);
 }
 
 // ---- 最小 ZIP(無圧縮 STORE + CRC32)。依存を増やさず複数STLを1ファイルに ----

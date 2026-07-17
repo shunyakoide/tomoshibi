@@ -14,11 +14,11 @@
  * ============================================================================
  */
 import React, { useRef } from "react";
-import { outerR, cutYbot, cutYtop, fukuroRange, grooveList, grooveOuterX, komaR, innerRi, ribOutline2D, lightenHoles2D } from "./geometry.js";
+import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterX, komaR, innerRi, ribOutline2D, lightenHoles2D } from "./geometry.js";
+import { clamp } from "./util.js";
 
 // SVG 論理座標(固定)。中心軸 cx、底辺 y0。表示はコンテナに合わせて等比拡縮。
 const VBW = 860, VBH = 780, CX = 430, Y0 = 710;
-const clamp = (lo, hi, v) => Math.max(lo, Math.min(hi, v));
 
 const C = {
   axis: "#b8a888", outline: "#c4b492", higo: "#c9b593", spine: "#d8c7a3",
@@ -50,7 +50,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag }) {
 
   // ---- シルエット標本化(竹ひご溝のギザギザを実際の深さで反映。geometry と一致) ----
   const fr = fukuroRange(p);                 // 火袋(カーブ)の t 範囲 = 最外制御点の間
-  const gR = p.higoD / 2 + 0.15;
+  const gR = grooveR(p);                     // 溝の半幅。geometry と共有 = 描く溝と刷る溝が一致
   const gs = grooveList(p, gR);              // 竹ひご溝の位置(mm)
   const oX = grooveOuterX(p, gs, gR);        // 溝ノッチ込みの外径(mm)
   const kR = komaR(p), Ri = innerRi(p);      // コマ外径 / 芯(爪の内端)
@@ -80,7 +80,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag }) {
   // 印刷される部品そのものの形。座標は (x=半径mm, y=高さmm)。
   const Ymm = (y) => Y0 - y * s;
   const poly2d = (pl) => "M " + pl.map(([px, py], i) => `${i ? "L " : ""}${X(px).toFixed(1)} ${Ymm(py).toFixed(1)}`).join(" ") + " Z";
-  let ribD = poly2d(ribOutline2D(p).pts);
+  let ribD = poly2d(ribOutline2D(p));
   for (const hole of lightenHoles2D(p).holes) ribD += " " + poly2d(hole); // evenodd で窓を抜く
 
   // ---- ハンドル(火袋の高さ / 上部半径 / 下部半径) ----
