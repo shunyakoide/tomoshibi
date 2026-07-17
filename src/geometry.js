@@ -14,25 +14,10 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 // ============ プロファイル(制御点スプライン) ============
-// シルエットは「制御点配列 pts + 上下半径 rTop/rBot」を Catmull-Rom型エルミート補間で
-// つないだ半径関数で決まる。図面上のハンドルを直接ドラッグして pts を編集する方式。
-// 首(くび=上下端の NECK mm)は rBot/rTop の一定半径で垂直。首には竹ひごを巻かない。
-export const NECK = 10; // 首の既定値(mm)。実値は p.neck(可変)。上下端に垂直な立ち上がり→その内側からカーブ
+// シルエットは「制御点配列 pts」を単調 Hermite 補間でつないだ半径関数で決まる。
+// 図面上の◇を直接ドラッグして pts を編集する方式。首(くび)は最外制御点より外側の
+// 垂直な長方形で、竹ひごは巻かない。
 
-// エルミート補間(Catmull-Rom接線)。P = 昇順の [{ t, r, sharp? }]、x∈[0,1] → r(mm)。
-// sharp な点は接線を区分直線の勾配に差し替えて「角」を作る(その点で折れる)。
-function splineR(P, x) {
-  if (P.length === 1) return P[0].r; // 制御点1つ = 単一の頂点(接線0扱い)
-  let i = 0;
-  while (i < P.length - 2 && x > P[i + 1].t) i++;
-  const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
-  const h = p2.t - p1.t, s = h > 1e-6 ? (x - p1.t) / h : 0;
-  const d02 = (p2.t - p0.t) || 1, d13 = (p3.t - p1.t) || 1;
-  const m1 = p1.sharp ? (p2.r - p1.r) : ((p2.r - p0.r) / d02) * h;
-  const m2 = p2.sharp ? (p2.r - p1.r) : ((p3.r - p1.r) / d13) * h;
-  const s2 = s * s, s3 = s2 * s;
-  return (2 * s3 - 3 * s2 + 1) * p1.r + (s3 - 2 * s2 + s) * m1 + (-2 * s3 + 3 * s2) * p2.r + (s3 - s2) * m2;
-}
 // 火袋スプライン: P=[{首下端,rBot}, …制御点…, {首上端,rTop}]。単調 Hermite(Fritsch–Carlson)で
 // 反り・急な折れを抑えた滑らかな曲線にする。各点の接線 dr/dt を隣接弦から求め、隣接弦と同符号・
 // 3倍以内にクランプ(overshoot と不要な急カーブを防ぐ)。端点は次点への弦。
@@ -112,7 +97,7 @@ export function cutTbot(p) { const pts = p.pts; return (pts && pts.length) ? pts
 export function cutTtop(p) { const pts = p.pts; return (pts && pts.length) ? 1 - pts[pts.length - 1].t : 0; }
 export function cutYbot(p) { return cutTbot(p) * (p.height || 1); }
 export function cutYtop(p) { return cutTtop(p) * (p.height || 1); }
-export function cutY(p) { return Math.max(cutYbot(p), cutYtop(p)); }
+function cutY(p) { return Math.max(cutYbot(p), cutYtop(p)); }
 export function cutT(p) { return cutY(p) / Math.max(1, p.height); }
 // コマ外径 = 爪を纏める小さなハブの半径。爪(内端Ri〜Ri+td)がコマの縁(外周)に来る。
 // Ri・tabDepth は上下対称なので、コマは上下で完全に同一(1種類のみ)。
@@ -196,6 +181,10 @@ export function grooveOuterX(p, grooves, gR) {
 }
 // 竹ひごの溝位置。火袋を「等間隔」に割り付けるが、首(開口)のすぐ際には溝を置かない。
 // 上下端に半ピッチのバッファ(=開口/首側のクリアランス)を持たせ、内側から等間隔に並べる。
+// 溝の半幅(mm)= 竹ひごの半径 + 逃がし。溝を作る側(ribOutline2D / ribEdges)と描く側
+// (SectionEditor)が必ず同じ値を使うよう、ここ1箇所に集約する(断面図と STL のズレ防止)。
+const GROOVE_CLEAR = 0.25;
+export function grooveR(p) { return p.higoD / 2 + GROOVE_CLEAR; }
 export function grooveList(p, gR) {
   const h = p.height, fr = fukuroRange(p), gM = gR * 1.6;
   const gLo = fr.lo * h + gM, gHi = fr.hi * h - gM, span = gHi - gLo;
@@ -272,15 +261,15 @@ export function ribInnerX(p) {
   };
 }
 
-// 羽根の外形点列 + 溝位置 + outerX関数を返す(2D描画 と 3D羽根geometry で共有)。
+// 羽根の外形点列を返す(2D断面描画 と 3D羽根geometry で共有 = 両者が必ず一致する)。
 // k = 羽根番号。現在は**全羽根が同一形状**(溝は水平なリング)なので k は形に影響しない。
 // 呼び出し側が羽根ごとに呼ぶため引数は残す(将来ずらす場合の識別子)。
 export function ribOutline2D(p, k = 0) {
-  const h = p.height, tl = p.tabLen, gR = p.higoD / 2 + 0.25;
+  const h = p.height, tl = p.tabLen, gR = grooveR(p);
   // 竹ひごの溝は火袋(最外制御点の間)全体に作る。カーブには必ず溝を入れ、上下端にも溝を置く。
   const grooves = grooveList(p, gR);
   const outerX = grooveOuterX(p, grooves, gR);
-  const Ri = innerRi(p), td = tabDepth(p), STEP = 0.5, pts = []; // 返しの急フランクを拾うため細かく
+  const Ri = innerRi(p), STEP = 0.5, pts = []; // 返しの急フランクを拾うため細かく
   // 爪 = 真っ直ぐな舌。先端をコマ外径 kR にちょうど合わせる(はみ出さない)。
   const kR = komaR(p);
   // 下端の爪: 真っ直ぐな長方形のまま(ストッパは上コマ側だけ)。
@@ -295,13 +284,13 @@ export function ribOutline2D(p, k = 0) {
   pts.push([Ri, h]);
   for (let y = h - STEP; y > 0; y -= STEP) pts.push([innerX(y), y]);
   pts.push([Ri, 0]);
-  return { pts, grooves, outerX, innerX, Ri, td, gR, stop };
+  return pts;
 }
 // 肉抜き窓(外縁の帯 bandW と 内縁の芯 spineW を残し、桟 strut で分割)。
 // 窓の外側境界は溝の凹凸を無視した「滑らかな外周(outerR)」基準にする(ぼこぼこ防止)。
 const Y_STAGGER = 0.13; // 窓のy端を外形サンプル格子(0.5mm)から外す量(mm)
 export function lightenHoles2D(p) {
-  const h = p.height, Ri = innerRi(p), td = tabDepth(p);
+  const h = p.height, td = tabDepth(p);
   const spineW = Math.max(9, td + 3), bandW = 11, strut = 8, MIN_MAT = 12;
   const oS = (y) => outerR(p, Math.min(Math.max(y, 0), h) / h); // 滑らかな外周
   // 窓の内側は内縁のバナナカーブに追従させる(芯 spineW を一定幅で残す) → 中央の窓も
@@ -362,16 +351,33 @@ function cleanPoly(pts, eps = 1e-3) {
   }
   return keep.length >= 3 ? keep : out;
 }
+// 点列(+穴の点列)から押し出し用の Shape を作る。外形・穴とも必ず cleanPoly を通す
+// (どちらか片方でも掃除を忘れると earcut がキャップを壊して open edge を出す)。
+function shapeFromPts(pts, holes = []) {
+  const outline = cleanPoly(pts);
+  const s = new THREE.Shape();
+  outline.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
+  s.closePath();
+  for (const hole of holes) {
+    const hp = cleanPoly(hole);
+    if (hp.length < 3) continue;
+    const path = new THREE.Path();
+    hp.forEach(([x, y], i) => (i ? path.lineTo(x, y) : path.moveTo(x, y)));
+    path.closePath();
+    s.holes.push(path);
+  }
+  return s;
+}
 
 // ============ 羽根板 ============
 // 羽根板の内外エッジ関数(通常/分割で共有)
 export function ribEdges(p, k) {
-  const { height, higoD } = p;
+  const { height } = p;
   const boardWidth = effBoardWidth(p); // 抜き取り可能な幅に制限
   const oB = outerR(p, 0), oT = outerR(p, 1);
-  const twB = tabDepth(p), twT = tabDepth(p); // 上下一律
-  const gR = higoD / 2 + 0.25;
-  // 溝は火袋全体。ribOutline2D と同じ規則(grooveList)で揃える。
+  const tw = tabDepth(p); // タブの奥行き(上下一律)
+  const gR = grooveR(p);
+  // 溝は火袋全体。ribOutline2D と同じ規則(grooveR/grooveList)で揃える。
   const grooves = grooveList(p, gR);
   const outerX = grooveOuterX(p, grooves, gR);
   // 内縁の下限。板幅に応じた下限で下端の尖り(トゲ)を防ぐ。ただしくびれ(細い中央)では
@@ -382,26 +388,11 @@ export function ribEdges(p, k) {
     const oR = outerR(p, y / height);
     return Math.min(Math.max(mInner, oR - boardWidth), oR - MIN_BAND);
   };
-  return { oB, oT, twB, twT, outerX, innerX };
+  return { oB, oT, tw, outerX, innerX };
 }
 // 3D羽根板 = 2D確定形状(内縁まっすぐ＋上下同位置の内側の爪＋外縁カーブ＋肉抜き)を押し出す。
 export function ribShape(p, k) {
-  const { pts } = ribOutline2D(p, k);
-  const clean = cleanPoly(pts);
-  const s = new THREE.Shape();
-  clean.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
-  s.closePath();
-  if (p.lighten) {
-    for (const hole of lightenHoles2D(p).holes) {
-      const hp = cleanPoly(hole); // 窓も外形と同じ掃除をする(共線点で earcut が壊れるため)
-      if (hp.length < 3) continue;
-      const path = new THREE.Path();
-      hp.forEach(([x, y], i) => (i ? path.lineTo(x, y) : path.moveTo(x, y)));
-      path.closePath();
-      s.holes.push(path);
-    }
-  }
-  return s;
+  return shapeFromPts(ribOutline2D(p, k), p.lighten ? lightenHoles2D(p).holes : []);
 }
 export const ribGeometry = (p, k) => {
   const g = new THREE.ExtrudeGeometry(ribShape(p, k), { depth: p.boardT, bevelEnabled: false });
@@ -415,30 +406,26 @@ export const ribGeometry = (p, k) => {
 const SPLICE_T = 3, SPLICE_HALF = 22, PIN_D = 3, PIN_FIT = 0.5;
 function ribBandShape(p, k, y0, y1, pins) {
   const { height, tabLen } = p;
-  const { oB, oT, twB, twT, outerX, innerX } = ribEdges(p, k);
+  const { oB, oT, tw, outerX, innerX } = ribEdges(p, k);
   const STEP = 0.4;
   const pts = [];
   pts.push([innerX(y0), y0]);
   if (y0 <= 0.001) { // 実際の下端: 底辺＋タブ
-    pts.push([oB - twB, 0], [oB - twB, -tabLen], [oB, -tabLen], [oB, 0]);
+    pts.push([oB - tw, 0], [oB - tw, -tabLen], [oB, -tabLen], [oB, 0]);
   } else {
     pts.push([outerX(y0), y0]); // 割り面で真っ直ぐ横断
   }
   for (let y = y0 + STEP; y < y1; y += STEP) pts.push([outerX(y), y]);
   if (y1 >= height - 0.001) { // 実際の上端: タブ
-    pts.push([oT, height], [oT, height + tabLen], [oT - twT, height + tabLen], [oT - twT, height], [innerX(height), height]);
+    pts.push([oT, height], [oT, height + tabLen], [oT - tw, height + tabLen], [oT - tw, height], [innerX(height), height]);
   } else {
     pts.push([outerX(y1), y1], [innerX(y1), y1]);
   }
   for (let y = y1 - STEP; y > y0; y -= STEP) pts.push([innerX(y), y]);
-  // 連続するほぼ重複点を除去。内縁が下限で一定になる区間とタブ端の接合で重複頂点が生じ、
-  // ExtrudeGeometry(earcut)が退化三角形→非多様体を出すため、押し出し前に掃除する。
-  const clean = [];
-  for (const q of pts) { const l = clean[clean.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 1e-3) clean.push(q); }
-  while (clean.length > 1 && Math.hypot(clean[0][0] - clean[clean.length - 1][0], clean[0][1] - clean[clean.length - 1][1]) <= 1e-3) clean.pop();
-  const s = new THREE.Shape();
-  clean.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
-  s.closePath();
+  // 外形は cleanPoly を通す(重複点・共線点の除去)。内縁が下限で一定になる区間とタブ端の
+  // 接合で重複頂点が、外縁の平坦部で共線点が出る。放置すると earcut が退化三角形を作り
+  // キャップと側壁の境界がズレて非多様体になる。スタッド穴は円弧なのでこの後で足す。
+  const s = shapeFromPts(pts);
   if (pins) for (const [hx, hy] of pins) { const h = new THREE.Path(); h.absarc(hx, hy, (PIN_D + PIN_FIT) / 2, 0, Math.PI * 2, true); s.holes.push(h); }
   return s;
 }

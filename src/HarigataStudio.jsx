@@ -31,6 +31,7 @@ import {
   standCollarTop, standSaddleH, standSlotSep,
 } from "./geometry.js";
 import { exportZip } from "./stl.js";
+import { clamp } from "./util.js";
 import SectionEditor from "./SectionEditor.jsx";
 import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
 
@@ -539,8 +540,6 @@ export default function HarigataStudio() {
   const chip = isLit
     ? { bg: "rgba(16,16,18,0.72)", edge: "rgba(255,255,255,0.08)", txt: "#8a8a96" }
     : { bg: "rgba(255,255,255,0.85)", edge: "rgba(59,52,43,0.08)", txt: "#8a7c66" };
-
-  const clamp = (lo, hi, v) => Math.max(lo, Math.min(hi, v));
 
   // 左右ドラッグで数値を微調整(スクラブ)。ドラッグ中は drag=key でハイライト。
   const startScrub = (e, cfg) => {
