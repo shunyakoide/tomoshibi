@@ -205,6 +205,31 @@ export function grooveList(p, gR) {
   for (let i = 0; i < n; i++) gs.push(gLo + step * (i + 0.5)); // 端に step/2 のバッファ
   return gs;
 }
+// コマのノッチ底の半径(= これより内側がコマの無垢部)。爪の内端 innerRi から 0.5 逃がす。
+// ノッチを切る komaShape と、その無垢部に掛ける出っ張りを作る komaStop2D が共有する。
+export function notchR(p) { return Math.max(1, innerRi(p) - 0.5); }
+
+// 【上コマの内側ストッパ】上のコマが火袋側(内側)へ入り込むのを止める、爪の内縁の出っ張り(棚)。
+// ・コマは作業後に「外側(爪先の側)」へ抜くので、棚はコマの内側だけに置き上下で挟まない
+//   → 乗り越え不要で抜き差しは自由なまま、内側へのズレだけが止まる。
+// ・棚の高さ yShelf = height + tabLen - komaT = コマを爪先まで嵌めた時の「コマ内面」の位置。
+//   standSlotSep = height + 2*tabLen - komaT が前提にしている位置と一致するので、
+//   これまで「先端まで押し込む」運用任せだった位置を形状で保証するだけ ⇒ 土台は動かない。
+// ・棚は notchR より内側へ張り出してコマ無垢部の下面を受ける。ただし張り出しすぎると隣の
+//   羽根板の出っ張り同士が中心付近で干渉するため、周方向クリアランスから最小半径を掛ける。
+// ・余地が無い(爪が短い / 多歯で中心が混む)場合は null = 従来どおり出っ張り無し。
+const KOMA_STOP_W = 3;     // 棚の張り出し目標(mm)
+const KOMA_STOP_MIN = 0.8; // 張り出しがこれ未満なら作らない
+export function komaStop2D(p) {
+  const yShelf = p.height + p.tabLen - p.komaT;
+  if (yShelf - p.height < 1) return null;                     // 爪が短く棚を置く余地がない
+  const nR = notchR(p);
+  const rMin = ((p.boardT + 1.0) * p.boards) / (2 * Math.PI); // 隣の羽根と干渉しない最小半径
+  const Rd = Math.max(rMin, nR - KOMA_STOP_W);
+  if (nR - Rd < KOMA_STOP_MIN) return null;                   // 張り出しが取れない
+  return { yShelf, Rd };
+}
+
 // 羽根の外形点列 + 溝位置 + outerX関数を返す(2D描画 と 3D羽根geometry で共有)。
 // k = 羽根番号(螺旋巻きで溝を k*pitch/boards ずらす)。
 export function ribOutline2D(p, k = 0) {
@@ -216,10 +241,15 @@ export function ribOutline2D(p, k = 0) {
   const Ri = innerRi(p), td = tabDepth(p), STEP = 0.5, pts = []; // 返しの急フランクを拾うため細かく
   // 爪 = 真っ直ぐな舌。先端をコマ外径 kR にちょうど合わせる(はみ出さない)。
   const kR = komaR(p);
+  // 下端の爪: 真っ直ぐな長方形のまま(ストッパは上コマ側だけ)。
   pts.push([Ri, 0], [Ri, -tl], [kR, -tl], [kR, 0], [outerR(p, 0), 0]);
   for (let y = STEP; y <= h; y += STEP) pts.push([outerX(Math.min(y, h)), Math.min(y, h)]);
-  pts.push([outerR(p, 1), h], [kR, h], [kR, h + tl], [Ri, h + tl], [Ri, h], [Ri, 0]);
-  return { pts, grooves, outerX, Ri, td, gR };
+  // 上端の爪: 先端(外側)からコマを差し込み、内縁の棚でコマ無垢部の下面を受けて内側へのズレを止める。
+  pts.push([outerR(p, 1), h], [kR, h], [kR, h + tl], [Ri, h + tl]);
+  const stop = komaStop2D(p);
+  if (stop) pts.push([Ri, stop.yShelf], [stop.Rd, stop.yShelf], [stop.Rd, h]); // 棚(出っ張り)
+  pts.push([Ri, h], [Ri, 0]);
+  return { pts, grooves, outerX, Ri, td, gR, stop };
 }
 // 肉抜き窓(外縁の帯 bandW と 内縁の芯 spineW を残し、桟 strut で分割)。
 // 窓の外側境界は溝の凹凸を無視した「滑らかな外周(outerR)」基準にする(ぼこぼこ防止)。
@@ -387,7 +417,7 @@ export function komaShape(p) {
   const sw = boardT + Math.max(0, p.fit ?? 0);
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
-  const notchR = Math.max(1, innerRi(p) - 0.5); // 爪の内端(Ri)まで届く深さ
+  const nR = notchR(p); // 爪の内端(Ri)まで届く深さ。komaStop2D と共有(出っ張りはこれより内側)。
   const shape = new THREE.Shape();
   shape.moveTo(R * Math.cos(eps), R * Math.sin(eps));
   for (let k = 0; k < boards; k++) {
@@ -398,8 +428,8 @@ export function komaShape(p) {
       shape.lineTo(R * Math.cos(a), R * Math.sin(a));
     }
     const dx = Math.cos(a1), dy = Math.sin(a1), nx = -dy, ny = dx;
-    shape.lineTo(notchR * dx - nx * sw / 2, notchR * dy - ny * sw / 2);
-    shape.lineTo(notchR * dx + nx * sw / 2, notchR * dy + ny * sw / 2);
+    shape.lineTo(nR * dx - nx * sw / 2, nR * dy - ny * sw / 2);
+    shape.lineTo(nR * dx + nx * sw / 2, nR * dy + ny * sw / 2);
     // ノッチ外側の戻り点は次の歯の起点。最後の板の分は開始点(moveTo)と厳密に一致
     // するため省略し、closePath に任せる(重複点による退化三角形を防ぐ)。
     if (k < boards - 1) shape.lineTo(rOut * dx + nx * sw / 2, rOut * dy + ny * sw / 2);
