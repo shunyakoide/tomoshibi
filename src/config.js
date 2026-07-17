@@ -18,22 +18,21 @@ export const PRESETS = [
   { key: "barrel", name: "たる", rTop: 52, rBot: 56, pts: [{ t: 0.05, r: 56 }, { t: 0.14, r: 82, sharp: true }, { t: 0.86, r: 78, sharp: true }, { t: 0.95, r: 52 }] },
 ];
 
-// 初期状態。シルエットは H(火袋の高さ)/ rTop / rBot / pts。首(NECK)は geometry.js で10mm固定。
-// 爪(claw=tabR15 / clawLen=tabLen10)・肉抜き(lighten)・公差(fit=tol0.3)は
-// 既定値のまま(UIには出さず内部で使用)。
+// 初期状態。シルエットは height(火袋の高さ)と pts(制御点)で決まる。首の有無は
+// neckBot/neckTop、高さ・張り出しは最外制御点◇の位置。爪(tabR/tabLen)・肉抜き
+// (lighten)・公差(fit)は既定値のまま(UIには出さず内部で使用)。
+// rTop/rBot は pts が空の時のフォールバック用(通常経路では読まれない)。
 export const DEFAULTS = {
   shape: "egg", height: 205, rTop: 19, rBot: 74,
   pts: [{ t: 0.05, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.95, r: 19 }],
   neckBot: true, neckTop: true, // 首(垂直な長方形)の有無を上下独立に選択(最外制御点より外側)。
-  neck: 10,                     // 旧: 首高さ。現在は◇(最外制御点)の縦位置で決まる(未使用・互換用に残置)。
   boards: 8, boardWidth: 35, boardT: 2, higoD: 2, pitch: 9, // 竹ひごの間隔(大きいほど本数少)
   fit: 0.3, tabLen: 10, tabW: 10, komaT: 8,
   tabR: 15, lighten: true,
 };
 
 // シルエットのスクラブ行(左右ドラッグで微調整)。値域と感度。
+// 半径系は断面図の◇(制御点)を直接ドラッグする方式なのでここには持たない。
 export const SIL_ROWS = [
   { key: "height", label: "火袋の高さ", min: 140, max: 400, sens: 0.5, round: 1, unit: "mm" },
-  { key: "rTop", label: "上部半径", min: 12, max: 80, sens: 0.5, round: 1, unit: "mm" },
-  { key: "rBot", label: "下部半径", min: 12, max: 80, sens: 0.5, round: 1, unit: "mm" },
 ];
