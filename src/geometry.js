@@ -146,14 +146,17 @@ export function innerRi(p) {
 //   倍(上限2.2)して、傾いた面でも竹ひごが嵌まる実効深さを確保する。
 export function grooveOuterX(p, grooves, gR) {
   const h = p.height, mid = h / 2;
-  const DEEP = 1.7; // 溝を深く=フランクを急に=鋭い歯。竹ひごがしっかり噛む。
-  // 各溝: 深さ + 非対称(返し)。急斜面ほど「中央(赤道)側フランクを緩く・開口側を急に」して
-  // 歯先を中央へ倒す(爪のような返し)→ 開口へ滑ろうとする竹ひごを両側から引っかける。緩斜面は対称。
+  const DEEP = 2.1; // 溝を深く=フランクを急に=鋭い爪状の歯。竹ひごが深く沈んで噛む(大きめの溝)。
+  // 各溝: 深さ + 非対称(返し)。「中央(赤道)側フランクを緩く・開口側を急に」して歯先を中央へ
+  // 倒す(爪のような返し)→ 開口へ滑ろうとする竹ひごを引っかける。急斜面ほど強い返し。ただし
+  // 円筒/たる等の低傾斜でも最低限の返し(floor)を必ず残す(=傾斜ゼロで返しが消えるのを防ぐ)。
   const info = grooves.map((g) => {
     const sl = (outerR(p, Math.min(1, (g + 0.6) / h)) - outerR(p, Math.max(0, (g - 0.6) / h))) / 1.2; // dR/dy
-    // 深さは竹ひご径ぶんで頭打ち(掘りすぎて反転・自己交差するのを防ぐ)。
-    const depth = Math.min(p.higoD * 1.2, gR * DEEP * Math.min(2.0, Math.hypot(1, sl)));
-    const skew = Math.min(0.5, Math.abs(sl) * 0.3); // 急斜面ほど非対称(0=対称)
+    // 深さは竹ひご径の 1.5 倍で頭打ち(大きめだが掘りすぎの反転・自己交差は下の分割帯 MIN_BAND=6 と
+    // manifold スイープで担保)。急斜面は実効深さ確保のため 1/cosθ 倍(上限2.2)。
+    const depth = Math.min(p.higoD * 1.5, gR * DEEP * Math.min(2.2, Math.hypot(1, sl)));
+    // 返し = floor 0.24(平坦でも必ず引っ掛かる)+ 傾斜比例。上限 0.62(開口側フランクをほぼ壁に)。
+    const skew = Math.min(0.62, 0.24 + Math.abs(sl) * 0.32);
     const centerDir = g < mid ? 1 : -1;             // 中央(赤道)の向き(y方向)
     return { g, depth, skew, centerDir };
   });
@@ -183,7 +186,7 @@ export function grooveList(p, gR) {
 // 羽根の外形点列 + 溝位置 + outerX関数を返す(2D描画 と 3D羽根geometry で共有)。
 // k = 羽根番号(螺旋巻きで溝を k*pitch/boards ずらす)。
 export function ribOutline2D(p, k = 0) {
-  const h = p.height, tl = p.tabLen, gR = p.higoD / 2 + 0.15;
+  const h = p.height, tl = p.tabLen, gR = p.higoD / 2 + 0.25;
   const off = p.spiral ? (k * p.pitch) / p.boards : 0;
   // 竹ひごの溝は火袋(最外制御点の間)全体に作る。カーブには必ず溝を入れ、上下端にも溝を置く。
   const grooves = grooveList(p, gR, off);
@@ -234,7 +237,7 @@ export function ribEdges(p, k) {
   const boardWidth = effBoardWidth(p); // 抜き取り可能な幅に制限
   const oB = outerR(p, 0), oT = outerR(p, 1);
   const twB = tabDepth(p), twT = tabDepth(p); // 上下一律
-  const gR = higoD / 2 + 0.15;
+  const gR = higoD / 2 + 0.25;
   const off = spiral ? (k * pitch) / boards : 0;
   // 溝は火袋全体。ribOutline2D と同じ規則(grooveList)で揃える。
   const grooves = grooveList(p, gR, off);
@@ -357,7 +360,9 @@ export function ribSplitParts(p, k) {
 export function komaShape(p) {
   const { boards, boardT } = p;
   const R = komaR(p);
-  const sw = boardT; // ノッチ幅 = 爪(板)厚と同じ(隙間なし)
+  // ノッチ幅 = 板厚 + プリント公差 fit。爪自体は boardT のまま(公称は「爪幅=ノッチ幅=板厚」で
+  // 一致、fit は実寸のはめあいクリアランスだけを空ける)。fit=0 なら従来どおり隙間なし。
+  const sw = boardT + Math.max(0, p.fit ?? 0);
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
   const notchR = Math.max(1, innerRi(p) - 0.5); // 爪の内端(Ri)まで届く深さ
