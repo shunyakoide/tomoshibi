@@ -90,7 +90,9 @@ Vite 7 + React 18 + three.js 0.169(いずれも素の JS/JSX、TypeScript なし
 型は **羽根板 × N + コマ × 2 + 土台**。再印刷時に「前のコマ・土台と合うか」はこの値で決まる:
 
 - **羽根板の爪 ↔ コマ**: 板厚 `boardT`(=ノッチ幅)/ `innerRi`(ノッチ内端)/ `boards`(歯数)。この3つが同じなら爪は同じ深さで刺さる。`komaR`(コマ外径)はコマの外への張り出しを決めるだけで噛み合いには影響しない。
+  - **実装**: この噛み合いは `innerRi()`(`src/geometry.js`)**1関数に集約**される。爪を作る `ribOutline2D()` とノッチを切る `komaShape()` が**同じ `innerRi()` を呼ぶ**ため、爪の深さとノッチ幅が必ず一致する。この不変量を壊せる箇所は `innerRi()` 一点だけ。触る前に両者への波及を確認する。
 - **コマ ↔ 土台**: `komaR`(サドル受け半径 = `komaR + SADDLE_FIT`)/ `komaT`(コマ厚 = 柱厚)/ `standSlotSep(p) = height + 2*tabLen - komaT`(柱間隔)/ `maxRadius(p)`(柱高さ=床クリア)。
+  - **実装**: `komaR()`(コマ側)を `standGeometry()`(土台側)が呼ぶ**この1本のクロス辺がコマ↔土台の橋**。柱高さは `standSaddleH() → maxRadius() → outerR()` と辿れ、**プロファイルの核 `outerR()` に依存**する ⇒ プロファイルを変えると土台寸法まで自動で動く(下の注意点の実体)。
 - `komaR`/`tabDepth`/`innerRi` は小さい方の開口(`openMin`)基準。**開口半径を変えるとコマの大きさが変わる**点に注意。
 
 ## STL の水密性(必須の検証)
