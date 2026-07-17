@@ -118,8 +118,9 @@ export function cutT(p) { return cutY(p) / Math.max(1, p.height); }
 // Ri・tabDepth は上下対称なので、コマは上下で完全に同一(1種類のみ)。
 export function komaR(p) {
   // コマ外径(=爪の大きさ)は制御点の小さい方の半径(openMin)を基準に決める(首の有無に
-  // 依存しない)。首なしのときはこの kR が開口になる。
-  return Math.min(innerRi(p) + tabDepth(p) + 3, openMin(p));
+  // 依存しない)。首なしのときはこの kR が開口になる。基準は「従来の内端 nominalRi」なので、
+  // 爪先を中心側へ深めても(innerRi を下げても)komaR=土台寸法は動かない。
+  return Math.min(nominalRi(p) + tabDepth(p) + 3, openMin(p));
 }
 // タブ(羽根の差し込み部)の半径方向の奥行き = コマのノッチ深さ。制御点基準で首に依存しない。
 export function tabDepth(p) {
@@ -131,13 +132,34 @@ export function effBoardWidth(p) {
 }
 
 // ============ 2D断面(確定形状) ============
-// 内縁をまっすぐな芯(半径 Ri = tabR)にし、その内側に上下同じ位置で爪。外縁は本体カーブ＋首。
+// 内縁をまっすぐな芯(半径 Ri)にし、その内側に上下同じ位置で爪。外縁は本体カーブ＋首。
 // 中央は肉抜き(外縁の帯=溝を保持 と 内縁の芯=爪を支える を残す)。羽根の断面ビューで使う。
-export function innerRi(p) {
+//
+// 従来基準の爪内端(= コマ外径 komaR の算出基準)。自己交差ガード込み。制御点基準=首に依存しない。
+// 実際の爪先/ノッチ底は innerRi でこれより中心側へ深める(が komaR はこの nominalRi 基準で不動)。
+function nominalRi(p) {
   const td = tabDepth(p);
   // 芯(Ri)は火袋の最小外径内に収める(自己交差防止)。制御点基準=首の有無に依存しない。
   const lim = Math.min(openMin(p) - td - 2, bodyMinR(p) - 3);
   return Math.max(6, Math.min(p.tabR ?? 15, lim));
+}
+// 爪内端を中心側へ深める量(mm)。爪先/ノッチ底を長くして握りを増やす(まっすぐの舌のまま)。
+const TAB_DEEPEN = 5;
+// 深める際の中心側リミット。コマの隣り合う爪ノッチの間に最低壁厚 MIN_WALL を残す(歯数が多い・
+// 小コマで深くしすぎると壁が薄くなり非多様体化するため)。ノッチ底半径 notchR=Ri-0.5 で評価:
+//   notchR*(2π/boards) - notchW ≥ MIN_WALL  →  notchR ≥ (MIN_WALL+notchW)*boards/2π。
+function ribCoreFloor(p) {
+  const notchW = p.boardT + Math.max(0, p.fit ?? 0); // ノッチ幅(=爪厚+公差)
+  const MIN_WALL = 1.6;
+  const rNotchMin = (MIN_WALL + notchW) * p.boards / (2 * Math.PI);
+  return Math.max(6, rNotchMin + 0.5);
+}
+// 実際の爪先/ノッチ底。従来基準 nominalRi より TAB_DEEPEN だけ中心側へ深く(下限=ribCoreFloor)。
+// ribOutline2D(爪)と komaShape(ノッチ底)が同じこの値を呼ぶので噛み合いは常に一致(不変量の集約点)。
+// 上限は nominalRi(浅くはしない)。歯数が多くて floor>nominalRi の場合は深めず従来どおり。
+export function innerRi(p) {
+  const nom = nominalRi(p);
+  return Math.min(nom, Math.max(ribCoreFloor(p), nom - TAB_DEEPEN));
 }
 // 竹ひご溝を外縁に彫った outerX 関数を返す(通常/分割/2D で共有)。
 // ・基準は「溝中心の外径」ではなく各 y の局所外径。→ 斜面でも溝が片側だけに寄らず
