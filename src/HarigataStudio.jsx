@@ -835,7 +835,6 @@ export default function HarigataStudio() {
                 onChange: (v) => setP((o) => ({ ...o, higoD: v })) })}
               {scrubRow({ key: "pitch", label: "ひごピッチ", value: p.pitch, min: 8, max: 30, sens: 0.3, round: 1, unit: "mm",
                 onChange: (v) => setP((o) => ({ ...o, pitch: v })) })}
-              {checkbox(p.spiral, () => setP((o) => ({ ...o, spiral: !o.spiral })), "螺旋巻き用に溝をずらす")}
             </div>
           )}
         </div>

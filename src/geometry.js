@@ -273,12 +273,12 @@ export function ribInnerX(p) {
 }
 
 // 羽根の外形点列 + 溝位置 + outerX関数を返す(2D描画 と 3D羽根geometry で共有)。
-// k = 羽根番号(螺旋巻きで溝を k*pitch/boards ずらす)。
+// k = 羽根番号。現在は**全羽根が同一形状**(溝は水平なリング)なので k は形に影響しない。
+// 呼び出し側が羽根ごとに呼ぶため引数は残す(将来ずらす場合の識別子)。
 export function ribOutline2D(p, k = 0) {
   const h = p.height, tl = p.tabLen, gR = p.higoD / 2 + 0.25;
-  const off = p.spiral ? (k * p.pitch) / p.boards : 0;
   // 竹ひごの溝は火袋(最外制御点の間)全体に作る。カーブには必ず溝を入れ、上下端にも溝を置く。
-  const grooves = grooveList(p, gR, off);
+  const grooves = grooveList(p, gR);
   const outerX = grooveOuterX(p, grooves, gR);
   const Ri = innerRi(p), td = tabDepth(p), STEP = 0.5, pts = []; // 返しの急フランクを拾うため細かく
   // 爪 = 真っ直ぐな舌。先端をコマ外径 kR にちょうど合わせる(はみ出さない)。
@@ -366,14 +366,13 @@ function cleanPoly(pts, eps = 1e-3) {
 // ============ 羽根板 ============
 // 羽根板の内外エッジ関数(通常/分割で共有)
 export function ribEdges(p, k) {
-  const { height, higoD, pitch, spiral, boards } = p;
+  const { height, higoD } = p;
   const boardWidth = effBoardWidth(p); // 抜き取り可能な幅に制限
   const oB = outerR(p, 0), oT = outerR(p, 1);
   const twB = tabDepth(p), twT = tabDepth(p); // 上下一律
   const gR = higoD / 2 + 0.25;
-  const off = spiral ? (k * pitch) / boards : 0;
   // 溝は火袋全体。ribOutline2D と同じ規則(grooveList)で揃える。
-  const grooves = grooveList(p, gR, off);
+  const grooves = grooveList(p, gR);
   const outerX = grooveOuterX(p, grooves, gR);
   // 内縁の下限。板幅に応じた下限で下端の尖り(トゲ)を防ぐ。ただしくびれ(細い中央)では
   // 下限が外縁を上回り帯が反転(自己交差)し得るため、外縁から最低 MIN_BAND を必ず残すよう

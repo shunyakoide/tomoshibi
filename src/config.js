@@ -27,7 +27,7 @@ export const DEFAULTS = {
   neckBot: true, neckTop: true, // 首(垂直な長方形)の有無を上下独立に選択(最外制御点より外側)。
   neck: 10,                     // 旧: 首高さ。現在は◇(最外制御点)の縦位置で決まる(未使用・互換用に残置)。
   boards: 8, boardWidth: 35, boardT: 2, higoD: 2, pitch: 9, // 竹ひごの間隔(大きいほど本数少)
-  fit: 0.3, spiral: true, tabLen: 10, tabW: 10, komaT: 8,
+  fit: 0.3, tabLen: 10, tabW: 10, komaT: 8,
   tabR: 15, lighten: true,
 };
 
