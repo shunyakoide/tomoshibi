@@ -15,7 +15,6 @@
 export const PRESETS = [
   { key: "egg", name: "たまご", rTop: 19, rBot: 74, pts: [{ t: 0.05, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.95, r: 19 }] },
   { key: "sphere", name: "球", rTop: 26, rBot: 28, pts: [{ t: 0.05, r: 28 }, { t: 0.5, r: 90 }, { t: 0.95, r: 26 }] },
-  { key: "gourd", name: "ひょうたん", rTop: 28, rBot: 30, pts: [{ t: 0.05, r: 30 }, { t: 0.28, r: 88 }, { t: 0.55, r: 48 }, { t: 0.8, r: 72 }, { t: 0.95, r: 28 }] },
   { key: "barrel", name: "たる", rTop: 52, rBot: 56, pts: [{ t: 0.05, r: 56 }, { t: 0.14, r: 82, sharp: true }, { t: 0.86, r: 78, sharp: true }, { t: 0.95, r: 52 }] },
 ];
 
