@@ -230,6 +230,48 @@ export function komaStop2D(p) {
   return { yShelf, Rd };
 }
 
+// 【羽根板の内縁カーブ = バナナ(三日月)形】乾燥後に開口から羽根板を抜きやすくするため、
+// 内縁も外縁に沿って湾曲させ中央をくびれさせる。外縁(=火袋の面)は一切変えないので、
+// 型の形状・爪・コマ・土台には波及しない(内側の材料が減るだけ)。
+//
+// 定義: 内縁は基本「真っ直ぐな芯 Ri」のまま。**中央付近だけ**内向きのカーブを足して
+// くびれさせる(羽根全体を曲げると端が無理な形になるため、局所に留める)。
+//   ・カーブは t∈[tC-HW, tC+HW] の内側だけ。その外では bump=0 ⇒ 内縁は厳密に Ri のまま
+//     ⇒ 端の形・爪(コマ)との繋がりは一切変わらない。
+//   ・bump=(1-u²)² は端で値も傾きも 0 ⇒ 真っ直ぐな芯へ滑らかに繋がる(角が出ない)。
+//   ・振幅 A は「中央での羽根の深さ(外縁−芯)× RIB_CURVE_D」。実物の型(参考写真)では
+//     えぐりはその位置の深さの2割ほどで、限界まで削ってはいない。深さ比で決めることで
+//     プロファイルが変わっても同じ見た目の比率になる。
+//   ・最後に「帯幅 W を割らない上限」でクランプ ⇒ 内縁が外縁を越えない(自己交差しない)
+//     ことが保証され、くびれた形(gourd)では自動的に控えめになる。
+const RIB_MIN_BAND = 12;  // 帯の最低肉厚(mm)。溝の深さ(最大 higoD*1.5)を引いても残る。
+const RIB_CURVE_C = 0.5;  // カーブの中心(t)= 羽根の中央
+const RIB_CURVE_HW = 0.3; // カーブの半幅(t)。中央60%だけに入り、上下20%ずつは芯のまま。
+const RIB_CURVE_D = 0.3;  // えぐり量 = 中央の羽根の深さ × これ(実物の型は約2割。抜きやすさ優先で少し深め)
+export function ribInnerX(p) {
+  const h = p.height, Ri = innerRi(p);
+  const W = Math.max(RIB_MIN_BAND, effBoardWidth(p)); // 残したい帯幅
+  const bump = (t) => {
+    const u = (t - RIB_CURVE_C) / RIB_CURVE_HW;
+    if (Math.abs(u) >= 1) return 0;
+    const v = 1 - u * u;
+    return v * v; // 端で値・傾きとも0 → 芯へ滑らかに接続
+  };
+  // 振幅 = 中央の深さの一定割合(実物基準)。
+  let A = Math.max(0, (outerR(p, RIB_CURVE_C) - Ri) * RIB_CURVE_D);
+  // 帯幅 W を割らない上限でクランプ(くびれた形では自動的に浅くなる)。
+  for (let i = 0; i <= 200; i++) {
+    const t = i / 200, b = bump(t);
+    if (b < 1e-3) continue;
+    A = Math.min(A, (outerR(p, t) - W - Ri) / b);
+  }
+  A = Math.max(0, A);
+  return (y) => {
+    const t = Math.min(1, Math.max(0, y / h));
+    return Math.max(Ri, Math.min(Ri + A * bump(t), outerR(p, t) - RIB_MIN_BAND));
+  };
+}
+
 // 羽根の外形点列 + 溝位置 + outerX関数を返す(2D描画 と 3D羽根geometry で共有)。
 // k = 羽根番号(螺旋巻きで溝を k*pitch/boards ずらす)。
 export function ribOutline2D(p, k = 0) {
@@ -248,22 +290,30 @@ export function ribOutline2D(p, k = 0) {
   pts.push([outerR(p, 1), h], [kR, h], [kR, h + tl], [Ri, h + tl]);
   const stop = komaStop2D(p);
   if (stop) pts.push([Ri, stop.yShelf], [stop.Rd, stop.yShelf], [stop.Rd, h]); // 棚(出っ張り)
-  pts.push([Ri, h], [Ri, 0]);
-  return { pts, grooves, outerX, Ri, td, gR, stop };
+  // 内縁: バナナ(三日月)カーブを上から下へ。両端は Ri に戻るので爪と繋がる。
+  const innerX = ribInnerX(p);
+  pts.push([Ri, h]);
+  for (let y = h - STEP; y > 0; y -= STEP) pts.push([innerX(y), y]);
+  pts.push([Ri, 0]);
+  return { pts, grooves, outerX, innerX, Ri, td, gR, stop };
 }
 // 肉抜き窓(外縁の帯 bandW と 内縁の芯 spineW を残し、桟 strut で分割)。
 // 窓の外側境界は溝の凹凸を無視した「滑らかな外周(outerR)」基準にする(ぼこぼこ防止)。
+const Y_STAGGER = 0.13; // 窓のy端を外形サンプル格子(0.5mm)から外す量(mm)
 export function lightenHoles2D(p) {
   const h = p.height, Ri = innerRi(p), td = tabDepth(p);
   const spineW = Math.max(9, td + 3), bandW = 11, strut = 8, MIN_MAT = 12;
   const oS = (y) => outerR(p, Math.min(Math.max(y, 0), h) / h); // 滑らかな外周
-  const xi = Ri + spineW;
+  // 窓の内側は内縁のバナナカーブに追従させる(芯 spineW を一定幅で残す) → 中央の窓も
+  // えぐりに沿った形になる。共線点は cleanPoly で間引かれるので earcut は壊れない。
+  const rIn = ribInnerX(p);
+  const xi = (y) => rIn(Math.min(Math.max(y, 0), h)) + spineW;
   // 下端: 首の急な立ち上がり(フレア)を無垢で残し補強 → 折れやすい細い桟を作らない。
   // 上端: 細く尖るので少しだけ余白。窓は「落とす」のではなく肉の残る範囲まで縮めて作る
   //       (細る上端でも小さな窓を出して肉抜きの効きを均す)。
   const yBot = cutYbot(p) + 14, yTop = h - cutYtop(p) - 6;
   const nWin = Math.max(1, Math.round((yTop - yBot) / 46)), winH = (yTop - yBot) / nWin, holes = [];
-  const thin = (y) => oS(y) - bandW - xi < MIN_MAT;
+  const thin = (y) => oS(y) - bandW - xi(y) < MIN_MAT;
   for (let i = 0; i < nWin; i++) {
     let y0 = yBot + i * winH + strut / 2, y1 = yBot + (i + 1) * winH - strut / 2;
     // 肉が薄い端(細る上端など)は窓端をその手前まで詰める(全滅させず縮める)。
@@ -274,12 +324,43 @@ export function lightenHoles2D(p) {
     let ok = true;
     for (let y = y0; y <= y1; y += 2) if (thin(y)) { ok = false; break; }
     if (!ok) continue;
-    const poly = [[xi, y0]];
-    for (let y = y0; y <= y1; y += 2) poly.push([oS(y) - bandW, y]);
-    poly.push([xi, y1]);
+    // 窓のy端を外形のサンプル格子(STEP=0.5mm刻み)から僅かにずらす。厳密に同じ走査線に
+    // 乗ると、窓の角と外形の頂点が共線になり earcut がゼロ面積の三角形を作って open edge に
+    // なる(boardGeometry の STAGGER と同じ既知の退化。ずれは肉抜きの効きに影響しない)。
+    const ya = y0 + Y_STAGGER, yb = y1 - Y_STAGGER;
+    if (yb - ya < 10) continue;
+    // 外側(帯の内)を上へ辿り、内側(芯の外=バナナカーブ)を下へ戻る閉ループ。
+    // 両辺を同じ分割数で刻み、端を厳密に一致させる(角で半端な点を出さない)。
+    const ns = Math.max(2, Math.ceil((yb - ya) / 2));
+    const poly = [];
+    for (let i = 0; i <= ns; i++) { const y = ya + ((yb - ya) * i) / ns; poly.push([oS(y) - bandW, y]); }
+    for (let i = ns; i >= 0; i--) { const y = ya + ((yb - ya) * i) / ns; poly.push([xi(y), y]); }
     holes.push(poly);
   }
   return { holes, spineW, bandW };
+}
+
+// 押し出し前の点列クリーンアップ(外形・窓の両方で使う)。
+// ・近接重複点を除去: 返し(急フランク)や首の合流で出る。放置すると退化三角形→open edge。
+// ・共線点を除去: これが無いと、内縁カーブの平坦区間などで「同じ直線上の点」が数百個並ぶ。
+//   earcut は共線点を落として三角形分割するため、キャップの境界が側壁の境界とズレて
+//   open edge になる(側壁は点列どおりに作られるのに、キャップは点を捨てるため)。
+//   判定は「前後の点を結ぶ直線からの垂直距離」で行う(長さに依らず安定)。
+function cleanPoly(pts, eps = 1e-3) {
+  const out = [];
+  for (const q of pts) { const l = out[out.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > eps) out.push(q); }
+  while (out.length > 1 && Math.hypot(out[0][0] - out[out.length - 1][0], out[0][1] - out[out.length - 1][1]) <= eps) out.pop();
+  if (out.length < 4) return out;
+  const keep = [];
+  for (let i = 0; i < out.length; i++) {
+    const a = out[(i - 1 + out.length) % out.length], b = out[i], c = out[(i + 1) % out.length];
+    const dx = c[0] - a[0], dy = c[1] - a[1], len = Math.hypot(dx, dy);
+    // a-c が潰れている場合は b を残す(判定不能)
+    if (len < eps) { keep.push(b); continue; }
+    const dist = Math.abs(dx * (a[1] - b[1]) - dy * (a[0] - b[0])) / len; // b から直線 a-c への距離
+    if (dist > eps) keep.push(b);
+  }
+  return keep.length >= 3 ? keep : out;
 }
 
 // ============ 羽根板 ============
@@ -307,18 +388,16 @@ export function ribEdges(p, k) {
 // 3D羽根板 = 2D確定形状(内縁まっすぐ＋上下同位置の内側の爪＋外縁カーブ＋肉抜き)を押し出す。
 export function ribShape(p, k) {
   const { pts } = ribOutline2D(p, k);
-  // 返し(非対称の急フランク)や首の合流で近接重複点が出ると earcut が退化三角形→open edge を
-  // 出すため、押し出し前に連続するほぼ重複点を掃除する(分割部品と同じ処理)。
-  const clean = [];
-  for (const q of pts) { const l = clean[clean.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 1e-3) clean.push(q); }
-  while (clean.length > 1 && Math.hypot(clean[0][0] - clean[clean.length - 1][0], clean[0][1] - clean[clean.length - 1][1]) <= 1e-3) clean.pop();
+  const clean = cleanPoly(pts);
   const s = new THREE.Shape();
   clean.forEach(([x, y], i) => (i ? s.lineTo(x, y) : s.moveTo(x, y)));
   s.closePath();
   if (p.lighten) {
     for (const hole of lightenHoles2D(p).holes) {
+      const hp = cleanPoly(hole); // 窓も外形と同じ掃除をする(共線点で earcut が壊れるため)
+      if (hp.length < 3) continue;
       const path = new THREE.Path();
-      hole.forEach(([x, y], i) => (i ? path.lineTo(x, y) : path.moveTo(x, y)));
+      hp.forEach(([x, y], i) => (i ? path.lineTo(x, y) : path.moveTo(x, y)));
       path.closePath();
       s.holes.push(path);
     }
