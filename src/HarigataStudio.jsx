@@ -116,6 +116,9 @@ export default function HarigataStudio() {
     bumpHist((n) => n + 1);
   };
   const redo = () => {
+    clearTimeout(commitTimer.current);
+    commitNow(p);                  // 未確定の編集をまず確定(undo と対称)。新編集後は redo 先が
+                                   // 破棄され no-op になる = 標準的な undo/redo 挙動。取りこぼさない。
     if (hIdx.current >= hist.current.length - 1) return;
     hIdx.current++;
     restoring.current = true;
