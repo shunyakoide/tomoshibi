@@ -80,7 +80,9 @@ function makeZip(files) { // files: [{ name, bytes: Uint8Array }]
   for (const c of chunks) { out.set(c, pos); pos += c.length; }
   return out;
 }
-export function exportZip(parts, filename) { // parts: [{ name, geos }]
+// parts: [{ name, geos }] を STL 化して ZIP に。extraFiles: [{ name, bytes }] は STL 以外
+// (設定 JSON 等)をそのまま同梱する任意の追加ファイル(省略可・後方互換)。
+export function exportZip(parts, filename, extraFiles = []) {
   const files = parts.map((pt) => ({ name: pt.name, bytes: new Uint8Array(buildSTL(pt.geos)) }));
-  triggerDownload(new Blob([makeZip(files)], { type: "application/zip" }), filename);
+  triggerDownload(new Blob([makeZip([...files, ...extraFiles])], { type: "application/zip" }), filename);
 }

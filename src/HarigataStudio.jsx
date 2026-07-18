@@ -32,7 +32,7 @@ import {
 } from "./geometry.js";
 import { exportZip } from "./stl.js";
 import { clamp } from "./util.js";
-import { loadSaved, saveState, STORAGE_KEY } from "./persist.js";
+import { loadSaved, saveState, STORAGE_KEY, SCHEMA_VERSION } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
 import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
 
@@ -540,12 +540,15 @@ export default function HarigataStudio() {
     }
     // コマ・柱は上下同一なので各1つだけ書き出す(印刷時に2つ複製して使う)。
     const board = boardGeometry(p);
+    // 設定 JSON を同梱: 刷った kit の ZIP 自体が設計のバックアップになる(localStorage が
+    // 消えても復元の元になる)。persist.js と同じスキーマなので将来の JSON 読込でそのまま使える。
+    const cfg = JSON.stringify({ schemaVersion: SCHEMA_VERSION, p, bedW, bedD }, null, 2);
     exportZip([
       { name: `harigata_ribs_x${nRibs}.stl`, geos: ribs },
       { name: "harigata_koma_print2.stl", geos: [komaGeometry(p)] },
       { name: "harigata_stand_column_print2.stl", geos: [standGeometry(p)] },
       { name: "harigata_stand_base.stl", geos: [board] },
-    ], "harigata_kit.zip");
+    ], "harigata_kit.zip", [{ name: "harigata_config.json", bytes: new TextEncoder().encode(cfg) }]);
   };
 
   const maxDia = Math.round(maxRadius(p) * 2);
@@ -956,6 +959,7 @@ export default function HarigataStudio() {
             }}>STL 書き出し</button>
             <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
               コマ・柱は上下同一のため各1つ入っています。スライサーで<strong style={{ color: UI.text }}>2つに複製</strong>して印刷してください。
+              設定は <span style={{ fontFamily: mono }}>harigata_config.json</span> として同梱されます(バックアップ用)。
             </div>
           </>
         ) : (
