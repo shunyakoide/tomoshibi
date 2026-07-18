@@ -61,19 +61,24 @@ function checkParts(p) {
 const heights = [140, 205, 300, 400];
 const higos = [1.5, 2, 3];
 const pitches = [6, 9, 14];
-const boardTs = [1.5, 2, 3];
+const boardTs = [1.5, 2, 3, 4]; // UI の板厚上限は 4mm。全域を覆う。
 const fits = [0, 0.3, 0.5];
 const boardsArr = [6, 8, 12, 16];
 
-let fail = 0, total = 0, stopOn = 0, stopOff = 0;
+let fail = 0, total = 0, stopOn = 0, stopOff = 0, clamped = 0;
 for (const preset of PRESETS)
   for (const height of heights)
     for (const higoD of higos)
       for (const pitch of pitches)
         for (const boardT of boardTs)
           for (const fit of fits)
-            for (const boards of boardsArr) {
-              const p = { ...DEFAULTS, ...preset, height, higoD, pitch, boardT, fit, boards };
+            for (const reqBoards of boardsArr) {
+              // UI と同じく枚数をコマに挿さる上限へ clamp する(開口が小さい×厚板×多枚数で
+              // ノッチが重なり非水密になる組は UI 側で作れない ⇒ 検証も同じ制約下で見る)。
+              const base = { ...DEFAULTS, ...preset, height, higoD, pitch, boardT, fit, boards: reqBoards };
+              const boards = Math.min(reqBoards, G.maxBoards(base));
+              if (boards < reqBoards) clamped++;
+              const p = { ...base, boards };
               if (G.komaStop2D(p)) stopOn++; else stopOff++;
               for (const r of checkParts(p)) {
                 total++;
@@ -86,4 +91,5 @@ for (const preset of PRESETS)
 
 console.log(`\n=== ${total} checks, ${fail} FAIL ===`);
 console.log(`komaStop2D: 生成あり ${stopOn} / 見送り(余地なし) ${stopOff}`);
+console.log(`maxBoards で枚数を clamp した組: ${clamped}(= UI では作れない不正な枚数)`);
 process.exit(fail ? 1 : 0);

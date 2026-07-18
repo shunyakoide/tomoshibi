@@ -26,7 +26,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  maxRadius, outerR, cutT, standBoardLength,
+  maxRadius, outerR, cutT, standBoardLength, maxBoards,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
   standCollarTop, standSaddleH, standSlotSep,
 } from "./geometry.js";
@@ -58,6 +58,13 @@ export default function HarigataStudio() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  // 羽根板の枚数をコマに挿さる上限へ自動で収める。板厚・公差・開口(◇)を変えて枚数が
+  // 過大になった場合(どの操作経路でも)ここで下げる → ノッチが重なった非水密コマを作らせない。
+  const boardsMax = maxBoards(p);
+  useEffect(() => {
+    if (p.boards > boardsMax) setP((o) => ({ ...o, boards: boardsMax }));
+  }, [p.boards, boardsMax]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -799,9 +806,14 @@ export default function HarigataStudio() {
         {/* 骨組み */}
         <div style={{ marginBottom: 20 }}>
           {sectionLabel("骨組み")}
-          {stepper("boards", "羽根板の枚数", p.boards, 4, 16, 1,
+          {stepper("boards", "羽根板の枚数", p.boards, 4, Math.min(16, boardsMax), 1,
             (v) => setP((o) => ({ ...o, boards: v })),
             <>{p.boards}<span style={{ color: UI.faintest, fontWeight: 400 }}> 枚</span></>)}
+          {boardsMax < 16 && p.boards >= boardsMax && (
+            <div style={{ fontSize: 11, color: UI.faint, lineHeight: 1.5, padding: "2px 0 4px" }}>
+              この開口・板厚では最大 {Math.min(16, boardsMax)} 枚(コマのノッチが重なるため)。板を薄くすると増やせます
+            </div>
+          )}
           {scrubRow({ key: "boardT", label: "板厚", value: p.boardT, display: p.boardT.toFixed(1), min: 1, max: 4, sens: 0.02, round: 0.2, unit: "mm",
             onChange: (v) => setP((o) => ({ ...o, boardT: v })) })}
           {scrubRow({ key: "tabLen", label: "爪の長さ", value: p.tabLen, min: 5, max: 40, sens: 0.2, round: 1, unit: "mm",
