@@ -866,15 +866,18 @@ export default function HarigataStudio() {
       <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px" }}>
         {/* 上段ツールバー: 元に戻す/やり直し(形状の編集) と 初期化 */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <div style={{ display: "flex", gap: 4 }}>
-            {[["↶", "元に戻す", undo, canUndo], ["↷", "やり直し", redo, canRedo]].map(([icon, title, fn, on]) => (
-              <button key={title} onClick={on ? fn : undefined} disabled={!on} title={title}
+          <div style={{ display: "flex", gap: 6 }}>
+            {[["↺", "元に戻す", undo, canUndo], ["↻", "やり直し", redo, canRedo]].map(([icon, label, fn, on]) => (
+              <button key={label} onClick={on ? fn : undefined} disabled={!on} title={`${label} (${icon === "↺" ? "⌘Z" : "⇧⌘Z"})`}
                 style={{
-                  width: 26, height: 24, borderRadius: 7, padding: 0, lineHeight: 1,
-                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15,
-                  background: UI.card, color: on ? UI.text : UI.faintest,
-                  border: `1px solid ${UI.cardEdge}`, cursor: on ? "pointer" : "default", opacity: on ? 1 : 0.5,
-                }}>{icon}</button>
+                  display: "flex", alignItems: "center", gap: 5, height: 32, padding: "0 12px",
+                  borderRadius: 8, fontFamily: sans, fontSize: 12.5, fontWeight: 600,
+                  background: on ? UI.card : "transparent", color: on ? accent : UI.faintest,
+                  border: `1px solid ${on ? "rgba(217,91,24,0.4)" : UI.cardEdge}`,
+                  cursor: on ? "pointer" : "default", opacity: on ? 1 : 0.55,
+                }}>
+                <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{label}
+              </button>
             ))}
           </div>
           <button
