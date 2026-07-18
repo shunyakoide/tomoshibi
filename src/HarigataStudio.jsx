@@ -32,18 +32,22 @@ import {
 } from "./geometry.js";
 import { exportZip } from "./stl.js";
 import { clamp } from "./util.js";
+import { loadSaved, saveState, STORAGE_KEY, SCHEMA_VERSION } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
 import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
 
+// 起動時に1回だけ localStorage から復元(遅延初期化の重複パースを避けるためモジュール直下)。
+const SAVED = typeof window !== "undefined" ? loadSaved() : null;
+
 export default function HarigataStudio() {
-  const [p, setP] = useState(DEFAULTS);
-  const [view, setView] = useState("2d"); // 既定は2D断面ビュー(形が分かりやすい)
+  const [p, setP] = useState(SAVED?.p ?? DEFAULTS); // 復元(無ければ既定)
+  const [view, setView] = useState("2d"); // 既定は2D断面ビュー(形が分かりやすい)。一時状態なので復元しない
   const [drag, setDrag] = useState(null);  // ドラッグ中のキー(ハンドル/スクラブ行のハイライト用)
   const [higoOpen, setHigoOpen] = useState(false); // 竹ひごアコーディオンの開閉
-  const [printRibs, setPrintRibs] = useState(1); // 印刷ビューで一度に並べる羽根板の枚数
-  const [splitRibs, setSplitRibs] = useState(false); // 羽根板を上下2分割(大型ランプ用)
-  const [bedW, setBedW] = useState(256); // プリントベッド幅(mm)。機種で異なるので可変
-  const [bedD, setBedD] = useState(256); // プリントベッド奥行き(mm)
+  const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1); // 印刷ビューで一度に並べる羽根板の枚数
+  const [splitRibs, setSplitRibs] = useState(false); // 羽根板を上下2分割(試験機能なので復元しない=常に false 起動)
+  const [bedW, setBedW] = useState(SAVED?.bedW ?? 256); // プリントベッド幅(mm)。機種設定として復元
+  const [bedD, setBedD] = useState(SAVED?.bedD ?? 256); // プリントベッド奥行き(mm)
   const [glError, setGlError] = useState(null);
   const [narrow, setNarrow] = useState(
     typeof window !== "undefined" ? window.innerWidth < 860 : false
@@ -65,6 +69,78 @@ export default function HarigataStudio() {
   useEffect(() => {
     if (p.boards > boardsMax) setP((o) => ({ ...o, boards: boardsMax }));
   }, [p.boards, boardsMax]);
+
+  // 作業状態を localStorage へ自動保存。debounce 300ms でドラッグ中の連続更新の書き込み
+  // 暴発を抑え、pagehide(タブクローズ/遷移)では即 flush して直近の1操作も取りこぼさない。
+  // boards クランプ effect の後段なので、保存される値は常にクランプ後(非水密コマにならない)。
+  useEffect(() => {
+    const state = { p, bedW, bedD, printRibs };
+    const id = setTimeout(() => saveState(state), 300);
+    const flush = () => { clearTimeout(id); saveState(state); };
+    window.addEventListener("pagehide", flush);
+    return () => { clearTimeout(id); window.removeEventListener("pagehide", flush); };
+  }, [p, bedW, bedD, printRibs]);
+
+  // ---- Undo/Redo(形状 p の履歴)----
+  // p の履歴スタック + 現在位置。ドラッグ/スクラブの連続変更は debounce で1エントリにまとめ、
+  // プリセット切替・点の追加削除・角⇄なめらか等の離散操作も同じ経路でスナップされる。setP の
+  // 全サイトは触らず「p を watch して落ち着いたら commit」する方式(単一チョークポイント不在の回避)。
+  const hist = useRef([p]);        // スナップショット列(0 が最古)
+  const hIdx = useRef(0);          // 現在位置
+  const restoring = useRef(false); // undo/redo による setP は再 commit しない印
+  const commitTimer = useRef(null);
+  const [, bumpHist] = useState(0); // ボタンの活性/非活性を更新するための再描画トリガ
+  const HIST_CAP = 60;
+  const commitNow = (np) => {
+    const h = hist.current;
+    if (JSON.stringify(h[hIdx.current]) === JSON.stringify(np)) return; // 変化なしは積まない
+    h.splice(hIdx.current + 1);     // redo 側(やり直し可能な先)を捨てる
+    h.push(np);
+    if (h.length > HIST_CAP) h.shift();
+    hIdx.current = h.length - 1;
+    bumpHist((n) => n + 1);
+  };
+  useEffect(() => {
+    if (restoring.current) { restoring.current = false; return; } // 復元による変化は積まない
+    clearTimeout(commitTimer.current);
+    commitTimer.current = setTimeout(() => commitNow(p), 350); // 連続操作が落ち着いたら1エントリ
+    return () => clearTimeout(commitTimer.current);
+  }, [p]);
+  const undo = () => {
+    clearTimeout(commitTimer.current);
+    commitNow(p);                  // 未確定の変更をまず確定(redo で戻れるように)
+    if (hIdx.current <= 0) return;
+    hIdx.current--;
+    restoring.current = true;
+    setP(hist.current[hIdx.current]);
+    bumpHist((n) => n + 1);
+  };
+  const redo = () => {
+    clearTimeout(commitTimer.current);
+    commitNow(p);                  // 未確定の編集をまず確定(undo と対称)。新編集後は redo 先が
+                                   // 破棄され no-op になる = 標準的な undo/redo 挙動。取りこぼさない。
+    if (hIdx.current >= hist.current.length - 1) return;
+    hIdx.current++;
+    restoring.current = true;
+    setP(hist.current[hIdx.current]);
+    bumpHist((n) => n + 1);
+  };
+  const canUndo = hIdx.current > 0;
+  const canRedo = hIdx.current < hist.current.length - 1;
+  // キーボード: Cmd/Ctrl+Z = undo、Cmd/Ctrl+Shift+Z または Ctrl+Y = redo。入力中は無視。
+  useEffect(() => {
+    const onKey = (e) => {
+      const tag = (e.target.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -525,12 +601,15 @@ export default function HarigataStudio() {
     }
     // コマ・柱は上下同一なので各1つだけ書き出す(印刷時に2つ複製して使う)。
     const board = boardGeometry(p);
+    // 設定 JSON を同梱: 刷った kit の ZIP 自体が設計のバックアップになる(localStorage が
+    // 消えても復元の元になる)。persist.js と同じスキーマなので将来の JSON 読込でそのまま使える。
+    const cfg = JSON.stringify({ schemaVersion: SCHEMA_VERSION, p, bedW, bedD }, null, 2);
     exportZip([
       { name: `harigata_ribs_x${nRibs}.stl`, geos: ribs },
       { name: "harigata_koma_print2.stl", geos: [komaGeometry(p)] },
       { name: "harigata_stand_column_print2.stl", geos: [standGeometry(p)] },
       { name: "harigata_stand_base.stl", geos: [board] },
-    ], "harigata_kit.zip");
+    ], "harigata_kit.zip", [{ name: "harigata_config.json", bytes: new TextEncoder().encode(cfg) }]);
   };
 
   const maxDia = Math.round(maxRadius(p) * 2);
@@ -788,6 +867,33 @@ export default function HarigataStudio() {
 
       {/* スクロール領域 */}
       <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px" }}>
+        {/* 上段ツールバー: 元に戻す/やり直し(形状の編集) と 初期化 */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[["↺", "元に戻す", undo, canUndo], ["↻", "やり直し", redo, canRedo]].map(([icon, label, fn, on]) => (
+              <button key={label} onClick={on ? fn : undefined} disabled={!on} title={`${label} (${icon === "↺" ? "⌘Z" : "⇧⌘Z"})`}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5, height: 32, padding: "0 12px",
+                  borderRadius: 8, fontFamily: sans, fontSize: 12.5, fontWeight: 600,
+                  background: on ? UI.card : "transparent", color: on ? accent : UI.faintest,
+                  border: `1px solid ${on ? "rgba(217,91,24,0.4)" : UI.cardEdge}`,
+                  cursor: on ? "pointer" : "default", opacity: on ? 1 : 0.55,
+                }}>
+                <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              if (!window.confirm("すべての設定を初期状態に戻します。よろしいですか?")) return;
+              try { localStorage.removeItem(STORAGE_KEY); } catch { /* 無効でも続行 */ }
+              setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1); setSplitRibs(false);
+            }}
+            style={{
+              background: "none", border: "none", cursor: "pointer", padding: "2px 4px",
+              fontFamily: sans, fontSize: 11, color: UI.faint, textDecoration: "underline",
+            }}>初期化</button>
+        </div>
         {/* 形プリセット */}
         <div style={{ marginBottom: 20 }}>
           {sectionLabel("形")}
@@ -928,6 +1034,7 @@ export default function HarigataStudio() {
             }}>STL 書き出し</button>
             <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
               コマ・柱は上下同一のため各1つ入っています。スライサーで<strong style={{ color: UI.text }}>2つに複製</strong>して印刷してください。
+              設定は <span style={{ fontFamily: mono }}>harigata_config.json</span> として同梱されます(バックアップ用)。
             </div>
           </>
         ) : (

@@ -109,7 +109,7 @@ Vite 7 + React 18 + three.js 0.169(いずれも素の JS/JSX、TypeScript なし
 
 - 2 = 閉じている(正常) / 1 = 開口エッジ / >2 = 非多様体。加えて NaN 頂点・退化(ゼロ面積)三角形が無いこと。
 
-**検証は `npm run check:manifold`**(`scripts/manifold.mjs`)。3プリセット × 高さ/竹ひご径/ピッチ/板厚/公差/枚数をスイープして 34,992 部品を検査する。`0 FAIL` 以外はマージしない。加えて「STL を変えないはずのリファクタ」では `npm run check:hash`(`scripts/hash.mjs`)で改修前後の頂点ハッシュを diff し、形が動いていないことを証明する(使い方はスクリプト冒頭のコメント)。
+**検証は `npm run check:manifold`**(`scripts/manifold.mjs`)。3プリセット × 高さ/竹ひご径/ピッチ/板厚/公差/枚数をスイープして 46,656 部品を検査する。`0 FAIL` 以外はマージしない。加えて「STL を変えないはずのリファクタ」では `npm run check:hash`(`scripts/hash.mjs`)で改修前後の頂点ハッシュを diff し、形が動いていないことを証明する(使い方はスクリプト冒頭のコメント)。保存機能の sanitize は `npm run check:persist`(`scripts/persist.test.mjs`)で、壊れた localStorage(pts破損・数値文字列・boards過大・未知version 等)がクラッシュ・非水密コマを生まず安全に復旧することを確認する。
 
 過去の破綻要因と対処: 深すぎる溝(→深さを `higoD*1.5` で頭打ち)、返しの急フランクの近接重複点(→押し出し前に重複点を掃除)、制御点1つのプリセット(→`splineR`/分母に div-0 ガード)、くびれで肉抜き窓に薄帯が残る(→薄い箇所は窓を縮める/落とす)。
 
