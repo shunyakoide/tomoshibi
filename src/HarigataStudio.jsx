@@ -26,7 +26,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  maxRadius, outerR, cutT, effBoardWidth, standBoardLength,
+  maxRadius, outerR, cutT, standBoardLength, maxBoards,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
   standCollarTop, standSaddleH, standSlotSep,
 } from "./geometry.js";
@@ -58,6 +58,13 @@ export default function HarigataStudio() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  // 羽根板の枚数をコマに挿さる上限へ自動で収める。板厚・公差・開口(◇)を変えて枚数が
+  // 過大になった場合(どの操作経路でも)ここで下げる → ノッチが重なった非水密コマを作らせない。
+  const boardsMax = maxBoards(p);
+  useEffect(() => {
+    if (p.boards > boardsMax) setP((o) => ({ ...o, boards: boardsMax }));
+  }, [p.boards, boardsMax]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -505,21 +512,23 @@ export default function HarigataStudio() {
   const maxDia = Math.round(maxRadius(p) * 2);
   const boardLen = Math.round(p.height + p.tabLen * 2); // 羽根板の全長
   const connLen = Math.round(standBoardLength(p));      // 連結板の全長(最も長い部品)
-  const heightLimit = bedD - Math.round(standBoardLength(p) - p.height); // 収めるための高さ上限
-  // 抜き取り判定: 乾燥後、コマを外して羽根を上下どちらかの開口から抜く。
-  // 開口=上端/下端の円(半径)。羽根の幅より広い開口が片側にあれば取り出せる。
-  const topOpen = Math.round(outerR(p, 1)); // 上の円 半径
-  const botOpen = Math.round(outerR(p, 0)); // 下の円 半径
-  const canExtract = Math.max(topOpen, botOpen) >= effBoardWidth(p);
+  const heightLimit = bedW - Math.round(standBoardLength(p) - p.height); // 連結板を幅に収める高さ上限
+  // 上下の開口(=上端/下端の円)の半径。参考表示(羽根はコマを外し傾けて抜くので、
+  // 単純な「開口 ≧ 羽根幅」では抜けるかを判定できない → 誤警告になるため判定はしない)。
+  const topOpen = Math.round(outerR(p, 1)); // 上の開口 半径
+  const botOpen = Math.round(outerR(p, 0)); // 下の開口 半径
 
-  // ベッド超過の判定。羽根板は上下2分割で半分にできる(→アクションで解決)。連結板は
-  // 高さを下げるしかない。どの部品が超過しているかを可視化し、可能ならその場で分割適用。
+  // ベッド超過の判定。部品ごとに載る軸が違う: 羽根板は長軸=高さ方向 → 奥行き bedD、
+  // 連結板は長軸=長さ方向 → 幅 bedW。羽根板は上下2分割で半分にできるが、連結板は
+  // 分割できないので高さを下げるしかない。
   const ribLen = splitRibs ? Math.round(boardLen / 2) + 12 : boardLen; // 分割時は継手ぶん+12
   const overParts = [];
   if (ribLen > bedD) overParts.push(`羽根板 ${ribLen}mm`);
-  if (connLen > bedD) overParts.push(`連結板 ${connLen}mm`);
+  if (connLen > bedW) overParts.push(`連結板 ${connLen}mm`);
   const bedWarn = overParts.length > 0;
-  const canSplitFix = boardLen > bedD && !splitRibs; // 羽根板の超過は分割で解決できる
+  // 2分割モードは分割部品の爪が本体(コマ基準)と不一致で現行コマに嵌まらない(要修正)。
+  // 直るまで自動適用は勧めず、高さを下げる案内に一本化する。
+  const canSplitFix = false;
 
   const PANEL = 336; // インスペクタ幅(px)
   const mono = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
@@ -707,25 +716,21 @@ export default function HarigataStudio() {
         ⌀{maxDia} × H{p.height} mm
       </div>
 
-      {/* ベッド超過警告(クリックで羽根板を上下2分割) */}
+      {/* ベッド超過警告(部品ごとに載る軸が違うのでベッドは幅×奥行きで示す) */}
       {!isLit && bedWarn && (
-        <button
-          onClick={canSplitFix ? () => setSplitRibs(true) : undefined}
+        <div
           style={{
             position: "absolute", bottom: 20, left: 20, display: "flex", alignItems: "center", gap: 10,
             padding: "10px 14px", background: "#fff", border: "1px solid rgba(217,91,24,0.4)",
             borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
-            fontSize: 12.5, color: UI.text, textAlign: "left",
-            cursor: canSplitFix ? "pointer" : "default", maxWidth: "60%",
+            fontSize: 12.5, color: UI.text, textAlign: "left", maxWidth: "60%",
           }}>
           <span style={{ fontSize: 15 }}>⚠️</span>
           <span>
-            {overParts.join(" · ")} がベッド {bedD}mm を超過<br />
-            {canSplitFix
-              ? <span style={{ color: accent, fontWeight: 700 }}>→ 羽根板を上下2分割にする</span>
-              : <span style={{ color: UI.sub }}>→ 火袋の高さを {heightLimit}mm 以下に</span>}
+            {overParts.join(" · ")} がベッド {bedW}×{bedD}mm を超過<br />
+            <span style={{ color: UI.sub }}>→ 火袋の高さを {heightLimit}mm 以下に</span>
           </span>
-        </button>
+        </div>
       )}
 
       {/* 点灯モードの補足 */}
@@ -801,9 +806,14 @@ export default function HarigataStudio() {
         {/* 骨組み */}
         <div style={{ marginBottom: 20 }}>
           {sectionLabel("骨組み")}
-          {stepper("boards", "羽根板の枚数", p.boards, 4, 16, 1,
+          {stepper("boards", "羽根板の枚数", p.boards, 4, Math.min(16, boardsMax), 1,
             (v) => setP((o) => ({ ...o, boards: v })),
             <>{p.boards}<span style={{ color: UI.faintest, fontWeight: 400 }}> 枚</span></>)}
+          {boardsMax < 16 && p.boards >= boardsMax && (
+            <div style={{ fontSize: 11, color: UI.faint, lineHeight: 1.5, padding: "2px 0 4px" }}>
+              この開口・板厚では最大 {Math.min(16, boardsMax)} 枚(コマのノッチが重なるため)。板を薄くすると増やせます
+            </div>
+          )}
           {scrubRow({ key: "boardT", label: "板厚", value: p.boardT, display: p.boardT.toFixed(1), min: 1, max: 4, sens: 0.02, round: 0.2, unit: "mm",
             onChange: (v) => setP((o) => ({ ...o, boardT: v })) })}
           {scrubRow({ key: "tabLen", label: "爪の長さ", value: p.tabLen, min: 5, max: 40, sens: 0.2, round: 1, unit: "mm",
@@ -816,6 +826,11 @@ export default function HarigataStudio() {
             首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ
           </div>
           {checkbox(splitRibs, () => setSplitRibs(!splitRibs), <>羽根板を上下2分割 <span style={{ color: UI.faint }}>(大型用)</span></>)}
+          {splitRibs && (
+            <div style={{ fontSize: 11, color: UI.warn, lineHeight: 1.5, padding: "2px 0 4px" }}>
+              ⚠ 試験中: 分割部品の爪が現行のコマに嵌まりません(要修正)
+            </div>
+          )}
         </div>
 
         {/* 竹ひご(アコーディオン) */}
@@ -875,8 +890,8 @@ export default function HarigataStudio() {
             {ribLen} mm{splitRibs ? " (2分割)" : ""}
           </span>
           <span style={{ color: UI.faint }}>上下の開口(半径)</span>
-          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: canExtract ? UI.text : UI.warn }}>
-            {topOpen} / {botOpen} mm{canExtract ? "" : " ⚠"}
+          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>
+            {topOpen} / {botOpen} mm
           </span>
         </div>
 

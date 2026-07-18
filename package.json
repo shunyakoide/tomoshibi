@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "check:manifold": "node scripts/manifold.mjs",
+    "check:hash": "node scripts/hash.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
