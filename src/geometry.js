@@ -162,8 +162,17 @@ export function innerRi(p) {
 //   上下に壁ができ、竹ひごがずり落ちずに引っかかる。
 // ・急斜面(radial の溝は実効深さが cosθ 倍に浅くなる)では深さを 1/cosθ=√(1+勾配²)
 //   倍(上限2.2)して、傾いた面でも竹ひごが嵌まる実効深さを確保する。
+// 火袋の赤道(最大外径)の高さ(mm)。溝の返しはこの赤道側へ倒す(開口へ滑る竹ひごを
+// 引っかける)。返しの向きが反転する点は「傾き dR/dy が 0 になる点=最大外径」なので、
+// 決め打ちの h/2 ではなく実際の argmax を使う(非対称なプロファイルで返しが逆を向くのを防ぐ)。
+export function equatorY(p) {
+  const h = p.height;
+  let bestT = 0.5, bestR = -1;
+  for (let i = 0; i <= 120; i++) { const t = i / 120, r = outerR(p, t); if (r > bestR) { bestR = r; bestT = t; } }
+  return bestT * h;
+}
 export function grooveOuterX(p, grooves, gR) {
-  const h = p.height, mid = h / 2;
+  const h = p.height, mid = equatorY(p);
   const DEEP = 2.1; // 溝を深く=フランクを急に=鋭い爪状の歯。竹ひごが深く沈んで噛む(大きめの溝)。
   // 各溝: 深さ + 非対称(返し)。「中央(赤道)側フランクを緩く・開口側を急に」して歯先を中央へ
   // 倒す(爪のような返し)→ 開口へ滑ろうとする竹ひごを引っかける。急斜面ほど強い返し。ただし
