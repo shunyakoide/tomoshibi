@@ -130,14 +130,25 @@ function nominalRi(p) {
 }
 // 爪内端を中心側へ深める量(mm)。爪先/ノッチ底を長くして握りを増やす(まっすぐの舌のまま)。
 const TAB_DEEPEN = 5;
-// 深める際の中心側リミット。コマの隣り合う爪ノッチの間に最低壁厚 MIN_WALL を残す(歯数が多い・
-// 小コマで深くしすぎると壁が薄くなり非多様体化するため)。ノッチ底半径 notchR=Ri-0.5 で評価:
+// コマの隣り合う爪ノッチの間に残す最低壁厚(mm)。歯数が多い・小コマだと壁が薄くなり
+// 非多様体化するため。深める下限(ribCoreFloor)と最大枚数(maxBoards)の両方の基準。
+const MIN_WALL = 1.6;
+// ノッチ幅(=爪厚 + プリント公差 fit)。
+function notchWidth(p) { return p.boardT + Math.max(0, p.fit ?? 0); }
+// 深める際の中心側リミット。ノッチ底半径 notchR=Ri-0.5 で評価:
 //   notchR*(2π/boards) - notchW ≥ MIN_WALL  →  notchR ≥ (MIN_WALL+notchW)*boards/2π。
 function ribCoreFloor(p) {
-  const notchW = p.boardT + Math.max(0, p.fit ?? 0); // ノッチ幅(=爪厚+公差)
-  const MIN_WALL = 1.6;
-  const rNotchMin = (MIN_WALL + notchW) * p.boards / (2 * Math.PI);
+  const rNotchMin = (MIN_WALL + notchWidth(p)) * p.boards / (2 * Math.PI);
   return Math.max(6, rNotchMin + 0.5);
+}
+// この開口・板厚・公差で、コマのノッチ壁を MIN_WALL 以上に保てる最大の羽根板枚数。
+// ノッチは notchR=nominalRi-0.5 付近に切られ、壁 = 2π·notchR/boards − notchW。これを
+// MIN_WALL 以上にする boards の上限。開口が小さい・板が厚い・枚数が多い の組で、ノッチ同士が
+// 中心付近で重なりコマが非水密になる(壁が負になる)のを防ぐため、UI の枚数上限に使う。
+// nominalRi は boards に依存しないので、この値も現在の boards には依存しない(単調な上限)。
+export function maxBoards(p) {
+  const notchR = nominalRi(p) - 0.5;
+  return Math.max(4, Math.floor((2 * Math.PI * notchR) / (MIN_WALL + notchWidth(p))));
 }
 // 実際の爪先/ノッチ底。従来基準 nominalRi より TAB_DEEPEN だけ中心側へ深く(下限=ribCoreFloor)。
 // ribOutline2D(爪)と komaShape(ノッチ底)が同じこの値を呼ぶので噛み合いは常に一致(不変量の集約点)。
@@ -151,8 +162,17 @@ export function innerRi(p) {
 //   上下に壁ができ、竹ひごがずり落ちずに引っかかる。
 // ・急斜面(radial の溝は実効深さが cosθ 倍に浅くなる)では深さを 1/cosθ=√(1+勾配²)
 //   倍(上限2.2)して、傾いた面でも竹ひごが嵌まる実効深さを確保する。
+// 火袋の赤道(最大外径)の高さ(mm)。溝の返しはこの赤道側へ倒す(開口へ滑る竹ひごを
+// 引っかける)。返しの向きが反転する点は「傾き dR/dy が 0 になる点=最大外径」なので、
+// 決め打ちの h/2 ではなく実際の argmax を使う(非対称なプロファイルで返しが逆を向くのを防ぐ)。
+export function equatorY(p) {
+  const h = p.height;
+  let bestT = 0.5, bestR = -1;
+  for (let i = 0; i <= 120; i++) { const t = i / 120, r = outerR(p, t); if (r > bestR) { bestR = r; bestT = t; } }
+  return bestT * h;
+}
 export function grooveOuterX(p, grooves, gR) {
-  const h = p.height, mid = h / 2;
+  const h = p.height, mid = equatorY(p);
   const DEEP = 2.1; // 溝を深く=フランクを急に=鋭い爪状の歯。竹ひごが深く沈んで噛む(大きめの溝)。
   // 各溝: 深さ + 非対称(返し)。「中央(赤道)側フランクを緩く・開口側を急に」して歯先を中央へ
   // 倒す(爪のような返し)→ 開口へ滑ろうとする竹ひごを引っかける。急斜面ほど強い返し。ただし
