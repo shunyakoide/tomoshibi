@@ -1,0 +1,88 @@
+/**
+ * ============================================================================
+ * persist.js の sanitize 検証(テストランナー無しの手動チェック)
+ * ============================================================================
+ * 保存/復元は外部由来(手書き・旧バージョン・JSON往復)の壊れた値を受けうる。
+ * それらがクラッシュ・NaN・非水密コマを生まず、安全に DEFAULTS へフォールバック/
+ * サルベージされることを確認する。localStorage をメモリ実装でモックして走らせる。
+ *
+ * 実行:  npm run check:persist
+ * ============================================================================
+ */
+const store = {};
+globalThis.localStorage = {
+  getItem: (k) => (k in store ? store[k] : null),
+  setItem: (k, v) => { store[k] = String(v); },
+  removeItem: (k) => { delete store[k]; },
+};
+
+const P = await import("../src/persist.js");
+const G = await import("../src/geometry.js");
+const { DEFAULTS } = await import("../src/config.js");
+
+const openEdges = (g) => {
+  const pos = g.getAttribute("position"), idx = g.index ? g.index.array : null;
+  const n = idx ? idx.length / 3 : pos.count / 3, E = new Map();
+  const key = (i) => [Math.round(pos.getX(i) * 1e4), Math.round(pos.getY(i) * 1e4), Math.round(pos.getZ(i) * 1e4)].join(",");
+  for (let t = 0; t < n; t++) {
+    const a = idx ? idx[t * 3] : t * 3, b = idx ? idx[t * 3 + 1] : t * 3 + 1, c = idx ? idx[t * 3 + 2] : t * 3 + 2;
+    const ks = [key(a), key(b), key(c)];
+    for (const [x, y] of [[0, 1], [1, 2], [2, 0]]) { const e = ks[x] < ks[y] ? ks[x] + "|" + ks[y] : ks[y] + "|" + ks[x]; E.set(e, (E.get(e) || 0) + 1); }
+  }
+  let o = 0; for (const c of E.values()) if (c === 1) o++; return o;
+};
+const finiteP = (p) => Object.entries(p).every(([k, v]) => k === "shape" || k === "pts" || typeof v === "boolean" || Number.isFinite(v))
+  && p.pts.every((q) => Number.isFinite(q.t) && Number.isFinite(q.r));
+const manifoldOK = (p) => {
+  try { return [G.ribGeometry(p, 0), G.komaGeometry(p), G.standGeometry(p), G.boardGeometry(p)].every((g) => openEdges(g) === 0); }
+  catch (e) { return "EXC:" + e.message; }
+};
+const KEY = P.STORAGE_KEY;
+
+let pass = 0, fail = 0;
+const t = (name, cond) => { const ok = cond === true; console.log(`${ok ? "✓" : "✗"} ${name}${ok ? "" : " → " + cond}`); ok ? pass++ : fail++; };
+
+delete store[KEY];
+t("空なら null", P.loadSaved() === null);
+
+store[KEY] = "{not json";
+t("壊れJSONは null", P.loadSaved() === null);
+
+P.saveState({ p: { ...DEFAULTS, pts: [] }, bedW: 256, bedD: 256, printRibs: 1 });
+let r = P.loadSaved();
+t("pts空→復旧 有限", r && finiteP(r.p));
+t("pts空→水密", manifoldOK(r.p) === true);
+
+P.saveState({ p: { ...DEFAULTS, pts: [{ t: 0.5, r: 60 }] }, bedW: 256, bedD: 256, printRibs: 1 });
+t("pts1点→2点以上に復旧", P.loadSaved().p.pts.length >= 2);
+
+P.saveState({ p: { ...DEFAULTS, pts: [{ t: NaN, r: 60 }, { t: 0.9, r: 20 }] }, bedW: 256, bedD: 256, printRibs: 1 });
+t("pts非有限→復旧 有限", finiteP(P.loadSaved().p));
+
+P.saveState({ p: { ...DEFAULTS, boardT: "3" }, bedW: 256, bedD: 256, printRibs: 1 });
+r = P.loadSaved();
+t("boardT文字列→数値", r.p.boardT === 3 && typeof r.p.boardT === "number");
+
+P.saveState({ p: { ...DEFAULTS, boardT: 4, boards: 16 }, bedW: 256, bedD: 256, printRibs: 1 });
+r = P.loadSaved();
+t("boards過大→maxBoardsへクランプ", r.p.boards <= G.maxBoards(r.p));
+t("boards過大→水密(元のコマ非水密バグ域)", manifoldOK(r.p) === true);
+
+P.saveState({ p: { ...DEFAULTS, boardT: 3 }, bedW: 300, bedD: 250, printRibs: 2 });
+store[KEY] = store[KEY].replace('"schemaVersion":1', '"schemaVersion":99');
+r = P.loadSaved();
+t("未知version→機械不変量サルベージ", r && r.p.boardT === 3 && r.bedW === 300);
+
+P.saveState({ p: DEFAULTS, printRibs: 1 });
+r = P.loadSaved();
+t("bedW欠損→256", r.bedW === 256 && r.bedD === 256);
+
+P.saveState({ p: { ...DEFAULTS, neckOn: false }, bedW: 256, bedD: 256, printRibs: 1 });
+t("旧neckOn温存", P.loadSaved().p.neckOn === false);
+
+P.saveState({ p: { ...DEFAULTS, height: 333 }, bedW: 256, bedD: 256, printRibs: 3 });
+r = P.loadSaved();
+t("正常往復(height/printRibs)", r.p.height === 333 && r.printRibs === 3);
+
+console.log(`\n=== ${pass} pass / ${fail} fail ===`);
+process.exit(fail ? 1 : 0);

@@ -32,18 +32,22 @@ import {
 } from "./geometry.js";
 import { exportZip } from "./stl.js";
 import { clamp } from "./util.js";
+import { loadSaved, saveState, STORAGE_KEY } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
 import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
 
+// 起動時に1回だけ localStorage から復元(遅延初期化の重複パースを避けるためモジュール直下)。
+const SAVED = typeof window !== "undefined" ? loadSaved() : null;
+
 export default function HarigataStudio() {
-  const [p, setP] = useState(DEFAULTS);
-  const [view, setView] = useState("2d"); // 既定は2D断面ビュー(形が分かりやすい)
+  const [p, setP] = useState(SAVED?.p ?? DEFAULTS); // 復元(無ければ既定)
+  const [view, setView] = useState("2d"); // 既定は2D断面ビュー(形が分かりやすい)。一時状態なので復元しない
   const [drag, setDrag] = useState(null);  // ドラッグ中のキー(ハンドル/スクラブ行のハイライト用)
   const [higoOpen, setHigoOpen] = useState(false); // 竹ひごアコーディオンの開閉
-  const [printRibs, setPrintRibs] = useState(1); // 印刷ビューで一度に並べる羽根板の枚数
-  const [splitRibs, setSplitRibs] = useState(false); // 羽根板を上下2分割(大型ランプ用)
-  const [bedW, setBedW] = useState(256); // プリントベッド幅(mm)。機種で異なるので可変
-  const [bedD, setBedD] = useState(256); // プリントベッド奥行き(mm)
+  const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1); // 印刷ビューで一度に並べる羽根板の枚数
+  const [splitRibs, setSplitRibs] = useState(false); // 羽根板を上下2分割(試験機能なので復元しない=常に false 起動)
+  const [bedW, setBedW] = useState(SAVED?.bedW ?? 256); // プリントベッド幅(mm)。機種設定として復元
+  const [bedD, setBedD] = useState(SAVED?.bedD ?? 256); // プリントベッド奥行き(mm)
   const [glError, setGlError] = useState(null);
   const [narrow, setNarrow] = useState(
     typeof window !== "undefined" ? window.innerWidth < 860 : false
@@ -65,6 +69,17 @@ export default function HarigataStudio() {
   useEffect(() => {
     if (p.boards > boardsMax) setP((o) => ({ ...o, boards: boardsMax }));
   }, [p.boards, boardsMax]);
+
+  // 作業状態を localStorage へ自動保存。debounce 300ms でドラッグ中の連続更新の書き込み
+  // 暴発を抑え、pagehide(タブクローズ/遷移)では即 flush して直近の1操作も取りこぼさない。
+  // boards クランプ effect の後段なので、保存される値は常にクランプ後(非水密コマにならない)。
+  useEffect(() => {
+    const state = { p, bedW, bedD, printRibs };
+    const id = setTimeout(() => saveState(state), 300);
+    const flush = () => { clearTimeout(id); saveState(state); };
+    window.addEventListener("pagehide", flush);
+    return () => { clearTimeout(id); window.removeEventListener("pagehide", flush); };
+  }, [p, bedW, bedD, printRibs]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -788,6 +803,19 @@ export default function HarigataStudio() {
 
       {/* スクロール領域 */}
       <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px" }}>
+        {/* 初期化: 自動保存ゆえ「壊した状態」も保存されるので、Undo なしの唯一の逃げ道 */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+          <button
+            onClick={() => {
+              if (!window.confirm("すべての設定を初期状態に戻します。よろしいですか?")) return;
+              try { localStorage.removeItem(STORAGE_KEY); } catch { /* 無効でも続行 */ }
+              setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1); setSplitRibs(false);
+            }}
+            style={{
+              background: "none", border: "none", cursor: "pointer", padding: "2px 4px",
+              fontFamily: sans, fontSize: 11, color: UI.faint, textDecoration: "underline",
+            }}>初期化</button>
+        </div>
         {/* 形プリセット */}
         <div style={{ marginBottom: 20 }}>
           {sectionLabel("形")}
