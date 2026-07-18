@@ -26,7 +26,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  maxRadius, outerR, cutT, standBoardLength, maxBoards,
+  maxRadius, outerR, cutT, standBoardLength, maxBoards, grooveR, grooveList,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
   standCollarTop, standSaddleH, standSlotSep,
 } from "./geometry.js";
@@ -305,12 +305,33 @@ export default function HarigataStudio() {
         pts.push(new THREE.Vector2(outerR(p, t) + p.higoD, legH + t * p.height));
       }
       s.group.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 128), s.washiMat));
-      // 脚: 火袋の底縁から外に開いて床へ。暗背景に沈まないグラファイト(黒鉄の質感は保つ)
+      // 竹ひご: 火袋の水平リング。実物は和紙を竹ひごの上に貼るので、竹ひごは紙の内側にある。
+      // リング中心を outerR に置く → 外面は outerR+higoD/2 = 和紙(outerR+higoD)の内側に収まり、
+      // 面が一致して Z ファイティング(破線状のちらつき)になるのを防ぐ。色は竹本来のナチュラル色
+      // (淡い黄褐色)。逆光で黒く潰れないよう暖色の自発光を強めに足し、透ける竹ひごとして見せる。
+      const higoMat = new THREE.MeshStandardMaterial({
+        color: 0xc2a266, roughness: 0.75, metalness: 0,
+        emissive: 0x936026, emissiveIntensity: 0.7,
+      });
+      for (const gy of grooveList(p, grooveR(p))) {
+        const t = gy / p.height;
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(outerR(p, t), p.higoD / 2, 10, 96), higoMat);
+        ring.rotation.x = Math.PI / 2; ring.position.y = legH + gy;
+        s.group.add(ring);
+      }
+      // 脚: 火袋の底縁(=下の開口)から外に開いて床へ。暗背景に沈まないグラファイト(黒鉄の質感は保つ)
       const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
-      const r0 = outerR(p, 0) * 0.75, r1 = maxRadius(p) * 0.62;
+      // 付け根はスキンの底縁に一致させる: 半径・高さとも t0(=火袋の下端)の値を使う。
+      const rimR = outerR(p, t0) + p.higoD, rimY = legH + t0 * p.height;
+      // 開口の黒い縁(リング)。三脚がこの縁に接続する。脚と同じ太さ・素材で一体に見せる。
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, 1.8, 14, 96), legMat);
+      rim.rotation.x = Math.PI / 2; rim.position.y = rimY;
+      s.group.add(rim);
+      // 足先は付け根より外へ = 開口から床へまっすぐ広がる三脚(内へすぼませない)。
+      const r0 = rimR, r1 = rimR + legH * 0.35;
       for (let i = 0; i < 3; i++) {
         const a = (i / 3) * Math.PI * 2 + Math.PI / 6;
-        const topP = new THREE.Vector3(r0 * Math.cos(a), legH + p.height * 0.04, r0 * Math.sin(a));
+        const topP = new THREE.Vector3(r0 * Math.cos(a), rimY, r0 * Math.sin(a));
         const botP = new THREE.Vector3(r1 * Math.cos(a), 2, r1 * Math.sin(a));
         const dir = new THREE.Vector3().subVectors(botP, topP);
         const len = dir.length();
@@ -340,6 +361,9 @@ export default function HarigataStudio() {
       s.bulb.intensity = 0;                // 内部電球オフ(透けて出る明線を防ぐ)
       s.bloomPass.enabled = true;          // 発光の滲み → 光っている感
       s.bloomPass.strength = 0.6; s.bloomPass.radius = 0.7; s.bloomPass.threshold = 0.85; // 柔らかいハロー
+      // 切替時だけ初期アングルを「横から(ほぼ目線)」に。これが無いと直前ビュー(印刷=真上
+      // 見下ろし rot.x=-1.35)の角度を引き継いで上から覗く絵になる。
+      if (viewChanged) { s.rot.x = -0.08; s.rot.y = 0.5; }
       frame((legH + p.height) * 1.16, R * 1.1, (legH + p.height) * 0.5);
       return;
     }
