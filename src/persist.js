@@ -20,27 +20,35 @@ import { maxBoards } from "./geometry.js";
 export const STORAGE_KEY = "harigata.studio";
 export const SCHEMA_VERSION = 1;
 
-// 数値フィールド: 保存/復元で Number 化し、非有限は DEFAULTS 値へ戻す。
-const NUM_KEYS = [
-  "height", "rTop", "rBot", "boards", "boardWidth", "boardT", "higoD", "pitch",
-  "fit", "tabLen", "tabW", "komaT", "tabR",
-];
+// 数値フィールドの許容範囲 [min, max]。復元値は UI のクランプを経由しないため、壊れた
+// localStorage や外部 JSON の範囲外値がそのまま geometry に流れると破綻する(特に pitch:0 は
+// grooveList の n=Math.round(span/pitch)=Infinity で無限ループ)。ここで必ず範囲に収める。
+// 範囲は UI のスライダー/ステッパーの許容域に合わせる(不明なものは安全側の広めの域)。
+const BOUNDS = {
+  height: [140, 400], rTop: [8, 130], rBot: [8, 130], boards: [4, 16],
+  boardWidth: [10, 120], boardT: [1, 4], higoD: [1, 4], pitch: [8, 30],
+  fit: [0, 1], tabLen: [5, 40], tabW: [4, 40], komaT: [3, 20], tabR: [6, 40],
+};
+const NUM_KEYS = Object.keys(BOUNDS);
 
 // pts の検証: 配列・2点以上・各要素 {t,r} が有限。満たさなければ DEFAULTS.pts に差し替える。
-// t 昇順は geometry の前提(fukuroSpline 等)なので外部由来はソートし直す。
+// t は [0,1]・r は妥当域にクランプし、t 昇順にソート(geometry の前提。外部由来は順序無保証)。
 function validatePts(pts) {
   if (!Array.isArray(pts) || pts.length < 2) return DEFAULTS.pts.map((q) => ({ ...q }));
   for (const q of pts) {
     if (!q || !Number.isFinite(q.t) || !Number.isFinite(q.r)) return DEFAULTS.pts.map((q2) => ({ ...q2 }));
   }
-  return pts.map((q) => ({ ...q })).sort((a, b) => a.t - b.t);
+  return pts
+    .map((q) => ({ ...q, t: Math.min(1, Math.max(0, q.t)), r: Math.min(140, Math.max(8, q.r)) }))
+    .sort((a, b) => a.t - b.t);
 }
 
-// 数値の強制。非有限(文字列/欠損/NaN)は DEFAULTS 値へ。
+// 数値の強制。非有限(文字列/欠損/NaN)は DEFAULTS へ、範囲外は許容域にクランプする。
 function coerceNums(p) {
   for (const k of NUM_KEYS) {
+    const [lo, hi] = BOUNDS[k];
     const v = Number(p[k]);
-    p[k] = Number.isFinite(v) ? v : DEFAULTS[k];
+    p[k] = Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : DEFAULTS[k];
   }
   return p;
 }
@@ -75,8 +83,9 @@ export function loadSaved() {
   } catch { return null; }
   if (!saved || typeof saved !== "object") return null;
   if (INCOMPATIBLE_VERSIONS.has(saved.schemaVersion)) return null;
-  const bedW = Number.isFinite(Number(saved.bedW)) ? Number(saved.bedW) : 256;
-  const bedD = Number.isFinite(Number(saved.bedD)) ? Number(saved.bedD) : 256;
-  const printRibs = Number.isFinite(Number(saved.printRibs)) ? Number(saved.printRibs) : 1;
+  const clampNum = (v, lo, hi, def) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
+  const bedW = clampNum(saved.bedW, 100, 420, 256);   // UI の numInput 許容域
+  const bedD = clampNum(saved.bedD, 100, 420, 256);
+  const printRibs = Math.round(clampNum(saved.printRibs, 1, 16, 1)); // 1..boards、上限は boards 側で更にクランプ
   return { p: sanitizeP(saved.p), bedW, bedD, printRibs };
 }

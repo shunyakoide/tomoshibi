@@ -84,5 +84,27 @@ P.saveState({ p: { ...DEFAULTS, height: 333 }, bedW: 256, bedD: 256, printRibs: 
 r = P.loadSaved();
 t("正常往復(height/printRibs)", r.p.height === 333 && r.printRibs === 3);
 
+// pitch=0(壊れた値)→ 範囲クランプ。放置すると grooveList が n=Infinity で無限ループする。
+P.saveState({ p: { ...DEFAULTS, pitch: 0 }, bedW: 256, bedD: 256, printRibs: 1 });
+r = P.loadSaved();
+t("pitch=0→正の域にクランプ", r.p.pitch >= 8);
+t("pitch=0復元でも grooveList が有限本数で返る", (() => {
+  const gs = G.grooveList(r.p, r.p.higoD / 2 + 0.25);
+  return Array.isArray(gs) && gs.length < 1000;
+})());
+
+// 範囲外の数値(負/極大)→ 許容域にクランプ。
+P.saveState({ p: { ...DEFAULTS, height: -5, boardT: 99, boards: 999 }, bedW: 9, bedD: 9999, printRibs: 1 });
+r = P.loadSaved();
+t("height負→140以上", r.p.height >= 140);
+t("boardT極大→4以下", r.p.boardT <= 4);
+t("boards極大→maxBoards以下", r.p.boards <= G.maxBoards(r.p));
+t("bedW/bedD範囲外→100..420", r.bedW >= 100 && r.bedD <= 420);
+
+// pts の t が範囲外 → [0,1] にクランプして昇順。
+P.saveState({ p: { ...DEFAULTS, pts: [{ t: -3, r: 60 }, { t: 9, r: 20 }] }, bedW: 256, bedD: 256, printRibs: 1 });
+r = P.loadSaved();
+t("pts の t を [0,1] にクランプ", r.p.pts.every((q) => q.t >= 0 && q.t <= 1));
+
 console.log(`\n=== ${pass} pass / ${fail} fail ===`);
 process.exit(fail ? 1 : 0);
