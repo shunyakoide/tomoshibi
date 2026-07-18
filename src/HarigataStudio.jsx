@@ -81,6 +81,64 @@ export default function HarigataStudio() {
     return () => { clearTimeout(id); window.removeEventListener("pagehide", flush); };
   }, [p, bedW, bedD, printRibs]);
 
+  // ---- Undo/Redo(形状 p の履歴)----
+  // p の履歴スタック + 現在位置。ドラッグ/スクラブの連続変更は debounce で1エントリにまとめ、
+  // プリセット切替・点の追加削除・角⇄なめらか等の離散操作も同じ経路でスナップされる。setP の
+  // 全サイトは触らず「p を watch して落ち着いたら commit」する方式(単一チョークポイント不在の回避)。
+  const hist = useRef([p]);        // スナップショット列(0 が最古)
+  const hIdx = useRef(0);          // 現在位置
+  const restoring = useRef(false); // undo/redo による setP は再 commit しない印
+  const commitTimer = useRef(null);
+  const [, bumpHist] = useState(0); // ボタンの活性/非活性を更新するための再描画トリガ
+  const HIST_CAP = 60;
+  const commitNow = (np) => {
+    const h = hist.current;
+    if (JSON.stringify(h[hIdx.current]) === JSON.stringify(np)) return; // 変化なしは積まない
+    h.splice(hIdx.current + 1);     // redo 側(やり直し可能な先)を捨てる
+    h.push(np);
+    if (h.length > HIST_CAP) h.shift();
+    hIdx.current = h.length - 1;
+    bumpHist((n) => n + 1);
+  };
+  useEffect(() => {
+    if (restoring.current) { restoring.current = false; return; } // 復元による変化は積まない
+    clearTimeout(commitTimer.current);
+    commitTimer.current = setTimeout(() => commitNow(p), 350); // 連続操作が落ち着いたら1エントリ
+    return () => clearTimeout(commitTimer.current);
+  }, [p]);
+  const undo = () => {
+    clearTimeout(commitTimer.current);
+    commitNow(p);                  // 未確定の変更をまず確定(redo で戻れるように)
+    if (hIdx.current <= 0) return;
+    hIdx.current--;
+    restoring.current = true;
+    setP(hist.current[hIdx.current]);
+    bumpHist((n) => n + 1);
+  };
+  const redo = () => {
+    if (hIdx.current >= hist.current.length - 1) return;
+    hIdx.current++;
+    restoring.current = true;
+    setP(hist.current[hIdx.current]);
+    bumpHist((n) => n + 1);
+  };
+  const canUndo = hIdx.current > 0;
+  const canRedo = hIdx.current < hist.current.length - 1;
+  // キーボード: Cmd/Ctrl+Z = undo、Cmd/Ctrl+Shift+Z または Ctrl+Y = redo。入力中は無視。
+  useEffect(() => {
+    const onKey = (e) => {
+      const tag = (e.target.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   useEffect(() => {
     const mount = mountRef.current;
     let cleanup;
@@ -806,8 +864,19 @@ export default function HarigataStudio() {
 
       {/* スクロール領域 */}
       <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px" }}>
-        {/* 初期化: 自動保存ゆえ「壊した状態」も保存されるので、Undo なしの唯一の逃げ道 */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+        {/* 上段ツールバー: 元に戻す/やり直し(形状の編集) と 初期化 */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <div style={{ display: "flex", gap: 4 }}>
+            {[["↶", "元に戻す", undo, canUndo], ["↷", "やり直し", redo, canRedo]].map(([icon, title, fn, on]) => (
+              <button key={title} onClick={on ? fn : undefined} disabled={!on} title={title}
+                style={{
+                  width: 26, height: 24, borderRadius: 7, padding: 0, lineHeight: 1,
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15,
+                  background: UI.card, color: on ? UI.text : UI.faintest,
+                  border: `1px solid ${UI.cardEdge}`, cursor: on ? "pointer" : "default", opacity: on ? 1 : 0.5,
+                }}>{icon}</button>
+            ))}
+          </div>
           <button
             onClick={() => {
               if (!window.confirm("すべての設定を初期状態に戻します。よろしいですか?")) return;
