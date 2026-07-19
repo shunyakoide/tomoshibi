@@ -35,6 +35,7 @@ import { clamp } from "./util.js";
 import { loadSaved, saveState, STORAGE_KEY, SCHEMA_VERSION } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
 import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
+import { makeT, loadLang, saveLang } from "./i18n.js";
 
 // 起動時に1回だけ localStorage から復元(遅延初期化の重複パースを避けるためモジュール直下)。
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
@@ -52,6 +53,9 @@ export default function HarigataStudio() {
   const [narrow, setNarrow] = useState(
     typeof window !== "undefined" ? window.innerWidth < 860 : false
   );
+  const [lang, setLang] = useState(loadLang());   // UI 言語(ja/en)。localStorage に保存
+  const t = makeT(lang);                          // 翻訳関数(未訳は日本語へフォールバック)
+  const toggleLang = () => setLang((l) => { const nx = l === "ja" ? "en" : "ja"; saveLang(nx); return nx; });
   const mountRef = useRef(null);
   const T = useRef({});
   const prevViewRef = useRef(null); // ビュー切替を検知して初期カメラ角を設定するため
@@ -626,8 +630,8 @@ export default function HarigataStudio() {
   // 分割できないので高さを下げるしかない。
   const ribLen = splitRibs ? Math.round(boardLen / 2) + 12 : boardLen; // 分割時は継手ぶん+12
   const overParts = [];
-  if (ribLen > bedD) overParts.push(`羽根板 ${ribLen}mm`);
-  if (connLen > bedW) overParts.push(`連結板 ${connLen}mm`);
+  if (ribLen > bedD) overParts.push(t("羽根板 {n}mm", { n: ribLen }));
+  if (connLen > bedW) overParts.push(t("連結板 {n}mm", { n: connLen }));
   const bedWarn = overParts.length > 0;
   // 2分割モードは分割部品の爪が本体(コマ基準)と不一致で現行コマに嵌まらない(要修正)。
   // 直るまで自動適用は勧めず、高さを下げる案内に一本化する。
@@ -683,7 +687,7 @@ export default function HarigataStudio() {
           borderBottom: opts.card && !opts.last ? `1px solid ${UI.cardEdge}` : "none",
           background: on ? "rgba(217,91,24,0.06)" : "transparent",
         }}>
-        <span style={{ fontSize: 12.5, color: UI.text }}>{cfg.label}</span>
+        <span style={{ fontSize: 12.5, color: UI.text }}>{t(cfg.label)}</span>
         <span style={{ fontFamily: mono, fontSize: 12.5, fontWeight: 600, color: on ? accent : UI.text }}>
           {cfg.display ?? cfg.value}
           <span style={{ color: UI.faintest, fontWeight: 400 }}> {cfg.unit}</span>
@@ -701,7 +705,7 @@ export default function HarigataStudio() {
         background: checked ? accent : UI.card,
         border: checked ? "none" : "1px solid rgba(59,52,43,0.3)",
       }}>{checked ? "✓" : ""}</span>
-      <span style={{ fontSize: 12.5, color: UI.text }}>{label}</span>
+      <span style={{ fontSize: 12.5, color: UI.text }}>{typeof label === "string" ? t(label) : label}</span>
     </div>
   );
 
@@ -730,7 +734,7 @@ export default function HarigataStudio() {
     );
     return (
       <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
-        <span style={{ fontSize: 12.5, color: UI.text }}>{label}</span>
+        <span style={{ fontSize: 12.5, color: UI.text }}>{t(label)}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {sq("−", () => onChange(clamp(min, max, +(value - step).toFixed(2))), value <= min)}
           <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: UI.text, minWidth: 44, textAlign: "center" }}>{valueText}</span>
@@ -743,7 +747,7 @@ export default function HarigataStudio() {
   // 数値入力(ベッド寸法向け。Enter/フォーカス外しで確定・クランプ)
   const numInput = (label, value, setValue, min, max) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
-      <span style={{ fontSize: 12.5, color: UI.text }}>{label}</span>
+      <span style={{ fontSize: 12.5, color: UI.text }}>{t(label)}</span>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <input key={value} type="number" defaultValue={value} min={min} max={max} step={1}
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
@@ -763,8 +767,8 @@ export default function HarigataStudio() {
 
   const sectionLabel = (txt, extra) => (
     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", color: UI.faint }}>{txt}</span>
-      {extra && <span style={{ fontSize: 10, color: UI.faintest }}>{extra}</span>}
+      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", color: UI.faint }}>{t(txt)}</span>
+      {extra && <span style={{ fontSize: 10, color: UI.faintest }}>{t(extra)}</span>}
     </div>
   );
 
@@ -777,7 +781,7 @@ export default function HarigataStudio() {
     }}>
       <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg, transition: "background 0.3s" }} />
       {/* 断面ビュー:直接操作エディタ(WebGLキャンバスの上に重ねる) */}
-      {view === "2d" && <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag} />}
+      {view === "2d" && <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag} t={t} />}
 
       {glError && (
         <div style={{
@@ -785,10 +789,10 @@ export default function HarigataStudio() {
           alignItems: "center", justifyContent: "center", gap: 10, padding: 24,
           textAlign: "center", pointerEvents: "none",
         }}>
-          <div style={{ fontSize: 13, color: "#e0a060", fontWeight: 600 }}>⚠ 3Dプレビューを初期化できませんでした</div>
+          <div style={{ fontSize: 13, color: "#e0a060", fontWeight: 600 }}>{t("⚠ 3Dプレビューを初期化できませんでした")}</div>
           <div style={{ fontSize: 11, color: "#8a8a96", fontFamily: mono, wordBreak: "break-word" }}>{glError}</div>
           <div style={{ fontSize: 11, color: "#6f6f7a" }}>
-            お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。
+            {t("お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。")}
           </div>
         </div>
       )}
@@ -807,7 +811,7 @@ export default function HarigataStudio() {
             fontWeight: view === k ? 700 : 500,
             background: view === k ? accent : "transparent",
             color: view === k ? "#fff" : "#6f6350", transition: "all 0.15s",
-          }}>{l}</button>
+          }}>{t(l)}</button>
         ))}
       </div>
 
@@ -830,8 +834,8 @@ export default function HarigataStudio() {
           }}>
           <span style={{ fontSize: 15 }}>⚠️</span>
           <span>
-            {overParts.join(" · ")} がベッド {bedW}×{bedD}mm を超過<br />
-            <span style={{ color: UI.sub }}>→ 火袋の高さを {heightLimit}mm 以下に</span>
+            {t("{parts} がベッド {w}×{d}mm を超過", { parts: overParts.join(" · "), w: bedW, d: bedD })}<br />
+            <span style={{ color: UI.sub }}>{t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit })}</span>
           </span>
         </div>
       )}
@@ -842,7 +846,7 @@ export default function HarigataStudio() {
           position: "absolute", bottom: 20, left: 20, fontSize: 11.5, color: "#8a8a96",
           fontFamily: sans, pointerEvents: "none",
         }}>
-          鑑賞モード — 編集はタブで「断面」へ
+          {t("鑑賞モード — 編集はタブで「断面」へ")}
         </div>
       )}
     </main>
@@ -860,9 +864,16 @@ export default function HarigataStudio() {
       {/* ヘッダー */}
       <div style={{ padding: "20px 20px 14px", display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
         <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "0.04em", color: UI.head }}>
-          張型 <span style={{ fontSize: 11.5, fontWeight: 400, color: UI.faint }}>スタジオ</span>
+          {t("張型")} <span style={{ fontSize: 11.5, fontWeight: 400, color: UI.faint }}>{t("スタジオ")}</span>
         </div>
-        <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.12em", color: UI.faintest }}>LAMP KIT</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={toggleLang} title="Language / 言語" style={{
+            fontFamily: mono, fontSize: 10.5, letterSpacing: "0.08em", cursor: "pointer",
+            padding: "3px 8px", borderRadius: 6, border: `1px solid ${UI.cardEdge}`,
+            background: UI.card, color: UI.sub, fontWeight: 700,
+          }}>{lang === "ja" ? "EN" : "日本語"}</button>
+          <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.12em", color: UI.faintest }}>LAMP KIT</div>
+        </div>
       </div>
 
       {/* スクロール領域 */}
@@ -871,7 +882,7 @@ export default function HarigataStudio() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
           <div style={{ display: "flex", gap: 6 }}>
             {[["↺", "元に戻す", undo, canUndo], ["↻", "やり直し", redo, canRedo]].map(([icon, label, fn, on]) => (
-              <button key={label} onClick={on ? fn : undefined} disabled={!on} title={`${label} (${icon === "↺" ? "⌘Z" : "⇧⌘Z"})`}
+              <button key={label} onClick={on ? fn : undefined} disabled={!on} title={`${t(label)} (${icon === "↺" ? "⌘Z" : "⇧⌘Z"})`}
                 style={{
                   display: "flex", alignItems: "center", gap: 5, height: 32, padding: "0 12px",
                   borderRadius: 8, fontFamily: sans, fontSize: 12.5, fontWeight: 600,
@@ -879,20 +890,20 @@ export default function HarigataStudio() {
                   border: `1px solid ${on ? "rgba(217,91,24,0.4)" : UI.cardEdge}`,
                   cursor: on ? "pointer" : "default", opacity: on ? 1 : 0.55,
                 }}>
-                <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{label}
+                <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{t(label)}
               </button>
             ))}
           </div>
           <button
             onClick={() => {
-              if (!window.confirm("すべての設定を初期状態に戻します。よろしいですか?")) return;
+              if (!window.confirm(t("すべての設定を初期状態に戻します。よろしいですか?"))) return;
               try { localStorage.removeItem(STORAGE_KEY); } catch { /* 無効でも続行 */ }
               setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1); setSplitRibs(false);
             }}
             style={{
               background: "none", border: "none", cursor: "pointer", padding: "2px 4px",
               fontFamily: sans, fontSize: 11, color: UI.faint, textDecoration: "underline",
-            }}>初期化</button>
+            }}>{t("初期化")}</button>
         </div>
         {/* 形プリセット */}
         <div style={{ marginBottom: 20 }}>
@@ -914,7 +925,7 @@ export default function HarigataStudio() {
                     <path d={miniPath(pr)} fill={active ? "rgba(255,255,255,0.25)" : "rgba(59,52,43,0.05)"}
                       stroke={active ? "#fff" : "#8a7c66"} strokeWidth="2" />
                   </svg>
-                  <span style={{ fontSize: 11, fontWeight: 500 }}>{pr.name}</span>
+                  <span style={{ fontSize: 11, fontWeight: 500 }}>{t(pr.name)}</span>
                 </button>
               );
             })}
@@ -938,10 +949,10 @@ export default function HarigataStudio() {
           {sectionLabel("骨組み")}
           {stepper("boards", "羽根板の枚数", p.boards, 4, Math.min(16, boardsMax), 1,
             (v) => setP((o) => ({ ...o, boards: v })),
-            <>{p.boards}<span style={{ color: UI.faintest, fontWeight: 400 }}> 枚</span></>)}
+            <>{p.boards}<span style={{ color: UI.faintest, fontWeight: 400 }}>{t(" 枚")}</span></>)}
           {boardsMax < 16 && p.boards >= boardsMax && (
             <div style={{ fontSize: 11, color: UI.faint, lineHeight: 1.5, padding: "2px 0 4px" }}>
-              この開口・板厚では最大 {Math.min(16, boardsMax)} 枚(コマのノッチが重なるため)。板を薄くすると増やせます
+              {t("この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます", { n: Math.min(16, boardsMax) })}
             </div>
           )}
           {scrubRow({ key: "boardT", label: "板厚", value: p.boardT, display: p.boardT.toFixed(1), min: 1, max: 4, sens: 0.02, round: 0.2, unit: "mm",
@@ -953,12 +964,12 @@ export default function HarigataStudio() {
             {checkbox(p.neckTop ?? p.neckOn ?? true, () => setP((o) => ({ ...o, neckTop: !(o.neckTop ?? o.neckOn ?? true) })), "上の首")}
           </div>
           <div style={{ fontSize: 11, color: UI.faint, lineHeight: 1.5, padding: "2px 0 4px" }}>
-            首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ
+            {t("首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ")}
           </div>
-          {checkbox(splitRibs, () => setSplitRibs(!splitRibs), <>羽根板を上下2分割 <span style={{ color: UI.faint }}>(大型用)</span></>)}
+          {checkbox(splitRibs, () => setSplitRibs(!splitRibs), <>{t("羽根板を上下2分割")} <span style={{ color: UI.faint }}>{t("(大型用)")}</span></>)}
           {splitRibs && (
             <div style={{ fontSize: 11, color: UI.warn, lineHeight: 1.5, padding: "2px 0 4px" }}>
-              ⚠ 試験中: 分割部品の爪が現行のコマに嵌まりません(要修正)
+              {t("⚠ 試験中: 分割部品の爪が現行のコマに嵌まりません(要修正)")}
             </div>
           )}
         </div>
@@ -967,7 +978,7 @@ export default function HarigataStudio() {
         <div style={{ borderTop: `1px solid ${UI.edge}`, marginBottom: 4 }}>
           <div onClick={() => setHigoOpen((v) => !v)}
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 0", cursor: "pointer" }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.06em", color: UI.text }}>竹ひご</span>
+            <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.06em", color: UI.text }}>{t("竹ひご")}</span>
             <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>⌀{p.higoD} / {p.pitch}mm</span>
               <span style={{ color: UI.faint, fontSize: 11, transform: higoOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
@@ -1013,13 +1024,13 @@ export default function HarigataStudio() {
       {/* サマリー(下部固定)+ モード連動 CTA */}
       <div style={{ padding: "16px 20px 18px", borderTop: `1px solid ${UI.edge}` }}>
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 5, columnGap: 12, fontSize: 12, marginBottom: 14 }}>
-          <span style={{ color: UI.faint }}>最大径</span>
+          <span style={{ color: UI.faint }}>{t("最大径")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>⌀{maxDia} mm</span>
-          <span style={{ color: UI.faint }}>羽根板の全長</span>
+          <span style={{ color: UI.faint }}>{t("羽根板の全長")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: ribLen > bedD ? UI.warn : UI.text }}>
-            {ribLen} mm{splitRibs ? " (2分割)" : ""}
+            {ribLen} mm{splitRibs ? t(" (2分割)") : ""}
           </span>
-          <span style={{ color: UI.faint }}>上下の開口(半径)</span>
+          <span style={{ color: UI.faint }}>{t("上下の開口(半径)")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>
             {topOpen} / {botOpen} mm
           </span>
@@ -1031,10 +1042,9 @@ export default function HarigataStudio() {
               width: "100%", padding: 12, border: "none", borderRadius: 10, background: accent, color: "#fff",
               fontFamily: sans, fontSize: 13.5, fontWeight: 700, letterSpacing: "0.08em", cursor: "pointer",
               boxShadow: "0 3px 10px rgba(217,91,24,0.3)",
-            }}>STL 書き出し</button>
+            }}>{t("STL 書き出し")}</button>
             <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
-              コマ・柱は上下同一のため各1つ入っています。スライサーで<strong style={{ color: UI.text }}>2つに複製</strong>して印刷してください。
-              設定は <span style={{ fontFamily: mono }}>harigata_config.json</span> として同梱されます(バックアップ用)。
+              {t("コマ・柱は上下同一のため各1つ入っています。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong>{t("して印刷してください。設定は ")}<span style={{ fontFamily: mono }}>harigata_config.json</span>{t(" として同梱されます(バックアップ用)。")}
             </div>
           </>
         ) : (
@@ -1042,7 +1052,7 @@ export default function HarigataStudio() {
             width: "100%", padding: 12, borderRadius: 10, background: "#fff", color: accent,
             border: "1px solid rgba(217,91,24,0.5)", fontFamily: sans, fontSize: 13.5, fontWeight: 700,
             letterSpacing: "0.08em", cursor: "pointer",
-          }}>印刷・書き出しへ進む →</button>
+          }}>{t("印刷・書き出しへ進む →")}</button>
         )}
       </div>
     </aside>
