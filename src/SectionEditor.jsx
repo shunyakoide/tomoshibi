@@ -27,7 +27,7 @@ const C = {
   board: "#caa96f", boardLine: "#9e7f4a", // 羽根板(片側に重ねる実断面)
 };
 
-export default function SectionEditor({ p, setP, accent, drag, setDrag }) {
+export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) => s }) {
   const svgRef = useRef(null);
 
   const H = p.height;
@@ -215,7 +215,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag }) {
           strokeWidth="1.2" strokeLinejoin="round" style={{ pointerEvents: "none" }} />
         <text x={(X(kR) + 9).toFixed(1)} y={(Ymm(H + p.tabLen) + 3).toFixed(1)}
           fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="11" fontWeight="600"
-          fill={C.boardLine} style={{ pointerEvents: "none" }}>羽根板</text>
+          fill={C.boardLine} style={{ pointerEvents: "none" }}>{t("羽根板")}</text>
 
         {/* 首↔火袋の境界(=最外の制御点の高さ)。ここから外は直線の首 */}
         {[fr.lo, fr.hi].map((ty, i) => (ty > 0.001 && ty < 0.999) && (
@@ -225,9 +225,9 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag }) {
 
         {/* 領域ラベル(首 / 火袋 / 首)。左側=◇の値ラベルと衝突しない */}
         <g style={{ pointerEvents: "none" }} fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="12.5" textAnchor="end">
-          {fr.lo > 0.03 && <text x={Xm(maxR + 6).toFixed(1)} y={(Y(fr.lo / 2) + 4).toFixed(1)} fill={C.label} fontWeight="600">首</text>}
-          <text x={Xm(maxR + 6).toFixed(1)} y={(Y((fr.lo + fr.hi) / 2) + 4).toFixed(1)} fill={accent} fontWeight="700">火袋</text>
-          {fr.hi < 0.97 && <text x={Xm(maxR + 6).toFixed(1)} y={(Y((fr.hi + 1) / 2) + 4).toFixed(1)} fill={C.label} fontWeight="600">首</text>}
+          {fr.lo > 0.03 && <text x={Xm(maxR + 6).toFixed(1)} y={(Y(fr.lo / 2) + 4).toFixed(1)} fill={C.label} fontWeight="600">{t("首")}</text>}
+          <text x={Xm(maxR + 6).toFixed(1)} y={(Y((fr.lo + fr.hi) / 2) + 4).toFixed(1)} fill={accent} fontWeight="700">{t("火袋")}</text>
+          {fr.hi < 0.97 && <text x={Xm(maxR + 6).toFixed(1)} y={(Y((fr.hi + 1) / 2) + 4).toFixed(1)} fill={C.label} fontWeight="600">{t("首")}</text>}
         </g>
 
         {/* 竹ひご */}
@@ -250,7 +250,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag }) {
               <circle cx={h.x.toFixed(1)} cy={h.y.toFixed(1)} r="14" fill="transparent" />
               <circle cx={h.x.toFixed(1)} cy={h.y.toFixed(1)} r="6.5" fill={active ? accent : C.handleFill} stroke={accent} strokeWidth="2" />
               <text x={h.lx.toFixed(1)} y={(h.ly - 6).toFixed(1)} textAnchor={h.anchor}
-                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="12" fill={C.label}>{h.label}</text>
+                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="12" fill={C.label}>{t(h.label)}</text>
               <text x={h.lx.toFixed(1)} y={(h.ly + 10).toFixed(1)} textAnchor={h.anchor}
                 fontFamily="'IBM Plex Mono',monospace" fontSize="13" fontWeight="600" fill={active ? accent : C.value}>{p[h.key]} mm</text>
             </g>
@@ -266,7 +266,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag }) {
               fill={c.active || c.end ? accent : C.handleFill} stroke={accent} strokeWidth="2" />
             {c.end && (
               <text x={(c.x + 15).toFixed(1)} y={(c.y - 8).toFixed(1)}
-                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="10.5" fontWeight="600" fill={accent}>開口/首</text>
+                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="10.5" fontWeight="600" fill={accent}>{t("開口/首")}</text>
             )}
             <text x={(c.x + 15).toFixed(1)} y={(c.y + 4).toFixed(1)}
               fontFamily="'IBM Plex Mono',monospace" fontSize="12" fontWeight="600"
@@ -282,7 +282,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag }) {
         maxWidth: "60%", textAlign: "right", pointerEvents: "none", lineHeight: 1.5,
       }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: accent, flex: "none" }} />
-        端の◆=開口/首(横=張り出し·縦=首の高さ) · ◇ドラッグでふくらみ · クリックで角⇄なめらか · Wクリックで点追加/削除
+        {t("端の◆=開口/首(横=張り出し·縦=首の高さ) · ◇ドラッグでふくらみ · クリックで角⇄なめらか · Wクリックで点追加/削除")}
       </div>
     </div>
   );
