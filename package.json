@@ -10,7 +10,8 @@
     "preview": "vite preview --host",
     "check:manifold": "node scripts/manifold.mjs",
     "check:hash": "node scripts/hash.mjs",
-    "check:persist": "node scripts/persist.test.mjs"
+    "check:persist": "node scripts/persist.test.mjs",
+    "check:paper": "node scripts/paper.test.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
