@@ -60,6 +60,13 @@ const EN = {
     "⚠ Experimental: split-part tabs don't fit the current koma (needs fixing).",
   "この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます":
     "Up to {n} ribs at this opening/thickness (koma notches would overlap). Thinner boards allow more.",
+  // ---- 型紙(段ボール) ----
+  "型紙(段ボール)": "Paper template",
+  "A4 原寸": "A4 · 1:1",
+  "材料の厚み": "Material thickness",
+  "型紙を開く (A4 原寸)": "Open template (A4, 1:1)",
+  "新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。":
+    "Opens in a new tab. Print at \"Actual size (100%)\" and check the 50mm scale with a ruler. Bamboo grooves are shown as tick marks, not cut.",
   // ---- サマリー ----
   "最大径": "Max diameter",
   "羽根板の全長": "Rib length",

@@ -30,7 +30,8 @@ import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
   standCollarTop, standSaddleH, standSlotSep,
 } from "./geometry.js";
-import { exportZip } from "./stl.js";
+import { exportZip, openHTML } from "./stl.js";
+import { paperHTML } from "./papercraft.js";
 import { clamp } from "./util.js";
 import { loadSaved, saveState, STORAGE_KEY, SCHEMA_VERSION } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
@@ -49,6 +50,7 @@ export default function HarigataStudio() {
   const [splitRibs, setSplitRibs] = useState(false); // 羽根板を上下2分割(試験機能なので復元しない=常に false 起動)
   const [bedW, setBedW] = useState(SAVED?.bedW ?? 256); // プリントベッド幅(mm)。機種設定として復元
   const [bedD, setBedD] = useState(SAVED?.bedD ?? 256); // プリントベッド奥行き(mm)
+  const [matT, setMatT] = useState(SAVED?.matT ?? 5);   // 型紙の材料厚(mm)。段ボールの実測厚。機種設定として復元
   const [glError, setGlError] = useState(null);
   const [narrow, setNarrow] = useState(
     typeof window !== "undefined" ? window.innerWidth < 860 : false
@@ -78,12 +80,12 @@ export default function HarigataStudio() {
   // 暴発を抑え、pagehide(タブクローズ/遷移)では即 flush して直近の1操作も取りこぼさない。
   // boards クランプ effect の後段なので、保存される値は常にクランプ後(非水密コマにならない)。
   useEffect(() => {
-    const state = { p, bedW, bedD, printRibs };
+    const state = { p, bedW, bedD, printRibs, matT };
     const id = setTimeout(() => saveState(state), 300);
     const flush = () => { clearTimeout(id); saveState(state); };
     window.addEventListener("pagehide", flush);
     return () => { clearTimeout(id); window.removeEventListener("pagehide", flush); };
-  }, [p, bedW, bedD, printRibs]);
+  }, [p, bedW, bedD, printRibs, matT]);
 
   // ---- Undo/Redo(形状 p の履歴)----
   // p の履歴スタック + 現在位置。ドラッグ/スクラブの連続変更は debounce で1エントリにまとめ、
@@ -1016,6 +1018,20 @@ export default function HarigataStudio() {
               {stepper("printRibs", "印刷する羽根板", nRibs, 1, p.boards, 1,
                 (v) => setPrintRibs(v),
                 <>{nRibs}<span style={{ color: UI.faintest, fontWeight: 400 }}> / {p.boards}</span></>)}
+            </div>
+
+            {/* 型紙: 3Dプリンタが無くても段ボール・厚紙で作れるように原寸 A4 で刷る */}
+            <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 14, marginTop: 14 }}>
+              {sectionLabel("型紙(段ボール)", "A4 原寸")}
+              {stepper("matT", "材料の厚み", matT, 1, 10, 0.5, (v) => setMatT(v), `${matT} mm`)}
+              <button onClick={() => openHTML(paperHTML(p, matT), "harigata_katagami_a4.html")} style={{
+                width: "100%", marginTop: 8, padding: 10, borderRadius: 10, background: UI.card, color: accent,
+                border: `1px solid rgba(217,91,24,0.45)`, fontFamily: sans, fontSize: 12.5, fontWeight: 700,
+                letterSpacing: "0.04em", cursor: "pointer",
+              }}>{t("型紙を開く (A4 原寸)")}</button>
+              <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 8 }}>
+                {t("新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。")}
+              </div>
             </div>
           </div>
         )}

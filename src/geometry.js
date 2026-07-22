@@ -229,13 +229,22 @@ export function notchR(p) { return Math.max(1, innerRi(p) - 0.5); }
 // ・余地が無い(爪が短い / 多歯で中心が混む)場合は null = 従来どおり出っ張り無し。
 const KOMA_STOP_W = 3;     // 棚の張り出し目標(mm)
 const KOMA_STOP_MIN = 0.8; // 張り出しがこれ未満なら作らない
-export function komaStop2D(p) {
+// opts は 3Dプリント既定を変えないためのフック(省略時は従来と完全に同一)。型紙(段ボール)
+// だけがここを緩める。厚い材料では爪先が ribCoreFloor まで外へ押し戻され、棚の干渉限界 rMin と
+// ほぼ重なる(差は「MIN_WALL 1.6 − 棚クリア gap」で決まり材料厚に依らない)ため、既定値のままだと
+// 厚 3mm 以上で常に「余地なし」= 棚が消える。段ボールは手切りで隣の棚が触れても実害が無いので、
+// 棚どうしのクリア gap と採用下限 min を小さくして、中心の余地いっぱいまで棚を出す。
+//   w   = 棚の張り出し目標(mm)
+//   gap = 隣の羽根板の棚との周方向クリアランス(mm)。rMin を決める。
+//   min = これ未満の張り出しなら棚を作らない
+export function komaStop2D(p, opts = {}) {
+  const { w = KOMA_STOP_W, gap = 1.0, min = KOMA_STOP_MIN } = opts;
   const yShelf = p.height + p.tabLen - p.komaT;
   if (yShelf - p.height < 1) return null;                     // 爪が短く棚を置く余地がない
   const nR = notchR(p);
-  const rMin = ((p.boardT + 1.0) * p.boards) / (2 * Math.PI); // 隣の羽根と干渉しない最小半径
-  const Rd = Math.max(rMin, nR - KOMA_STOP_W);
-  if (nR - Rd < KOMA_STOP_MIN) return null;                   // 張り出しが取れない
+  const rMin = ((p.boardT + gap) * p.boards) / (2 * Math.PI); // 隣の羽根と干渉しない最小半径
+  const Rd = Math.max(rMin, nR - w);
+  if (nR - Rd < min) return null;                             // 張り出しが取れない
   return { yShelf, Rd };
 }
 
@@ -284,11 +293,17 @@ export function ribInnerX(p) {
 // 羽根の外形点列を返す(2D断面描画 と 3D羽根geometry で共有 = 両者が必ず一致する)。
 // k = 羽根番号。現在は**全羽根が同一形状**(溝は水平なリング)なので k は形に影響しない。
 // 呼び出し側が羽根ごとに呼ぶため引数は残す(将来ずらす場合の識別子)。
-export function ribOutline2D(p, k = 0) {
+// opts.smooth = true で「溝を彫らない滑らかな外縁」を返す(型紙用)。段ボールに 0.5mm 精度の
+// V ノッチは刻めないため、型紙では外縁を曲線のまま切り、溝は目盛線(印)で示す。
+// opts.stop は上端の爪の内側ストッパの調整(komaStop2D へそのまま渡す)。どちらも既定は
+// 未指定なので、3D/STL 側の呼び出しは一切変わらない。
+export function ribOutline2D(p, k = 0, opts = {}) {
   const h = p.height, tl = p.tabLen, gR = grooveR(p);
   // 竹ひごの溝は火袋(最外制御点の間)全体に作る。カーブには必ず溝を入れ、上下端にも溝を置く。
   const grooves = grooveList(p, gR);
-  const outerX = grooveOuterX(p, grooves, gR);
+  const outerX = opts.smooth
+    ? (y) => outerR(p, Math.min(Math.max(y, 0), h) / h)
+    : grooveOuterX(p, grooves, gR);
   const Ri = innerRi(p), STEP = 0.5, pts = []; // 返しの急フランクを拾うため細かく
   // 爪 = 真っ直ぐな舌。先端をコマ外径 kR にちょうど合わせる(はみ出さない)。
   const kR = komaR(p);
@@ -297,7 +312,7 @@ export function ribOutline2D(p, k = 0) {
   for (let y = STEP; y <= h; y += STEP) pts.push([outerX(Math.min(y, h)), Math.min(y, h)]);
   // 上端の爪: 先端(外側)からコマを差し込み、内縁の棚でコマ無垢部の下面を受けて内側へのズレを止める。
   pts.push([outerR(p, 1), h], [kR, h], [kR, h + tl], [Ri, h + tl]);
-  const stop = komaStop2D(p);
+  const stop = komaStop2D(p, opts.stop);
   if (stop) pts.push([Ri, stop.yShelf], [stop.Rd, stop.yShelf], [stop.Rd, h]); // 棚(出っ張り)
   // 内縁: バナナ(三日月)カーブを上から下へ。両端は Ri に戻るので爪と繋がる。
   const innerX = ribInnerX(p);
