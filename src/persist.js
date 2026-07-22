@@ -87,5 +87,6 @@ export function loadSaved() {
   const bedW = clampNum(saved.bedW, 100, 420, 256);   // UI の numInput 許容域
   const bedD = clampNum(saved.bedD, 100, 420, 256);
   const printRibs = Math.round(clampNum(saved.printRibs, 1, 16, 1)); // 1..boards、上限は boards 側で更にクランプ
-  return { p: sanitizeP(saved.p), bedW, bedD, printRibs };
+  const matT = clampNum(saved.matT, 1, 10, 5);        // 型紙の材料厚(mm)。UI ステッパの許容域
+  return { p: sanitizeP(saved.p), bedW, bedD, printRibs, matT };
 }

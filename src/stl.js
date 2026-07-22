@@ -42,6 +42,16 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+// 生成した HTML(型紙)を新規タブで開く。印刷はそのタブで Ctrl/⌘+P。
+// ポップアップがブロックされた場合はファイルとして DL にフォールバックする。
+export function openHTML(html, filename) {
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank");
+  if (!w) triggerDownload(blob, filename);
+  setTimeout(() => URL.revokeObjectURL(url), 60000); // 新規タブが読み終わるまで解放しない
+}
+
 // ---- 最小 ZIP(無圧縮 STORE + CRC32)。依存を増やさず複数STLを1ファイルに ----
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
