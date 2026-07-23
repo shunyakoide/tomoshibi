@@ -31,15 +31,28 @@ const BOUNDS = {
 };
 const NUM_KEYS = Object.keys(BOUNDS);
 
+// ベジェ接線ハンドル(ho/hi)の検証。{dt,dr} が両方有限なら採用、それ以外(欠損・非オブジェクト・
+// NaN・JSON化された Infinity=null 等)は捨てる。壊れたハンドルで outerR が NaN 化するのを防ぐ。
+function validHandle(h) {
+  return h && Number.isFinite(h.dt) && Number.isFinite(h.dr) ? { dt: h.dt, dr: h.dr } : undefined;
+}
 // pts の検証: 配列・2点以上・各要素 {t,r} が有限。満たさなければ DEFAULTS.pts に差し替える。
 // t は [0,1]・r は妥当域にクランプし、t 昇順にソート(geometry の前提。外部由来は順序無保証)。
+// ho/hi(任意)は validHandle で安全化し、無効なら省く(= その点は自動接線に戻る)。
 function validatePts(pts) {
   if (!Array.isArray(pts) || pts.length < 2) return DEFAULTS.pts.map((q) => ({ ...q }));
   for (const q of pts) {
     if (!q || !Number.isFinite(q.t) || !Number.isFinite(q.r)) return DEFAULTS.pts.map((q2) => ({ ...q2 }));
   }
   return pts
-    .map((q) => ({ ...q, t: Math.min(1, Math.max(0, q.t)), r: Math.min(140, Math.max(8, q.r)) }))
+    .map((q) => {
+      const out = { t: Math.min(1, Math.max(0, q.t)), r: Math.min(140, Math.max(8, q.r)) };
+      if (q.sharp) out.sharp = true;
+      const ho = validHandle(q.ho), hi = validHandle(q.hi);
+      if (ho) out.ho = ho;
+      if (hi) out.hi = hi;
+      return out;
+    })
     .sort((a, b) => a.t - b.t);
 }
 

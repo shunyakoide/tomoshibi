@@ -46,6 +46,65 @@ function fukuroSpline(P, x, T) {
   const m1 = T[i] * h, m2 = T[i + 1] * h, s2 = s * s, s3 = s2 * s;
   return (2 * s3 - 3 * s2 + 1) * p1.r + (s3 - 2 * s2 + s) * m1 + (-2 * s3 + 3 * s2) * p2.r + (s3 - s2) * m2;
 }
+
+// ---- ベジェ接線ハンドル(任意) ----
+// Illustrator のペンツール的に、各制御点から方向線(ハンドル ho=次点側 / hi=前点側)を引いて
+// カーブの角度・張りを編集できるようにする。ハンドルは (t,r) 空間の相対ベクトル {dt,dr}。
+// **1点でもハンドルを持つと火袋カーブはベジェ評価に切り替わる**。1つも無ければ従来の
+// 単調 Hermite(fukuroSpline)のまま = 既存プリセット・保存データの STL は完全に不変。
+//
+// 一価性(高さ t → 半径 r が一意)の保証: セグメントの制御点の t 成分を非減少にクランプ
+// (ho.dt∈[0,Δt] / hi.dt∈[-Δt,0]、かつ交差しないよう合計を Δt 以内に縮小)。こうすると
+// t(u) が u について単調 ⇒ 二分探索で t=x の u が一意に求まり、溝・押し出しの t 単調前提を壊さない。
+function anyHandle(pts) { for (const q of pts) if (q && (q.ho || q.hi)) return true; return false; }
+// ハンドル未指定の点の既定(Catmull-Rom 相当。端点は片側 1/3、角点 sharp は 0=直線)。
+function bezDefault(P, i) {
+  const n = P.length, a = P[i];
+  if (a.sharp) return { ho: { dt: 0, dr: 0 }, hi: { dt: 0, dr: 0 } };
+  if (i === 0) { const b = P[1]; return { ho: { dt: (b.t - a.t) / 3, dr: (b.r - a.r) / 3 }, hi: { dt: 0, dr: 0 } }; }
+  if (i === n - 1) { const p = P[n - 2]; return { ho: { dt: 0, dr: 0 }, hi: { dt: (p.t - a.t) / 3, dr: (p.r - a.r) / 3 } }; }
+  const pv = P[i - 1], nx = P[i + 1], dt = (nx.t - pv.t) / 6, dr = (nx.r - pv.r) / 6;
+  return { ho: { dt, dr }, hi: { dt: -dt, dr: -dr } };
+}
+function fukuroBezierR(P, x) {
+  const n = P.length;
+  let i = 0;
+  while (i < n - 2 && x > P[i + 1].t) i++;
+  const a = P[i], b = P[i + 1], dt = b.t - a.t;
+  if (dt < 1e-9) return a.r;
+  const ha = a.ho || bezDefault(P, i).ho;         // a の out ハンドル
+  const hb = b.hi || bezDefault(P, i + 1).hi;      // b の in ハンドル
+  // t 成分を単調にクランプ(制御多角形の t を a.t ≤ c1.t ≤ c2.t ≤ b.t に保つ)
+  let ot = Math.max(0, Math.min(dt, ha.dt)), it = Math.max(-dt, Math.min(0, hb.dt));
+  const sum = ot - it;                             // = ot + |it|。Δt を超えたら両方を縮小
+  if (sum > dt) { const k = dt / sum; ot *= k; it *= k; }
+  const c1t = a.t + ot, c1r = a.r + ha.dr, c2t = b.t + it, c2r = b.r + hb.dr;
+  const T = (u) => { const m = 1 - u; return m * m * m * a.t + 3 * m * m * u * c1t + 3 * m * u * u * c2t + u * u * u * b.t; };
+  const R = (u) => { const m = 1 - u; return m * m * m * a.r + 3 * m * m * u * c1r + 3 * m * u * u * c2r + u * u * u * b.r; };
+  let lo = 0, hi = 1;                              // t(u)=x を二分探索(t は u に単調)
+  for (let k = 0; k < 40; k++) { const u = (lo + hi) / 2; if (T(u) < x) lo = u; else hi = u; }
+  return R((lo + hi) / 2);
+}
+// 火袋カーブの半径関数を一本化: ハンドルがあればベジェ、無ければ従来 Hermite。
+// 断面図・STL・コマ算出すべてがこの1関数を通るので、両者が必ず一致する。
+function profileR(P, x) { return anyHandle(P) ? fukuroBezierR(P, x) : fukuroSpline(P, x); }
+
+// 現在の Hermite 曲線から各点のベジェハンドル(ho/hi)を焼き込んで返す(pts は変更しない)。
+// カーブ調整モードへ入る瞬間に呼ぶ。三次 Hermite は「制御点を接線方向へ Δt/3 ずらした三次
+// ベジェ」と厳密に一致するので、焼き込み後もカーブ形状は変わらない(段差なくハンドル編集へ移行)。
+// これ以降 anyHandle=true になり評価はベジェへ切り替わる(触った形だけ。未編集の形は不変)。
+// sharp 点も含め全点を現行の Hermite 接線 T[i] から焼き込む(=現在の形を厳密に再現)。
+// sharp は焼き込み後は「ハンドルを左右連動させない(角として独立に動かせる)」意味に限定され、
+// カーブそのものへの直接の効きは持たない(評価は常に ho/hi を使う)。
+export function bakeBezierHandles(pts) {
+  if (!pts || pts.length < 2) return pts;
+  const T = fukuroTangents(pts), n = pts.length;
+  return pts.map((q, i) => {
+    const dtN = i < n - 1 ? (pts[i + 1].t - q.t) / 3 : 0;   // 次点側 Δt/3
+    const dtP = i > 0 ? (q.t - pts[i - 1].t) / 3 : 0;       // 前点側 Δt/3
+    return { ...q, ho: { dt: dtN, dr: T[i] * dtN }, hi: { dt: -dtP, dr: -T[i] * dtP } };
+  });
+}
 // 実効外周半径。t∈[0,1] → 半径mm。端(t=0/1)から頂点まで1本の連続スプラインにする
 // (垂直の首は作らない)。首を挟むと「平ら→急カーブ」の折れ角が出るため、端も制御点
 // (rBot/rTop)としてスプラインに含め、少ない点でも滑らかな輪郭になるようにする。
@@ -67,7 +126,7 @@ function bodyMinR(p) {
   const pts = p.pts;
   if (!pts || pts.length < 2) return openMin(p);
   let m = Math.min(pts[0].r, pts[pts.length - 1].r);
-  for (let i = 0; i <= 40; i++) { const t = pts[0].t + (pts[pts.length - 1].t - pts[0].t) * i / 40; m = Math.min(m, fukuroSpline(pts, t)); }
+  for (let i = 0; i <= 40; i++) { const t = pts[0].t + (pts[pts.length - 1].t - pts[0].t) * i / 40; m = Math.min(m, profileR(pts, t)); }
   return m;
 }
 export function outerR(p, t) {
@@ -83,8 +142,11 @@ export function outerR(p, t) {
   const hiT = nT ? lp.t : 1, hiR = nT ? lp.r : kR;
   if (t <= loT) return Math.max(8, loR);
   if (t >= hiT) return Math.max(8, hiR);
-  const P = [{ t: loT, r: loR }, ...pts.slice(1, -1), { t: hiT, r: hiR }];
-  return Math.max(8, fukuroSpline(P, t));                          // 火袋(制御点間)
+  // 端点は首の有無で半径が変わる(loR/hiR)が、ハンドル(ho/hi)は相対ベクトルなので引き継ぐ。
+  const first = { t: loT, r: loR, ho: fp.ho, hi: fp.hi, sharp: fp.sharp };
+  const last = { t: hiT, r: hiR, ho: lp.ho, hi: lp.hi, sharp: lp.sharp };
+  const P = [first, ...pts.slice(1, -1), last];
+  return Math.max(8, profileR(P, t));                             // 火袋(制御点間)
 }
 export function maxRadius(p) {
   let m = 0;

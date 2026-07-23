@@ -106,5 +106,29 @@ P.saveState({ p: { ...DEFAULTS, pts: [{ t: -3, r: 60 }, { t: 9, r: 20 }] }, bedW
 r = P.loadSaved();
 t("pts の t を [0,1] にクランプ", r.p.pts.every((q) => q.t >= 0 && q.t <= 1));
 
+// ---- ベジェ接線ハンドル(ho/hi)の sanitize ----
+// 正常なハンドルは温存。壊れたハンドル(非有限・JSON化された Infinity=null・非オブジェクト)は
+// 捨てて自動接線に戻す(outerR が NaN 化しないこと)。
+const bakedPts = G.bakeBezierHandles({ ...DEFAULTS }.pts);
+P.saveState({ p: { ...DEFAULTS, pts: bakedPts }, bedW: 256, bedD: 256, printRibs: 1 });
+r = P.loadSaved();
+t("正常な ho/hi は温存", r.p.pts.some((q) => q.ho && Number.isFinite(q.ho.dt) && Number.isFinite(q.ho.dr)));
+t("ハンドル付きも往復で水密", manifoldOK(r.p) === true);
+t("ハンドル付き outerR が有限", (() => { for (let i = 0; i <= 50; i++) if (!Number.isFinite(G.outerR(r.p, i / 50))) return false; return true; })());
+
+// 壊れたハンドル: dt=NaN / dr=Infinity(JSONで null 化) / ho が配列 など
+const brokenPts = [
+  { t: 0.05, r: 74, ho: { dt: NaN, dr: 2 }, hi: { dt: Infinity, dr: 0 } },
+  { t: 0.4, r: 94, ho: [1, 2], hi: { dt: 0.02 } },      // 非オブジェクト / dr 欠損
+  { t: 0.95, r: 19, ho: null, hi: "x" },
+];
+P.saveState({ p: { ...DEFAULTS, pts: brokenPts }, bedW: 256, bedD: 256, printRibs: 1 });
+r = P.loadSaved();
+t("壊れた ho/hi は破棄(不正な dt/dr が残らない)",
+  r.p.pts.every((q) => (!q.ho || (Number.isFinite(q.ho.dt) && Number.isFinite(q.ho.dr)))
+    && (!q.hi || (Number.isFinite(q.hi.dt) && Number.isFinite(q.hi.dr)))));
+t("壊れた ho/hi でも outerR 有限", (() => { for (let i = 0; i <= 50; i++) if (!Number.isFinite(G.outerR(r.p, i / 50))) return false; return true; })());
+t("壊れた ho/hi でも水密", manifoldOK(r.p) === true);
+
 console.log(`\n=== ${pass} pass / ${fail} fail ===`);
 process.exit(fail ? 1 : 0);

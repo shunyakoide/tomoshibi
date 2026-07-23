@@ -28,7 +28,7 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   maxRadius, outerR, cutT, standBoardLength, maxBoards, grooveR, grooveList,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
-  standCollarTop, standSaddleH, standSlotSep,
+  standCollarTop, standSaddleH, standSlotSep, bakeBezierHandles,
 } from "./geometry.js";
 import { exportZip, openHTML } from "./stl.js";
 import { paperHTML } from "./papercraft.js";
@@ -51,6 +51,8 @@ export default function HarigataStudio() {
   const [bedW, setBedW] = useState(SAVED?.bedW ?? 256); // プリントベッド幅(mm)。機種設定として復元
   const [bedD, setBedD] = useState(SAVED?.bedD ?? 256); // プリントベッド奥行き(mm)
   const [matT, setMatT] = useState(SAVED?.matT ?? 5);   // 型紙の材料厚(mm)。段ボールの実測厚。機種設定として復元
+  const [sel, setSel] = useState(null); // 断面エディタで選択中の制御点 index(一時状態=復元しない)
+  const [editMode, setEditMode] = useState("move"); // 断面エディタ: "move"=点を動かす / "curve"=接線ハンドル
   const [glError, setGlError] = useState(null);
   const [narrow, setNarrow] = useState(
     typeof window !== "undefined" ? window.innerWidth < 860 : false
@@ -783,7 +785,7 @@ export default function HarigataStudio() {
     }}>
       <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg, transition: "background 0.3s" }} />
       {/* 断面ビュー:直接操作エディタ(WebGLキャンバスの上に重ねる) */}
-      {view === "2d" && <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag} t={t} />}
+      {view === "2d" && <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag} sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode} t={t} />}
 
       {glError && (
         <div style={{
@@ -915,7 +917,7 @@ export default function HarigataStudio() {
               const active = p.shape === pr.key;
               return (
                 <button key={pr.key}
-                  onClick={() => setP((o) => ({ ...o, shape: pr.key, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })) }))}
+                  onClick={() => { setSel(null); setP((o) => ({ ...o, shape: pr.key, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })) })); }}
                   style={{
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
                     padding: "8px 4px 7px", borderRadius: 10, cursor: "pointer", fontFamily: sans,
@@ -933,6 +935,70 @@ export default function HarigataStudio() {
             })}
           </div>
         </div>
+
+        {/* 選択中の点カード(断面ビューのみ)。SVG上の隠しジェスチャを明示UIに: 数値入力・
+            なめらか/角トグル・削除。geometry には触れない(pts の r/t/sharp を編集するだけ)。 */}
+        {view === "2d" && (() => {
+          const selPt = sel != null && p.pts && p.pts[sel] ? p.pts[sel] : null;
+          const isEnd = selPt && (sel === 0 || sel === p.pts.length - 1);
+          const setPt = (patch) => setP((o) => {
+            const pts = o.pts.map((q) => ({ ...q }));
+            pts[sel] = { ...pts[sel], ...patch };
+            return { ...o, pts };
+          });
+          const setHmm = (mm) => setP((o) => {
+            const pts = o.pts.map((q) => ({ ...q }));
+            const lo = sel > 0 ? pts[sel - 1].t + 0.04 : 0.01;
+            const hi = sel < pts.length - 1 ? pts[sel + 1].t - 0.04 : 0.99;
+            pts[sel] = { ...pts[sel], t: clamp(lo, hi, mm / p.height) };
+            return { ...o, pts };
+          });
+          const del = () => { if (p.pts.length <= 2) return; setP((o) => ({ ...o, pts: o.pts.filter((_, j) => j !== sel) })); setSel(null); };
+          const segBtn = (label, active, onClick) => (
+            <button onClick={onClick} style={{
+              flex: 1, padding: "7px 4px", fontFamily: sans, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              borderRadius: 8, background: active ? accent : UI.card, color: active ? "#fff" : UI.text,
+              border: "1px solid " + (active ? accent : UI.cardEdge),
+            }}>{t(label)}</button>
+          );
+          // カーブ調整モードへ入る時、まだハンドルが無ければ現在の Hermite 曲線から焼き込む
+          // (形は変わらない)。以降 outerR はベジェ評価になり、ハンドルで角度を編集できる。
+          const enterCurve = () => {
+            setEditMode("curve");
+            setP((o) => (o.pts.some((q) => q.ho || q.hi) ? o : { ...o, pts: bakeBezierHandles(o.pts) }));
+          };
+          return (
+            <div style={{ marginBottom: 20 }}>
+              {sectionLabel("選択中の点", selPt ? (isEnd ? "開口/首" : `#${sel + 1}`) : undefined)}
+              {selPt ? (
+                <div style={{ border: `1px solid ${UI.cardEdge}`, borderRadius: 10, background: UI.card, padding: "12px 12px 10px" }}>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                    {segBtn("✥ 点を動かす", editMode === "move", () => setEditMode("move"))}
+                    {segBtn("◠ カーブ調整", editMode === "curve", enterCurve)}
+                  </div>
+                  {numInput("張り出し(半径)", Math.round(selPt.r), (v) => setPt({ r: clamp(10, 130, v) }), 10, 130)}
+                  {numInput("高さ位置", Math.round(selPt.t * p.height), (v) => setHmm(v), 1, p.height)}
+                  <div style={{ display: "flex", gap: 6, margin: "4px 0 10px" }}>
+                    {segBtn("◇ なめらか", !selPt.sharp, () => setPt({ sharp: false }))}
+                    {segBtn("■ 角", !!selPt.sharp, () => setPt({ sharp: true }))}
+                  </div>
+                  <button onClick={del} disabled={p.pts.length <= 2} style={{
+                    width: "100%", padding: 9, fontFamily: sans, fontSize: 12, fontWeight: 600,
+                    borderRadius: 8, cursor: p.pts.length <= 2 ? "not-allowed" : "pointer",
+                    background: "transparent", color: p.pts.length <= 2 ? UI.faintest : UI.warn,
+                    border: `1px solid ${p.pts.length <= 2 ? UI.cardEdge : "rgba(194,60,18,0.4)"}`,
+                    opacity: p.pts.length <= 2 ? 0.6 : 1,
+                  }}>{t("この点を削除")}</button>
+                </div>
+              ) : (
+                <div style={{
+                  border: `1px dashed ${UI.cardEdge}`, borderRadius: 10, padding: "14px 14px",
+                  fontSize: 11.5, color: UI.faint, lineHeight: 1.6,
+                }}>{t("断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。")}</div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* シルエット(スクラブ) */}
         <div style={{ marginBottom: 20 }}>
