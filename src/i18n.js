@@ -94,8 +94,19 @@ const EN = {
   "首": "Neck",
   "火袋": "Body",
   "開口/首": "Opening/Neck",
-  "端の◆=開口/首(横=張り出し·縦=首の高さ) · ◇ドラッグでふくらみ · クリックで角⇄なめらか · Wクリックで点追加/削除":
-    "End ◆ = opening/neck (horizontal = flare, vertical = neck height) · drag ◇ to bulge · click to toggle corner⇄smooth · double-click to add/remove a point",
+  "点をドラッグで動かす · クリックで選択(右で数値·なめらか/角·削除) · 緑の＋で点を追加":
+    "Drag a point to move it · click to select (edit values, smooth/corner, delete on the right) · add a point with the green +",
+  // ---- 選択中の点カード(インスペクタ) ----
+  "選択中の点": "Selected point",
+  "✥ 点を動かす": "✥ Move",
+  "◠ カーブ調整": "◠ Curve",
+  "張り出し(半径)": "Radius",
+  "高さ位置": "Height position",
+  "◇ なめらか": "◇ Smooth",
+  "■ 角": "■ Corner",
+  "この点を削除": "Delete this point",
+  "断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。":
+    "Click a point in the section view to edit its values, smooth/corner, and delete here. Add points with the green + on the curve.",
 };
 
 // 言語 lang の翻訳関数を返す。t(key, params?): 英語なら EN を引き(無ければ日本語)、
