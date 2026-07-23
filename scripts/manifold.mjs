@@ -92,4 +92,40 @@ for (const preset of PRESETS)
 console.log(`\n=== ${total} checks, ${fail} FAIL ===`);
 console.log(`komaStop2D: 生成あり ${stopOn} / 見送り(余地なし) ${stopOff}`);
 console.log(`maxBoards で枚数を clamp した組: ${clamped}(= UI では作れない不正な枚数)`);
+
+// ============ ベジェ接線ハンドルの水密性スイープ ============
+// カーブ調整モードは outerR をベジェ評価へ切り替える。ハンドルを様々に編集した形が
+// 依然として水密STLになるか(急な角度で火袋がコマ側にえぐれて非水密化しないか)を検査する。
+// 中間点にハンドルを焼き込み→摂動し、全部品の watertight を見る。
+function perturb(pts, kind) {
+  const mid = Math.max(1, Math.min(pts.length - 2, Math.floor(pts.length / 2)));
+  return pts.map((q, i) => {
+    if (i !== mid || !q.ho || !q.hi) return { ...q };
+    const scale = (h, sd, sr) => ({ dt: h.dt * sd, dr: h.dr * sr });
+    switch (kind) {
+      case "bulge":  return { ...q, ho: scale(q.ho, 1, 3), hi: scale(q.hi, 1, 3) };   // 大きく膨らませる
+      case "flat":   return { ...q, ho: scale(q.ho, 1, 0.1), hi: scale(q.hi, 1, 0.1) }; // 平坦化
+      case "inward": return { ...q, ho: scale(q.ho, 1, -2), hi: scale(q.hi, 1, -2) };  // 内向き(えぐり)
+      case "long":   return { ...q, ho: scale(q.ho, 5, 4), hi: scale(q.hi, 5, 4) };    // 極端に長い(tはeval側でクランプ)
+      case "corner": return { ...q, sharp: true, ho: scale(q.ho, 1, 2.5), hi: scale(q.hi, 2, -1) }; // 角=左右独立
+      default:       return { ...q };
+    }
+  });
+}
+const HKINDS = ["baked", "bulge", "flat", "inward", "long", "corner"];
+let hfail = 0, htotal = 0;
+for (const preset of PRESETS)
+  for (const height of [140, 205, 300, 400])
+    for (const boards of [6, 8, 12])
+      for (const kind of HKINDS) {
+        const base = { ...DEFAULTS, ...preset, height, boards: Math.min(boards, G.maxBoards({ ...DEFAULTS, ...preset })) };
+        const baked = G.bakeBezierHandles(base.pts);
+        const p = { ...base, pts: kind === "baked" ? baked : perturb(baked, kind) };
+        for (const r of checkParts(p)) {
+          htotal++;
+          if (!r.ok) { hfail++; if (hfail <= 40) console.log(`✗[H] ${preset.key} h${height} b${boards} ${kind} :: ${r.name} → ${r.reason}`); }
+        }
+      }
+console.log(`\n=== ハンドル編集: ${htotal} checks, ${hfail} FAIL ===`);
+if (fail + hfail > 0) process.exitCode = 1;
 process.exit(fail ? 1 : 0);

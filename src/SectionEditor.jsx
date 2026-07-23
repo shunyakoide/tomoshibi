@@ -27,7 +27,7 @@ const C = {
   board: "#caa96f", boardLine: "#9e7f4a", // 羽根板(片側に重ねる実断面)
 };
 
-export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) => s }) {
+export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", setEditMode = () => {}, t = (s) => s }) {
   const svgRef = useRef(null);
 
   const H = p.height;
@@ -46,6 +46,11 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) 
     if (!m) return { x: 0, y: 0 };
     const inv = m.inverse();
     return { x: inv.a * clientX + inv.c * clientY + inv.e, y: inv.b * clientX + inv.d * clientY + inv.f };
+  };
+  // クライアント座標 → モデル座標(t, r)。ハンドルの絶対位置決めに使う。
+  const toModel = (clientX, clientY) => {
+    const c = toSvg(clientX, clientY);
+    return { t: (Y0 - c.y) / (H * s), r: (c.x - CX) / s };
   };
 
   // ---- シルエット標本化(竹ひご溝のギザギザを実際の深さで反映。geometry と一致) ----
@@ -112,9 +117,13 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) 
   ];
 
   // ---- 曲線の制御点 ----
+  // ポインタを下ろした時点でその点を選択する(移動の有無に依らず)。ドラッグで t/r を動かし、
+  // 移動なし(クリック)は「選択」だけ。角⇄なめらか・削除は右パネルの明示ボタンで行う
+  // (以前はクリック=角切替・Wクリック=削除の隠しジェスチャで、ドラッグと誤爆していた)。
   const beginDragPt = (e, i) => {
     e.preventDefault();
     e.stopPropagation();
+    setSel(i);
     const start = { ...p.pts[i] };
     const sx = e.clientX, sy = e.clientY;
     const s0 = toSvg(sx, sy);
@@ -122,6 +131,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) 
     const move = (ev) => {
       if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) moved = true;
       if (!moved) return;
+      if (editMode === "curve") return;   // カーブ調整モードでは点は動かさない(ハンドルだけ操作)
       const c = toSvg(ev.clientX, ev.clientY);
       setP((o) => {
         const pts = o.pts.map((q) => ({ ...q }));
@@ -137,14 +147,6 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) 
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      if (!moved) {
-        // クリック(移動なし)= 角 ⇄ なめらか 切替
-        setP((o) => {
-          const pts = o.pts.map((q) => ({ ...q }));
-          pts[i] = { ...pts[i], sharp: !pts[i].sharp };
-          return { ...o, pts };
-        });
-      }
       setDrag(null);
     };
     window.addEventListener("pointermove", move);
@@ -152,29 +154,75 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) 
     setDrag("pt" + i);
   };
 
-  const removePt = (i) => {
-    if (p.pts.length <= 2) return; // 最低2点(上下の開口)は残す
-    setP((o) => ({ ...o, pts: o.pts.filter((_, j) => j !== i) }));
+  // 曲線上の「＋」ゴースト = 隣り合う制御点の中点(半径は geometry の outerR を使う=実形状)。
+  // クリックでそこに点を追加して選択する。geometry は変えない(pts に点を1つ足すだけ)。
+  const addAtT = (mt) => {
+    if (p.pts.length >= 8) return;
+    const r = clamp(10, 130, outerR(p, mt));
+    setP((o) => {
+      const pts = [...o.pts, { t: mt, r }].sort((a, b) => a.t - b.t);
+      const idx = pts.findIndex((q) => q.t === mt);
+      setSel(idx);
+      return { ...o, pts };
+    });
   };
 
-  const addPt = (e) => {
-    if (p.pts.length >= 8) return;
-    const c = toSvg(e.clientX, e.clientY);
-    const t = (Y0 - c.y) / (H * s);
-    if (t < tnB + 0.02 || t > 1 - tnT - 0.02) return; // 火袋(最外制御点の内側)にのみ追加
-    const r = clamp(10, 130, Math.abs(c.x - CX) / s);
-    setP((o) => ({ ...o, pts: [...o.pts, { t, r }].sort((a, b) => a.t - b.t) }));
+  // 接線ハンドルのドラッグ(カーブ調整モード)。which="ho"(次点側)/"hi"(前点側)。
+  // なめらか点(非sharp・内側)は反対側を対称ミラー(hi=-ho)。角点・端点は片側独立。
+  const beginDragHandle = (e, i, which) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const move = (ev) => {
+      const m = toModel(ev.clientX, ev.clientY);
+      setP((o) => {
+        const pts = o.pts.map((q) => ({ ...q, ho: q.ho ? { ...q.ho } : undefined, hi: q.hi ? { ...q.hi } : undefined }));
+        const a = pts[i], dt = m.t - a.t, dr = m.r - a.r;
+        const mirror = !a.sharp && i > 0 && i < pts.length - 1;
+        if (which === "ho") { a.ho = { dt, dr }; if (mirror) a.hi = { dt: -dt, dr: -dr }; }
+        else { a.hi = { dt, dr }; if (mirror) a.ho = { dt: -dt, dr: -dr }; }
+        return { ...o, pts };
+      });
+      setDrag("h" + i + which);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setDrag(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    setDrag("h" + i + which);
   };
 
   const cps = p.pts.map((pt, i) => {
-    return { i, pt, x: X(pt.r), y: Y(pt.t), active: drag === "pt" + i, end: i === 0 || i === p.pts.length - 1 };
+    return { i, pt, x: X(pt.r), y: Y(pt.t), active: drag === "pt" + i, selected: sel === i, end: i === 0 || i === p.pts.length - 1 };
+  });
+
+  // 選択中の点の接線ハンドル(カーブ調整モードのみ)。ho=次点側 / hi=前点側。
+  const selPt = sel != null ? p.pts[sel] : null;
+  const showHandles = editMode === "curve" && selPt;
+  const handleDots = [];
+  if (showHandles) {
+    const add = (which, h) => {
+      if (!h) return;
+      handleDots.push({ which, ax: X(selPt.r), ay: Y(selPt.t), hx: X(selPt.r + h.dr), hy: Y(selPt.t + h.dt) });
+    };
+    if (sel < p.pts.length - 1) add("ho", selPt.ho);
+    if (sel > 0) add("hi", selPt.hi);
+  }
+
+  // 点追加ゴースト(＋): 隣り合う制御点の中点。半径は outerR(=実形状)から取る。8点で打ち止め。
+  // カーブ調整モードではハンドルに集中させるため非表示。
+  const ghosts = (editMode === "curve" || p.pts.length >= 8) ? [] : p.pts.slice(0, -1).map((pt, i) => {
+    const mt = (pt.t + p.pts[i + 1].t) / 2;
+    return { mt, x: X(outerR(p, mt)), y: Y(mt) };
   });
 
   const spineY = Math.min(Y(tnB), Y(1 - tnT));
   const spineH = Math.abs(Y(tnB) - Y(1 - tnT));
 
   return (
-    <div style={{
+    <div onPointerDown={() => setSel(null)} style={{
       position: "absolute", inset: 0, overflow: "hidden",
       background: "radial-gradient(ellipse at 45% 40%, #f7f2e6 0%, #efe7d6 60%, #e9dfc9 100%)",
       display: "flex", alignItems: "center", justifyContent: "center",
@@ -197,9 +245,8 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) 
           <clipPath id="silClip"><path d={d} /></clipPath>
         </defs>
 
-        {/* 火袋シルエット(Wクリックで制御点追加) */}
-        <path d={d} fill="url(#washiGrad)" stroke={C.outline} strokeWidth="1.5"
-          onDoubleClick={addPt} style={{ cursor: "crosshair" }} />
+        {/* 火袋シルエット。クリックは外側コンテナに委ねて選択解除(専用ハンドラは不要) */}
+        <path d={d} fill="url(#washiGrad)" stroke={C.outline} strokeWidth="1.5" style={{ cursor: "default" }} />
 
         {/* 領域の色分け(首=生成り / 火袋=アクセント)。シルエットでクリップ */}
         <g clipPath="url(#silClip)" style={{ pointerEvents: "none" }}>
@@ -257,13 +304,27 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) 
           );
         })}
 
+        {/* 点追加ゴースト(＋)。隣接点の中点。クリックで点を追加して選択 */}
+        {ghosts.map((g, i) => (
+          <g key={"gh" + i} onPointerDown={(e) => { e.stopPropagation(); addAtT(g.mt); }} style={{ cursor: "copy" }}>
+            <circle cx={g.x.toFixed(1)} cy={g.y.toFixed(1)} r="11" fill={C.handleFill} fillOpacity="0.85"
+              stroke={C.bound} strokeWidth="1.3" strokeDasharray="2.5 2.5" />
+            <path d={`M ${(g.x - 4).toFixed(1)} ${g.y.toFixed(1)} H ${(g.x + 4).toFixed(1)} M ${g.x.toFixed(1)} ${(g.y - 4).toFixed(1)} V ${(g.y + 4).toFixed(1)}`}
+              stroke={C.bound} strokeWidth="1.6" style={{ pointerEvents: "none" }} />
+          </g>
+        ))}
+
         {/* 制御点(◇=なめらか / ■=角)。最外(端)= 開口=首(横=張り出し / 縦=首の高さ) */}
         {cps.map((c) => (
-          <g key={c.i} onPointerDown={(e) => beginDragPt(e, c.i)} onDoubleClick={() => removePt(c.i)} style={{ cursor: "move" }}>
+          <g key={c.i} onPointerDown={(e) => beginDragPt(e, c.i)} style={{ cursor: "move" }}>
+            {c.selected && (
+              <circle cx={c.x.toFixed(1)} cy={c.y.toFixed(1)} r="13" fill="none"
+                stroke={C.bound} strokeWidth="1.6" strokeDasharray="3 3" style={{ pointerEvents: "none" }} />
+            )}
             <circle cx={c.x.toFixed(1)} cy={c.y.toFixed(1)} r="13" fill="transparent" />
             <rect x={(c.x - 5.5).toFixed(1)} y={(c.y - 5.5).toFixed(1)} width="11" height="11" rx="2.5"
               transform={c.pt.sharp ? undefined : `rotate(45 ${c.x.toFixed(1)} ${c.y.toFixed(1)})`}
-              fill={c.active || c.end ? accent : C.handleFill} stroke={accent} strokeWidth="2" />
+              fill={c.active || c.selected || c.end ? accent : C.handleFill} stroke={accent} strokeWidth="2" />
             {c.end && (
               <text x={(c.x + 15).toFixed(1)} y={(c.y - 8).toFixed(1)}
                 fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="10.5" fontWeight="600" fill={accent}>{t("開口/首")}</text>
@@ -271,6 +332,18 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) 
             <text x={(c.x + 15).toFixed(1)} y={(c.y + 4).toFixed(1)}
               fontFamily="'IBM Plex Mono',monospace" fontSize="12" fontWeight="600"
               fill={c.active ? accent : C.label}>{Math.round(c.pt.r)} mm</text>
+          </g>
+        ))}
+
+        {/* 接線ハンドル(カーブ調整モード・選択点のみ)。緑の方向線+掴み丸をドラッグで角度・張り調整 */}
+        {handleDots.map((h, i) => (
+          <g key={"h" + i}>
+            <line x1={h.ax.toFixed(1)} y1={h.ay.toFixed(1)} x2={h.hx.toFixed(1)} y2={h.hy.toFixed(1)}
+              stroke={C.bound} strokeWidth="1.4" style={{ pointerEvents: "none" }} />
+            <circle cx={h.hx.toFixed(1)} cy={h.hy.toFixed(1)} r="13" fill="transparent"
+              onPointerDown={(e) => beginDragHandle(e, sel, h.which)} style={{ cursor: "move" }} />
+            <circle cx={h.hx.toFixed(1)} cy={h.hy.toFixed(1)} r="5.5" fill="#eef7f0" stroke={C.bound} strokeWidth="2"
+              style={{ pointerEvents: "none" }} />
           </g>
         ))}
       </svg>
@@ -282,7 +355,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, t = (s) 
         maxWidth: "60%", textAlign: "right", pointerEvents: "none", lineHeight: 1.5,
       }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: accent, flex: "none" }} />
-        {t("端の◆=開口/首(横=張り出し·縦=首の高さ) · ◇ドラッグでふくらみ · クリックで角⇄なめらか · Wクリックで点追加/削除")}
+        {t("点をドラッグで動かす · クリックで選択(右で数値·なめらか/角·削除) · 緑の＋で点を追加")}
       </div>
     </div>
   );
