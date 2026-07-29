@@ -28,7 +28,7 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   maxRadius, outerR, cutT, standBoardLength, maxBoards, grooveR, grooveList,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
-  standCollarTop, standSaddleH, standSlotSep, bakeBezierHandles,
+  standCollarTop, standSaddleH, standSlotSep, bakeBezierHandles, ringGeometry,
 } from "./geometry.js";
 import { exportZip, openHTML } from "./stl.js";
 import { paperHTML } from "./papercraft.js";
@@ -508,6 +508,11 @@ export default function HarigataStudio() {
       const stands = [{ geo: standGeometry(p), mat: s.standMat }];
       // ベース板は長さが火袋高さで変わるため別プレートに。柱の配置が動かないようにする
       const boards = [{ geo: boardGeometry(p), mat: s.standMat }];
+      // 口輪(上下の開口リング)。完成品の開口に入れる剛性リング。各1つ。
+      const rings = [
+        { geo: ringGeometry(p, false), mat: s.komaMat },
+        { geo: ringGeometry(p, true), mat: s.komaMat },
+      ];
 
       let plateIdx = 0;
       const placed = [];
@@ -543,6 +548,7 @@ export default function HarigataStudio() {
       layout(komas);
       layout(stands);
       layout(boards);
+      layout(rings);
 
       const plates = plateIdx;
       const pCols = Math.ceil(Math.sqrt(plates));
@@ -617,6 +623,9 @@ export default function HarigataStudio() {
       { name: "harigata_koma_print2.stl", geos: [komaGeometry(p)] },
       { name: "harigata_stand_column_print2.stl", geos: [standGeometry(p)] },
       { name: "harigata_stand_base.stl", geos: [board] },
+      // 口輪(上下の開口リング)。完成品の開口に入れ、竹ひご/和紙が留まる骨。開口径に合わせて生成。
+      { name: "harigata_ring_bottom.stl", geos: [ringGeometry(p, false)] },
+      { name: "harigata_ring_top.stl", geos: [ringGeometry(p, true)] },
     ], "harigata_kit.zip", [{ name: "harigata_config.json", bytes: new TextEncoder().encode(cfg) }]);
   };
 
