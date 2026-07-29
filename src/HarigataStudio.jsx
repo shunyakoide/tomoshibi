@@ -33,7 +33,7 @@ import {
 import { exportZip, openHTML } from "./stl.js";
 import { paperHTML } from "./papercraft.js";
 import { clamp } from "./util.js";
-import { loadSaved, saveState, STORAGE_KEY, SCHEMA_VERSION } from "./persist.js";
+import { loadSaved, saveState, serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
 import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
 import { makeT, loadLang, saveLang } from "./i18n.js";
@@ -63,6 +63,7 @@ export default function HarigataStudio() {
   const mountRef = useRef(null);
   const T = useRef({});
   const prevViewRef = useRef(null); // ビュー切替を検知して初期カメラ角を設定するため
+  const importRef = useRef(null);   // 設計読み込み用の隠し <input type=file>
 
   // 画面幅で左右レイアウト / 縦積みを切替
   useEffect(() => {
@@ -629,6 +630,31 @@ export default function HarigataStudio() {
     ], "harigata_kit.zip", [{ name: "harigata_config.json", bytes: new TextEncoder().encode(cfg) }]);
   };
 
+  // 設計を JSON ファイルとして書き出す。localStorage(揮発するキャッシュ層)が消えても、
+  // このファイルから復元できる = 恐れずに使えるバックアップ。ZIP 内 config.json と同スキーマ。
+  const exportDesign = () => {
+    const json = serializeState({ p, bedW, bedD, printRibs, matT });
+    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = "harigata_design.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // 設計 JSON(単体書き出し / ZIP 内 config.json のどちらでも)を読み込んで復元する。
+  // parseImport が sanitize を通すので、壊れた/古い/手書きの値でも安全にフォールバックする。
+  const importDesign = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const s = parseImport(String(reader.result));
+      if (!s) { window.alert(t("設計ファイルを読み込めませんでした(JSON が壊れています)。")); return; }
+      setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setMatT(s.matT);
+    };
+    reader.onerror = () => window.alert(t("設計ファイルを読み込めませんでした(JSON が壊れています)。"));
+    reader.readAsText(file);
+  };
+
   const maxDia = Math.round(maxRadius(p) * 2);
   const boardLen = Math.round(p.height + p.tabLen * 2); // 羽根板の全長
   const connLen = Math.round(standBoardLength(p));      // 連結板の全長(最も長い部品)
@@ -891,33 +917,61 @@ export default function HarigataStudio() {
 
       {/* スクロール領域 */}
       <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px" }}>
-        {/* 上段ツールバー: 元に戻す/やり直し(形状の編集) と 初期化 */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <div style={{ display: "flex", gap: 6 }}>
-            {[["↺", "元に戻す", undo, canUndo], ["↻", "やり直し", redo, canRedo]].map(([icon, label, fn, on]) => (
-              <button key={label} onClick={on ? fn : undefined} disabled={!on} title={`${t(label)} (${icon === "↺" ? "⌘Z" : "⇧⌘Z"})`}
-                style={{
-                  display: "flex", alignItems: "center", gap: 5, height: 32, padding: "0 12px",
-                  borderRadius: 8, fontFamily: sans, fontSize: 12.5, fontWeight: 600,
-                  background: on ? UI.card : "transparent", color: on ? accent : UI.faintest,
-                  border: `1px solid ${on ? "rgba(217,91,24,0.4)" : UI.cardEdge}`,
-                  cursor: on ? "pointer" : "default", opacity: on ? 1 : 0.55,
-                }}>
-                <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{t(label)}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => {
-              if (!window.confirm(t("すべての設定を初期状態に戻します。よろしいですか?"))) return;
-              try { localStorage.removeItem(STORAGE_KEY); } catch { /* 無効でも続行 */ }
-              setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1); setSplitRibs(false);
-            }}
-            style={{
-              background: "none", border: "none", cursor: "pointer", padding: "2px 4px",
-              fontFamily: sans, fontSize: 11, color: UI.faint, textDecoration: "underline",
-            }}>{t("初期化")}</button>
-        </div>
+        {/* 上段ツールバー: 動作の性質が全く違うので2グループに分ける。
+            「編集」= 元に戻す/やり直し/初期化(今の作業状態を操作) と 「保存」= 書き出す/読み込む(ファイル入出力)。
+            各グループを枠+小見出しで囲む。パネルが狭い時は flexWrap でグループごと2段に落とす(文字単位の折り返しは nowrap で禁止)。 */}
+        {(() => {
+          // 他のセクション(形・シルエット等)に合わせ、枠は使わず小見出し+ボタン列だけにする。
+          const groupBox = { display: "flex", flexDirection: "column", gap: 7 };
+          const groupTitle = { fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", color: UI.faint };
+          const btnBase = { display: "flex", alignItems: "center", height: 32, padding: "0 12px", borderRadius: 8, fontFamily: sans, fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" };
+          return (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 24, marginBottom: 14 }}>
+              {/* 編集グループ: 元に戻す / やり直し / 初期化 */}
+              <div style={groupBox}>
+                <span style={groupTitle}>{t("編集")}</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[["↺", "元に戻す", undo, canUndo], ["↻", "やり直し", redo, canRedo]].map(([icon, label, fn, on]) => (
+                    <button key={label} onClick={on ? fn : undefined} disabled={!on} title={`${t(label)} (${icon === "↺" ? "⌘Z" : "⇧⌘Z"})`}
+                      style={{
+                        ...btnBase, gap: 5,
+                        background: on ? UI.card : "transparent", color: on ? accent : UI.faintest,
+                        border: `1px solid ${on ? "rgba(217,91,24,0.4)" : UI.cardEdge}`,
+                        cursor: on ? "pointer" : "default", opacity: on ? 1 : 0.55,
+                      }}>
+                      <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{t(label)}
+                    </button>
+                  ))}
+                  {/* 初期化は破壊的なので warn 色の枠で他と区別しつつ、編集状態の操作として同じグループに置く。 */}
+                  <button
+                    onClick={() => {
+                      if (!window.confirm(t("すべての設定を初期状態に戻します。よろしいですか?"))) return;
+                      try { localStorage.removeItem(STORAGE_KEY); } catch { /* 無効でも続行 */ }
+                      setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1); setSplitRibs(false);
+                    }}
+                    title={t("すべての設定を初期状態に戻す")}
+                    style={{ ...btnBase, background: "transparent", color: UI.warn, border: `1px solid rgba(194,60,18,0.35)`, cursor: "pointer" }}>
+                    {t("初期化")}
+                  </button>
+                </div>
+              </div>
+              {/* 保存グループ: 書き出す / 読み込む(設計を JSON ファイルに保存/復元。localStorage が消えても復元できる) */}
+              <div style={groupBox}>
+                <span style={groupTitle}>{t("保存")}</span>
+                <input ref={importRef} type="file" accept=".json,application/json" style={{ display: "none" }}
+                  onChange={(e) => { importDesign(e.target.files[0]); e.target.value = ""; }} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[["書き出す", exportDesign, "設計を JSON ファイルに保存"], ["読み込む", () => importRef.current?.click(), "設計 JSON ファイルから復元"]].map(([label, fn, tip]) => (
+                    <button key={label} onClick={fn} title={t(tip)}
+                      style={{ ...btnBase, background: UI.card, color: UI.sub, border: `1px solid ${UI.cardEdge}`, cursor: "pointer" }}>
+                      {t(label)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         {/* 形プリセット */}
         <div style={{ marginBottom: 20 }}>
           {sectionLabel("形")}

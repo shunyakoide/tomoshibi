@@ -130,5 +130,22 @@ t("壊れた ho/hi は破棄(不正な dt/dr が残らない)",
 t("壊れた ho/hi でも outerR 有限", (() => { for (let i = 0; i <= 50; i++) if (!Number.isFinite(G.outerR(r.p, i / 50))) return false; return true; })());
 t("壊れた ho/hi でも水密", manifoldOK(r.p) === true);
 
+// ---- ファイル書き出し/読み込み(serializeState / parseImport) ----
+// localStorage が消えても、書き出した JSON から往復で元の状態に戻せること(復元導線の要)。
+const roundTrip = P.parseImport(P.serializeState({ p: { ...DEFAULTS }, bedW: 300, bedD: 200, printRibs: 3, matT: 6 }));
+t("JSON往復: p 温存", roundTrip && roundTrip.p.height === DEFAULTS.height);
+t("JSON往復: 機種設定 温存", roundTrip.bedW === 300 && roundTrip.bedD === 200 && roundTrip.printRibs === 3 && roundTrip.matT === 6);
+t("JSON往復: 水密", manifoldOK(roundTrip.p) === true);
+
+// ZIP 内 config.json 相当({schemaVersion, p, bedW, bedD} のみ)でも、欠損は DEFAULTS で埋まる。
+const fromZipCfg = P.parseImport(JSON.stringify({ schemaVersion: 1, p: { ...DEFAULTS }, bedW: 256, bedD: 256 }));
+t("ZIP config 読込: 欠損 printRibs/matT を既定で補完", fromZipCfg && fromZipCfg.printRibs === 1 && fromZipCfg.matT === 5);
+t("ZIP config 読込: 水密", manifoldOK(fromZipCfg.p) === true);
+
+// 壊れた入力は null(アプリはアラート表示 → 現状維持)。クラッシュしない。
+t("壊れた JSON → null", P.parseImport("{ not json") === null);
+t("空文字 → null", P.parseImport("") === null);
+t("非オブジェクト JSON → null", P.parseImport("42") === null);
+
 console.log(`\n=== ${pass} pass / ${fail} fail ===`);
 process.exit(fail ? 1 : 0);
