@@ -603,6 +603,36 @@ export function komaGeometry(p) {
   return new THREE.ExtrudeGeometry(komaShape(p), { depth: p.komaT, bevelEnabled: false });
 }
 
+// ============ 口輪(くちわ / 開口リング) ============
+// 完成した和紙提灯の上下の開口に入れる細い輪。開口に嵌めて真円を保ち、外周に竹ひごの端を
+// 巻き留める。開口の位置・径は最外制御点が決めるので openingR から自動(外径=開口径)。
+// 太い washer でも背の高いバンドでもなく、細い針金状のフープ(径方向も高さも薄い)。
+// 既存部品(羽根板/コマ/土台)とは独立の新パーツ。
+const RING_WALL = 2;   // フープの肉厚(径方向, mm)。細く=竹ひごが外周に巻ける。
+const RING_H = 2;      // フープの高さ(=Z押し出し, mm)。薄い平たい輪(針金状)。
+// はめあいクリアランス(半径, mm)。口輪は開口の**外側**に嵌まるので、輪の**内径**が開口の外径
+// (=羽根板の外側)とすっと合う必要がある。プリント誤差で内径が縮むぶんを、この分だけ広げて逃がす。
+// 0.3(直径0.6mm)は緩かったので 0.15(直径0.3mm)へ。竹ひご・和紙で固定されるので少しきつめが良い。
+const RING_FIT = 0.15;
+// 開口(=口輪)の半径。top=true で上端、false で下端。首の有無に依らず outerR の端値を使う。
+export function openingR(p, top) { return outerR(p, top ? 1 : 0); }
+// フル円の点列。absarc(0,2π) は始点=終点の重複点を作り退化三角形を生むため、
+// 0..2π 未満の N 点で作りループを閉じない(Shape/Path が自動で閉じる)。
+function circlePts(r, N) {
+  const pts = [];
+  for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2; pts.push(new THREE.Vector2(r * Math.cos(a), r * Math.sin(a))); }
+  return pts;
+}
+export function ringGeometry(p, top) {
+  const R = openingR(p, top);          // 開口の外径 = 羽根板の外側(火袋面)
+  const inner = R + RING_FIT;          // 内径=開口の外径+クリアランス(輪が開口の外側にすっと嵌まる)
+  const outer = inner + RING_WALL;     // 肉厚ぶん外へ。竹ひごはこの外周に巻く
+  const N = 96;
+  const shape = new THREE.Shape(circlePts(outer, N));
+  shape.holes.push(new THREE.Path(circlePts(inner, N).reverse())); // 穴は逆巻き
+  return new THREE.ExtrudeGeometry(shape, { depth: RING_H, bevelEnabled: false, curveSegments: 1 });
+}
+
 // ============ 土台(シンプルな差し込み式) ============
 // コマの縁をU字サドル(切り欠き)で受ける「均一厚の平板」の柱×2を、
 // 1枚の薄いベース板のスリットへ差し込むだけ。柱は一定厚なので底面が完全に
