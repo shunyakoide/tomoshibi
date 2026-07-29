@@ -52,6 +52,7 @@ function checkParts(p) {
     push("koma", G.komaGeometry(p));
     push("stand", G.standGeometry(p));
     push("board", G.boardGeometry(p));
+    push("ring.bot", G.ringGeometry(p, false)); push("ring.top", G.ringGeometry(p, true)); // 口輪(開口リング)
     const sp = G.ribSplitParts(p, 0);
     push("ribSplit.bottom", sp.bottom); push("ribSplit.top", sp.top); push("ribSplit.splice", sp.splice);
   } catch (e) { return [{ name: "EXCEPTION", ok: false, reason: e.message }]; }
