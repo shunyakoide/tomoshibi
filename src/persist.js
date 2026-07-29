@@ -83,17 +83,15 @@ export function saveState(state) {
   } catch { /* 保存できなくてもアプリは動く(次回は DEFAULTS 起動になるだけ) */ }
 }
 
-// 復元: 「マージ・検証・クランプ済みの {p, bedW, bedD, printRibs}」か、無効なら null。
+// 復元: 「マージ・検証・クランプ済みの {p, bedW, bedD, printRibs, matT}」か、無効なら null。
 // version が既知でなくても saved.p があれば読む(浅マージは前方互換なので、機械不変量を
 // 捨てない)。真に互換不能な破壊的変更をしたときだけ、その version を破棄リストに載せる。
 const INCOMPATIBLE_VERSIONS = new Set(); // 例: 破壊的変更をしたら該当 version をここに追加
-export function loadSaved() {
-  let saved;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    saved = JSON.parse(raw);
-  } catch { return null; }
+
+// パース済みオブジェクト → sanitize 済みの {p, bedW, bedD, printRibs, matT}(無効なら null)。
+// localStorage 復元・ファイル読込・ZIP 内 config など「外部由来の1オブジェクト」を全て
+// ここに通す。壊れた値の安全化(sanitizeP / クランプ)を経路ごとに書かず1本に集約する。
+export function sanitizeSaved(saved) {
   if (!saved || typeof saved !== "object") return null;
   if (INCOMPATIBLE_VERSIONS.has(saved.schemaVersion)) return null;
   const clampNum = (v, lo, hi, def) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
@@ -102,4 +100,26 @@ export function loadSaved() {
   const printRibs = Math.round(clampNum(saved.printRibs, 1, 16, 1)); // 1..boards、上限は boards 側で更にクランプ
   const matT = clampNum(saved.matT, 1, 10, 5);        // 型紙の材料厚(mm)。UI ステッパの許容域
   return { p: sanitizeP(saved.p), bedW, bedD, printRibs, matT };
+}
+
+export function loadSaved() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return sanitizeSaved(JSON.parse(raw));
+  } catch { return null; }
+}
+
+// 書き出し: 現在の作業状態を、saveState / ZIP 内 config.json と同じスキーマの JSON 文字列に。
+// これをファイル保存すれば localStorage(揮発するキャッシュ層)が消えても設計を復元できる。
+export function serializeState(state) {
+  return JSON.stringify({ schemaVersion: SCHEMA_VERSION, ...state }, null, 2);
+}
+
+// 読み込み: ファイル等の文字列 → sanitize 済みの状態(無効な JSON/中身なら null)。
+// ZIP 内の config.json({schemaVersion, p, bedW, bedD})でも、単体書き出しの状態でも、
+// sanitizeSaved が欠損を DEFAULTS で埋めるためそのまま復元できる。
+export function parseImport(text) {
+  try { return sanitizeSaved(JSON.parse(text)); }
+  catch { return null; }
 }
