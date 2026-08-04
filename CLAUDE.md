@@ -6,7 +6,7 @@ Harigata Studio (張型スタジオ) — a web app that generates **3D-printable
 
 The real-world lantern-making process: **wind bamboo ribs onto the mold → paste on washi paper → once dry, disassemble the mold and pull it out**. This app is about 3D-printing that mold as separable parts.
 
-> **Currently the grooves are horizontal rings** (identical position across every rib). If you want a spiral, the person winding does it diagonally. Each part's role is as follows (**these definitions and relationships are fixed — do not change them arbitrarily in the implementation or explanations**).
+> **Grooves are horizontal rings by default** (identical position across every rib). An optional **spiral winding** mode (`p.spiral`) offsets the grooves per rib (`step/boards` each) so the bamboo forms one continuous descending helix; because each rib is then a different shape, spiral molds export one STL per rib, each engraved with its serial number (7-segment through-cut). Each part's role is as follows (**these definitions and relationships are fixed — do not change them arbitrarily in the implementation or explanations**).
 
 ```
         ● koma (top)         ← gear-like hub that gathers and bundles the rib tabs
@@ -136,7 +136,6 @@ Verification is `npm run check:paper` (`scripts/paper.test.mjs`). The test is no
 ## Future work (not yet implemented — homework from studying a real mold)
 
 - **Continuous bamboo-rib grooves**: real molds have **grooves so fine and continuous there is no flat span**, and the craftsperson picks "every so many grooves" to wind (= the mold doesn't dictate the winding pitch / the bamboo rib always drops into some groove). Currently they are isolated V-notches at `pitch` (default 9mm) intervals with flat spans between. Implementing this requires changing `grooveList`'s step to be groove-width-based and rebuilding `grooveOuterX` as a **periodic sawtooth** (it's currently a `max` composite of isolated Vs, so packing them shaves the tooth tips and doesn't give the intended sawtooth). It also requires deciding the meaning of `pitch` (make it just a winding-guideline display / reinterpret it as "how many grooves apart to wind" / etc.).
-- **Spiral winding**: let the bamboo rib be wound in a spiral by offsetting the grooves per rib. There used to be a `spiral` parameter and a UI checkbox, but **it was passed to a third argument `grooveList` doesn't accept and so had no effect** (all ribs had identical groove positions = horizontal rings), so it was removed as misleading dead code. To implement, have `grooveList` accept a groove-position offset and pass a shift amount derived from the rib number `k` from both `ribOutline2D` and `ribEdges` (both must be aligned by the same rule).
 - **`ribSplitParts` (2-split mode) tabs don't match the body**: the split parts' top/bottom tabs are at `outerR±tabDepth` (based on the lamp body's outer diameter), which doesn't match `ribOutline2D`'s `Ri〜kR` (koma-based). **They shouldn't fit the current koma.** If you use split mode, this needs fixing.
 
 ## Conventions
