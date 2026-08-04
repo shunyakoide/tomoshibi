@@ -30,7 +30,7 @@ class ErrorBoundary extends React.Component {
           }}
         >
           <div style={{ color: "#e0a060", fontWeight: 600, marginBottom: 8 }}>
-            ⚠ 画面の描画でエラーが発生しました
+            ⚠ A rendering error occurred
           </div>
           <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>
             {(e && (e.stack || e.message)) || String(e)}

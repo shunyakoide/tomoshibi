@@ -109,6 +109,20 @@ const EN = {
   "この点を削除": "Delete this point",
   "断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。":
     "Click a point in the section view to edit its values, smooth/corner, and delete here. Add points with the green + on the curve.",
+  // ---- Toolbar / save & load ----
+  "編集": "Edit",
+  "すべての設定を初期状態に戻す": "Reset all settings to defaults",
+  "保存": "Save",
+  "書き出す": "Export",
+  "設計を JSON ファイルに保存": "Save the design to a JSON file",
+  "読み込む": "Import",
+  "設計 JSON ファイルから復元": "Restore the design from a JSON file",
+  "設計ファイルを読み込めませんでした(JSON が壊れています)。": "Couldn't load the design file (the JSON is corrupted).",
+  // ---- Spiral winding ----
+  "螺旋巻き": "Spiral winding",
+  "(溝を下へ連続させる)": "(grooves descend continuously)",
+  "螺旋: 全": "Spiral: all ",
+  "枚(各1枚)": " (one file each)",
 };
 
 // Return the translation function for language `lang`. t(key, params?): for English, look up EN
