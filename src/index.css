@@ -1,4 +1,4 @@
-/* 最小リセット — 全画面3Dキャンバス用 */
+/* Minimal reset — for the fullscreen 3D canvas */
 * {
   margin: 0;
   padding: 0;
@@ -14,7 +14,7 @@ body,
 }
 
 html {
-  /* iOS Safari のアドレスバー伸縮対策(100vh のブレを防ぐ) */
+  /* Workaround for iOS Safari address-bar resizing (prevents 100vh jitter) */
   height: -webkit-fill-available;
 }
 
@@ -23,13 +23,13 @@ body {
   color: #242019;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* タッチ操作をアプリ側(オービット/ズーム)で完結させ、
-     ブラウザのスクロール・ピンチズームを抑制 */
+  /* Handle touch gestures entirely on the app side (orbit / zoom),
+     suppressing the browser's scroll and pinch-zoom */
   overscroll-behavior: none;
   touch-action: none;
 }
 
-/* iOS のセーフエリア(ノッチ/ホームインジケータ)を尊重 */
+/* Respect iOS safe areas (notch / home indicator) */
 #root {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);

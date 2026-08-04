@@ -3,7 +3,24 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "張型スタジオ — あかりランプ(岐阜提灯/AKARI方式)の3Dプリント用張型ジェネレーター",
+  "description": "Browser generator for the 3D-printable forming mold used to build washi paper lanterns (paper lamps).",
+  "license": "MIT",
+  "author": "Shunya Koide",
+  "keywords": [
+    "3d-printing",
+    "stl",
+    "lantern",
+    "paper-lamp",
+    "washi",
+    "chochin",
+    "three-js",
+    "generative",
+    "papercraft"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shunyakoide/lamp-kit-generator"
+  },
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",

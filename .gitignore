@@ -2,7 +2,6 @@ node_modules
 dist
 dist-ssr
 *.local
-.vercel
 
 # logs
 npm-debug.log*

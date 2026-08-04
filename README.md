@@ -1,81 +1,114 @@
-# 張型スタジオ — Lamp Kit Generator
+# Lamp Kit Generator — 張型スタジオ (Harigata Studio)
 
-あかりランプ(岐阜提灯 / イサム・ノグチ **AKARI** 方式)を自作するための、
-**3Dプリント用「張型(はりがた)」ジェネレーター**。
+A browser-based generator for the **3D-printable forming mold ("harigata")** used to
+build **washi paper lanterns** (paper lamps).
 
-ブラウザ上でシルエットをパラメトリックに調整し、印刷用の STL を書き出せます。
-出力パーツは 3 種:
+Shape the lantern's silhouette parametrically in your browser, then export
+print-ready STL parts. No backend — everything runs client-side, and the build
+output is static files.
 
-| パーツ | 役割 |
+> **張型スタジオ** — 和紙提灯（紙のランプ）を自作するための
+> **3Dプリント用「張型（はりがた）」ジェネレーター**。ブラウザ上で断面を直接編集し、
+> 印刷用の STL を書き出せます。
+
+---
+
+## What it makes
+
+Real paper lanterns are made by **winding bamboo ribs around a mold, pasting washi
+over them, letting it dry, then disassembling the mold and pulling it out through the
+opening**. This app generates that mold as 3D-printable split parts.
+
+| Part | Role |
 | --- | --- |
-| **羽根板 (rib)** | 型の縦骨。外周縁に竹ひご用の半円溝を持つ板 × N 枚 |
-| **コマ (koma)** | 上下端の丸板。開放ノッチで羽根板の端タブを保持 |
-| **土台 (stand)** | 作業台。コマの縁を受けて型ごと回せる U 字サドル × 2 |
+| **Rib (羽根板)** | The radial boards that form the mold surface (N of them, like orange segments). The outer edge carries the lamp-body curve and V-notch grooves for the bamboo ribs; both ends have tabs. |
+| **Koma / hub (コマ)** | Two identical gear-like hubs (top & bottom). Notches around the rim hold the rib tabs; the stand cradles them. |
+| **Stand (土台)** | A base that holds the assembled mold off the table with two U-shaped saddles, so it can be rotated while you work. |
+| **Opening rings (口輪)** | Thin hoops that drop into the finished lantern's top & bottom openings to keep them round. |
+
+### Features
+
+- **Direct-manipulation section editor** — drag control points to sculpt the silhouette; 3D preview and STL stay in exact agreement.
+- **Bamboo-rib grooves** — evenly spaced V-notches with barbs so the bamboo seats and won't slip.
+- **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
+- **Cardboard papercraft mode** — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the parts from cardboard, plus a fold-together cross stand.
+- **English / Japanese UI** — toggle in the top bar.
+- **Watertight by construction** — every exported part is a closed manifold, verified by an automated sweep (see [CONTRIBUTING](CONTRIBUTING.md)).
 
 ---
 
-## 技術構成
-
-軽さ重視の最小構成:
-
-- **Vite** — 高速なビルド / 開発サーバー
-- **React 18**
-- **three.js** — WebGL による 3D プレビュー & STL 生成(外部ライブラリ非依存)
-
-ビルド成果物は静的ファイルのみ。バックエンド不要。
-
----
-
-## ローカル開発
+## Quick start
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173 (--host 付きなので同一LAN内のスマホからも可)
-npm run build      # dist/ に本番ビルド
-npm run preview    # ビルド結果をローカル確認
+npm run dev        # http://localhost:5173  (served with --host, so a phone on the
+                   # same Wi-Fi can open http://<your-computer-ip>:5173 )
+npm run build      # production build into dist/
+npm run preview    # preview the built output locally
 ```
 
-`npm run dev` は `--host` 付きで起動するので、同じ Wi-Fi 内のスマホから
-`http://<PCのローカルIP>:5173` で確認できます。
+Requires Node.js 18+.
 
 ---
 
-## デプロイ(Vercel)
+## Using it
 
-このリポジトリを Vercel に接続すると、`git push` ごとに自動ビルド & デプロイされます。
-Vite は自動検出されるため追加設定は不要です(Framework Preset: **Vite**)。
+- **Top tabs** — switch between **Section / Assembly / Print / Lit** views.
+- **Right panel** — pick a preset, then drag the section's control points to reshape; open the accordions (Frame, Bamboo, Print bed…) for finer settings.
+- **Preview** — drag to orbit, wheel / pinch to zoom.
+- **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `config.json` backup of your design.
 
-### スマホから「自分だけ」見られるようにする(推奨)
+### From print to lantern
 
-Vercel の **Deployment Protection → Vercel Authentication** を有効にすると、
-デプロイ URL は **Vercel アカウントにログインしている本人だけ** が開けます(無料)。
+1. Print the parts. Push the rib tabs into the two koma hubs' notches.
+2. Set the assembly on the stand.
+3. Wind bamboo ribs into the outer-edge grooves; paste washi paper over them.
+4. Let it dry, then pull the koma out (toward the tab side) and slip the ribs out through the openings.
+5. Drop the opening rings into the top & bottom openings, then fit your own light.
 
-1. [vercel.com](https://vercel.com) にアカウントでログイン
-2. **Add New… → Project** から本リポジトリ (`shunyakoide/lamp-kit-generator`) を Import
-3. Framework Preset が **Vite** になっていることを確認して **Deploy**
-4. Project → **Settings → Deployment Protection** で **Vercel Authentication** を ON
-5. 発行された URL をスマホで開く → 同じ Vercel アカウントでログインすれば本人のみ閲覧可
+> **制作フロー**: 印刷 → コマ2枚のノッチに羽根板を差し込む → 溝に竹ひごを巻く → 糊＋和紙を
+> 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を入れて照明化。
 
-> ホスト非依存(`vite.config.js` の `base: "./"`)で作ってあるため、
-> あとから GitHub Pages / Netlify 等へ移しても再設定は不要です。
+### No 3D printer? Use cardboard
 
----
-
-## 使い方
-
-- 上部タブ … **組立 / 印刷 / 点灯** ビュー切替
-- 下部パネル … つまみをドラッグでプリセット選択、シートを引き上げてスライダー調整
-- **羽根板 / コマ / 土台** ボタン … 各 STL をダウンロード
-- プレビュー … ドラッグで回転、ホイール / ピンチでズーム
-
-### 制作フロー(実物側)
-
-印刷 → コマ 2 枚のノッチに羽根板を番号順に差し込み(0 番はキー=深い)→
-溝に竹ひごを巻く → 糊 + 和紙を張る → 乾燥 → コマを外し羽根板を上下開口から抜く →
-火袋の完成 → 三本脚等で照明化。
+The Print view's **"Open papercraft"** button opens full-scale A4 pages. Cut the ribs,
+hubs and a fold-together cross stand from cardboard — no glue or hardware needed. Every
+page includes a 50 mm scale bar; make sure your printer prints at 100% (not "fit to page").
 
 ---
 
-## ライセンス
+## Tech stack
 
-Private / 個人プロジェクト。
+Minimal by design — Vite + React 18 + three.js (plain JS/JSX, no TypeScript). The
+geometry is pure functions returning three.js `Shape`/`ExtrudeGeometry`, shared by both
+the 2D section drawing and the STL export, so what you see is exactly what you print.
+
+## Contributing
+
+Geometry changes must stay **watertight**. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+dev setup, the verification gates (`npm run check:manifold` / `check:hash` / `check:persist`
+/ `check:paper`), and the design invariants to preserve.
+
+## License
+
+[MIT](LICENSE) © 2026 Shunya Koide
+
+---
+
+## 日本語（概要）
+
+現実の提灯づくりの工程は「**型に竹ひごを巻く → 和紙を貼る → 乾いたら型をばらして抜く**」。
+その型を分割部品として 3D プリントするのが本アプリです。出力パーツ:
+
+- **羽根板** — 型の面を作る放射状の板（N枚）。外縁に竹ひご用の V 溝、両端に爪。
+- **コマ** — 爪を束ねる歯車状のハブ（上下2個）。
+- **土台** — コマを U 字サドルで受けて型を宙に浮かせ、回しながら作業できる台。
+- **口輪** — 完成した提灯の上下開口に入れて真円を保つ薄い輪。
+
+**特長**: 断面の直接編集 / 竹ひご溝（螺旋巻きにも対応・羽根に通し番号を刻印）/
+3Dプリンタが無くても作れる段ボール型紙（原寸 A4）/ 英日 UI 切替 /
+全パーツ水密（自動スイープで検証）。
+
+**使い方**: 上部タブで **断面/組立/印刷/点灯** を切替、右パネルで断面の制御点をドラッグして
+形を調整、印刷ビューから全パーツの STL（ZIP）を書き出し。作り方は上記「From print to
+lantern」を参照。ライセンスは [MIT](LICENSE)。

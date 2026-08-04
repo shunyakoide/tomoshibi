@@ -1,19 +1,22 @@
 /**
  * ============================================================================
- * ジオメトリ頂点ハッシュ(STL リグレッション検出)
+ * Geometry vertex hash (STL regression detection)
  * ============================================================================
- * 代表パラメータでの全部品の頂点座標を SHA1 化して1行ずつ出力する。
- * 「STL を変えないはずのリファクタ」で、改修前後の出力を diff すれば頂点が
- * 1つでも動けば検出できる(manifold は水密性だけを見るので、形の同一性はこちらで担保)。
+ * Hashes (SHA1) the vertex coordinates of every part at representative
+ * parameters and prints one line each. For a "refactor that should not change
+ * the STL", diffing the output before and after detects any moved vertex, even
+ * a single one (manifold only checks watertightness, so shape identity is
+ * guaranteed here).
  *
- * 使い方(例: リファクタ前に基準を取り、後で突き合わせる):
- *   git stash            # or 対象ブランチのベースを checkout
+ * Usage (e.g. take a baseline before a refactor, then compare afterward):
+ *   git stash            # or check out the target branch's base
  *   node scripts/hash.mjs > /tmp/base.txt
- *   git stash pop        # 改修を戻す
+ *   git stash pop        # restore the changes
  *   node scripts/hash.mjs > /tmp/after.txt
- *   diff /tmp/base.txt /tmp/after.txt   # 差分ゼロ = STL 完全不変
+ *   diff /tmp/base.txt /tmp/after.txt   # zero diff = STL completely unchanged
  *
- * 座標は 1e-6mm に量子化してから丸め、浮動小数の非決定性を排除する。
+ * Coordinates are quantized to 1e-6mm and rounded to eliminate floating-point
+ * non-determinism.
  * ============================================================================
  */
 import crypto from "node:crypto";
