@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Harigata Studio (張型スタジオ) — a web app that generates **3D-printable forming molds (harigata)** for building AKARI-style washi paper lanterns. Editing the cross-section directly produces STLs for the ribs, koma (hubs), and stand.
+Harigata Studio (張型スタジオ) — a web app that generates **3D-printable forming molds (harigata)** for building washi paper lanterns (paper lamps). Editing the cross-section directly produces STLs for the ribs, koma (hubs), and stand.
 
 ## Terminology and roles (read this first)
 
@@ -82,11 +82,11 @@ Always obey the following when changing the shape. Removing these has caused rev
 - **The neck is always a vertical rectangle.** No slanted taper or angle. Its only role is positioning the opening.
 - **Do not change the tab (koma) size based on whether a neck exists.** The neck widens the opening outward. Without a neck, opening = tab size.
 - **The tab is a straight tongue.** No **outward** steps, hooks, or protrusions (the outer edge matches the koma outer diameter `kR` exactly and does not stick out).
-- **Exception: the top koma's inner stopper** (added by reference to the real Akari lamp's mold). **Only the top tab** gets an **inward shelf** on its inner edge (`komaStop2D()`) to **stop the top koma from sliding into the lamp-body side (inward)**. The bottom tab stays a plain straight rectangle.
+- **Exception: the top koma's inner stopper** (added by reference to a real paper-lamp mold). **Only the top tab** gets an **inward shelf** on its inner edge (`komaStop2D()`) to **stop the top koma from sliding into the lamp-body side (inward)**. The bottom tab stays a plain straight rectangle.
   - **The koma is pulled out "outward" (toward the tab tip) after work.** So the shelf sits **only on the inner side of the koma** and does not clamp it from both sides → no need to ride over it, so insertion/removal stays free. Blocking this makes the mold impossible to disassemble.
   - The shelf's height is `height + tabLen - komaT` = the position of the "koma inner face" when the koma is seated all the way to the tab tip. This **matches** the position `standSlotSep` assumes, so **adding the shelf does not move the stand** (it just guarantees by shape a position that was previously left to operation).
 - **Tab width = board thickness `boardT`** (nominally equal to notch width). Notch width = `boardT + fit` (`fit` = print tolerance, added in `komaShape()`). Rather than "cramming it tight", match nominally and leave only the real-world clearance `fit`. With `fit=0` there is no gap, as before.
-- **Hollow the rib's inner edge "only at the center"** (`ribInnerX()`). The real Akari lamp's mold has this shape, to make the rib easy to pull out through the opening. **Do not bend the whole rib** (bending it end-to-end makes an impossible shape / a constant-width band gives an opening ≫ koma shape that never reaches the tab, splitting the rib in two). The top and bottom ends stay at **core `Ri`**, so the connection to the tab is unchanged. The hollow amount is the center depth × `RIB_CURVE_D` (real ones are about 20%). **It does not propagate to the outer edge, grooves, tab, koma, or stand** (only the inner material is reduced).
+- **Hollow the rib's inner edge "only at the center"** (`ribInnerX()`). Real paper-lamp molds have this shape, to make the rib easy to pull out through the opening. **Do not bend the whole rib** (bending it end-to-end makes an impossible shape / a constant-width band gives an opening ≫ koma shape that never reaches the tab, splitting the rib in two). The top and bottom ends stay at **core `Ri`**, so the connection to the tab is unchanged. The hollow amount is the center depth × `RIB_CURVE_D` (real ones are about 20%). **It does not propagate to the outer edge, grooves, tab, koma, or stand** (only the inner material is reduced).
 - **The groove's barb (tooth tip) leans toward the center = the equator** (not toward the opening). Do not place grooves right next to the opening; leave a half-pitch buffer (barbs at the very end don't work).
 - **Grooves go evenly spaced across the entire lamp-body curve.** The curve always needs grooves.
 - **Curves stay smooth.** Do not create wasteful sharp curves or S-warps derived from the control points (matching the outermost control point = the opening removes the flare at the neck).
