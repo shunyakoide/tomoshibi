@@ -1,12 +1,13 @@
 /**
  * ============================================================================
- * persist.js の sanitize 検証(テストランナー無しの手動チェック)
+ * persist.js sanitize verification (manual check, no test runner)
  * ============================================================================
- * 保存/復元は外部由来(手書き・旧バージョン・JSON往復)の壊れた値を受けうる。
- * それらがクラッシュ・NaN・非水密コマを生まず、安全に DEFAULTS へフォールバック/
- * サルベージされることを確認する。localStorage をメモリ実装でモックして走らせる。
+ * Save/restore can receive corrupt values from external sources (hand-written,
+ * old versions, JSON round-trips). This confirms they neither crash, produce
+ * NaN, nor yield a non-watertight koma, and are safely fallen back to DEFAULTS /
+ * salvaged. Runs with localStorage mocked by an in-memory implementation.
  *
- * 実行:  npm run check:persist
+ * Run:  npm run check:persist
  * ============================================================================
  */
 const store = {};
@@ -43,109 +44,110 @@ let pass = 0, fail = 0;
 const t = (name, cond) => { const ok = cond === true; console.log(`${ok ? "✓" : "✗"} ${name}${ok ? "" : " → " + cond}`); ok ? pass++ : fail++; };
 
 delete store[KEY];
-t("空なら null", P.loadSaved() === null);
+t("empty → null", P.loadSaved() === null);
 
 store[KEY] = "{not json";
-t("壊れJSONは null", P.loadSaved() === null);
+t("broken JSON → null", P.loadSaved() === null);
 
 P.saveState({ p: { ...DEFAULTS, pts: [] }, bedW: 256, bedD: 256, printRibs: 1 });
 let r = P.loadSaved();
-t("pts空→復旧 有限", r && finiteP(r.p));
-t("pts空→水密", manifoldOK(r.p) === true);
+t("empty pts → restored finite", r && finiteP(r.p));
+t("empty pts → watertight", manifoldOK(r.p) === true);
 
 P.saveState({ p: { ...DEFAULTS, pts: [{ t: 0.5, r: 60 }] }, bedW: 256, bedD: 256, printRibs: 1 });
-t("pts1点→2点以上に復旧", P.loadSaved().p.pts.length >= 2);
+t("1 pt → restored to 2+ pts", P.loadSaved().p.pts.length >= 2);
 
 P.saveState({ p: { ...DEFAULTS, pts: [{ t: NaN, r: 60 }, { t: 0.9, r: 20 }] }, bedW: 256, bedD: 256, printRibs: 1 });
-t("pts非有限→復旧 有限", finiteP(P.loadSaved().p));
+t("non-finite pts → restored finite", finiteP(P.loadSaved().p));
 
 P.saveState({ p: { ...DEFAULTS, boardT: "3" }, bedW: 256, bedD: 256, printRibs: 1 });
 r = P.loadSaved();
-t("boardT文字列→数値", r.p.boardT === 3 && typeof r.p.boardT === "number");
+t("boardT string → number", r.p.boardT === 3 && typeof r.p.boardT === "number");
 
 P.saveState({ p: { ...DEFAULTS, boardT: 4, boards: 16 }, bedW: 256, bedD: 256, printRibs: 1 });
 r = P.loadSaved();
-t("boards過大→maxBoardsへクランプ", r.p.boards <= G.maxBoards(r.p));
-t("boards過大→水密(元のコマ非水密バグ域)", manifoldOK(r.p) === true);
+t("boards too high → clamped to maxBoards", r.p.boards <= G.maxBoards(r.p));
+t("boards too high → watertight (former non-watertight koma bug range)", manifoldOK(r.p) === true);
 
 P.saveState({ p: { ...DEFAULTS, boardT: 3 }, bedW: 300, bedD: 250, printRibs: 2 });
 store[KEY] = store[KEY].replace('"schemaVersion":1', '"schemaVersion":99');
 r = P.loadSaved();
-t("未知version→機械不変量サルベージ", r && r.p.boardT === 3 && r.bedW === 300);
+t("unknown version → machine-invariant salvage", r && r.p.boardT === 3 && r.bedW === 300);
 
 P.saveState({ p: DEFAULTS, printRibs: 1 });
 r = P.loadSaved();
-t("bedW欠損→256", r.bedW === 256 && r.bedD === 256);
+t("bedW missing → 256", r.bedW === 256 && r.bedD === 256);
 
 P.saveState({ p: { ...DEFAULTS, neckOn: false }, bedW: 256, bedD: 256, printRibs: 1 });
-t("旧neckOn温存", P.loadSaved().p.neckOn === false);
+t("legacy neckOn preserved", P.loadSaved().p.neckOn === false);
 
 P.saveState({ p: { ...DEFAULTS, height: 333 }, bedW: 256, bedD: 256, printRibs: 3 });
 r = P.loadSaved();
-t("正常往復(height/printRibs)", r.p.height === 333 && r.printRibs === 3);
+t("normal round-trip (height/printRibs)", r.p.height === 333 && r.printRibs === 3);
 
-// pitch=0(壊れた値)→ 範囲クランプ。放置すると grooveList が n=Infinity で無限ループする。
+// pitch=0 (broken value) → range clamp. Left as-is, grooveList loops forever with n=Infinity.
 P.saveState({ p: { ...DEFAULTS, pitch: 0 }, bedW: 256, bedD: 256, printRibs: 1 });
 r = P.loadSaved();
-t("pitch=0→正の域にクランプ", r.p.pitch >= 8);
-t("pitch=0復元でも grooveList が有限本数で返る", (() => {
+t("pitch=0 → clamped to positive range", r.p.pitch >= 8);
+t("grooveList returns a finite count even after pitch=0 restore", (() => {
   const gs = G.grooveList(r.p, r.p.higoD / 2 + 0.25);
   return Array.isArray(gs) && gs.length < 1000;
 })());
 
-// 範囲外の数値(負/極大)→ 許容域にクランプ。
+// Out-of-range numbers (negative / huge) → clamp to the allowed range.
 P.saveState({ p: { ...DEFAULTS, height: -5, boardT: 99, boards: 999 }, bedW: 9, bedD: 9999, printRibs: 1 });
 r = P.loadSaved();
-t("height負→140以上", r.p.height >= 140);
-t("boardT極大→4以下", r.p.boardT <= 4);
-t("boards極大→maxBoards以下", r.p.boards <= G.maxBoards(r.p));
-t("bedW/bedD範囲外→100..420", r.bedW >= 100 && r.bedD <= 420);
+t("height negative → 140 or more", r.p.height >= 140);
+t("boardT huge → 4 or less", r.p.boardT <= 4);
+t("boards huge → maxBoards or less", r.p.boards <= G.maxBoards(r.p));
+t("bedW/bedD out of range → 100..420", r.bedW >= 100 && r.bedD <= 420);
 
-// pts の t が範囲外 → [0,1] にクランプして昇順。
+// pts t out of range → clamp to [0,1] and sort ascending.
 P.saveState({ p: { ...DEFAULTS, pts: [{ t: -3, r: 60 }, { t: 9, r: 20 }] }, bedW: 256, bedD: 256, printRibs: 1 });
 r = P.loadSaved();
-t("pts の t を [0,1] にクランプ", r.p.pts.every((q) => q.t >= 0 && q.t <= 1));
+t("clamp pts t to [0,1]", r.p.pts.every((q) => q.t >= 0 && q.t <= 1));
 
-// ---- ベジェ接線ハンドル(ho/hi)の sanitize ----
-// 正常なハンドルは温存。壊れたハンドル(非有限・JSON化された Infinity=null・非オブジェクト)は
-// 捨てて自動接線に戻す(outerR が NaN 化しないこと)。
+// ---- sanitize of Bézier tangent handles (ho/hi) ----
+// Valid handles preserved. Broken handles (non-finite, JSON-serialized Infinity=null,
+// non-object) are dropped and fall back to automatic tangents (outerR must not become NaN).
 const bakedPts = G.bakeBezierHandles({ ...DEFAULTS }.pts);
 P.saveState({ p: { ...DEFAULTS, pts: bakedPts }, bedW: 256, bedD: 256, printRibs: 1 });
 r = P.loadSaved();
-t("正常な ho/hi は温存", r.p.pts.some((q) => q.ho && Number.isFinite(q.ho.dt) && Number.isFinite(q.ho.dr)));
-t("ハンドル付きも往復で水密", manifoldOK(r.p) === true);
-t("ハンドル付き outerR が有限", (() => { for (let i = 0; i <= 50; i++) if (!Number.isFinite(G.outerR(r.p, i / 50))) return false; return true; })());
+t("valid ho/hi preserved", r.p.pts.some((q) => q.ho && Number.isFinite(q.ho.dt) && Number.isFinite(q.ho.dr)));
+t("with handles, watertight after round-trip", manifoldOK(r.p) === true);
+t("outerR finite with handles", (() => { for (let i = 0; i <= 50; i++) if (!Number.isFinite(G.outerR(r.p, i / 50))) return false; return true; })());
 
-// 壊れたハンドル: dt=NaN / dr=Infinity(JSONで null 化) / ho が配列 など
+// Broken handles: dt=NaN / dr=Infinity (nulled by JSON) / ho is an array, etc.
 const brokenPts = [
   { t: 0.05, r: 74, ho: { dt: NaN, dr: 2 }, hi: { dt: Infinity, dr: 0 } },
-  { t: 0.4, r: 94, ho: [1, 2], hi: { dt: 0.02 } },      // 非オブジェクト / dr 欠損
+  { t: 0.4, r: 94, ho: [1, 2], hi: { dt: 0.02 } },      // non-object / missing dr
   { t: 0.95, r: 19, ho: null, hi: "x" },
 ];
 P.saveState({ p: { ...DEFAULTS, pts: brokenPts }, bedW: 256, bedD: 256, printRibs: 1 });
 r = P.loadSaved();
-t("壊れた ho/hi は破棄(不正な dt/dr が残らない)",
+t("broken ho/hi discarded (no invalid dt/dr remains)",
   r.p.pts.every((q) => (!q.ho || (Number.isFinite(q.ho.dt) && Number.isFinite(q.ho.dr)))
     && (!q.hi || (Number.isFinite(q.hi.dt) && Number.isFinite(q.hi.dr)))));
-t("壊れた ho/hi でも outerR 有限", (() => { for (let i = 0; i <= 50; i++) if (!Number.isFinite(G.outerR(r.p, i / 50))) return false; return true; })());
-t("壊れた ho/hi でも水密", manifoldOK(r.p) === true);
+t("outerR finite even with broken ho/hi", (() => { for (let i = 0; i <= 50; i++) if (!Number.isFinite(G.outerR(r.p, i / 50))) return false; return true; })());
+t("watertight even with broken ho/hi", manifoldOK(r.p) === true);
 
-// ---- ファイル書き出し/読み込み(serializeState / parseImport) ----
-// localStorage が消えても、書き出した JSON から往復で元の状態に戻せること(復元導線の要)。
+// ---- file export/import (serializeState / parseImport) ----
+// Even if localStorage is lost, the original state can be round-tripped back from the
+// exported JSON (the core of the restore path).
 const roundTrip = P.parseImport(P.serializeState({ p: { ...DEFAULTS }, bedW: 300, bedD: 200, printRibs: 3, matT: 6 }));
-t("JSON往復: p 温存", roundTrip && roundTrip.p.height === DEFAULTS.height);
-t("JSON往復: 機種設定 温存", roundTrip.bedW === 300 && roundTrip.bedD === 200 && roundTrip.printRibs === 3 && roundTrip.matT === 6);
-t("JSON往復: 水密", manifoldOK(roundTrip.p) === true);
+t("JSON round-trip: p preserved", roundTrip && roundTrip.p.height === DEFAULTS.height);
+t("JSON round-trip: device settings preserved", roundTrip.bedW === 300 && roundTrip.bedD === 200 && roundTrip.printRibs === 3 && roundTrip.matT === 6);
+t("JSON round-trip: watertight", manifoldOK(roundTrip.p) === true);
 
-// ZIP 内 config.json 相当({schemaVersion, p, bedW, bedD} のみ)でも、欠損は DEFAULTS で埋まる。
+// Even a ZIP config.json equivalent (only {schemaVersion, p, bedW, bedD}) has missing fields filled by DEFAULTS.
 const fromZipCfg = P.parseImport(JSON.stringify({ schemaVersion: 1, p: { ...DEFAULTS }, bedW: 256, bedD: 256 }));
-t("ZIP config 読込: 欠損 printRibs/matT を既定で補完", fromZipCfg && fromZipCfg.printRibs === 1 && fromZipCfg.matT === 5);
-t("ZIP config 読込: 水密", manifoldOK(fromZipCfg.p) === true);
+t("ZIP config load: missing printRibs/matT filled with defaults", fromZipCfg && fromZipCfg.printRibs === 1 && fromZipCfg.matT === 5);
+t("ZIP config load: watertight", manifoldOK(fromZipCfg.p) === true);
 
-// 壊れた入力は null(アプリはアラート表示 → 現状維持)。クラッシュしない。
-t("壊れた JSON → null", P.parseImport("{ not json") === null);
-t("空文字 → null", P.parseImport("") === null);
-t("非オブジェクト JSON → null", P.parseImport("42") === null);
+// Broken input → null (the app shows an alert → keeps current state). Does not crash.
+t("broken JSON → null", P.parseImport("{ not json") === null);
+t("empty string → null", P.parseImport("") === null);
+t("non-object JSON → null", P.parseImport("42") === null);
 
 console.log(`\n=== ${pass} pass / ${fail} fail ===`);
 process.exit(fail ? 1 : 0);

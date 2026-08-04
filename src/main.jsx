@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import HarigataStudio from "./HarigataStudio.jsx";
 import "./index.css";
 
-// レンダリング中の例外で画面全体が真っ黒になるのを防ぎ、原因を表示する
+// Prevent a render-time exception from turning the whole screen black, and show the cause
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);

@@ -1,45 +1,49 @@
 /**
  * ============================================================================
- * 断面エディタ (SECTION EDITOR) — 直接操作
+ * SECTION EDITOR — direct manipulation
  * ============================================================================
- * 火袋のシルエットを図面上で直接編集する SVG エディタ。スライダーの代わりに:
- *   - 火袋の高さ … 頂点の○を縦ドラッグ
- *   - 首(開口) … 最外の制御点 ◇ を横=張り出し / 縦=首の高さ にドラッグ(上下独立)
- *   - ふくらみ … 曲線の制御点 ◇ を縦横ドラッグ / 曲線をWクリックで追加 /
- *                点をWクリックで削除 / クリックで 角(■) ⇄ なめらか(◇) 切替
- * 首=上下端の垂直な長方形(有無は neckBot/neckTop)。その内側からカーブが始まる。
- * 半径関数は geometry.js の outerR を共有(3D/STLと一致)。
- * クライアント座標→SVGユーザー座標の変換は getScreenCTM を使い、レターボックス
- * (preserveAspectRatio)があってもハンドル位置とドラッグ量が正確になるようにする。
+ * An SVG editor for editing the lamp body silhouette directly on the drawing.
+ * Instead of sliders:
+ *   - Lamp body height … drag the top vertex circle vertically
+ *   - Neck (opening) … drag the outermost control point ◇ (horizontal = flare /
+ *                       vertical = neck height), independent top/bottom
+ *   - Bulge … drag a curve control point ◇ in both axes / double-click a curve
+ *             to add / double-click a point to delete / click to toggle
+ *             corner (■) ⇄ smooth (◇)
+ * Neck = the vertical rectangle at each end (present per neckBot/neckTop); the
+ * curve starts just inside it. The radius function shares geometry.js's outerR
+ * (matching 3D/STL). Client → SVG user coordinate conversion uses getScreenCTM
+ * so handle positions and drag amounts stay accurate even with letterboxing
+ * (preserveAspectRatio).
  * ============================================================================
  */
 import React, { useRef } from "react";
 import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterX, komaR, innerRi, ribOutline2D, lightenHoles2D } from "./geometry.js";
 import { clamp } from "./util.js";
 
-// SVG 論理座標(固定)。中心軸 cx、底辺 y0。表示はコンテナに合わせて等比拡縮。
+// SVG logical coordinates (fixed). Center axis cx, baseline y0. Display scales uniformly to fit the container.
 const VBW = 860, VBH = 780, CX = 430, Y0 = 710;
 
 const C = {
   axis: "#b8a888", outline: "#c4b492", higo: "#c9b593", spine: "#d8c7a3",
   label: "#8a7c66", value: "#3b342b", faint: "#c0b298", handleFill: "#fffdf8",
-  neck: "#d9ccb0", bound: "#5aa774", // 首の帯 / 火袋境界の破線(緑=首と火袋の境目)
-  board: "#caa96f", boardLine: "#9e7f4a", // 羽根板(片側に重ねる実断面)
+  neck: "#d9ccb0", bound: "#5aa774", // neck band / lamp body boundary dashes (green = neck/lamp-body seam)
+  board: "#caa96f", boardLine: "#9e7f4a", // rib (actual cross-section overlaid on one side)
 };
 
 export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", setEditMode = () => {}, t = (s) => s }) {
   const svgRef = useRef(null);
 
   const H = p.height;
-  const s = Math.min(2.0, 520 / H);          // mm → SVG単位
-  const neckB = cutYbot(p), neckT = cutYtop(p); // 下/上の首の高さ(mm, 独立)
+  const s = Math.min(2.0, 520 / H);          // mm → SVG units
+  const neckB = cutYbot(p), neckT = cutYtop(p); // bottom/top neck height (mm, independent)
   const tnB = neckB / H, tnT = neckT / H;
   const topY = Y0 - H * s;
   const X = (r) => CX + r * s;
   const Xm = (r) => CX - r * s;
   const Y = (t) => Y0 - t * H * s;
 
-  // クライアント座標 → SVGユーザー座標(preserveAspectRatio のレターボックスを吸収)
+  // Client coordinates → SVG user coordinates (absorbs preserveAspectRatio letterboxing)
   const toSvg = (clientX, clientY) => {
     const el = svgRef.current;
     const m = el && el.getScreenCTM && el.getScreenCTM();
@@ -47,18 +51,18 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
     const inv = m.inverse();
     return { x: inv.a * clientX + inv.c * clientY + inv.e, y: inv.b * clientX + inv.d * clientY + inv.f };
   };
-  // クライアント座標 → モデル座標(t, r)。ハンドルの絶対位置決めに使う。
+  // Client coordinates → model coordinates (t, r). Used for absolute handle positioning.
   const toModel = (clientX, clientY) => {
     const c = toSvg(clientX, clientY);
     return { t: (Y0 - c.y) / (H * s), r: (c.x - CX) / s };
   };
 
-  // ---- シルエット標本化(竹ひご溝のギザギザを実際の深さで反映。geometry と一致) ----
-  const fr = fukuroRange(p);                 // 火袋(カーブ)の t 範囲 = 最外制御点の間
-  const gR = grooveR(p);                     // 溝の半幅。geometry と共有 = 描く溝と刷る溝が一致
-  const gs = grooveList(p, gR);              // 竹ひご溝の位置(mm)
-  const oX = grooveOuterX(p, gs, gR);        // 溝ノッチ込みの外径(mm)
-  const kR = komaR(p), Ri = innerRi(p);      // コマ外径 / 芯(爪の内端)
+  // ---- Silhouette sampling (reflects the groove serrations at their actual depth; matches geometry) ----
+  const fr = fukuroRange(p);                 // t range of the lamp body (curve) = between the outermost control points
+  const gR = grooveR(p);                     // groove half-width. Shared with geometry = the drawn groove matches the printed groove
+  const gs = grooveList(p, gR);              // groove positions (mm)
+  const oX = grooveOuterX(p, gs, gR);        // outer radius including groove notches (mm)
+  const kR = komaR(p), Ri = innerRi(p);      // koma outer radius / core (inner end of the tab)
   const N = Math.max(240, Math.round(H * 2));
   const rs = [];
   for (let i = 0; i <= N; i++) rs.push(oX(i / N * H));
@@ -67,28 +71,28 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
   for (let i = N; i >= 0; i--) d += ` L ${Xm(rs[i]).toFixed(1)} ${Y(i / N).toFixed(1)}`;
   d += " Z";
 
-  // 竹ひご(溝の中心線。溝ノッチと同じ位置)
+  // Bamboo ribs (higo) (groove center lines; same positions as the groove notches)
   let higo = "";
   for (const mm of gs) {
     const t = mm / H, r = outerR(p, t);
     higo += `M ${Xm(r).toFixed(1)} ${Y(t).toFixed(1)} L ${X(r).toFixed(1)} ${Y(t).toFixed(1)} `;
   }
-  // 領域(首/火袋)を色分けするための帯(シルエットでクリップ)
+  // Bands for color-coding the regions (neck / lamp body), clipped to the silhouette
   const bands = [
-    { t0: 0, t1: fr.lo, fill: C.neck },       // 下の首
-    { t0: fr.lo, t1: fr.hi, fill: accent, op: 0.12 }, // 火袋
-    { t0: fr.hi, t1: 1, fill: C.neck },       // 上の首
+    { t0: 0, t1: fr.lo, fill: C.neck },       // bottom neck
+    { t0: fr.lo, t1: fr.hi, fill: accent, op: 0.12 }, // lamp body
+    { t0: fr.hi, t1: 1, fill: C.neck },       // top neck
   ].filter((b) => b.t1 - b.t0 > 0.001);
   const maxR = Math.max(...rs) + 4;
 
-  // 羽根板の実断面(右側に重ねて表示)。爪の舌 + 芯(Ri) + 溝付き外縁 + 肉抜き窓。
-  // 印刷される部品そのものの形。座標は (x=半径mm, y=高さmm)。
+  // Actual rib cross-section (overlaid on the right side). Tab tongue + core (Ri) + grooved outer edge + lightening windows.
+  // The exact shape of the printed part. Coordinates are (x = radius mm, y = height mm).
   const Ymm = (y) => Y0 - y * s;
   const poly2d = (pl) => "M " + pl.map(([px, py], i) => `${i ? "L " : ""}${X(px).toFixed(1)} ${Ymm(py).toFixed(1)}`).join(" ") + " Z";
   let ribD = poly2d(ribOutline2D(p));
-  for (const hole of lightenHoles2D(p).holes) ribD += " " + poly2d(hole); // evenodd で窓を抜く
+  for (const hole of lightenHoles2D(p).holes) ribD += " " + poly2d(hole); // punch out the windows via evenodd
 
-  // ---- ハンドル(火袋の高さ / 上部半径 / 下部半径) ----
+  // ---- Handles (lamp body height / top radius / bottom radius) ----
   const beginDrag = (e, cfg) => {
     e.preventDefault();
     e.stopPropagation();
@@ -96,7 +100,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
     const s0 = toSvg(e.clientX, e.clientY);
     const move = (ev) => {
       const c = toSvg(ev.clientX, ev.clientY);
-      const dSvg = cfg.axis === "y" ? s0.y - c.y : c.x - s0.x; // 上/右方向を正に
+      const dSvg = cfg.axis === "y" ? s0.y - c.y : c.x - s0.x; // up/right direction is positive
       setP((o) => ({ ...o, [cfg.key]: clamp(cfg.min, cfg.max, Math.round(start + dSvg / s)) }));
     };
     const up = () => {
@@ -113,13 +117,13 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
     { key: "height", label: "火袋の高さ", x: CX, y: topY, axis: "y", min: 140, max: 400,
       cursor: "ns-resize", guide: [CX - 60, topY, CX + 60, topY],
       lx: CX - 22, ly: topY - 8, anchor: "end" },
-    // 開口(=首)半径は最外の制御点そのもの → 別ハンドルは持たない(◇をドラッグ)。
+    // The opening (= neck) radius is the outermost control point itself → no separate handle (drag the ◇).
   ];
 
-  // ---- 曲線の制御点 ----
-  // ポインタを下ろした時点でその点を選択する(移動の有無に依らず)。ドラッグで t/r を動かし、
-  // 移動なし(クリック)は「選択」だけ。角⇄なめらか・削除は右パネルの明示ボタンで行う
-  // (以前はクリック=角切替・Wクリック=削除の隠しジェスチャで、ドラッグと誤爆していた)。
+  // ---- Curve control points ----
+  // Select the point the moment the pointer goes down (regardless of whether it moves). Drag moves t/r;
+  // no movement (a click) only selects. Corner⇄smooth and delete are done via explicit buttons in the right panel
+  // (previously click = toggle corner and double-click = delete were hidden gestures that misfired with drags).
   const beginDragPt = (e, i) => {
     e.preventDefault();
     e.stopPropagation();
@@ -131,11 +135,11 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
     const move = (ev) => {
       if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) moved = true;
       if (!moved) return;
-      if (editMode === "curve") return;   // カーブ調整モードでは点は動かさない(ハンドルだけ操作)
+      if (editMode === "curve") return;   // in curve-adjust mode the point doesn't move (only the handles do)
       const c = toSvg(ev.clientX, ev.clientY);
       setP((o) => {
         const pts = o.pts.map((q) => ({ ...q }));
-        // 最外の制御点は端まで動かせる(首の高さを決める)。内側は隣の間。
+        // The outermost control points can move all the way to the end (they set the neck height). Inner ones stay between their neighbors.
         const lo = i > 0 ? pts[i - 1].t + 0.04 : 0.01;
         const hi = i < pts.length - 1 ? pts[i + 1].t - 0.04 : 0.99;
         pts[i].r = clamp(10, 130, start.r + (c.x - s0.x) / s);
@@ -154,8 +158,8 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
     setDrag("pt" + i);
   };
 
-  // 曲線上の「＋」ゴースト = 隣り合う制御点の中点(半径は geometry の outerR を使う=実形状)。
-  // クリックでそこに点を追加して選択する。geometry は変えない(pts に点を1つ足すだけ)。
+  // The "+" ghost on the curve = midpoint between adjacent control points (radius from geometry's outerR = actual shape).
+  // Click to add a point there and select it. geometry is unchanged (just adds one point to pts).
   const addAtT = (mt) => {
     if (p.pts.length >= 8) return;
     const r = clamp(10, 130, outerR(p, mt));
@@ -167,8 +171,8 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
     });
   };
 
-  // 接線ハンドルのドラッグ(カーブ調整モード)。which="ho"(次点側)/"hi"(前点側)。
-  // なめらか点(非sharp・内側)は反対側を対称ミラー(hi=-ho)。角点・端点は片側独立。
+  // Dragging a tangent handle (curve-adjust mode). which="ho" (next-point side) / "hi" (previous-point side).
+  // Smooth points (non-sharp, interior) mirror the opposite side symmetrically (hi=-ho). Corner/end points are independent per side.
   const beginDragHandle = (e, i, which) => {
     e.preventDefault();
     e.stopPropagation();
@@ -198,7 +202,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
     return { i, pt, x: X(pt.r), y: Y(pt.t), active: drag === "pt" + i, selected: sel === i, end: i === 0 || i === p.pts.length - 1 };
   });
 
-  // 選択中の点の接線ハンドル(カーブ調整モードのみ)。ho=次点側 / hi=前点側。
+  // Tangent handles for the selected point (curve-adjust mode only). ho = next-point side / hi = previous-point side.
   const selPt = sel != null ? p.pts[sel] : null;
   const showHandles = editMode === "curve" && selPt;
   const handleDots = [];
@@ -211,8 +215,8 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
     if (sel > 0) add("hi", selPt.hi);
   }
 
-  // 点追加ゴースト(＋): 隣り合う制御点の中点。半径は outerR(=実形状)から取る。8点で打ち止め。
-  // カーブ調整モードではハンドルに集中させるため非表示。
+  // Add-point ghost (+): midpoint between adjacent control points. Radius taken from outerR (= actual shape). Capped at 8 points.
+  // Hidden in curve-adjust mode so focus stays on the handles.
   const ghosts = (editMode === "curve" || p.pts.length >= 8) ? [] : p.pts.slice(0, -1).map((pt, i) => {
     const mt = (pt.t + p.pts[i + 1].t) / 2;
     return { mt, x: X(outerR(p, mt)), y: Y(mt) };
@@ -237,7 +241,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
           </linearGradient>
         </defs>
 
-        {/* 中心軸 */}
+        {/* Center axis */}
         <line x1={CX} x2={CX} y1={(topY - 34).toFixed(1)} y2={(Y0 + 34).toFixed(1)}
           stroke={C.axis} strokeWidth="1" strokeDasharray="2 6" />
 
@@ -245,10 +249,10 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
           <clipPath id="silClip"><path d={d} /></clipPath>
         </defs>
 
-        {/* 火袋シルエット。クリックは外側コンテナに委ねて選択解除(専用ハンドラは不要) */}
+        {/* Lamp body silhouette. Clicks defer to the outer container to clear selection (no dedicated handler needed) */}
         <path d={d} fill="url(#washiGrad)" stroke={C.outline} strokeWidth="1.5" style={{ cursor: "default" }} />
 
-        {/* 領域の色分け(首=生成り / 火袋=アクセント)。シルエットでクリップ */}
+        {/* Region color-coding (neck = ecru / lamp body = accent). Clipped to the silhouette */}
         <g clipPath="url(#silClip)" style={{ pointerEvents: "none" }}>
           {bands.map((b, i) => (
             <rect key={i} x={(CX - maxR * s).toFixed(1)} width={(maxR * 2 * s).toFixed(1)}
@@ -257,37 +261,37 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
           ))}
         </g>
 
-        {/* 羽根板(右側=印刷される実断面)。爪の舌・芯(Ri)・肉抜き窓が見える */}
+        {/* Rib (right side = the actual printed cross-section). Tab tongue, core (Ri), and lightening windows are visible */}
         <path d={ribD} fillRule="evenodd" fill={C.board} fillOpacity="0.42" stroke={C.boardLine}
           strokeWidth="1.2" strokeLinejoin="round" style={{ pointerEvents: "none" }} />
         <text x={(X(kR) + 9).toFixed(1)} y={(Ymm(H + p.tabLen) + 3).toFixed(1)}
           fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="11" fontWeight="600"
           fill={C.boardLine} style={{ pointerEvents: "none" }}>{t("羽根板")}</text>
 
-        {/* 首↔火袋の境界(=最外の制御点の高さ)。ここから外は直線の首 */}
+        {/* Neck ↔ lamp body boundary (= height of the outermost control point). Beyond here is the straight neck */}
         {[fr.lo, fr.hi].map((ty, i) => (ty > 0.001 && ty < 0.999) && (
           <line key={i} x1={Xm(maxR).toFixed(1)} x2={X(maxR).toFixed(1)} y1={Y(ty).toFixed(1)} y2={Y(ty).toFixed(1)}
             stroke={C.bound} strokeWidth="1" strokeDasharray="4 4" opacity="0.7" style={{ pointerEvents: "none" }} />
         ))}
 
-        {/* 領域ラベル(首 / 火袋 / 首)。左側=◇の値ラベルと衝突しない */}
+        {/* Region labels (neck / lamp body / neck). Left side = doesn't collide with the ◇ value labels */}
         <g style={{ pointerEvents: "none" }} fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="12.5" textAnchor="end">
           {fr.lo > 0.03 && <text x={Xm(maxR + 6).toFixed(1)} y={(Y(fr.lo / 2) + 4).toFixed(1)} fill={C.label} fontWeight="600">{t("首")}</text>}
           <text x={Xm(maxR + 6).toFixed(1)} y={(Y((fr.lo + fr.hi) / 2) + 4).toFixed(1)} fill={accent} fontWeight="700">{t("火袋")}</text>
           {fr.hi < 0.97 && <text x={Xm(maxR + 6).toFixed(1)} y={(Y((fr.hi + 1) / 2) + 4).toFixed(1)} fill={C.label} fontWeight="600">{t("首")}</text>}
         </g>
 
-        {/* 竹ひご */}
+        {/* Bamboo ribs (higo) */}
         {higo && <path d={higo} stroke={C.higo} strokeWidth="1" fill="none" style={{ pointerEvents: "none" }} />}
 
-        {/* 羽根板の芯(中央帯) */}
+        {/* Rib core (center band) */}
         <rect x={CX - 7} width="14" y={spineY.toFixed(1)} height={spineH.toFixed(1)} fill={C.spine} opacity="0.55" />
 
-        {/* コマ(上下のハブ) */}
+        {/* Koma (top and bottom hubs) */}
         <rect x={CX - 13} width="26" height="14" rx="3" y={(topY - 7).toFixed(1)} fill={accent} opacity="0.92" />
         <rect x={CX - 13} width="26" height="14" rx="3" y={(Y0 - 7).toFixed(1)} fill={accent} opacity="0.92" />
 
-        {/* ハンドル */}
+        {/* Handles */}
         {handles.map((h) => {
           const active = drag === h.key;
           return (
@@ -304,7 +308,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
           );
         })}
 
-        {/* 点追加ゴースト(＋)。隣接点の中点。クリックで点を追加して選択 */}
+        {/* Add-point ghost (+). Midpoint of adjacent points. Click to add a point and select it */}
         {ghosts.map((g, i) => (
           <g key={"gh" + i} onPointerDown={(e) => { e.stopPropagation(); addAtT(g.mt); }} style={{ cursor: "copy" }}>
             <circle cx={g.x.toFixed(1)} cy={g.y.toFixed(1)} r="11" fill={C.handleFill} fillOpacity="0.85"
@@ -314,7 +318,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
           </g>
         ))}
 
-        {/* 制御点(◇=なめらか / ■=角)。最外(端)= 開口=首(横=張り出し / 縦=首の高さ) */}
+        {/* Control points (◇ = smooth / ■ = corner). Outermost (ends) = opening = neck (horizontal = flare / vertical = neck height) */}
         {cps.map((c) => (
           <g key={c.i} onPointerDown={(e) => beginDragPt(e, c.i)} style={{ cursor: "move" }}>
             {c.selected && (
@@ -335,7 +339,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
           </g>
         ))}
 
-        {/* 接線ハンドル(カーブ調整モード・選択点のみ)。緑の方向線+掴み丸をドラッグで角度・張り調整 */}
+        {/* Tangent handles (curve-adjust mode, selected point only). Drag the green direction line + grab circle to adjust angle/tension */}
         {handleDots.map((h, i) => (
           <g key={"h" + i}>
             <line x1={h.ax.toFixed(1)} y1={h.ay.toFixed(1)} x2={h.hx.toFixed(1)} y2={h.hy.toFixed(1)}
@@ -348,7 +352,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
         ))}
       </svg>
 
-      {/* 操作ヒント */}
+      {/* Operation hint */}
       <div style={{
         position: "absolute", bottom: 14, right: 18, display: "flex", alignItems: "center", gap: 8,
         fontSize: 11.5, color: C.label, fontFamily: "'IBM Plex Sans JP',sans-serif",

@@ -1,39 +1,43 @@
 /**
  * ============================================================================
- * プリセット / パラメータ定義 (CONFIG)
+ * PRESETS / PARAMETER DEFINITIONS (CONFIG)
  * ============================================================================
- * 形プリセット(制御点テンプレート)と初期値をまとめる。シルエットは
- * スライダーではなく断面図上のハンドル/制御点を直接ドラッグして編集する
- * (SectionEditor)。ここでは pts の初期配置テンプレートだけを持つ。
+ * Collects the shape presets (control-point templates) and initial values. The silhouette
+ * is edited not with sliders but by directly dragging handles / control points on the
+ * section view (SectionEditor). This file holds only the initial-placement templates for pts.
  * ============================================================================
  */
 
-// 形プリセット = 制御点(pts)の初期配置テンプレート。選ぶと rTop/rBot/pts を差し替え、
-// 他パラメータ(高さ・枚数・竹ひご等)は保持する。プリセットアイコンは実プロファイルから生成。
-// 制御点(pts)は火袋の輪郭。最外の制御点(pts[0]/末尾)= 開口=首の半径。首の内側に無駄な
-// フレアが出ないよう、開口は必ず最外制御点に一致する。首の高さ = 最外制御点の t 位置。
+// Shape preset = initial-placement template for the control points (pts). Selecting one
+// replaces rTop/rBot/pts and preserves the other parameters (height, count, bamboo rib, etc.).
+// Preset icons are generated from the actual profile.
+// The control points (pts) are the lamp-body outline. The outermost control point (pts[0]/last)
+// = opening = neck radius. So no wasteful flare appears inside the neck, the opening always
+// matches the outermost control point. Neck height = the t position of the outermost control point.
 export const PRESETS = [
   { key: "egg", name: "たまご", rTop: 19, rBot: 74, pts: [{ t: 0.05, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.95, r: 19 }] },
   { key: "sphere", name: "球", rTop: 26, rBot: 28, pts: [{ t: 0.05, r: 28 }, { t: 0.5, r: 90 }, { t: 0.95, r: 26 }] },
   { key: "barrel", name: "たる", rTop: 52, rBot: 56, pts: [{ t: 0.05, r: 56 }, { t: 0.14, r: 82, sharp: true }, { t: 0.86, r: 78, sharp: true }, { t: 0.95, r: 52 }] },
 ];
 
-// 初期状態。シルエットは height(火袋の高さ)と pts(制御点)で決まる。首の有無は
-// neckBot/neckTop、高さ・張り出しは最外制御点◇の位置。爪(tabR/tabLen)・肉抜き
-// (lighten)・公差(fit)は既定値のまま(UIには出さず内部で使用)。
-// rTop/rBot は pts が空の時のフォールバック用(通常経路では読まれない)。
+// Initial state. The silhouette is determined by height (lamp-body height) and pts (control
+// points). Neck presence is neckBot/neckTop; height and flare come from the position of the
+// outermost control-point ◇. The tab (tabR/tabLen), lightening (lighten), and fit tolerance
+// (fit) stay at their defaults (not exposed in the UI, used internally).
+// rTop/rBot are a fallback for when pts is empty (not read on the normal path).
 export const DEFAULTS = {
   shape: "egg", height: 205, rTop: 19, rBot: 74,
   pts: [{ t: 0.05, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.95, r: 19 }],
-  neckBot: true, neckTop: true, // 首(垂直な長方形)の有無を上下独立に選択(最外制御点より外側)。
-  boards: 8, boardWidth: 35, boardT: 2, higoD: 2, pitch: 9, // 竹ひごの間隔(大きいほど本数少)
+  neckBot: true, neckTop: true, // choose neck (a vertical rectangle) presence independently top/bottom (outside the outermost control point).
+  boards: 8, boardWidth: 35, boardT: 2, higoD: 2, pitch: 9, // bamboo rib spacing (larger = fewer ribs)
   fit: 0.3, tabLen: 10, tabW: 10, komaT: 8,
   tabR: 15, lighten: true,
-  spiral: false, // 竹ひご溝を螺旋にする(羽根ごとに溝を下へずらし、全羽根で連続した1本の螺旋に)。既定は水平リング。
+  spiral: false, // make the bamboo-rib grooves spiral (shift each rib's grooves downward so all ribs form one continuous spiral). Default is horizontal rings.
 };
 
-// シルエットのスクラブ行(左右ドラッグで微調整)。値域と感度。
-// 半径系は断面図の◇(制御点)を直接ドラッグする方式なのでここには持たない。
+// Silhouette scrub rows (fine-tune by dragging left/right). Value range and sensitivity.
+// Radius-type values are edited by directly dragging the section-view ◇ (control points), so
+// they aren't held here.
 export const SIL_ROWS = [
   { key: "height", label: "火袋の高さ", min: 140, max: 400, sens: 0.5, round: 1, unit: "mm" },
 ];

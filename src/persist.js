@@ -1,17 +1,19 @@
 /**
  * ============================================================================
- * 状態の永続化 (PERSIST)
+ * STATE PERSISTENCE (PERSIST)
  * ============================================================================
- * 作業状態(形状 p + 機種設定 bedW/bedD + printRibs)を localStorage に自動保存し、
- * 起動時に復元する。リロードで DEFAULTS に戻ると、土台の再利用に必要な合わせ目の値
- * (boardT/tabLen/komaT/boards/fit)まで失われるため、それを防ぐのが主目的。
+ * Auto-saves the working state (shape p + machine settings bedW/bedD + printRibs)
+ * to localStorage and restores it on startup. If a reload reverted to DEFAULTS, the
+ * seam values needed to reuse the stand (boardT/tabLen/komaT/boards/fit) would also
+ * be lost; preventing that is the main goal.
  *
- * React/DOM のコンポーネントには依存しない(localStorage と純粋な検証だけ)。geometry.js
- * とは別ファイルなので「geometry は純粋関数のまま」の制約にも抵触しない。依存は増やさない
- * (ブラウザ標準の localStorage のみ)。
+ * No dependency on React/DOM components (only localStorage and pure validation). Being
+ * a separate file from geometry.js, it also doesn't violate the "geometry stays pure"
+ * constraint. Adds no dependencies (only the browser-standard localStorage).
  *
- * 復元は必ず sanitize を通す: 外部由来(手書き/旧バージョン/JSON往復)の壊れた値で
- * outerR が NaN 化 → STL 非多様体、や、過大な boards で初回レンダに非水密コマ、を防ぐ。
+ * Restore always goes through sanitize: prevents externally-sourced (hand-written / old
+ * version / JSON round-trip) corrupt values from making outerR NaN → non-manifold STL,
+ * or an oversized boards producing a non-watertight koma on the first render.
  * ============================================================================
  */
 import { DEFAULTS } from "./config.js";
@@ -20,10 +22,11 @@ import { maxBoards } from "./geometry.js";
 export const STORAGE_KEY = "harigata.studio";
 export const SCHEMA_VERSION = 1;
 
-// 数値フィールドの許容範囲 [min, max]。復元値は UI のクランプを経由しないため、壊れた
-// localStorage や外部 JSON の範囲外値がそのまま geometry に流れると破綻する(特に pitch:0 は
-// grooveList の n=Math.round(span/pitch)=Infinity で無限ループ)。ここで必ず範囲に収める。
-// 範囲は UI のスライダー/ステッパーの許容域に合わせる(不明なものは安全側の広めの域)。
+// Allowed range [min, max] per numeric field. Restored values don't pass through the
+// UI's clamping, so out-of-range values from corrupt localStorage or external JSON flow
+// straight into geometry and break it (in particular pitch:0 makes grooveList's
+// n=Math.round(span/pitch)=Infinity loop forever). Always clamp into range here.
+// Ranges match the UI slider/stepper allowed domains (unknowns get a safely wide range).
 const BOUNDS = {
   height: [140, 400], rTop: [8, 130], rBot: [8, 130], boards: [4, 16],
   boardWidth: [10, 120], boardT: [1, 4], higoD: [1, 4], pitch: [8, 30],
@@ -31,14 +34,17 @@ const BOUNDS = {
 };
 const NUM_KEYS = Object.keys(BOUNDS);
 
-// ベジェ接線ハンドル(ho/hi)の検証。{dt,dr} が両方有限なら採用、それ以外(欠損・非オブジェクト・
-// NaN・JSON化された Infinity=null 等)は捨てる。壊れたハンドルで outerR が NaN 化するのを防ぐ。
+// Validate a Bezier tangent handle (ho/hi). Accept if both {dt,dr} are finite; otherwise
+// (missing, non-object, NaN, JSON-serialized Infinity=null, etc.) discard it. Prevents a
+// corrupt handle from making outerR NaN.
 function validHandle(h) {
   return h && Number.isFinite(h.dt) && Number.isFinite(h.dr) ? { dt: h.dt, dr: h.dr } : undefined;
 }
-// pts の検証: 配列・2点以上・各要素 {t,r} が有限。満たさなければ DEFAULTS.pts に差し替える。
-// t は [0,1]・r は妥当域にクランプし、t 昇順にソート(geometry の前提。外部由来は順序無保証)。
-// ho/hi(任意)は validHandle で安全化し、無効なら省く(= その点は自動接線に戻る)。
+// Validate pts: must be an array, 2+ points, each element {t,r} finite. If not, substitute
+// DEFAULTS.pts. Clamp t to [0,1] and r to a valid range, and sort ascending by t (a geometry
+// precondition; externally-sourced data has no guaranteed order).
+// ho/hi (optional) are made safe via validHandle and omitted if invalid (= that point falls
+// back to an auto tangent).
 function validatePts(pts) {
   if (!Array.isArray(pts) || pts.length < 2) return DEFAULTS.pts.map((q) => ({ ...q }));
   for (const q of pts) {
@@ -56,7 +62,8 @@ function validatePts(pts) {
     .sort((a, b) => a.t - b.t);
 }
 
-// 数値の強制。非有限(文字列/欠損/NaN)は DEFAULTS へ、範囲外は許容域にクランプする。
+// Coerce numbers. Non-finite (string / missing / NaN) fall back to DEFAULTS; out-of-range
+// values are clamped into the allowed range.
 function coerceNums(p) {
   for (const k of NUM_KEYS) {
     const [lo, hi] = BOUNDS[k];
@@ -66,39 +73,42 @@ function coerceNums(p) {
   return p;
 }
 
-// 形状 p を sanitize: 浅マージで欠損を DEFAULTS で埋め、pts 検証・数値強制・boards クランプ。
-// boards クランプは HarigataStudio の自己修復 effect の前倒し(初回レンダで非水密コマを出さない)。
+// Sanitize a shape p: shallow-merge to fill missing fields from DEFAULTS, then validate pts,
+// coerce numbers, and clamp boards. The boards clamp brings HarigataStudio's self-healing
+// effect forward (so the first render doesn't produce a non-watertight koma).
 function sanitizeP(rawP) {
-  const p = { ...DEFAULTS, ...rawP };   // 欠損フィールドは唯一の真実源 DEFAULTS が埋める
+  const p = { ...DEFAULTS, ...rawP };   // missing fields are filled from the single source of truth, DEFAULTS
   p.pts = validatePts(rawP && rawP.pts);
   coerceNums(p);
   p.boards = Math.min(p.boards, maxBoards(p));
   return p;
 }
 
-// 保存: 失敗(容量超過/プライベートモード/localStorage無効)は握り潰す。
+// Save: swallow failures (quota exceeded / private mode / localStorage disabled).
 export function saveState(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ schemaVersion: SCHEMA_VERSION, ...state }));
-  } catch { /* 保存できなくてもアプリは動く(次回は DEFAULTS 起動になるだけ) */ }
+  } catch { /* the app works even if saving fails (next launch simply starts from DEFAULTS) */ }
 }
 
-// 復元: 「マージ・検証・クランプ済みの {p, bedW, bedD, printRibs, matT}」か、無効なら null。
-// version が既知でなくても saved.p があれば読む(浅マージは前方互換なので、機械不変量を
-// 捨てない)。真に互換不能な破壊的変更をしたときだけ、その version を破棄リストに載せる。
-const INCOMPATIBLE_VERSIONS = new Set(); // 例: 破壊的変更をしたら該当 version をここに追加
+// Restore: either a merged / validated / clamped {p, bedW, bedD, printRibs, matT}, or null if
+// invalid. Read saved.p even when the version is unknown (shallow merge is forward-compatible,
+// so we don't throw away machine invariants). Only add a version to the discard list when a
+// truly incompatible breaking change was made.
+const INCOMPATIBLE_VERSIONS = new Set(); // e.g. on a breaking change, add the affected version here
 
-// パース済みオブジェクト → sanitize 済みの {p, bedW, bedD, printRibs, matT}(無効なら null)。
-// localStorage 復元・ファイル読込・ZIP 内 config など「外部由来の1オブジェクト」を全て
-// ここに通す。壊れた値の安全化(sanitizeP / クランプ)を経路ごとに書かず1本に集約する。
+// Parsed object → sanitized {p, bedW, bedD, printRibs, matT} (null if invalid).
+// Every "single externally-sourced object" — localStorage restore, file load, ZIP-embedded
+// config, etc. — passes through here. Making corrupt values safe (sanitizeP / clamp) is
+// consolidated into one path instead of being written per route.
 export function sanitizeSaved(saved) {
   if (!saved || typeof saved !== "object") return null;
   if (INCOMPATIBLE_VERSIONS.has(saved.schemaVersion)) return null;
   const clampNum = (v, lo, hi, def) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
-  const bedW = clampNum(saved.bedW, 100, 420, 256);   // UI の numInput 許容域
+  const bedW = clampNum(saved.bedW, 100, 420, 256);   // UI numInput allowed range
   const bedD = clampNum(saved.bedD, 100, 420, 256);
-  const printRibs = Math.round(clampNum(saved.printRibs, 1, 16, 1)); // 1..boards、上限は boards 側で更にクランプ
-  const matT = clampNum(saved.matT, 1, 10, 5);        // 型紙の材料厚(mm)。UI ステッパの許容域
+  const printRibs = Math.round(clampNum(saved.printRibs, 1, 16, 1)); // 1..boards; upper bound further clamped on the boards side
+  const matT = clampNum(saved.matT, 1, 10, 5);        // paper-template material thickness (mm). UI stepper allowed range
   return { p: sanitizeP(saved.p), bedW, bedD, printRibs, matT };
 }
 
@@ -110,15 +120,16 @@ export function loadSaved() {
   } catch { return null; }
 }
 
-// 書き出し: 現在の作業状態を、saveState / ZIP 内 config.json と同じスキーマの JSON 文字列に。
-// これをファイル保存すれば localStorage(揮発するキャッシュ層)が消えても設計を復元できる。
+// Export: serialize the current working state to a JSON string with the same schema as
+// saveState / the ZIP-embedded config.json. Saving this to a file lets the design be restored
+// even if localStorage (a volatile cache layer) is cleared.
 export function serializeState(state) {
   return JSON.stringify({ schemaVersion: SCHEMA_VERSION, ...state }, null, 2);
 }
 
-// 読み込み: ファイル等の文字列 → sanitize 済みの状態(無効な JSON/中身なら null)。
-// ZIP 内の config.json({schemaVersion, p, bedW, bedD})でも、単体書き出しの状態でも、
-// sanitizeSaved が欠損を DEFAULTS で埋めるためそのまま復元できる。
+// Import: a string (from a file, etc.) → sanitized state (null if the JSON/content is invalid).
+// Whether it's a ZIP-embedded config.json ({schemaVersion, p, bedW, bedD}) or a standalone
+// exported state, sanitizeSaved fills missing fields from DEFAULTS so it restores as-is.
 export function parseImport(text) {
   try { return sanitizeSaved(JSON.parse(text)); }
   catch { return null; }

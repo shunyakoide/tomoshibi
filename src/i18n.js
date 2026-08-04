@@ -1,44 +1,46 @@
 /**
  * ============================================================================
- * 多言語化 (I18N) — 日本語 / 英語
+ * INTERNATIONALIZATION (I18N) — Japanese / English
  * ============================================================================
- * 方式: 「日本語の文字列そのものをキー」にして英語辞書 EN を引く。日本語ソースの可読性を
- * 保ち、未訳は日本語へ自動フォールバックする。補間は `{name}` プレースホルダで行う
- * (キー文字列に {name} を含め、t(key, { name: 値 }) で置換)。
+ * Approach: use "the Japanese string itself as the key" to look up the English dictionary EN.
+ * This keeps the Japanese source readable, and untranslated strings automatically fall back to
+ * Japanese. Interpolation uses `{name}` placeholders (include {name} in the key string and
+ * substitute via t(key, { name: value })).
  *
- * React/DOM 非依存の純粋モジュール(localStorage の言語設定のみ扱う)。UI 文字列だけを
- * 対象にし、コード内コメントは日本語のまま(CLAUDE.md 規約)。
+ * A pure module with no React/DOM dependency (it only handles the localStorage language
+ * setting). It targets UI strings only; in-code comments stay in Japanese (CLAUDE.md convention).
  * ============================================================================
  */
 export const LANG_KEY = "harigata.lang";
 
-// 日本語→英語。キーは UI に現れる日本語(補間は {name})。ここに無いキーは日本語のまま出る。
+// Japanese→English. Keys are the Japanese as it appears in the UI (interpolation via {name}).
+// Keys not present here are shown in Japanese as-is.
 const EN = {
-  // ---- ビュー / タブ ----
+  // ---- Views / tabs ----
   "断面": "Section",
   "組立": "Assembly",
   "印刷": "Print",
   "点灯": "Lit",
-  // ---- ヘッダー ----
+  // ---- Header ----
   "張型": "Harigata",
   "スタジオ": "Studio",
-  // ---- ツールバー ----
+  // ---- Toolbar ----
   "元に戻す": "Undo",
   "やり直し": "Redo",
   "初期化": "Reset",
   "すべての設定を初期状態に戻します。よろしいですか?": "Reset all settings to their defaults. Continue?",
-  // ---- セクション見出し ----
+  // ---- Section headings ----
   "形": "Shape",
   "シルエット": "Silhouette",
   "左右にドラッグで調整": "Drag left/right to adjust",
   "骨組み": "Frame",
   "プリントベッド": "Print bed",
   "竹ひご": "Bamboo",
-  // ---- プリセット名 ----
+  // ---- Preset names ----
   "たまご": "Egg",
   "球": "Sphere",
   "たる": "Barrel",
-  // ---- ラベル(スクラブ / ステッパ / 入力) ----
+  // ---- Labels (scrub / stepper / input) ----
   "火袋の高さ": "Body height",
   "羽根板の枚数": "Rib count",
   "板厚": "Board thickness",
@@ -49,7 +51,7 @@ const EN = {
   "奥行き": "Depth",
   "印刷する羽根板": "Ribs to print",
   " 枚": " pcs",
-  // ---- チェックボックス / 首 ----
+  // ---- Checkboxes / neck ----
   "下の首": "Bottom neck",
   "上の首": "Top neck",
   "首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ":
@@ -60,19 +62,19 @@ const EN = {
     "⚠ Experimental: split-part tabs don't fit the current koma (needs fixing).",
   "この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます":
     "Up to {n} ribs at this opening/thickness (koma notches would overlap). Thinner boards allow more.",
-  // ---- 型紙(段ボール) ----
+  // ---- Paper template (cardboard) ----
   "型紙(段ボール)": "Paper template",
   "A4 原寸": "A4 · 1:1",
   "材料の厚み": "Material thickness",
   "型紙を開く (A4 原寸)": "Open template (A4, 1:1)",
   "新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。":
     "Opens in a new tab. Print at \"Actual size (100%)\" and check the 50mm scale with a ruler. Bamboo grooves are shown as tick marks, not cut.",
-  // ---- サマリー ----
+  // ---- Summary ----
   "最大径": "Max diameter",
   "羽根板の全長": "Rib length",
   " (2分割)": " (split)",
   "上下の開口(半径)": "Openings (radius)",
-  // ---- CTA / 書き出し ----
+  // ---- CTA / export ----
   "STL 書き出し": "Export STL",
   "印刷・書き出しへ進む →": "Go to print / export →",
   "コマ・柱は上下同一のため各1つ入っています。スライサーで":
@@ -80,7 +82,7 @@ const EN = {
   "2つに複製": "duplicate to two",
   "して印刷してください。設定は ": " and print them. Settings are bundled as ",
   " として同梱されます(バックアップ用)。": " (for backup).",
-  // ---- 警告 / 状態 ----
+  // ---- Warnings / status ----
   "⚠ 3Dプレビューを初期化できませんでした": "⚠ Could not initialize the 3D preview",
   "お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。":
     "WebGL may be disabled in your browser. STL generation and download still work.",
@@ -89,14 +91,14 @@ const EN = {
   "{parts} がベッド {w}×{d}mm を超過": "{parts} exceeds the {w}×{d}mm bed",
   "→ 火袋の高さを {h}mm 以下に": "→ Reduce body height to {h}mm or less",
   "鑑賞モード — 編集はタブで「断面」へ": "Viewing mode — switch to the Section tab to edit",
-  // ---- 断面エディタ(SectionEditor) ----
+  // ---- Section editor (SectionEditor) ----
   "羽根板": "Rib",
   "首": "Neck",
   "火袋": "Body",
   "開口/首": "Opening/Neck",
   "点をドラッグで動かす · クリックで選択(右で数値·なめらか/角·削除) · 緑の＋で点を追加":
     "Drag a point to move it · click to select (edit values, smooth/corner, delete on the right) · add a point with the green +",
-  // ---- 選択中の点カード(インスペクタ) ----
+  // ---- Selected-point card (inspector) ----
   "選択中の点": "Selected point",
   "✥ 点を動かす": "✥ Move",
   "◠ カーブ調整": "◠ Curve",
@@ -109,8 +111,9 @@ const EN = {
     "Click a point in the section view to edit its values, smooth/corner, and delete here. Add points with the green + on the curve.",
 };
 
-// 言語 lang の翻訳関数を返す。t(key, params?): 英語なら EN を引き(無ければ日本語)、
-// {name} を params[name] で置換する。日本語は key をそのまま補間して返す。
+// Return the translation function for language `lang`. t(key, params?): for English, look up EN
+// (falling back to Japanese if absent) and substitute {name} with params[name]. For Japanese,
+// interpolate and return the key as-is.
 export function makeT(lang) {
   const dict = lang === "en" ? EN : null;
   return (s, params) => {
@@ -123,4 +126,4 @@ export function makeT(lang) {
 export function loadLang() {
   try { const v = localStorage.getItem(LANG_KEY); return v === "en" ? "en" : "ja"; } catch { return "ja"; }
 }
-export function saveLang(l) { try { localStorage.setItem(LANG_KEY, l); } catch { /* 保存不可でも動く */ } }
+export function saveLang(l) { try { localStorage.setItem(LANG_KEY, l); } catch { /* works even if saving fails */ } }
