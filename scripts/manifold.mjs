@@ -128,5 +128,28 @@ for (const preset of PRESETS)
         }
       }
 console.log(`\n=== ハンドル編集: ${htotal} checks, ${hfail} FAIL ===`);
-if (fail + hfail > 0) process.exitCode = 1;
-process.exit(fail ? 1 : 0);
+
+// ============ 螺旋巻き(spiral)の水密性スイープ ============
+// 螺旋巻きは grooveList が羽根ごと(k)に溝を step/boards ずつずらす。ずらし量は k で連続に
+// 変わり、端の格子点に溝が乗る羽根もある。offset は全羽根で異なるので **全ての k** を検査
+// する(通常スイープは k=0,1,mid の抜き取り)。溝位置に効く preset/高さ/ひご径/ピッチ/枚数を
+// 掛け合わせる。判定は通常と同じ watertight。
+let spFail = 0, spTotal = 0;
+for (const preset of PRESETS)
+  for (const height of [140, 205, 300, 400])
+    for (const higoD of [1.5, 2, 3])
+      for (const pitch of [6, 9, 14])
+        for (const reqBoards of [6, 8, 12, 16]) {
+          const base = { ...DEFAULTS, ...preset, height, higoD, pitch, spiral: true };
+          const boards = Math.min(reqBoards, G.maxBoards(base));
+          const p = { ...base, boards };
+          for (let k = 0; k < boards; k++) {
+            const r = checkGeom(G.ribGeometry(p, k));
+            spTotal++;
+            if (!r.ok) { spFail++; if (spFail <= 40) console.log(`✗[S] ${preset.key} h${height} hd${higoD} pi${pitch} b${boards} k${k} → ${r.reason}`); }
+          }
+        }
+console.log(`\n=== 螺旋巻き: ${spTotal} checks, ${spFail} FAIL ===`);
+
+if (fail + hfail + spFail > 0) process.exitCode = 1;
+process.exit(fail + hfail + spFail ? 1 : 0);

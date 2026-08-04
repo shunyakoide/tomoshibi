@@ -29,6 +29,7 @@ export const DEFAULTS = {
   boards: 8, boardWidth: 35, boardT: 2, higoD: 2, pitch: 9, // 竹ひごの間隔(大きいほど本数少)
   fit: 0.3, tabLen: 10, tabW: 10, komaT: 8,
   tabR: 15, lighten: true,
+  spiral: false, // 竹ひご溝を螺旋にする(羽根ごとに溝を下へずらし、全羽根で連続した1本の螺旋に)。既定は水平リング。
 };
 
 // シルエットのスクラブ行(左右ドラッグで微調整)。値域と感度。
