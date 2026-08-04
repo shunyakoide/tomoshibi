@@ -26,7 +26,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  maxRadius, outerR, cutT, standBoardLength, maxBoards, grooveR, grooveList,
+  maxRadius, outerR, cutT, standBoardLength, maxBoards, grooveR, grooveList, higoSpiralPath,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
   standCollarTop, standSaddleH, standSlotSep, bakeBezierHandles, ringGeometry,
 } from "./geometry.js";
@@ -398,11 +398,22 @@ export default function HarigataStudio() {
         color: 0xc2a266, roughness: 0.75, metalness: 0,
         emissive: 0x936026, emissiveIntensity: 0.7,
       });
-      for (const gy of grooveList(p, grooveR(p))) {
-        const t = gy / p.height;
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(outerR(p, t), p.higoD / 2, 10, 96), higoMat);
-        ring.rotation.x = Math.PI / 2; ring.position.y = legH + gy;
-        s.group.add(ring);
+      if (p.spiral) {
+        // 螺旋巻き: 竹ひごを「下へ連続していく1本の螺旋」として描く(型の溝と同じ higoSpiralPath)。
+        const path = higoSpiralPath(p);
+        if (path.length > 1) {
+          const v = path.map(([a, y, r]) => new THREE.Vector3(r * Math.cos(a), legH + y, r * Math.sin(a)));
+          const curve = new THREE.CatmullRomCurve3(v);
+          const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, v.length * 2, p.higoD / 2, 8, false), higoMat);
+          s.group.add(tube);
+        }
+      } else {
+        for (const gy of grooveList(p, grooveR(p))) {
+          const t = gy / p.height;
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(outerR(p, t), p.higoD / 2, 10, 96), higoMat);
+          ring.rotation.x = Math.PI / 2; ring.position.y = legH + gy;
+          s.group.add(ring);
+        }
       }
       // 脚: 火袋の底縁(=下の開口)から外に開いて床へ。暗背景に沈まないグラファイト(黒鉄の質感は保つ)
       const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
@@ -493,7 +504,9 @@ export default function HarigataStudio() {
     } else {
       // 印刷ビュー: Bambu Lab A1 (256×256mm)。種別ごとにセル計算しプレートを田の字配置
       const BEDW = bedW, BEDD = bedD, GAP = 8;
-      const nRibs = Math.min(printRibs, p.boards); // 印刷する羽根板の枚数(1..boards)
+      // 螺旋巻きは羽根ごとに溝位置が違う(全羽根が別形状)ので、必ず全 boards 枚を並べる。
+      // 通常は全羽根同一なので printRibs 枚だけ(1枚刷って複製する運用)。
+      const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
       const ribs = [];
       for (let k = 0; k < nRibs; k++) {
         if (splitRibs) {
@@ -588,7 +601,8 @@ export default function HarigataStudio() {
   }, [p, view, printRibs, bedW, bedD, splitRibs]);
 
   // 印刷する羽根板の枚数(1..boards)。boards が減った場合に備えて clamp。
-  const nRibs = Math.min(printRibs, p.boards);
+  // 螺旋巻きは全羽根が別形状なので必ず全 boards 枚を書き出す(1枚複製では螺旋にならない)。
+  const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
 
   const dlAll = () => { // 全部品を別STLとして1つのZIPにまとめる
     const spread = (geos, gap) => { // X方向に並べて重なり回避
@@ -601,18 +615,29 @@ export default function HarigataStudio() {
       }
       return geos;
     };
-    let ribs = [];
+    // 羽根板の書き出し単位。螺旋巻きは羽根ごとに形が違うので、スライサで個別に配置・複製
+    // できるよう **1枚=1ファイル**(harigata_rib_01.stl …)にする。通常は全羽根同一なので
+    // 従来どおり1ファイルにまとめる(1枚刷って複製)。
+    let ribEntries;
     if (splitRibs) {
       const parts = [];
       for (let k = 0; k < nRibs; k++) { const sp = ribSplitParts(p, k); parts.push(sp.bottom, sp.top, sp.splice); }
-      ribs = spread(parts, 15);
+      ribEntries = [{ name: `harigata_ribs_x${nRibs}.stl`, geos: spread(parts, 15) }];
+    } else if (p.spiral) {
+      ribEntries = [];
+      for (let k = 0; k < nRibs; k++) {
+        const g = ribGeometry(p, k);
+        g.translate(0, p.tabLen, p.boardT / 2);
+        ribEntries.push({ name: `harigata_rib_${String(k + 1).padStart(2, "0")}.stl`, geos: [g] });
+      }
     } else {
-      const w = maxRadius(p) + 12;
+      const w = maxRadius(p) + 12, ribs = [];
       for (let k = 0; k < nRibs; k++) {
         const g = ribGeometry(p, k);
         g.translate(k * w, p.tabLen, p.boardT / 2);
         ribs.push(g);
       }
+      ribEntries = [{ name: `harigata_ribs_x${nRibs}.stl`, geos: ribs }];
     }
     // コマ・柱は上下同一なので各1つだけ書き出す(印刷時に2つ複製して使う)。
     const board = boardGeometry(p);
@@ -620,7 +645,7 @@ export default function HarigataStudio() {
     // 消えても復元の元になる)。persist.js と同じスキーマなので将来の JSON 読込でそのまま使える。
     const cfg = JSON.stringify({ schemaVersion: SCHEMA_VERSION, p, bedW, bedD }, null, 2);
     exportZip([
-      { name: `harigata_ribs_x${nRibs}.stl`, geos: ribs },
+      ...ribEntries,
       { name: "harigata_koma_print2.stl", geos: [komaGeometry(p)] },
       { name: "harigata_stand_column_print2.stl", geos: [standGeometry(p)] },
       { name: "harigata_stand_base.stl", geos: [board] },
@@ -1121,6 +1146,10 @@ export default function HarigataStudio() {
                 onChange: (v) => setP((o) => ({ ...o, higoD: v })) })}
               {scrubRow({ key: "pitch", label: "ひごピッチ", value: p.pitch, min: 8, max: 30, sens: 0.3, round: 1, unit: "mm",
                 onChange: (v) => setP((o) => ({ ...o, pitch: v })) })}
+              <div style={{ marginTop: 8 }}>
+                {checkbox(p.spiral ?? false, () => setP((o) => ({ ...o, spiral: !(o.spiral ?? false) })),
+                  <>{t("螺旋巻き")} <span style={{ color: UI.faint }}>{t("(溝を下へ連続させる)")}</span></>)}
+              </div>
             </div>
           )}
         </div>
@@ -1144,9 +1173,18 @@ export default function HarigataStudio() {
             {numInput("幅", bedW, setBedW, 100, 420)}
             {numInput("奥行き", bedD, setBedD, 100, 420)}
             <div style={{ marginTop: 6 }}>
-              {stepper("printRibs", "印刷する羽根板", nRibs, 1, p.boards, 1,
-                (v) => setPrintRibs(v),
-                <>{nRibs}<span style={{ color: UI.faintest, fontWeight: 400 }}> / {p.boards}</span></>)}
+              {p.spiral ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
+                  <span style={{ fontSize: 12.5, color: UI.text }}>{t("印刷する羽根板")}</span>
+                  <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>
+                    {t("螺旋: 全")}{p.boards}{t("枚(各1枚)")}
+                  </span>
+                </div>
+              ) : (
+                stepper("printRibs", "印刷する羽根板", nRibs, 1, p.boards, 1,
+                  (v) => setPrintRibs(v),
+                  <>{nRibs}<span style={{ color: UI.faintest, fontWeight: 400 }}> / {p.boards}</span></>)
+              )}
             </div>
 
             {/* 型紙: 3Dプリンタが無くても段ボール・厚紙で作れるように原寸 A4 で刷る */}
