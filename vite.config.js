@@ -1,16 +1,16 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// base: "./" で相対パス出力 → Vercel / Netlify / GitHub Pages のどれでも
-// 再設定なしにそのまま動く(ホスト非依存)。
+// base: "./" emits relative asset paths, so the build works as-is on any static host
+// (GitHub Pages, Netlify, a plain file server, …) with no per-host reconfiguration.
 export default defineConfig({
   base: "./",
   plugins: [react()],
   build: {
     target: "es2020",
-    // three.js 単独チャンクは意図的なので警告閾値を引き上げる
+    // The standalone three.js chunk is intentional, so raise the size-warning threshold.
     chunkSizeWarningLimit: 700,
-    // three.js は大きめなので単独チャンクに分離しキャッシュ効率を上げる
+    // three.js is large, so split it into its own chunk for better cache efficiency.
     rollupOptions: {
       output: {
         manualChunks: {
