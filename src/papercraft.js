@@ -27,6 +27,11 @@ import {
   ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, komaStop2D, notchR, komaR,
 } from "./geometry.js";
 
+// Default translator: an interpolating identity (returns the Japanese key, substituting {name}
+// placeholders). The UI passes the real i18n `t` (which looks up English); callers that omit it
+// — including the verification scripts — get the Japanese page. Keeping this module React/DOM-free.
+const tid = (s, params) => (params ? Object.keys(params).reduce((a, k) => a.split("{" + k + "}").join(params[k]), s) : s);
+
 // ---- Paper (A4) ----
 export const A4 = { w: 210, h: 297, name: "A4" };
 const MARGIN = 8;    // Paper edge margin (mm). Outside the non-printable area (~5mm) of most home printers.
@@ -80,7 +85,7 @@ function toPage(part, rot) {
 
 // Rib: a smooth outer edge with no grooves carved + tick lines at the bamboo-rib winding positions.
 // No lightening windows (cardboard is light, and windows only weaken it and add cutting effort).
-function ribPart(pk, k, nRibs, matT) {
+function ribPart(pk, k, nRibs, matT, t) {
   const h = pk.height;
   const outline = ribOutline2D(pk, k, { smooth: true, stop: stopOpts(matT) });
   // Tick line positions use the same basis as the STL grooves (grooveList). Horizontal lines TICK mm inward from the outer edge.
@@ -89,13 +94,14 @@ function ribPart(pk, k, nRibs, matT) {
     const x = outerR(pk, Math.min(Math.max(y, 0), h) / h);
     return [x, y, x - TICK, y];
   });
-  return { name: `羽根板 ${k + 1}/${nRibs}`, outline, marks };
+  // Number stays outside t() so the default (Japanese) name still contains the plain word for the tests.
+  return { name: `${t("羽根板")} ${k + 1}/${nRibs}`, outline, marks };
 }
 
 // Koma: the same komaShape as 3D (= same notch bottom notchR, same notch width). Only the thickness differs.
-function komaPart(pk, i) {
+function komaPart(pk, i, t) {
   const pts = komaShape(pk).extractPoints(1).shape.map((v) => [v.x, v.y]);
-  return { name: `コマ ${i + 1}/2`, outline: pts };
+  return { name: `${t("コマ")} ${i + 1}/2`, outline: pts };
 }
 
 // ---- Cross stand (assemble two cardboard strips into an X to stand the mold up) ----
@@ -130,15 +136,15 @@ function standStrip(L, matT, vw, slotTop, name) {
   o.push([-vw / 2, H], [-L / 2, H]);
   return { name, outline: o };
 }
-function standParts(pk, matT) {
+function standParts(pk, matT, t) {
   const L = standFootD(pk);
   // Make the V's opening width **narrower** than the bottom koma's diameter. If wide, the koma drops through to the V's
   // bottom and just rests on the rim, without centering. If narrow, the koma is caught at the left/right corners of the
   // opening, and the 4 corners across both strips constrain the koma at the center.
   const vw = Math.min(L - 8, Math.max(matT + 8, 2 * komaR(pk) - 6));
   return [
-    standStrip(L, matT, vw, false, "スタンド帯 1/2 (下スロット)"),
-    standStrip(L, matT, vw, true, "スタンド帯 2/2 (上スロット)"),
+    standStrip(L, matT, vw, false, `${t("スタンド帯")} 1/2 (${t("下スロット")})`),
+    standStrip(L, matT, vw, true, `${t("スタンド帯")} 2/2 (${t("上スロット")})`),
   ];
 }
 
@@ -147,7 +153,7 @@ function standParts(pk, matT) {
  * Depending on material thickness, boards may exceed maxBoards (the notches overlap at the center), so always clamp it,
  * and return whether it was clamped in `clamped` so the UI/page can warn.
  */
-export function paperParts(p, matT) {
+export function paperParts(p, matT, t = tid) {
   // fit=0: add no print tolerance (nominal = exactly the material thickness). Cardboard crushes its fibers going in, so
   // adding the 3D-print fit (0.3mm default) would instead make it wobble and the tab couldn't hold the koma.
   const pk = { ...p, boardT: matT, komaT: matT, fit: 0 };
@@ -156,9 +162,9 @@ export function paperParts(p, matT) {
   if (clamped) pk.boards = nMax;
 
   const parts = [];
-  for (let k = 0; k < pk.boards; k++) parts.push(ribPart(pk, k, pk.boards, matT));
-  for (let i = 0; i < 2; i++) parts.push(komaPart(pk, i));
-  parts.push(...standParts(pk, matT));   // the cross stand that stands the mold up (two strips)
+  for (let k = 0; k < pk.boards; k++) parts.push(ribPart(pk, k, pk.boards, matT, t));
+  for (let i = 0; i < 2; i++) parts.push(komaPart(pk, i, t));
+  parts.push(...standParts(pk, matT, t));   // the cross stand that stands the mold up (two strips)
   // Whether the top tab's stopper (shelf) could be made. The shelf's position is "the koma's inner face when the koma is
   // seated to the tab tip" = height + tabLen - matT, so if the material approaches the tab length there's no room and it isn't made.
   const stop = komaStop2D(pk, stopOpts(matT));
@@ -229,7 +235,7 @@ const n2 = (v) => (Math.round(v * 100) / 100).toString();
 const pathOf = (pts) => pts.map(([x, y], i) => `${i ? "L" : "M"}${n2(x)} ${n2(y)}`).join("") + "Z";
 
 // SVG for one page. Page i maps the [top, top+CH] band of content coordinates.
-function pageSVG(lay, i, page, info) {
+function pageSVG(lay, i, page, info, t) {
   const { top, bot } = lay.pages[i];
   const parts = [];
   for (const q of lay.placed) {
@@ -252,11 +258,11 @@ function pageSVG(lay, i, page, info) {
   const glueY = MARGIN + (glueTop - top);
   const glue = glueTop == null ? ""
     : `<line x1="${MARGIN}" y1="${n2(glueY)}" x2="${n2(MARGIN + lay.CW)}" y2="${n2(glueY)}" class="glue"/>`
-      + `<text x="${n2(MARGIN + 2)}" y="${n2(glueY - 1.5)}" class="note">▼ここから下は次のページと重なります(のりしろ)</text>`;
+      + `<text x="${n2(MARGIN + 2)}" y="${n2(glueY - 1.5)}" class="note">${esc(t("▼ここから下は次のページと重なります(のりしろ)"))}</text>`;
   // Full-scale check ruler (50mm). Always verify with a ruler that no printer scaling was applied.
   const sy = page.h - MARGIN - 5, sx = MARGIN;
   const ruler = `<path d="M${sx} ${n2(sy)}h50M${sx} ${n2(sy - 2)}v4M${n2(sx + 25)} ${n2(sy - 1.5)}v3M${n2(sx + 50)} ${n2(sy - 2)}v4" class="reg"/>`
-    + `<text x="${n2(sx + 53)}" y="${n2(sy + 1.5)}" class="note">50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)</text>`;
+    + `<text x="${n2(sx + 53)}" y="${n2(sy + 1.5)}" class="note">${esc(t("50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)"))}</text>`;
   const foot = `<text x="${n2(page.w - MARGIN)}" y="${n2(sy + 1.5)}" class="foot">${esc(info.title)} — ${i + 1} / ${info.pages}</text>`;
 
   // Clip parts to the page band (top..bot). This prevents a spanning part from bleeding into the bottom info band,
@@ -272,32 +278,32 @@ function pageSVG(lay, i, page, info) {
  * Return the papercraft's printable HTML (self-contained, single file).
  * Open it in the browser and print via Ctrl/⌘+P → "Actual size (100%), no margins".
  */
-export function paperHTML(p, matT, page = A4) {
-  const { parts, pk, clamped, nMax, stop, wall } = paperParts(p, matT);
+export function paperHTML(p, matT, page = A4, t = tid) {
+  const { parts, pk, clamped, nMax, stop, wall } = paperParts(p, matT, t);
   const lay = layout(parts, page);
-  const info = { pages: lay.pages.length, title: `張型スタジオ 型紙 ${page.name} 原寸` };
+  const info = { pages: lay.pages.length, title: t("張型スタジオ 型紙 {name} 原寸", { name: page.name }) };
   const svgs = [];
-  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(lay, i, page, info));
+  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(lay, i, page, info, t));
 
   const warnWall = wall < matT / 2
-    ? `<p class="warn">⚠ コマの<b>溝と溝の間の壁が ${wall.toFixed(1)}mm</b> しかありません(溝の幅は材料厚どおりの ${matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。</p>`
+    ? `<p class="warn">${t("⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。", { wall: wall.toFixed(1), matT })}</p>`
     : "";
   const warnStop = !stop
-    ? `<p class="warn">⚠ 爪の長さ(${p.tabLen}mm)が材料厚(${matT}mm)に対して短いため、<b>上端の爪のストッパ(段)が作れませんでした</b>。コマが内側へずれ落ちるのを形で止められません。「爪の長さ」を材料厚の 2倍以上(${Math.max(12, matT * 2)}mm 程度)にすると段が付きます。</p>`
+    ? `<p class="warn">${t("⚠ 爪の長さ({tabLen}mm)が材料厚({matT}mm)に対して短いため、<b>上端の爪のストッパ(段)が作れませんでした</b>。コマが内側へずれ落ちるのを形で止められません。「爪の長さ」を材料厚の 2倍以上({min}mm 程度)にすると段が付きます。", { tabLen: p.tabLen, matT, min: Math.max(12, matT * 2) })}</p>`
     : "";
   const warn = clamped
-    ? `<p class="warn">⚠ 材料厚 ${matT}mm では羽根板は最大 ${nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。${p.boards} 枚 → <b>${nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。</p>`
+    ? `<p class="warn">${t("⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。", { matT, nMax, boards: p.boards })}</p>`
     : "";
 
   return `<meta charset="utf-8"><title>${esc(info.title)}</title>
 <style>
-  /* 用紙ぴったりに1ページ1枚。余白は SVG 側に持たせるのでここは 0 にする */
+  /* One sheet per page, exactly paper-sized. The SVG carries the margins, so this is 0. */
   @page { size: ${page.name}; margin: 0 }
   body { margin: 0; font-family: system-ui, "Hiragino Sans", sans-serif; color: #2b2118; background: #eae6df }
   .pg { display: block; background: #fff; page-break-after: always; break-after: page; margin: 0 auto 12px }
-  .cut  { fill: none; stroke: #000; stroke-width: 0.25 }               /* 切り取り線 */
-  .tick { fill: none; stroke: #000; stroke-width: 0.25; stroke-dasharray: 1.2 1 } /* 竹ひご目盛(切らない) */
-  .reg  { fill: none; stroke: #000; stroke-width: 0.2 }                /* トンボ・スケール */
+  .cut  { fill: none; stroke: #000; stroke-width: 0.25 }               /* cut line */
+  .tick { fill: none; stroke: #000; stroke-width: 0.25; stroke-dasharray: 1.2 1 } /* bamboo-rib ticks (do not cut) */
+  .reg  { fill: none; stroke: #000; stroke-width: 0.2 }                /* registration marks / scale */
   .glue { fill: none; stroke: #888; stroke-width: 0.2; stroke-dasharray: 3 2 }
   .pname { font-size: 3.4px; fill: #999; text-anchor: middle; font-family: sans-serif }
   .note  { font-size: 2.6px; fill: #888; font-family: sans-serif }
@@ -307,7 +313,7 @@ export function paperHTML(p, matT, page = A4) {
   .head ol { padding-left: 1.2em; margin: 8px 0 } .head li { margin: 3px 0 }
   .head code { background: #f2efe9; padding: 1px 5px; border-radius: 4px }
   .warn { background: #fff4e8; border-left: 3px solid #d95b18; padding: 8px 12px; border-radius: 4px }
-  /* 操作ボタン(画面のみ)。印刷では .head ごと消えるので紙には出ない */
+  /* action buttons (screen only); .head is hidden when printing, so they never appear on paper */
   .acts { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 14px }
   .acts button { font: inherit; font-weight: 700; padding: 10px 18px; border-radius: 9px; cursor: pointer;
     border: 1px solid #d95b18; background: #d95b18; color: #fff }
@@ -317,30 +323,30 @@ export function paperHTML(p, matT, page = A4) {
   @media print { .head { display: none } body { background: #fff } .pg { margin: 0 } }
 </style>
 <div class="head">
-  <h1>張型スタジオ — 段ボール用 型紙(${page.name} 原寸 / 全 ${lay.pages.length} ページ)</h1>
+  <h1>${t("張型スタジオ — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)", { name: page.name, pages: lay.pages.length })}</h1>
   <div class="acts">
-    <button onclick="window.print()">印刷 / PDFで保存</button>
-    <button class="sub" onclick="saveHtml()">HTMLで保存</button>
-    <span class="hint">PDF が欲しいときは、印刷ダイアログの<b>「送信先」を「PDFに保存」</b>にしてください。<br>
-      いずれの場合も<b>「実際のサイズ / 100%」「余白: なし」</b>を選び、「用紙に合わせる」は外してください。</span>
+    <button onclick="window.print()">${t("印刷 / PDFで保存")}</button>
+    <button class="sub" onclick="saveHtml()">${t("HTMLで保存")}</button>
+    <span class="hint">${t("PDF が欲しいときは、印刷ダイアログの<b>「送信先」を「PDFに保存」</b>にしてください。")}<br>
+      ${t("いずれの場合も<b>「実際のサイズ / 100%」「余白: なし」</b>を選び、「用紙に合わせる」は外してください。")}</span>
   </div>
   ${warn}${warnWall}${warnStop}
   <ol>
-    <li><b>「実際のサイズ / 100%」で印刷</b>してください(「用紙に合わせる」は禁止)。刷ったら各ページ下の <b>50mm スケール</b>を定規で必ず確認。</li>
-    <li>ページを跨ぐ部品は、<b>のりしろ(灰色の破線より下)</b>を次ページに重ね、四隅のトンボを合わせて貼り合わせます。</li>
-    <li>紙を段ボールに貼り、<b>実線だけ</b>を切り抜きます。<b>破線の目盛は切りません</b> — 竹ひごを巻く位置の印です。</li>
-    <li>段ボールの<b>波の向き(目)は羽根板の長手方向</b>に合わせると折れにくくなります。</li>
-    <li>材料厚 <code>${matT}mm</code> 前提でコマの溝の幅を決めています。実測厚と違うと嵌まりません(緩い/入らない)。</li>
-    <li>コマ2枚は<b>同一形状</b>です(上下で同じものを使います)。</li>
-    <li>組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます。上端の爪の内側にある<b>段(ストッパ)</b>が、上のコマが内側へ入り込むのを止めます。差し込みが緩ければ接着してください。</li>
-    <li><b>スタンド(帯2枚)</b>: 中央のスロットを噛み合わせて<b>X字に立て</b>ます(一方は上から、一方は下からスロットを切ってあるので直交して組めます)。上辺のV字に<b>下のコマの縁を載せる</b>と、型が立って腹(最大径)が宙に浮き、竹ひごや和紙の作業が全周からできます。ぐらつく場合は接着してください。</li>
+    <li>${t("<b>「実際のサイズ / 100%」で印刷</b>してください(「用紙に合わせる」は禁止)。刷ったら各ページ下の <b>50mm スケール</b>を定規で必ず確認。")}</li>
+    <li>${t("ページを跨ぐ部品は、<b>のりしろ(灰色の破線より下)</b>を次ページに重ね、四隅のトンボを合わせて貼り合わせます。")}</li>
+    <li>${t("紙を段ボールに貼り、<b>実線だけ</b>を切り抜きます。<b>破線の目盛は切りません</b> — 竹ひごを巻く位置の印です。")}</li>
+    <li>${t("段ボールの<b>波の向き(目)は羽根板の長手方向</b>に合わせると折れにくくなります。")}</li>
+    <li>${t("材料厚 <code>{matT}mm</code> 前提でコマの溝の幅を決めています。実測厚と違うと嵌まりません(緩い/入らない)。", { matT })}</li>
+    <li>${t("コマ2枚は<b>同一形状</b>です(上下で同じものを使います)。")}</li>
+    <li>${t("組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます。上端の爪の内側にある<b>段(ストッパ)</b>が、上のコマが内側へ入り込むのを止めます。差し込みが緩ければ接着してください。")}</li>
+    <li>${t("<b>スタンド(帯2枚)</b>: 中央のスロットを噛み合わせて<b>X字に立て</b>ます(一方は上から、一方は下からスロットを切ってあるので直交して組めます)。上辺のV字に<b>下のコマの縁を載せる</b>と、型が立って腹(最大径)が宙に浮き、竹ひごや和紙の作業が全周からできます。ぐらつく場合は接着してください。")}</li>
   </ol>
-  <p style="color:#8a7f6e;font-size:12px;margin:6px 0 0">火袋の高さ ${p.height}mm / 羽根板 ${pk.boards}枚 / 竹ひごピッチ ${p.pitch}mm — この帯は画面表示だけで、印刷はされません。</p>
+  <p style="color:#8a7f6e;font-size:12px;margin:6px 0 0">${t("火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。", { height: p.height, boards: pk.boards, pitch: p.pitch })}</p>
 </div>
 ${svgs.join("\n")}
 <script>
-// このページ自身を HTML ファイルとして保存する(あとで刷り直す・他の端末へ渡す用)。
-// 型紙は自己完結(外部参照なし)なので、この1ファイルだけで再現できる。
+// Save this page itself as an HTML file (to reprint later or hand to another device).
+// The papercraft is self-contained (no external references), so this single file reproduces it.
 function saveHtml() {
   var html = "<!doctype html>\\n" + document.documentElement.outerHTML;
   var a = document.createElement("a");

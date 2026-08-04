@@ -1191,7 +1191,7 @@ export default function HarigataStudio() {
             <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 14, marginTop: 14 }}>
               {sectionLabel("型紙(段ボール)", "A4 原寸")}
               {stepper("matT", "材料の厚み", matT, 1, 10, 0.5, (v) => setMatT(v), `${matT} mm`)}
-              <button onClick={() => openHTML(paperHTML(p, matT), "harigata_katagami_a4.html")} style={{
+              <button onClick={() => openHTML(paperHTML(p, matT, undefined, t), "harigata_katagami_a4.html")} style={{
                 width: "100%", marginTop: 8, padding: 10, borderRadius: 10, background: UI.card, color: accent,
                 border: `1px solid rgba(217,91,24,0.45)`, fontFamily: sans, fontSize: 12.5, fontWeight: 700,
                 letterSpacing: "0.04em", cursor: "pointer",
