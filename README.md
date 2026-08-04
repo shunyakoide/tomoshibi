@@ -64,7 +64,7 @@ Requires Node.js 18+.
 2. Set the assembly on the stand.
 3. Wind bamboo ribs into the outer-edge grooves; paste washi paper over them.
 4. Let it dry, then pull the koma out (toward the tab side) and slip the ribs out through the openings.
-5. Drop the opening rings into the top & bottom openings. Mount a light (see the socket-mount parts, in progress).
+5. Drop the opening rings into the top & bottom openings, then fit your own light.
 
 > **制作フロー**: 印刷 → コマ2枚のノッチに羽根板を差し込む → 溝に竹ひごを巻く → 糊＋和紙を
 > 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を入れて照明化。
