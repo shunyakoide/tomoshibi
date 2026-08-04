@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -13,23 +13,23 @@
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="description" content="あかりランプ(岐阜提灯 / イサム・ノグチAKARI方式)の3Dプリント用 張型ジェネレーター" />
+    <meta name="description" content="Browser generator for the 3D-printable forming mold used to build AKARI-style washi paper lanterns." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <title>張型スタジオ — Lamp Kit Generator</title>
+    <title>Lamp Kit Generator — Harigata Studio</title>
     <script>
-      // 診断用:黒画面の代わりに実際のエラーを画面へ出す。
-      // モジュール読込前に登録するので、バンドルの評価時エラーも捕捉できる。
+      // Diagnostics: show the actual error on screen instead of a black page.
+      // Registered before the module loads, so it also catches bundle evaluation errors.
       (function () {
         function show(title, detail) {
           var r = document.getElementById("root");
           if (!r) return;
-          // Reactが正常マウントすると #root は上書きされる。
-          // ここに文字が残る=JSが動いていない、という切り分けになる。
+          // React overwrites #root once it mounts successfully.
+          // If this text remains, it means the JS never ran.
           r.innerHTML =
             '<div style="position:fixed;inset:0;padding:20px;overflow:auto;' +
             'font:13px/1.5 ui-monospace,monospace;color:#e8e8ec;background:#0c0c0d;' +
@@ -42,7 +42,7 @@
         }
         window.addEventListener("error", function (e) {
           show(
-            "エラー: " + (e.message || "unknown"),
+            "Error: " + (e.message || "unknown"),
             (e.filename || "") + (e.lineno ? ":" + e.lineno : "") + "\n" +
               (e.error && e.error.stack ? e.error.stack : "")
           );
@@ -50,7 +50,7 @@
         window.addEventListener("unhandledrejection", function (e) {
           var reason = e.reason || {};
           show(
-            "未処理のPromise: " + (reason.message || String(reason)),
+            "Unhandled promise: " + (reason.message || String(reason)),
             reason.stack || ""
           );
         });
@@ -71,7 +71,7 @@
           background: #0c0c0d;
         "
       >
-        読み込み中…
+        Loading…
       </div>
     </div>
     <script type="module" src="/src/main.jsx"></script>
