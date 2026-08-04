@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for your interest! This project generates **3D-printable forming molds** for
-AKARI-style washi paper lanterns. The one hard rule: **every exported part must be a
+washi paper lanterns (paper lamps). The one hard rule: **every exported part must be a
 watertight (closed, manifold) mesh**, or slicers break. Most of the guidance below
 exists to protect that.
 

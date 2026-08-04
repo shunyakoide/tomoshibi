@@ -3,7 +3,7 @@
  * HARIGATA STUDIO (FORMING MOLD STUDIO) v5 — UI
  * ============================================================================
  * A generator for 3D-print forming molds (harigata = molds for bamboo-rib winding
- * and washi application) to make your own Gifu-lantern / Isamu Noguchi AKARI-style "akari lamps".
+ * and washi application) to make your own washi paper lamps.
  * Adjust the profile curve parametrically and output three kinds of STL (rib / koma / stand).
  *
  * This file focuses on the React component (UI + 3D viewport).

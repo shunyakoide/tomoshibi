@@ -1,14 +1,14 @@
 # Lamp Kit Generator — 張型スタジオ (Harigata Studio)
 
 A browser-based generator for the **3D-printable forming mold ("harigata")** used to
-build AKARI-style washi paper lanterns (岐阜提灯 / Isamu Noguchi **AKARI**).
+build **washi paper lanterns** (paper lamps).
 
 Shape the lantern's silhouette parametrically in your browser, then export
 print-ready STL parts. No backend — everything runs client-side, and the build
 output is static files.
 
-> **張型スタジオ** — あかりランプ（岐阜提灯 / イサム・ノグチ **AKARI** 方式）を自作する
-> ための **3Dプリント用「張型（はりがた）」ジェネレーター**。ブラウザ上で断面を直接編集し、
+> **張型スタジオ** — 和紙提灯（紙のランプ）を自作するための
+> **3Dプリント用「張型（はりがた）」ジェネレーター**。ブラウザ上で断面を直接編集し、
 > 印刷用の STL を書き出せます。
 
 ---
