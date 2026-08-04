@@ -83,7 +83,8 @@ function ribPart(pk, k, nRibs, matT) {
   const h = pk.height;
   const outline = ribOutline2D(pk, k, { smooth: true, stop: stopOpts(matT) });
   // 目盛線の位置は STL の溝と同一基準(grooveList)。外縁から内側へ TICK mm の水平線。
-  const marks = grooveList(pk, grooveR(pk)).map((y) => {
+  // 螺旋巻きでは羽根ごとに溝がずれるので k を渡す(3D と同じ位置に印を出す)。
+  const marks = grooveList(pk, grooveR(pk), k).map((y) => {
     const x = outerR(pk, Math.min(Math.max(y, 0), h) / h);
     return [x, y, x - TICK, y];
   });

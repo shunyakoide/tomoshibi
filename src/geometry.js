@@ -267,14 +267,53 @@ export function grooveOuterX(p, grooves, gR) {
 // (SectionEditor)が必ず同じ値を使うよう、ここ1箇所に集約する(断面図と STL のズレ防止)。
 const GROOVE_CLEAR = 0.25;
 export function grooveR(p) { return p.higoD / 2 + GROOVE_CLEAR; }
-export function grooveList(p, gR) {
+// 溝の割り付け格子(火袋内の有効域 [gLo,gHi]・本数 n・間隔 step)。grooveList と螺旋パス
+// higoSpiralPath が同じ格子を使うよう1箇所に集約する(両者がズレると型と絵が食い違う)。
+// gM = gR*1.6 は「開口(首)の際にはこれより近く溝を置かない」半ピッチ相当のバッファ。
+function grooveLattice(p, gR) {
   const h = p.height, fr = fukuroRange(p), gM = gR * 1.6;
   const gLo = fr.lo * h + gM, gHi = fr.hi * h - gM, span = gHi - gLo;
-  if (span <= 0.5) return [];
-  const n = Math.max(1, Math.round(span / p.pitch));
-  const step = span / n, gs = [];
-  for (let i = 0; i < n; i++) gs.push(gLo + step * (i + 0.5)); // 端に step/2 のバッファ
+  const n = span > 0.5 ? Math.max(1, Math.round(span / p.pitch)) : 0;
+  return { gLo, gHi, span, n, step: n > 0 ? span / n : 0 };
+}
+// 竹ひご溝の位置(mm)。k = 羽根番号。
+// ・通常(水平リング): 全羽根で同一。端に step/2 のバッファを置いて等間隔に並べる。
+// ・螺旋巻き(p.spiral): 羽根ごとに step/boards ずつ下へずらす。1回転(全羽根)で丁度
+//   1格子ぶん(step)下がり、隣の羽根で次の格子点に乗る ⇒ 全羽根を通して連続した1本の
+//   螺旋になる。ずらしで有効域 [gLo,gHi] から外れた溝は落とし、逆側に空いた格子点が入る
+//   ので本数はほぼ一定(±1)。有効域は gM バッファ込みなので、端に乗った溝でも開口際の
+//   クリアランスは保たれる。k=0 / spiral 無しなら通常と完全に同一(既存STLを変えない)。
+export function grooveList(p, gR, k = 0) {
+  const { gLo, gHi, n, step } = grooveLattice(p, gR);
+  if (n === 0) return [];
+  if (!p.spiral || !p.boards) {
+    const gs = [];
+    for (let i = 0; i < n; i++) gs.push(gLo + step * (i + 0.5)); // 端に step/2 のバッファ
+    return gs;
+  }
+  const off = step * ((((k % p.boards) + p.boards) % p.boards) / p.boards); // [0, step)
+  const gs = [];
+  for (let i = -1; i <= n; i++) {
+    const y = gLo + step * (i + 0.5) - off;
+    if (y >= gLo - 1e-6 && y <= gHi + 1e-6) gs.push(y);
+  }
   return gs;
+}
+// 螺旋巻きの竹ひご中心線(点灯プレビュー用)。grooveList と同じ格子から「1ピッチ/1回転」の
+// 連続螺旋を作る。純粋関数(THREE非依存): [角度rad, 高さmm(0基準), 半径mm] の点列を返す。
+// 高さは角度が増える(=羽根が進む)ほど下がる = grooveList のずらし方向と一致させる。
+export function higoSpiralPath(p, seg = 48) {
+  const gR = grooveR(p), h = p.height;
+  const { gHi, n, step } = grooveLattice(p, gR);
+  if (n === 0) return [];
+  const yTop = gHi - step * 0.5, turns = n; // 上端の溝から n 回転かけて下端の溝へ
+  const M = Math.max(2, Math.round(seg * turns));
+  const out = [];
+  for (let i = 0; i <= M; i++) {
+    const u = i / M, a = 2 * Math.PI * turns * u, y = yTop - step * turns * u;
+    out.push([a, y, outerR(p, Math.min(Math.max(y, 0), h) / h)]);
+  }
+  return out;
 }
 // コマのノッチ底の半径(= これより内側がコマの無垢部)。爪の内端 innerRi から 0.5 逃がす。
 // ノッチを切る komaShape と、その無垢部に掛ける出っ張りを作る komaStop2D が共有する。
@@ -353,8 +392,8 @@ export function ribInnerX(p) {
 }
 
 // 羽根の外形点列を返す(2D断面描画 と 3D羽根geometry で共有 = 両者が必ず一致する)。
-// k = 羽根番号。現在は**全羽根が同一形状**(溝は水平なリング)なので k は形に影響しない。
-// 呼び出し側が羽根ごとに呼ぶため引数は残す(将来ずらす場合の識別子)。
+// k = 羽根番号。通常は全羽根が同一形状(溝は水平リング)だが、螺旋巻き(p.spiral)では
+// grooveList が k ぶん溝をずらすため羽根ごとに溝位置が変わる(= k が形に効く)。
 // opts.smooth = true で「溝を彫らない滑らかな外縁」を返す(型紙用)。段ボールに 0.5mm 精度の
 // V ノッチは刻めないため、型紙では外縁を曲線のまま切り、溝は目盛線(印)で示す。
 // opts.stop は上端の爪の内側ストッパの調整(komaStop2D へそのまま渡す)。どちらも既定は
@@ -362,7 +401,8 @@ export function ribInnerX(p) {
 export function ribOutline2D(p, k = 0, opts = {}) {
   const h = p.height, tl = p.tabLen, gR = grooveR(p);
   // 竹ひごの溝は火袋(最外制御点の間)全体に作る。カーブには必ず溝を入れ、上下端にも溝を置く。
-  const grooves = grooveList(p, gR);
+  // 螺旋巻きでは羽根番号 k で溝位置がずれる(ribEdges も同じ grooveList(p,gR,k) で揃える)。
+  const grooves = grooveList(p, gR, k);
   const outerX = opts.smooth
     ? (y) => outerR(p, Math.min(Math.max(y, 0), h) / h)
     : grooveOuterX(p, grooves, gR);
@@ -474,8 +514,8 @@ export function ribEdges(p, k) {
   const oB = outerR(p, 0), oT = outerR(p, 1);
   const tw = tabDepth(p); // タブの奥行き(上下一律)
   const gR = grooveR(p);
-  // 溝は火袋全体。ribOutline2D と同じ規則(grooveR/grooveList)で揃える。
-  const grooves = grooveList(p, gR);
+  // 溝は火袋全体。ribOutline2D と同じ規則(grooveR/grooveList)で揃える(螺旋巻きは k でずれる)。
+  const grooves = grooveList(p, gR, k);
   const outerX = grooveOuterX(p, grooves, gR);
   // 内縁の下限。板幅に応じた下限で下端の尖り(トゲ)を防ぐ。ただしくびれ(細い中央)では
   // 下限が外縁を上回り帯が反転(自己交差)し得るため、外縁から最低 MIN_BAND を必ず残すよう
@@ -487,9 +527,60 @@ export function ribEdges(p, k) {
   };
   return { oB, oT, tw, outerX, innerX };
 }
+// 【螺旋巻き用】羽根板に通し番号(k+1)を彫る = 円周へ並べる順序のしるし。
+// 螺旋では羽根ごとに溝位置が違い、正しい順に並べないと竹ひごが連続した螺旋にならないが、
+// 刷った実物は見分けが付かない。そこで下端の無垢帯に番号を刻む。
+// ・各数字は「7セグメント」の点灯セグメントを **独立した細長い長方形の貫通穴** として切る。
+//   セグメント間には隙間(G)があるので、0/8 等の囲い数字でも中央の島が角の隙間から本体に
+//   繋がったまま = 肉抜き窓と同じく水密を保つ(実体積の追加=非多様体化を避けるため彫り=穴)。
+// ・通常(非螺旋)は空配列 ⇒ 既存STLは完全に不変(hash 一致)。
+// ・置き場(幅)が取れない極小開口では番号を諦める(型の機能は不変)。
+export function ribNumberHoles2D(p, k) {
+  if (!p.spiral) return [];
+  const h = p.height, Ri = innerRi(p), s = String(k + 1);
+  let W = 6, H = 11, T = 1.2, CG = 0.45, GX = 2;            // 桁: 幅/高/バー厚/角の隙間/桁間(mm)
+  const y0base = Math.max(4, p.tabLen * 0.4);               // 下端タブのすぐ上の無垢帯
+  const outer = outerR(p, Math.min(Math.max(y0base + H / 2, 0), h) / h);
+  const availW = (outer - 5) - (Ri + 3);                    // 内縁3/外縁(溝)5mm を残した使える幅
+  if (availW < 6) return [];
+  let blockW = s.length * W + (s.length - 1) * GX;
+  if (blockW > availW) {                                    // 収まるよう一律縮小
+    const sc = availW / blockW; W *= sc; H *= sc; T *= sc; CG *= sc; GX *= sc; blockW = availW;
+    if (H < 3.5) return [];                                 // 小さすぎて彫れない
+  }
+  const x0 = Ri + 3 + (availW - blockW) / 2;                // 帯の中央寄せ
+  // 各セグメントは互いに重ならない(重なると押し出しキャップが非多様体化する)。横バーは
+  // x を縦バー幅+角隙間ぶん内側に、縦バーは y を中/上下の横バーから角隙間ぶん離す。
+  const hx0 = T + CG, hx1 = W - T - CG, my = H / 2;
+  const SEG = { "0": "abcdef", "1": "bc", "2": "abdeg", "3": "abcdg", "4": "bcfg", "5": "acdfg", "6": "acdefg", "7": "abc", "8": "abcdefg", "9": "abcdfg" };
+  const rects = {
+    a: [hx0, H - T, hx1, H], g: [hx0, my - T / 2, hx1, my + T / 2], d: [hx0, 0, hx1, T],
+    f: [0, my + T / 2 + CG, T, H - T - CG], b: [W - T, my + T / 2 + CG, W, H - T - CG],
+    e: [0, T + CG, T, my - T / 2 - CG], c: [W - T, T + CG, W, my - T / 2 - CG],
+  };
+  // earcut は穴を外形へ「橋渡し」してキャップを三角化するが、(a)穴の水平エッジが外形サンプル
+  // (STEP=0.5mm)の走査線に一致、または (b)複数の穴が同じ y を共有(左右対の縦バー f/b・e/c は
+  // 同じ高さ)すると、橋が退化して open edge になる。そこで各穴に**一意で格子から外れた** y の
+  // ずらしを与える(全穴で異なる → 走査線も他穴とも一致しない)。ずらしは上下端に同量なので
+  // バー厚は不変、量は最大 0.6mm 程度で数字の見た目は変わらない。
+  const holes = [];
+  let hi = 0;
+  for (let i = 0; i < s.length; i++) {
+    const ox = x0 + i * (W + GX);
+    for (const ch of SEG[s[i]]) {
+      const [rx0, ry0, rx1, ry1] = rects[ch];
+      const j = 0.13 + hi * 0.031;                     // 一意・非格子(0.5の倍数を避ける)
+      hi++;
+      const ya = y0base + ry0 + j, yb = y0base + ry1 + j;
+      holes.push([[ox + rx0, ya], [ox + rx1, ya], [ox + rx1, yb], [ox + rx0, yb]]);
+    }
+  }
+  return holes;
+}
 // 3D羽根板 = 2D確定形状(内縁まっすぐ＋上下同位置の内側の爪＋外縁カーブ＋肉抜き)を押し出す。
 export function ribShape(p, k) {
-  return shapeFromPts(ribOutline2D(p, k), p.lighten ? lightenHoles2D(p).holes : []);
+  const holes = p.lighten ? lightenHoles2D(p).holes : [];
+  return shapeFromPts(ribOutline2D(p, k), [...holes, ...ribNumberHoles2D(p, k)]);
 }
 export const ribGeometry = (p, k) => {
   const g = new THREE.ExtrudeGeometry(ribShape(p, k), { depth: p.boardT, bevelEnabled: false });
