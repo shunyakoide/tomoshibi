@@ -162,7 +162,8 @@ export function makeT(lang) {
   };
 }
 
+// Default to English; a saved "ja" keeps Japanese. First-time visitors see English.
 export function loadLang() {
-  try { const v = localStorage.getItem(LANG_KEY); return v === "en" ? "en" : "ja"; } catch { return "ja"; }
+  try { const v = localStorage.getItem(LANG_KEY); return v === "ja" ? "ja" : "en"; } catch { return "en"; }
 }
 export function saveLang(l) { try { localStorage.setItem(LANG_KEY, l); } catch { /* works even if saving fails */ } }
