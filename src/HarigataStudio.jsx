@@ -707,7 +707,7 @@ export default function HarigataStudio() {
   const isLit = view === "lit";   // Lit view = viewing mode (panel hidden, dark background)
   const accent = "#D95B18";       // Accent = the orange of washi lamplight
 
-  // Inspector: bright warm neutral in washi color (README Design Tokens)
+  // Inspector: bright warm neutral in washi color
   const UI = {
     panel: "#fbf8f1", edge: "rgba(59,52,43,0.1)", head: "#3b342b",
     text: "#3b342b", sub: "#8a7c66", faint: "#a1937c", faintest: "#c0b298",
