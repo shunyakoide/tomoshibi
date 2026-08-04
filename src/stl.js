@@ -1,14 +1,15 @@
 /**
  * ============================================================================
- * STL / ZIP 書き出し (EXPORT)
+ * STL / ZIP EXPORT (EXPORT)
  * ============================================================================
- * BufferGeometry → バイナリSTL(ArrayBuffer)を生成し、複数STLを1つの
- * ZIP(無圧縮STORE)にまとめてDLする。依存を増やさないため ZIPは自前実装(CRC32付き)。
+ * Generates a binary STL (ArrayBuffer) from a BufferGeometry, and bundles multiple STLs into a
+ * single ZIP (uncompressed STORE) for download. To avoid adding dependencies, the ZIP is a
+ * hand-rolled implementation (with CRC32).
  * ============================================================================
  */
 import * as THREE from "three";
 
-// バイナリSTLを ArrayBuffer で生成(DL/ZIP どちらにも使う)
+// Generate a binary STL as an ArrayBuffer (used for both download and ZIP)
 export function buildSTL(geometries) {
   const geos = geometries.map((g) => (g.index ? g.toNonIndexed() : g));
   let tri = 0;
@@ -42,17 +43,17 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-// 生成した HTML(型紙)を新規タブで開く。印刷はそのタブで Ctrl/⌘+P。
-// ポップアップがブロックされた場合はファイルとして DL にフォールバックする。
+// Open the generated HTML (paper template) in a new tab. Print with Ctrl/⌘+P in that tab.
+// If the popup is blocked, fall back to downloading it as a file.
 export function openHTML(html, filename) {
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const w = window.open(url, "_blank");
   if (!w) triggerDownload(blob, filename);
-  setTimeout(() => URL.revokeObjectURL(url), 60000); // 新規タブが読み終わるまで解放しない
+  setTimeout(() => URL.revokeObjectURL(url), 60000); // don't revoke until the new tab has finished loading
 }
 
-// ---- 最小 ZIP(無圧縮 STORE + CRC32)。依存を増やさず複数STLを1ファイルに ----
+// ---- Minimal ZIP (uncompressed STORE + CRC32). Bundle multiple STLs into one file without adding dependencies ----
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
   for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
@@ -90,8 +91,9 @@ function makeZip(files) { // files: [{ name, bytes: Uint8Array }]
   for (const c of chunks) { out.set(c, pos); pos += c.length; }
   return out;
 }
-// parts: [{ name, geos }] を STL 化して ZIP に。extraFiles: [{ name, bytes }] は STL 以外
-// (設定 JSON 等)をそのまま同梱する任意の追加ファイル(省略可・後方互換)。
+// Convert parts: [{ name, geos }] to STLs and bundle into a ZIP. extraFiles: [{ name, bytes }]
+// are optional extra files (settings JSON, etc.) bundled as-is, i.e. non-STL (optional,
+// backward-compatible).
 export function exportZip(parts, filename, extraFiles = []) {
   const files = parts.map((pt) => ({ name: pt.name, bytes: new Uint8Array(buildSTL(pt.geos)) }));
   triggerDownload(new Blob([makeZip([...files, ...extraFiles])], { type: "application/zip" }), filename);

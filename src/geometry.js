@@ -1,36 +1,41 @@
 /**
  * ============================================================================
- * 幾何生成 (GEOMETRY)
+ * GEOMETRY
  * ============================================================================
- * 張型(はりがた)の3部品 — 羽根板(rib) / コマ(koma) / 土台(stand) — の
- * 断面形状と 3D ジオメトリを生成する純粋関数群。three.js の Shape/ExtrudeGeometry
- * を返すが、React・DOM には一切依存しない(2D断面描画・STL出力の両方から共有)。
+ * Pure functions that generate the cross-section shapes and 3D geometry of the
+ * forming mold's ("harigata") three parts — rib / koma (hub) / stand. They return
+ * three.js Shape/ExtrudeGeometry but depend on neither React nor DOM (shared by both
+ * the 2D cross-section drawing and the STL export).
  *
- * 【座標系・単位】全寸法mm。羽根板/コマ/土台は XY平面シェイプ + Z押し出し
- *   (=そのまま平置き印刷向き)。outerR(p, t): 高さ正規化 t∈[0,1] → 半径mm(制御点スプライン)。
+ * [Coordinate system / units] All dimensions in mm. Rib/koma/stand are XY-plane shapes
+ *   + Z extrusion (= laid flat, ready for printing as-is). outerR(p, t): normalized
+ *   height t∈[0,1] → radius in mm (control-point spline).
  * ============================================================================
  */
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-// ============ プロファイル(制御点スプライン) ============
-// シルエットは「制御点配列 pts」を単調 Hermite 補間でつないだ半径関数で決まる。
-// 図面上の◇を直接ドラッグして pts を編集する方式。首(くび)は最外制御点より外側の
-// 垂直な長方形で、竹ひごは巻かない。
+// ============ Profile (control-point spline) ============
+// The silhouette is determined by a radius function built by joining the "control-point
+// array pts" with monotone Hermite interpolation. The ◇ handles in the drawing are dragged
+// directly to edit pts. The neck is a vertical rectangle outside the outermost control point,
+// with no bamboo ribs (higo) wound on it.
 
-// 火袋スプライン: P=[{首下端,rBot}, …制御点…, {首上端,rTop}]。単調 Hermite(Fritsch–Carlson)で
-// 反り・急な折れを抑えた滑らかな曲線にする。各点の接線 dr/dt を隣接弦から求め、隣接弦と同符号・
-// 3倍以内にクランプ(overshoot と不要な急カーブを防ぐ)。端点は次点への弦。
+// Lamp body spline: P=[{neck bottom, rBot}, …control points…, {neck top, rTop}]. A smooth
+// curve with suppressed warping/sharp kinks, via monotone Hermite (Fritsch–Carlson). Each
+// point's tangent dr/dt is derived from adjacent chords, clamped to the same sign as, and
+// within 3× of, the adjacent chord (prevents overshoot and unwanted sharp curves). Endpoints
+// use the chord to the next point.
 function fukuroTangents(P) {
   const n = P.length, d = new Array(n - 1), T = new Array(n);
-  for (let i = 0; i < n - 1; i++) d[i] = (P[i + 1].r - P[i].r) / ((P[i + 1].t - P[i].t) || 1); // 区間の弦(dr/dt)
+  for (let i = 0; i < n - 1; i++) d[i] = (P[i + 1].r - P[i].r) / ((P[i + 1].t - P[i].t) || 1); // segment chord (dr/dt)
   for (let i = 0; i < n; i++) {
     let t;
     if (P[i] && P[i].sharp) t = i === 0 ? d[0] : i === n - 1 ? d[n - 2] : (Math.abs(d[i - 1]) < Math.abs(d[i]) ? d[i - 1] : d[i]);
     else if (i === 0) t = d[0];
     else if (i === n - 1) t = d[n - 2];
-    else t = (d[i - 1] + d[i]) / 2;                                   // 中央差分
-    // 単調化: 隣接弦と符号が違えば0、同符号なら弦の3倍以内
+    else t = (d[i - 1] + d[i]) / 2;                                   // central difference
+    // Monotonize: 0 if opposite sign to the adjacent chord; otherwise within 3× the chord
     const near = i === 0 ? d[0] : i === n - 1 ? d[n - 2] : (Math.abs(d[i - 1]) < Math.abs(d[i]) ? d[i - 1] : d[i]);
     if (near === 0) t = 0;
     else { const a = t / near; t = (a < 0 ? 0 : Math.min(a, 3)) * near; }
@@ -47,17 +52,21 @@ function fukuroSpline(P, x, T) {
   return (2 * s3 - 3 * s2 + 1) * p1.r + (s3 - 2 * s2 + s) * m1 + (-2 * s3 + 3 * s2) * p2.r + (s3 - s2) * m2;
 }
 
-// ---- ベジェ接線ハンドル(任意) ----
-// Illustrator のペンツール的に、各制御点から方向線(ハンドル ho=次点側 / hi=前点側)を引いて
-// カーブの角度・張りを編集できるようにする。ハンドルは (t,r) 空間の相対ベクトル {dt,dr}。
-// **1点でもハンドルを持つと火袋カーブはベジェ評価に切り替わる**。1つも無ければ従来の
-// 単調 Hermite(fukuroSpline)のまま = 既存プリセット・保存データの STL は完全に不変。
+// ---- Bézier tangent handles (optional) ----
+// Like Illustrator's pen tool, direction lines (handles ho=next-point side / hi=prev-point side)
+// are drawn from each control point so the curve's angle/tension can be edited. Handles are
+// relative vectors {dt,dr} in (t,r) space.
+// **If even one point has a handle, the lamp body curve switches to Bézier evaluation.** With
+// none, it stays the previous monotone Hermite (fukuroSpline) = STL of existing presets and
+// saved data is completely unchanged.
 //
-// 一価性(高さ t → 半径 r が一意)の保証: セグメントの制御点の t 成分を非減少にクランプ
-// (ho.dt∈[0,Δt] / hi.dt∈[-Δt,0]、かつ交差しないよう合計を Δt 以内に縮小)。こうすると
-// t(u) が u について単調 ⇒ 二分探索で t=x の u が一意に求まり、溝・押し出しの t 単調前提を壊さない。
+// Single-valuedness (height t → radius r unique) is guaranteed by clamping the t-component of
+// the segment's control points to be non-decreasing (ho.dt∈[0,Δt] / hi.dt∈[-Δt,0], and shrinking
+// the total to within Δt so they don't cross). This makes t(u) monotone in u ⇒ the u for t=x is
+// found uniquely by bisection, without breaking the t-monotone assumption of grooves/extrusion.
 function anyHandle(pts) { for (const q of pts) if (q && (q.ho || q.hi)) return true; return false; }
-// ハンドル未指定の点の既定(Catmull-Rom 相当。端点は片側 1/3、角点 sharp は 0=直線)。
+// Default for points with no handle specified (equivalent to Catmull-Rom; endpoints use one-sided
+// 1/3, sharp corner points use 0 = straight line).
 function bezDefault(P, i) {
   const n = P.length, a = P[i];
   if (a.sharp) return { ho: { dt: 0, dr: 0 }, hi: { dt: 0, dr: 0 } };
@@ -72,52 +81,60 @@ function fukuroBezierR(P, x) {
   while (i < n - 2 && x > P[i + 1].t) i++;
   const a = P[i], b = P[i + 1], dt = b.t - a.t;
   if (dt < 1e-9) return a.r;
-  const ha = a.ho || bezDefault(P, i).ho;         // a の out ハンドル
-  const hb = b.hi || bezDefault(P, i + 1).hi;      // b の in ハンドル
-  // t 成分を単調にクランプ(制御多角形の t を a.t ≤ c1.t ≤ c2.t ≤ b.t に保つ)
+  const ha = a.ho || bezDefault(P, i).ho;         // a's out handle
+  const hb = b.hi || bezDefault(P, i + 1).hi;      // b's in handle
+  // Clamp t-components monotonically (keep control-polygon t as a.t ≤ c1.t ≤ c2.t ≤ b.t)
   let ot = Math.max(0, Math.min(dt, ha.dt)), it = Math.max(-dt, Math.min(0, hb.dt));
-  const sum = ot - it;                             // = ot + |it|。Δt を超えたら両方を縮小
+  const sum = ot - it;                             // = ot + |it|. If it exceeds Δt, shrink both
   if (sum > dt) { const k = dt / sum; ot *= k; it *= k; }
   const c1t = a.t + ot, c1r = a.r + ha.dr, c2t = b.t + it, c2r = b.r + hb.dr;
   const T = (u) => { const m = 1 - u; return m * m * m * a.t + 3 * m * m * u * c1t + 3 * m * u * u * c2t + u * u * u * b.t; };
   const R = (u) => { const m = 1 - u; return m * m * m * a.r + 3 * m * m * u * c1r + 3 * m * u * u * c2r + u * u * u * b.r; };
-  let lo = 0, hi = 1;                              // t(u)=x を二分探索(t は u に単調)
+  let lo = 0, hi = 1;                              // bisect for t(u)=x (t is monotone in u)
   for (let k = 0; k < 40; k++) { const u = (lo + hi) / 2; if (T(u) < x) lo = u; else hi = u; }
   return R((lo + hi) / 2);
 }
-// 火袋カーブの半径関数を一本化: ハンドルがあればベジェ、無ければ従来 Hermite。
-// 断面図・STL・コマ算出すべてがこの1関数を通るので、両者が必ず一致する。
+// Unifies the lamp body curve's radius function: Bézier if there are handles, otherwise the
+// previous Hermite. The cross-section, STL, and koma computation all go through this one
+// function, so they always match.
 function profileR(P, x) { return anyHandle(P) ? fukuroBezierR(P, x) : fukuroSpline(P, x); }
 
-// 現在の Hermite 曲線から各点のベジェハンドル(ho/hi)を焼き込んで返す(pts は変更しない)。
-// カーブ調整モードへ入る瞬間に呼ぶ。三次 Hermite は「制御点を接線方向へ Δt/3 ずらした三次
-// ベジェ」と厳密に一致するので、焼き込み後もカーブ形状は変わらない(段差なくハンドル編集へ移行)。
-// これ以降 anyHandle=true になり評価はベジェへ切り替わる(触った形だけ。未編集の形は不変)。
-// sharp 点も含め全点を現行の Hermite 接線 T[i] から焼き込む(=現在の形を厳密に再現)。
-// sharp は焼き込み後は「ハンドルを左右連動させない(角として独立に動かせる)」意味に限定され、
-// カーブそのものへの直接の効きは持たない(評価は常に ho/hi を使う)。
+// Bakes each point's Bézier handles (ho/hi) from the current Hermite curve and returns them
+// (pts unchanged). Called the moment curve-adjust mode is entered. A cubic Hermite is exactly
+// equal to "a cubic Bézier with the control point shifted Δt/3 along the tangent," so the curve
+// shape is unchanged after baking (a seamless transition into handle editing). From then on
+// anyHandle=true and evaluation switches to Bézier (only the shape that was touched; untouched
+// shapes stay the same). All points, including sharp ones, are baked from the current Hermite
+// tangent T[i] (= exactly reproduces the current shape). After baking, "sharp" is limited to
+// meaning "the handles are not mirrored left/right (the corner can move independently)" and has
+// no direct effect on the curve itself (evaluation always uses ho/hi).
 export function bakeBezierHandles(pts) {
   if (!pts || pts.length < 2) return pts;
   const T = fukuroTangents(pts), n = pts.length;
   return pts.map((q, i) => {
-    const dtN = i < n - 1 ? (pts[i + 1].t - q.t) / 3 : 0;   // 次点側 Δt/3
-    const dtP = i > 0 ? (q.t - pts[i - 1].t) / 3 : 0;       // 前点側 Δt/3
+    const dtN = i < n - 1 ? (pts[i + 1].t - q.t) / 3 : 0;   // next-point side Δt/3
+    const dtP = i > 0 ? (q.t - pts[i - 1].t) / 3 : 0;       // prev-point side Δt/3
     return { ...q, ho: { dt: dtN, dr: T[i] * dtN }, hi: { dt: -dtP, dr: -T[i] * dtP } };
   });
 }
-// 実効外周半径。t∈[0,1] → 半径mm。端(t=0/1)から頂点まで1本の連続スプラインにする
-// (垂直の首は作らない)。首を挟むと「平ら→急カーブ」の折れ角が出るため、端も制御点
-// (rBot/rTop)としてスプラインに含め、少ない点でも滑らかな輪郭になるようにする。
-// 竹ひごを巻かない上下端の帯(首)は cutT/cutY で別に扱う(半径は連続のまま)。
-// 火袋(カーブ+竹ひご溝)の t 範囲 = 最外の制御点の間。首は最外制御点より外側(開口側)。
-// 開口(=首)の半径は最外の制御点にちょうど一致 → 首→火袋に無駄なフレア/Sカーブが出ない。
+// Effective outer radius. t∈[0,1] → radius in mm. Makes a single continuous spline from the
+// ends (t=0/1) to the apex (no vertical neck is created). Inserting a neck would produce a
+// "flat → sharp curve" kink angle, so the ends are included in the spline as control points
+// (rBot/rTop), keeping the outline smooth even with few points.
+// The upper/lower end bands (neck) with no bamboo ribs wound on them are handled separately via
+// cutT/cutY (the radius stays continuous).
+// The lamp body (curve + bamboo rib grooves) t-range = between the outermost control points.
+// The neck is outside (toward the opening) the outermost control point.
+// The opening (= neck) radius exactly matches the outermost control point → no wasted
+// flare/S-curve appears between neck and lamp body.
 export function fukuroRange(p) {
   const pts = (p.pts && p.pts.length >= 2) ? p.pts : null;
   if (!pts) return { lo: cutTbot(p), hi: 1 - cutTtop(p) };
   const nB = p.neckBot ?? p.neckOn ?? true, nT = p.neckTop ?? p.neckOn ?? true;
   return { lo: nB ? pts[0].t : 0, hi: nT ? pts[pts.length - 1].t : 1 };
 }
-// 首・爪の設計基準は「制御点の半径」= 首の有無に依存しない(爪サイズが首トグルで変わらない)。
+// The design basis for neck/tab is "the control-point radius" = independent of whether a neck
+// exists (tab size does not change when the neck is toggled).
 function openMin(p) {
   const pts = p.pts;
   return (pts && pts.length) ? Math.min(pts[0].r, pts[pts.length - 1].r) : Math.min(p.rTop ?? 60, p.rBot ?? 60);
@@ -135,98 +152,121 @@ export function outerR(p, t) {
   if (pts.length === 1) return Math.max(8, pts[0].r);
   const fp = pts[0], lp = pts[pts.length - 1];
   const nB = p.neckBot ?? p.neckOn ?? true, nT = p.neckTop ?? p.neckOn ?? true;
-  const kR = komaR(p); // 爪(コマ)の大きさ = 首なし時の開口
-  // 首あり=開口を制御点まで外側へ広げ、そこから y=0/1 まで垂直な長方形。
-  // 首なし=開口が爪の大きさになる(火袋端を kR にして開口へ閉じる。斜めテーパにしない)。
+  const kR = komaR(p); // tab (koma) size = opening when there is no neck
+  // With neck = widen the opening outward to the control point, then a vertical rectangle from
+  // there to y=0/1.
+  // Without neck = the opening becomes the tab size (set the lamp body end to kR and close to
+  // the opening; no slanted taper).
   const loT = nB ? fp.t : 0, loR = nB ? fp.r : kR;
   const hiT = nT ? lp.t : 1, hiR = nT ? lp.r : kR;
   if (t <= loT) return Math.max(8, loR);
   if (t >= hiT) return Math.max(8, hiR);
-  // 端点は首の有無で半径が変わる(loR/hiR)が、ハンドル(ho/hi)は相対ベクトルなので引き継ぐ。
+  // The endpoint radius changes with the presence of a neck (loR/hiR), but the handles (ho/hi)
+  // are relative vectors so they are carried over.
   const first = { t: loT, r: loR, ho: fp.ho, hi: fp.hi, sharp: fp.sharp };
   const last = { t: hiT, r: hiR, ho: lp.ho, hi: lp.hi, sharp: lp.sharp };
   const P = [first, ...pts.slice(1, -1), last];
-  return Math.max(8, profileR(P, t));                             // 火袋(制御点間)
+  return Math.max(8, profileR(P, t));                             // lamp body (between control points)
 }
 export function maxRadius(p) {
   let m = 0;
   for (let i = 0; i <= 120; i++) m = Math.max(m, outerR(p, i / 120));
   return m + p.higoD;
 }
-// 首(くび)= 最外の制御点より外側(開口側)の垂直な長方形。首の高さ = 最外制御点の位置。
-// 上下独立に有無選択(neckBot / neckTop)。首なし側は outerR で直線(提灯系)にする。
+// The neck = a vertical rectangle outside (toward the opening) the outermost control point.
+// Neck height = the position of the outermost control point. Presence chosen independently for
+// top and bottom (neckBot / neckTop). On the neck-less side, outerR makes it straight (lantern-like).
 export function cutTbot(p) { const pts = p.pts; return (pts && pts.length) ? pts[0].t : 0; }
 export function cutTtop(p) { const pts = p.pts; return (pts && pts.length) ? 1 - pts[pts.length - 1].t : 0; }
 export function cutYbot(p) { return cutTbot(p) * (p.height || 1); }
 export function cutYtop(p) { return cutTtop(p) * (p.height || 1); }
 function cutY(p) { return Math.max(cutYbot(p), cutYtop(p)); }
 export function cutT(p) { return cutY(p) / Math.max(1, p.height); }
-// コマ外径 = 爪を纏める小さなハブの半径。爪(内端Ri〜Ri+td)がコマの縁(外周)に来る。
-// Ri・tabDepth は上下対称なので、コマは上下で完全に同一(1種類のみ)。
+// Koma outer radius = the radius of the small hub that bundles the tabs. The tab (inner end
+// Ri〜Ri+td) meets the koma's edge (outer rim). Ri and tabDepth are top-bottom symmetric, so the
+// koma is completely identical top and bottom (only one kind).
 export function komaR(p) {
-  // コマ外径(=爪の大きさ)は制御点の小さい方の半径(openMin)を基準に決める(首の有無に
-  // 依存しない)。首なしのときはこの kR が開口になる。基準は「従来の内端 nominalRi」なので、
-  // 爪先を中心側へ深めても(innerRi を下げても)komaR=土台寸法は動かない。
+  // The koma outer radius (= tab size) is determined relative to the smaller control-point radius
+  // (openMin) (independent of whether a neck exists). When there is no neck, this kR becomes the
+  // opening. The basis is "the previous inner end nominalRi," so deepening the tab tip toward the
+  // center (lowering innerRi) does not move komaR = stand dimensions.
   return Math.min(nominalRi(p) + tabDepth(p) + 3, openMin(p));
 }
-// タブ(羽根の差し込み部)の半径方向の奥行き = コマのノッチ深さ。制御点基準で首に依存しない。
+// The radial depth of the tab (the rib's insertion part) = the koma's notch depth. Relative to
+// the control point, independent of the neck.
 export function tabDepth(p) {
   return Math.min(p.tabW, Math.max(6, openMin(p) * 0.4));
 }
-// 羽根幅の上限: 乾燥後に大きい方の開口(端半径)から抜けるよう、開口以下に抑える
+// Upper limit on rib width: keep it at or below the opening so it can be pulled out from the
+// larger opening (end radius) after drying.
 export function effBoardWidth(p) {
   return Math.min(p.boardWidth, Math.max(outerR(p, 0), outerR(p, 1)) - 1);
 }
 
-// ============ 2D断面(確定形状) ============
-// 内縁をまっすぐな芯(半径 Ri)にし、その内側に上下同じ位置で爪。外縁は本体カーブ＋首。
-// 中央は肉抜き(外縁の帯=溝を保持 と 内縁の芯=爪を支える を残す)。羽根の断面ビューで使う。
+// ============ 2D cross-section (final shape) ============
+// The inner edge is a straight core (radius Ri), with tabs on its inside at the same top/bottom
+// positions. The outer edge is the body curve + neck. The center is lightened (keeping the outer
+// band = grooves, and the inner core = tab support). Used in the rib's cross-section view.
 //
-// 従来基準の爪内端(= コマ外径 komaR の算出基準)。自己交差ガード込み。制御点基準=首に依存しない。
-// 実際の爪先/ノッチ底は innerRi でこれより中心側へ深める(が komaR はこの nominalRi 基準で不動)。
+// The previous-basis tab inner end (= the basis for computing the koma outer radius komaR).
+// Includes a self-intersection guard. Control-point-based = independent of the neck. The actual
+// tab tip / notch bottom is deepened further toward the center by innerRi (but komaR stays fixed
+// on this nominalRi basis).
 function nominalRi(p) {
   const td = tabDepth(p);
-  // 芯(Ri)は火袋の最小外径内に収める(自己交差防止)。制御点基準=首の有無に依存しない。
+  // Keep the core (Ri) within the lamp body's minimum outer radius (self-intersection prevention).
+  // Control-point-based = independent of whether a neck exists.
   const lim = Math.min(openMin(p) - td - 2, bodyMinR(p) - 3);
   return Math.max(6, Math.min(p.tabR ?? 15, lim));
 }
-// 爪内端を中心側へ深める量(mm)。爪先/ノッチ底を長くして握りを増やす(まっすぐの舌のまま)。
+// Amount (mm) to deepen the tab inner end toward the center. Lengthens the tab tip / notch bottom
+// to increase grip (still a straight tongue).
 const TAB_DEEPEN = 5;
-// コマの隣り合う爪ノッチの間に残す最低壁厚(mm)。歯数が多い・小コマだと壁が薄くなり
-// 非多様体化するため。深める下限(ribCoreFloor)と最大枚数(maxBoards)の両方の基準。
+// Minimum wall thickness (mm) to leave between adjacent tab notches on the koma. With many teeth
+// or a small koma the wall becomes thin and non-manifold. This is the basis for both the
+// deepening lower limit (ribCoreFloor) and the maximum board count (maxBoards).
 const MIN_WALL = 1.6;
-// ノッチ幅(=爪厚 + プリント公差 fit)。
+// Notch width (= tab thickness + print fit/tolerance).
 function notchWidth(p) { return p.boardT + Math.max(0, p.fit ?? 0); }
-// 深める際の中心側リミット。ノッチ底半径 notchR=Ri-0.5 で評価:
-//   notchR*(2π/boards) - notchW ≥ MIN_WALL  →  notchR ≥ (MIN_WALL+notchW)*boards/2π。
+// Center-side limit when deepening. Evaluated at notch bottom radius notchR=Ri-0.5:
+//   notchR*(2π/boards) - notchW ≥ MIN_WALL  →  notchR ≥ (MIN_WALL+notchW)*boards/2π.
 function ribCoreFloor(p) {
   const rNotchMin = (MIN_WALL + notchWidth(p)) * p.boards / (2 * Math.PI);
   return Math.max(6, rNotchMin + 0.5);
 }
-// この開口・板厚・公差で、コマのノッチ壁を MIN_WALL 以上に保てる最大の羽根板枚数。
-// ノッチは notchR=nominalRi-0.5 付近に切られ、壁 = 2π·notchR/boards − notchW。これを
-// MIN_WALL 以上にする boards の上限。開口が小さい・板が厚い・枚数が多い の組で、ノッチ同士が
-// 中心付近で重なりコマが非水密になる(壁が負になる)のを防ぐため、UI の枚数上限に使う。
-// nominalRi は boards に依存しないので、この値も現在の boards には依存しない(単調な上限)。
+// The maximum rib count for which the koma's notch walls can stay at or above MIN_WALL, for this
+// opening/board-thickness/tolerance. Notches are cut near notchR=nominalRi-0.5, and
+// wall = 2π·notchR/boards − notchW. This is the upper bound on boards that keeps that ≥ MIN_WALL.
+// Used as the UI's count limit, to prevent the notches from overlapping near the center and making
+// the koma non-watertight (wall going negative) in the combination of small opening / thick board /
+// many boards. nominalRi does not depend on boards, so this value also does not depend on the
+// current boards (a monotone upper bound).
 export function maxBoards(p) {
   const notchR = nominalRi(p) - 0.5;
   return Math.max(4, Math.floor((2 * Math.PI * notchR) / (MIN_WALL + notchWidth(p))));
 }
-// 実際の爪先/ノッチ底。従来基準 nominalRi より TAB_DEEPEN だけ中心側へ深く(下限=ribCoreFloor)。
-// ribOutline2D(爪)と komaShape(ノッチ底)が同じこの値を呼ぶので噛み合いは常に一致(不変量の集約点)。
-// 上限は nominalRi(浅くはしない)。歯数が多くて floor>nominalRi の場合は深めず従来どおり。
+// The actual tab tip / notch bottom. Deeper toward the center than the previous basis nominalRi by
+// TAB_DEEPEN (lower limit = ribCoreFloor). ribOutline2D (tab) and komaShape (notch bottom) call
+// this same value, so the meshing always matches (the aggregation point of the invariant). Upper
+// limit is nominalRi (never shallower). When there are many teeth and floor>nominalRi, it is not
+// deepened and stays as before.
 export function innerRi(p) {
   const nom = nominalRi(p);
   return Math.min(nom, Math.max(ribCoreFloor(p), nom - TAB_DEEPEN));
 }
-// 竹ひご溝を外縁に彫った outerX 関数を返す(通常/分割/2D で共有)。
-// ・基準は「溝中心の外径」ではなく各 y の局所外径。→ 斜面でも溝が片側だけに寄らず
-//   上下に壁ができ、竹ひごがずり落ちずに引っかかる。
-// ・急斜面(radial の溝は実効深さが cosθ 倍に浅くなる)では深さを 1/cosθ=√(1+勾配²)
-//   倍(上限2.2)して、傾いた面でも竹ひごが嵌まる実効深さを確保する。
-// 火袋の赤道(最大外径)の高さ(mm)。溝の返しはこの赤道側へ倒す(開口へ滑る竹ひごを
-// 引っかける)。返しの向きが反転する点は「傾き dR/dy が 0 になる点=最大外径」なので、
-// 決め打ちの h/2 ではなく実際の argmax を使う(非対称なプロファイルで返しが逆を向くのを防ぐ)。
+// Returns an outerX function with the bamboo rib grooves carved into the outer edge (shared by
+// normal/split/2D).
+// ・The basis is not "the groove center's outer radius" but the local outer radius at each y.
+//   → Even on a slope, the groove is not offset to one side; walls form above and below, and the
+//   bamboo rib catches without sliding off.
+// ・On a steep slope (a radial groove's effective depth shallows by a factor of cosθ), the depth
+//   is multiplied by 1/cosθ=√(1+slope²) (capped at 2.2) to secure the effective depth for the
+//   bamboo rib to seat even on a tilted face.
+// The height (mm) of the lamp body's equator (maximum outer radius). The groove barbs tilt toward
+// this equator side (to catch the bamboo rib sliding toward the opening). The point where the barb
+// direction reverses is "the point where the slope dR/dy becomes 0 = maximum outer radius," so the
+// actual argmax is used rather than a hard-coded h/2 (prevents the barb from facing the wrong way
+// on an asymmetric profile).
 export function equatorY(p) {
   const h = p.height;
   let bestT = 0.5, bestR = -1;
@@ -235,25 +275,28 @@ export function equatorY(p) {
 }
 export function grooveOuterX(p, grooves, gR) {
   const h = p.height, mid = equatorY(p);
-  const DEEP = 2.1; // 溝を深く=フランクを急に=鋭い爪状の歯。竹ひごが深く沈んで噛む(大きめの溝)。
-  // 各溝: 深さ + 非対称(返し)。「中央(赤道)側フランクを緩く・開口側を急に」して歯先を中央へ
-  // 倒す(爪のような返し)→ 開口へ滑ろうとする竹ひごを引っかける。急斜面ほど強い返し。ただし
-  // 円筒/たる等の低傾斜でも最低限の返し(floor)を必ず残す(=傾斜ゼロで返しが消えるのを防ぐ)。
+  const DEEP = 2.1; // Deeper groove = steeper flank = sharp claw-like tooth. The bamboo rib sinks deep and bites (a larger groove).
+  // Each groove: depth + asymmetry (barb). Make "the center (equator) side flank gentle and the
+  // opening side steep" so the tooth tip tilts toward the center (a claw-like barb) → catches the
+  // bamboo rib trying to slide toward the opening. Steeper slope = stronger barb. But even at low
+  // slope (cylinder/barrel etc.), always keep a minimum barb (floor) (= prevents the barb from
+  // vanishing at zero slope).
   const info = grooves.map((g) => {
     const sl = (outerR(p, Math.min(1, (g + 0.6) / h)) - outerR(p, Math.max(0, (g - 0.6) / h))) / 1.2; // dR/dy
-    // 深さは竹ひご径の 1.5 倍で頭打ち(大きめだが掘りすぎの反転・自己交差は下の分割帯 MIN_BAND=6 と
-    // manifold スイープで担保)。急斜面は実効深さ確保のため 1/cosθ 倍(上限2.2)。
+    // Depth is capped at 1.5× the bamboo rib diameter (larger, but over-digging reversal /
+    // self-intersection is guarded by the split-band MIN_BAND=6 below and the manifold sweep).
+    // Steep slope is multiplied by 1/cosθ (capped at 2.2) to secure effective depth.
     const depth = Math.min(p.higoD * 1.5, gR * DEEP * Math.min(2.2, Math.hypot(1, sl)));
-    // 返し = floor 0.24(平坦でも必ず引っ掛かる)+ 傾斜比例。上限 0.62(開口側フランクをほぼ壁に)。
+    // Barb = floor 0.24 (always catches even when flat) + proportional to slope. Cap 0.62 (makes the opening-side flank nearly a wall).
     const skew = Math.min(0.62, 0.24 + Math.abs(sl) * 0.32);
-    const centerDir = g < mid ? 1 : -1;             // 中央(赤道)の向き(y方向)
+    const centerDir = g < mid ? 1 : -1;             // direction toward the center (equator) (in y)
     return { g, depth, skew, centerDir };
   });
   return (y) => {
     let dip = 0;
     for (const { g, depth, skew, centerDir } of info) {
       const delta = y - g;
-      // 中央側を緩く(広い)、開口側を急に(狭い)→ 歯先が中央へ倒れる返し。
+      // Center side gentle (wide), opening side steep (narrow) → a barb whose tooth tip tilts toward the center.
       const w = gR * (delta * centerDir > 0 ? 1 + skew : 1 - skew);
       const ad = Math.abs(delta);
       if (ad < w) { const d = depth * (1 - ad / w); if (d > dip) dip = d; }
@@ -261,34 +304,41 @@ export function grooveOuterX(p, grooves, gR) {
     return outerR(p, Math.min(Math.max(y, 0), h) / h) - dip;
   };
 }
-// 竹ひごの溝位置。火袋を「等間隔」に割り付けるが、首(開口)のすぐ際には溝を置かない。
-// 上下端に半ピッチのバッファ(=開口/首側のクリアランス)を持たせ、内側から等間隔に並べる。
-// 溝の半幅(mm)= 竹ひごの半径 + 逃がし。溝を作る側(ribOutline2D / ribEdges)と描く側
-// (SectionEditor)が必ず同じ値を使うよう、ここ1箇所に集約する(断面図と STL のズレ防止)。
+// Bamboo rib groove positions. Distributes them "evenly" over the lamp body, but places no groove
+// right next to the neck (opening). It gives a half-pitch buffer (= opening/neck-side clearance) at
+// the top and bottom ends and arranges the grooves evenly from the inside.
+// Groove half-width (mm) = bamboo rib radius + relief. Aggregated here in one place so the
+// groove-making side (ribOutline2D / ribEdges) and the drawing side (SectionEditor) always use the
+// same value (prevents cross-section/STL mismatch).
 const GROOVE_CLEAR = 0.25;
 export function grooveR(p) { return p.higoD / 2 + GROOVE_CLEAR; }
-// 溝の割り付け格子(火袋内の有効域 [gLo,gHi]・本数 n・間隔 step)。grooveList と螺旋パス
-// higoSpiralPath が同じ格子を使うよう1箇所に集約する(両者がズレると型と絵が食い違う)。
-// gM = gR*1.6 は「開口(首)の際にはこれより近く溝を置かない」半ピッチ相当のバッファ。
+// The groove-distribution lattice (valid range [gLo,gHi] within the lamp body, count n, spacing
+// step). Aggregated in one place so grooveList and the spiral path higoSpiralPath use the same
+// lattice (if they diverge, the mold and the drawing disagree).
+// gM = gR*1.6 is a half-pitch-equivalent buffer meaning "place no groove closer than this to the
+// opening (neck)."
 function grooveLattice(p, gR) {
   const h = p.height, fr = fukuroRange(p), gM = gR * 1.6;
   const gLo = fr.lo * h + gM, gHi = fr.hi * h - gM, span = gHi - gLo;
   const n = span > 0.5 ? Math.max(1, Math.round(span / p.pitch)) : 0;
   return { gLo, gHi, span, n, step: n > 0 ? span / n : 0 };
 }
-// 竹ひご溝の位置(mm)。k = 羽根番号。
-// ・通常(水平リング): 全羽根で同一。端に step/2 のバッファを置いて等間隔に並べる。
-// ・螺旋巻き(p.spiral): 羽根ごとに step/boards ずつ下へずらす。1回転(全羽根)で丁度
-//   1格子ぶん(step)下がり、隣の羽根で次の格子点に乗る ⇒ 全羽根を通して連続した1本の
-//   螺旋になる。ずらしで有効域 [gLo,gHi] から外れた溝は落とし、逆側に空いた格子点が入る
-//   ので本数はほぼ一定(±1)。有効域は gM バッファ込みなので、端に乗った溝でも開口際の
-//   クリアランスは保たれる。k=0 / spiral 無しなら通常と完全に同一(既存STLを変えない)。
+// Bamboo rib groove positions (mm). k = rib index.
+// ・Normal (horizontal ring): identical for all ribs. Placed with a step/2 buffer at the ends and
+//   arranged evenly.
+// ・Spiral winding (p.spiral): shifted downward by step/boards per rib. One turn (all ribs) drops
+//   exactly one lattice cell (step), and the next rib lands on the next lattice point ⇒ forming a
+//   single continuous spiral across all ribs. Grooves that fall outside the valid range [gLo,gHi]
+//   due to the shift are dropped, and a vacated lattice point on the opposite side comes in, so the
+//   count stays roughly constant (±1). The valid range includes the gM buffer, so even a groove
+//   landing at an end keeps the near-opening clearance. With k=0 / no spiral, this is completely
+//   identical to normal (does not change existing STL).
 export function grooveList(p, gR, k = 0) {
   const { gLo, gHi, n, step } = grooveLattice(p, gR);
   if (n === 0) return [];
   if (!p.spiral || !p.boards) {
     const gs = [];
-    for (let i = 0; i < n; i++) gs.push(gLo + step * (i + 0.5)); // 端に step/2 のバッファ
+    for (let i = 0; i < n; i++) gs.push(gLo + step * (i + 0.5)); // step/2 buffer at the ends
     return gs;
   }
   const off = step * ((((k % p.boards) + p.boards) % p.boards) / p.boards); // [0, step)
@@ -299,14 +349,16 @@ export function grooveList(p, gR, k = 0) {
   }
   return gs;
 }
-// 螺旋巻きの竹ひご中心線(点灯プレビュー用)。grooveList と同じ格子から「1ピッチ/1回転」の
-// 連続螺旋を作る。純粋関数(THREE非依存): [角度rad, 高さmm(0基準), 半径mm] の点列を返す。
-// 高さは角度が増える(=羽根が進む)ほど下がる = grooveList のずらし方向と一致させる。
+// The spiral-winding bamboo rib centerline (for the lit preview). Builds a "one pitch / one turn"
+// continuous spiral from the same lattice as grooveList. Pure function (no THREE dependency):
+// returns a point list of [angle rad, height mm (0 basis), radius mm].
+// The height decreases as the angle increases (= the rib advances) = matching grooveList's shift
+// direction.
 export function higoSpiralPath(p, seg = 48) {
   const gR = grooveR(p), h = p.height;
   const { gHi, n, step } = grooveLattice(p, gR);
   if (n === 0) return [];
-  const yTop = gHi - step * 0.5, turns = n; // 上端の溝から n 回転かけて下端の溝へ
+  const yTop = gHi - step * 0.5, turns = n; // from the top groove, over n turns to the bottom groove
   const M = Math.max(2, Math.round(seg * turns));
   const out = [];
   for (let i = 0; i <= M; i++) {
@@ -315,70 +367,83 @@ export function higoSpiralPath(p, seg = 48) {
   }
   return out;
 }
-// コマのノッチ底の半径(= これより内側がコマの無垢部)。爪の内端 innerRi から 0.5 逃がす。
-// ノッチを切る komaShape と、その無垢部に掛ける出っ張りを作る komaStop2D が共有する。
+// The radius of the koma's notch bottom (= inside this is the koma's solid part). Relieved by 0.5
+// from the tab inner end innerRi. Shared by komaShape (which cuts the notch) and komaStop2D (which
+// adds the shelf onto that solid part).
 export function notchR(p) { return Math.max(1, innerRi(p) - 0.5); }
 
-// 【上コマの内側ストッパ】上のコマが火袋側(内側)へ入り込むのを止める、爪の内縁の出っ張り(棚)。
-// ・コマは作業後に「外側(爪先の側)」へ抜くので、棚はコマの内側だけに置き上下で挟まない
-//   → 乗り越え不要で抜き差しは自由なまま、内側へのズレだけが止まる。
-// ・棚の高さ yShelf = height + tabLen - komaT = コマを爪先まで嵌めた時の「コマ内面」の位置。
-//   standSlotSep = height + 2*tabLen - komaT が前提にしている位置と一致するので、
-//   これまで「先端まで押し込む」運用任せだった位置を形状で保証するだけ ⇒ 土台は動かない。
-// ・棚は notchR より内側へ張り出してコマ無垢部の下面を受ける。ただし張り出しすぎると隣の
-//   羽根板の出っ張り同士が中心付近で干渉するため、周方向クリアランスから最小半径を掛ける。
-// ・余地が無い(爪が短い / 多歯で中心が混む)場合は null = 従来どおり出っ張り無し。
-const KOMA_STOP_W = 3;     // 棚の張り出し目標(mm)
-const KOMA_STOP_MIN = 0.8; // 張り出しがこれ未満なら作らない
-// opts は 3Dプリント既定を変えないためのフック(省略時は従来と完全に同一)。型紙(段ボール)
-// だけがここを緩める。厚い材料では爪先が ribCoreFloor まで外へ押し戻され、棚の干渉限界 rMin と
-// ほぼ重なる(差は「MIN_WALL 1.6 − 棚クリア gap」で決まり材料厚に依らない)ため、既定値のままだと
-// 厚 3mm 以上で常に「余地なし」= 棚が消える。段ボールは手切りで隣の棚が触れても実害が無いので、
-// 棚どうしのクリア gap と採用下限 min を小さくして、中心の余地いっぱいまで棚を出す。
-//   w   = 棚の張り出し目標(mm)
-//   gap = 隣の羽根板の棚との周方向クリアランス(mm)。rMin を決める。
-//   min = これ未満の張り出しなら棚を作らない
+// [Upper koma inner stopper] A shelf on the tab's inner edge that stops the upper koma from
+// entering toward the lamp body (inward) side.
+// ・The koma is pulled out "outward (toward the tab tip)" after the work, so the shelf sits only on
+//   the koma's inner side and does not clamp it top and bottom → no need to ride over it; insertion
+//   and removal stay free, and only inward slippage is stopped.
+// ・Shelf height yShelf = height + tabLen - komaT = the position of the "koma inner face" when the
+//   koma is seated to the tab tip. This matches the position assumed by
+//   standSlotSep = height + 2*tabLen - komaT, so it merely guarantees by shape a position that was
+//   previously left to operation ("push it in to the tip") ⇒ the stand does not move.
+// ・The shelf projects inward past notchR to support the underside of the koma's solid part. But
+//   if it projects too far, the shelves of adjacent ribs interfere near the center, so a minimum
+//   radius is applied from the circumferential clearance.
+// ・When there is no room (short tab / crowded center with many teeth), returns null = no shelf as before.
+const KOMA_STOP_W = 3;     // shelf projection target (mm)
+const KOMA_STOP_MIN = 0.8; // do not create if the projection is under this
+// opts is a hook to avoid changing the 3D-print defaults (when omitted, completely identical to
+// before). Only the paper template (cardboard) relaxes this. With thick material the tab tip is
+// pushed back out to ribCoreFloor and nearly coincides with the shelf's interference limit rMin
+// (the difference is determined by "MIN_WALL 1.6 − shelf clearance gap" and does not depend on
+// material thickness), so with the default values, at ≥3mm thickness there is always "no room" =
+// the shelf vanishes. Cardboard is hand-cut and there is no real harm if adjacent shelves touch,
+// so the shelf-to-shelf clearance gap and adoption lower limit min are reduced to push the shelf
+// out to the full room at the center.
+//   w   = shelf projection target (mm)
+//   gap = circumferential clearance (mm) from the adjacent rib's shelf. Determines rMin.
+//   min = do not create a shelf if the projection is under this
 export function komaStop2D(p, opts = {}) {
   const { w = KOMA_STOP_W, gap = 1.0, min = KOMA_STOP_MIN } = opts;
   const yShelf = p.height + p.tabLen - p.komaT;
-  if (yShelf - p.height < 1) return null;                     // 爪が短く棚を置く余地がない
+  if (yShelf - p.height < 1) return null;                     // tab too short, no room for a shelf
   const nR = notchR(p);
-  const rMin = ((p.boardT + gap) * p.boards) / (2 * Math.PI); // 隣の羽根と干渉しない最小半径
+  const rMin = ((p.boardT + gap) * p.boards) / (2 * Math.PI); // minimum radius that doesn't interfere with the adjacent rib
   const Rd = Math.max(rMin, nR - w);
-  if (nR - Rd < min) return null;                             // 張り出しが取れない
+  if (nR - Rd < min) return null;                             // cannot achieve the projection
   return { yShelf, Rd };
 }
 
-// 【羽根板の内縁カーブ = バナナ(三日月)形】乾燥後に開口から羽根板を抜きやすくするため、
-// 内縁も外縁に沿って湾曲させ中央をくびれさせる。外縁(=火袋の面)は一切変えないので、
-// 型の形状・爪・コマ・土台には波及しない(内側の材料が減るだけ)。
+// [Rib inner-edge curve = banana (crescent) shape] To make the rib easier to pull out from the
+// opening after drying, the inner edge is also curved along the outer edge, narrowing at the
+// center. The outer edge (= the lamp body face) is not changed at all, so it does not propagate to
+// the mold shape / tab / koma / stand (only the inner material is reduced).
 //
-// 定義: 内縁は基本「真っ直ぐな芯 Ri」のまま。**中央付近だけ**内向きのカーブを足して
-// くびれさせる(羽根全体を曲げると端が無理な形になるため、局所に留める)。
-//   ・カーブは t∈[tC-HW, tC+HW] の内側だけ。その外では bump=0 ⇒ 内縁は厳密に Ri のまま
-//     ⇒ 端の形・爪(コマ)との繋がりは一切変わらない。
-//   ・bump=(1-u²)² は端で値も傾きも 0 ⇒ 真っ直ぐな芯へ滑らかに繋がる(角が出ない)。
-//   ・振幅 A は「中央での羽根の深さ(外縁−芯)× RIB_CURVE_D」。実物の型(参考写真)では
-//     えぐりはその位置の深さの2割ほどで、限界まで削ってはいない。深さ比で決めることで
-//     プロファイルが変わっても同じ見た目の比率になる。
-//   ・最後に「帯幅 W を割らない上限」でクランプ ⇒ 内縁が外縁を越えない(自己交差しない)
-//     ことが保証され、中央がくびれた形では自動的に控えめになる。
-const RIB_MIN_BAND = 12;  // 帯の最低肉厚(mm)。溝の深さ(最大 higoD*1.5)を引いても残る。
-const RIB_CURVE_C = 0.5;  // カーブの中心(t)= 羽根の中央
-const RIB_CURVE_HW = 0.3; // カーブの半幅(t)。中央60%だけに入り、上下20%ずつは芯のまま。
-const RIB_CURVE_D = 0.3;  // えぐり量 = 中央の羽根の深さ × これ(実物の型は約2割。抜きやすさ優先で少し深め)
+// Definition: the inner edge basically stays a "straight core Ri." **Only near the center** an
+// inward curve is added to narrow it (bending the whole rib would give the ends an unreasonable
+// shape, so it is kept local).
+//   ・The curve applies only inside t∈[tC-HW, tC+HW]. Outside that, bump=0 ⇒ the inner edge stays
+//     strictly Ri ⇒ the end shapes / the connection to the tab (koma) do not change at all.
+//   ・bump=(1-u²)² has both value and slope 0 at the ends ⇒ connects smoothly to the straight core
+//     (no corner appears).
+//   ・Amplitude A is "the rib depth at the center (outer − core) × RIB_CURVE_D." On the real mold
+//     (reference photo) the scoop is about 20% of the depth at that position, not carved to the
+//     limit. Determining it by a depth ratio keeps the same visual proportion even when the
+//     profile changes.
+//   ・Finally clamped to "an upper limit that does not break the band width W" ⇒ guarantees the
+//     inner edge does not cross the outer edge (no self-intersection), and it automatically becomes
+//     modest where the center narrows.
+const RIB_MIN_BAND = 12;  // minimum band thickness (mm). Remains even after subtracting the groove depth (max higoD*1.5).
+const RIB_CURVE_C = 0.5;  // curve center (t) = the rib center
+const RIB_CURVE_HW = 0.3; // curve half-width (t). Applies only to the middle 60%; the top/bottom 20% each stay core.
+const RIB_CURVE_D = 0.3;  // scoop amount = the center rib depth × this (the real mold is about 20%; slightly deeper, prioritizing ease of removal)
 export function ribInnerX(p) {
   const h = p.height, Ri = innerRi(p);
-  const W = Math.max(RIB_MIN_BAND, effBoardWidth(p)); // 残したい帯幅
+  const W = Math.max(RIB_MIN_BAND, effBoardWidth(p)); // band width to keep
   const bump = (t) => {
     const u = (t - RIB_CURVE_C) / RIB_CURVE_HW;
     if (Math.abs(u) >= 1) return 0;
     const v = 1 - u * u;
-    return v * v; // 端で値・傾きとも0 → 芯へ滑らかに接続
+    return v * v; // value and slope both 0 at the ends → smooth connection to the core
   };
-  // 振幅 = 中央の深さの一定割合(実物基準)。
+  // Amplitude = a fixed fraction of the center depth (real-mold basis).
   let A = Math.max(0, (outerR(p, RIB_CURVE_C) - Ri) * RIB_CURVE_D);
-  // 帯幅 W を割らない上限でクランプ(くびれた形では自動的に浅くなる)。
+  // Clamp to an upper limit that does not break the band width W (automatically shallower where narrowed).
   for (let i = 0; i <= 200; i++) {
     const t = i / 200, b = bump(t);
     if (b < 1e-3) continue;
@@ -391,72 +456,80 @@ export function ribInnerX(p) {
   };
 }
 
-// 羽根の外形点列を返す(2D断面描画 と 3D羽根geometry で共有 = 両者が必ず一致する)。
-// k = 羽根番号。通常は全羽根が同一形状(溝は水平リング)だが、螺旋巻き(p.spiral)では
-// grooveList が k ぶん溝をずらすため羽根ごとに溝位置が変わる(= k が形に効く)。
-// opts.smooth = true で「溝を彫らない滑らかな外縁」を返す(型紙用)。段ボールに 0.5mm 精度の
-// V ノッチは刻めないため、型紙では外縁を曲線のまま切り、溝は目盛線(印)で示す。
-// opts.stop は上端の爪の内側ストッパの調整(komaStop2D へそのまま渡す)。どちらも既定は
-// 未指定なので、3D/STL 側の呼び出しは一切変わらない。
+// Returns the rib's outline point list (shared by the 2D cross-section drawing and the 3D rib
+// geometry = the two always match). k = rib index. Normally all ribs have the same shape (grooves
+// are horizontal rings), but with spiral winding (p.spiral), grooveList shifts the grooves by k, so
+// the groove positions change per rib (= k affects the shape).
+// With opts.smooth = true, returns "a smooth outer edge with no grooves carved" (for the paper
+// template). Since 0.5mm-precision V notches can't be cut into cardboard, the paper template cuts
+// the outer edge as a plain curve and shows the grooves as scale marks.
+// opts.stop adjusts the upper tab's inner stopper (passed straight to komaStop2D). Both default to
+// unspecified, so the 3D/STL-side calls do not change at all.
 export function ribOutline2D(p, k = 0, opts = {}) {
   const h = p.height, tl = p.tabLen, gR = grooveR(p);
-  // 竹ひごの溝は火袋(最外制御点の間)全体に作る。カーブには必ず溝を入れ、上下端にも溝を置く。
-  // 螺旋巻きでは羽根番号 k で溝位置がずれる(ribEdges も同じ grooveList(p,gR,k) で揃える)。
+  // Bamboo rib grooves are made over the whole lamp body (between the outermost control points).
+  // The curve always gets grooves, and grooves are placed at the top/bottom ends too.
+  // With spiral winding, the groove positions shift by rib index k (ribEdges aligns with the same grooveList(p,gR,k)).
   const grooves = grooveList(p, gR, k);
   const outerX = opts.smooth
     ? (y) => outerR(p, Math.min(Math.max(y, 0), h) / h)
     : grooveOuterX(p, grooves, gR);
-  const Ri = innerRi(p), STEP = 0.5, pts = []; // 返しの急フランクを拾うため細かく
-  // 爪 = 真っ直ぐな舌。先端をコマ外径 kR にちょうど合わせる(はみ出さない)。
+  const Ri = innerRi(p), STEP = 0.5, pts = []; // fine, to pick up the barb's steep flank
+  // Tab = a straight tongue. Match the tip exactly to the koma outer radius kR (no overhang).
   const kR = komaR(p);
-  // 下端の爪: 真っ直ぐな長方形のまま(ストッパは上コマ側だけ)。
+  // Bottom tab: stays a straight rectangle (the stopper is only on the upper koma side).
   pts.push([Ri, 0], [Ri, -tl], [kR, -tl], [kR, 0], [outerR(p, 0), 0]);
   for (let y = STEP; y <= h; y += STEP) pts.push([outerX(Math.min(y, h)), Math.min(y, h)]);
-  // 上端の爪: 先端(外側)からコマを差し込み、内縁の棚でコマ無垢部の下面を受けて内側へのズレを止める。
+  // Top tab: insert the koma from the tip (outside), and the inner-edge shelf supports the underside of the koma's solid part to stop inward slippage.
   pts.push([outerR(p, 1), h], [kR, h], [kR, h + tl], [Ri, h + tl]);
   const stop = komaStop2D(p, opts.stop);
-  if (stop) pts.push([Ri, stop.yShelf], [stop.Rd, stop.yShelf], [stop.Rd, h]); // 棚(出っ張り)
-  // 内縁: バナナ(三日月)カーブを上から下へ。両端は Ri に戻るので爪と繋がる。
+  if (stop) pts.push([Ri, stop.yShelf], [stop.Rd, stop.yShelf], [stop.Rd, h]); // shelf (projection)
+  // Inner edge: the banana (crescent) curve from top to bottom. Both ends return to Ri, so it connects to the tabs.
   const innerX = ribInnerX(p);
   pts.push([Ri, h]);
   for (let y = h - STEP; y > 0; y -= STEP) pts.push([innerX(y), y]);
   pts.push([Ri, 0]);
   return pts;
 }
-// 肉抜き窓(外縁の帯 bandW と 内縁の芯 spineW を残し、桟 strut で分割)。
-// 窓の外側境界は溝の凹凸を無視した「滑らかな外周(outerR)」基準にする(ぼこぼこ防止)。
-const Y_STAGGER = 0.13; // 窓のy端を外形サンプル格子(0.5mm)から外す量(mm)
+// Lightening windows (keep the outer band bandW and the inner core spineW, divided by struts strut).
+// The window's outer boundary is based on the "smooth outer edge (outerR)" ignoring the groove bumps (prevents bumpiness).
+const Y_STAGGER = 0.13; // amount (mm) to offset the window's y-ends off the outline sample lattice (0.5mm)
 export function lightenHoles2D(p) {
   const h = p.height, td = tabDepth(p);
   const spineW = Math.max(9, td + 3), bandW = 11, strut = 8, MIN_MAT = 12;
-  const oS = (y) => outerR(p, Math.min(Math.max(y, 0), h) / h); // 滑らかな外周
-  // 窓の内側は内縁のバナナカーブに追従させる(芯 spineW を一定幅で残す) → 中央の窓も
-  // えぐりに沿った形になる。共線点は cleanPoly で間引かれるので earcut は壊れない。
+  const oS = (y) => outerR(p, Math.min(Math.max(y, 0), h) / h); // smooth outer edge
+  // Make the window's inner side follow the inner-edge banana curve (keeping the core spineW at a
+  // constant width) → the center window also takes a shape following the scoop. Collinear points are
+  // thinned by cleanPoly, so earcut does not break.
   const rIn = ribInnerX(p);
   const xi = (y) => rIn(Math.min(Math.max(y, 0), h)) + spineW;
-  // 下端: 首の急な立ち上がり(フレア)を無垢で残し補強 → 折れやすい細い桟を作らない。
-  // 上端: 細く尖るので少しだけ余白。窓は「落とす」のではなく肉の残る範囲まで縮めて作る
-  //       (細る上端でも小さな窓を出して肉抜きの効きを均す)。
+  // Bottom: keep the neck's steep rise (flare) solid to reinforce it → do not create a thin, easily
+  // broken strut.
+  // Top: narrows to a point, so leave a small margin. Instead of "dropping" the window, shrink it to
+  //       the range where material remains (even at the narrowing top, produce a small window to even
+  //       out the lightening effect).
   const yBot = cutYbot(p) + 14, yTop = h - cutYtop(p) - 6;
   const nWin = Math.max(1, Math.round((yTop - yBot) / 46)), winH = (yTop - yBot) / nWin, holes = [];
   const thin = (y) => oS(y) - bandW - xi(y) < MIN_MAT;
   for (let i = 0; i < nWin; i++) {
     let y0 = yBot + i * winH + strut / 2, y1 = yBot + (i + 1) * winH - strut / 2;
-    // 肉が薄い端(細る上端など)は窓端をその手前まで詰める(全滅させず縮める)。
+    // At thin-material ends (like the narrowing top), pull the window ends in short of it (shrink instead of eliminating entirely).
     while (y1 - y0 > 4 && thin(y1)) y1 -= 2;
     while (y1 - y0 > 4 && thin(y0)) y0 += 2;
     if (y1 - y0 < 14) continue;
-    // くびれ(中央が細る形)で窓の途中に薄い帯が残ると earcut が破綻するので全域を確認。
+    // With a waist (center-narrowing shape), if a thin band remains partway through the window, earcut breaks, so check the whole range.
     let ok = true;
     for (let y = y0; y <= y1; y += 2) if (thin(y)) { ok = false; break; }
     if (!ok) continue;
-    // 窓のy端を外形のサンプル格子(STEP=0.5mm刻み)から僅かにずらす。厳密に同じ走査線に
-    // 乗ると、窓の角と外形の頂点が共線になり earcut がゼロ面積の三角形を作って open edge に
-    // なる(boardGeometry の STAGGER と同じ既知の退化。ずれは肉抜きの効きに影響しない)。
+    // Offset the window's y-ends slightly off the outline's sample lattice (STEP=0.5mm steps). If
+    // they land on exactly the same scan line, the window corner and outline vertex become collinear
+    // and earcut makes a zero-area triangle, resulting in an open edge (the same known degeneracy as
+    // boardGeometry's STAGGER; the offset does not affect the lightening effect).
     const ya = y0 + Y_STAGGER, yb = y1 - Y_STAGGER;
     if (yb - ya < 10) continue;
-    // 外側(帯の内)を上へ辿り、内側(芯の外=バナナカーブ)を下へ戻る閉ループ。
-    // 両辺を同じ分割数で刻み、端を厳密に一致させる(角で半端な点を出さない)。
+    // A closed loop tracing the outer side (inside the band) upward and returning down the inner side
+    // (outside the core = the banana curve). Cut both edges with the same number of divisions and
+    // match the ends exactly (no stray points at the corners).
     const ns = Math.max(2, Math.ceil((yb - ya) / 2));
     const poly = [];
     for (let i = 0; i <= ns; i++) { const y = ya + ((yb - ya) * i) / ns; poly.push([oS(y) - bandW, y]); }
@@ -466,12 +539,14 @@ export function lightenHoles2D(p) {
   return { holes, spineW, bandW };
 }
 
-// 押し出し前の点列クリーンアップ(外形・窓の両方で使う)。
-// ・近接重複点を除去: 返し(急フランク)や首の合流で出る。放置すると退化三角形→open edge。
-// ・共線点を除去: これが無いと、内縁カーブの平坦区間などで「同じ直線上の点」が数百個並ぶ。
-//   earcut は共線点を落として三角形分割するため、キャップの境界が側壁の境界とズレて
-//   open edge になる(側壁は点列どおりに作られるのに、キャップは点を捨てるため)。
-//   判定は「前後の点を結ぶ直線からの垂直距離」で行う(長さに依らず安定)。
+// Point-list cleanup before extrusion (used for both the outline and the windows).
+// ・Remove near-duplicate points: they arise at the barb (steep flank) and at the neck merge. Left
+//   in, they make degenerate triangles → open edge.
+// ・Remove collinear points: without this, "points on the same line" line up in the hundreds in flat
+//   stretches like the inner-edge curve. earcut drops collinear points when triangulating, so the
+//   cap's boundary diverges from the side-wall boundary and becomes an open edge (the side walls are
+//   built exactly per the point list, but the cap discards points).
+//   The test uses "the perpendicular distance from the line joining the neighboring points" (stable regardless of length).
 function cleanPoly(pts, eps = 1e-3) {
   const out = [];
   for (const q of pts) { const l = out[out.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > eps) out.push(q); }
@@ -481,15 +556,16 @@ function cleanPoly(pts, eps = 1e-3) {
   for (let i = 0; i < out.length; i++) {
     const a = out[(i - 1 + out.length) % out.length], b = out[i], c = out[(i + 1) % out.length];
     const dx = c[0] - a[0], dy = c[1] - a[1], len = Math.hypot(dx, dy);
-    // a-c が潰れている場合は b を残す(判定不能)
+    // If a-c is collapsed, keep b (cannot decide)
     if (len < eps) { keep.push(b); continue; }
-    const dist = Math.abs(dx * (a[1] - b[1]) - dy * (a[0] - b[0])) / len; // b から直線 a-c への距離
+    const dist = Math.abs(dx * (a[1] - b[1]) - dy * (a[0] - b[0])) / len; // distance from b to line a-c
     if (dist > eps) keep.push(b);
   }
   return keep.length >= 3 ? keep : out;
 }
-// 点列(+穴の点列)から押し出し用の Shape を作る。外形・穴とも必ず cleanPoly を通す
-// (どちらか片方でも掃除を忘れると earcut がキャップを壊して open edge を出す)。
+// Builds a Shape for extrusion from a point list (+ hole point lists). Both the outline and the
+// holes always go through cleanPoly (forgetting the cleanup on either one lets earcut break the cap
+// and produce an open edge).
 function shapeFromPts(pts, holes = []) {
   const outline = cleanPoly(pts);
   const s = new THREE.Shape();
@@ -506,20 +582,21 @@ function shapeFromPts(pts, holes = []) {
   return s;
 }
 
-// ============ 羽根板 ============
-// 羽根板の内外エッジ関数(通常/分割で共有)
+// ============ Rib ============
+// The rib's inner/outer edge functions (shared by normal/split)
 export function ribEdges(p, k) {
   const { height } = p;
-  const boardWidth = effBoardWidth(p); // 抜き取り可能な幅に制限
+  const boardWidth = effBoardWidth(p); // limited to a pull-out-able width
   const oB = outerR(p, 0), oT = outerR(p, 1);
-  const tw = tabDepth(p); // タブの奥行き(上下一律)
+  const tw = tabDepth(p); // tab depth (uniform top and bottom)
   const gR = grooveR(p);
-  // 溝は火袋全体。ribOutline2D と同じ規則(grooveR/grooveList)で揃える(螺旋巻きは k でずれる)。
+  // Grooves span the whole lamp body. Aligned by the same rule (grooveR/grooveList) as ribOutline2D (spiral shifts by k).
   const grooves = grooveList(p, gR, k);
   const outerX = grooveOuterX(p, grooves, gR);
-  // 内縁の下限。板幅に応じた下限で下端の尖り(トゲ)を防ぐ。ただしくびれ(細い中央)では
-  // 下限が外縁を上回り帯が反転(自己交差)し得るため、外縁から最低 MIN_BAND を必ず残すよう
-  // 上側もクランプして帯幅を保証する(分割部品の非多様体を防ぐ)。
+  // Inner-edge lower limit. A width-dependent lower limit prevents a pointed spike at the bottom end.
+  // But at a waist (narrow center) the lower limit can exceed the outer edge and the band can invert
+  // (self-intersect), so the upper side is also clamped to always keep at least MIN_BAND from the
+  // outer edge, guaranteeing the band width (prevents non-manifold split parts).
   const mInner = Math.max(8, boardWidth * 0.4), MIN_BAND = 6;
   const innerX = (y) => {
     const oR = outerR(p, y / height);
@@ -527,30 +604,33 @@ export function ribEdges(p, k) {
   };
   return { oB, oT, tw, outerX, innerX };
 }
-// 【螺旋巻き用】羽根板に通し番号(k+1)を彫る = 円周へ並べる順序のしるし。
-// 螺旋では羽根ごとに溝位置が違い、正しい順に並べないと竹ひごが連続した螺旋にならないが、
-// 刷った実物は見分けが付かない。そこで下端の無垢帯に番号を刻む。
-// ・各数字は「7セグメント」の点灯セグメントを **独立した細長い長方形の貫通穴** として切る。
-//   セグメント間には隙間(G)があるので、0/8 等の囲い数字でも中央の島が角の隙間から本体に
-//   繋がったまま = 肉抜き窓と同じく水密を保つ(実体積の追加=非多様体化を避けるため彫り=穴)。
-// ・通常(非螺旋)は空配列 ⇒ 既存STLは完全に不変(hash 一致)。
-// ・置き場(幅)が取れない極小開口では番号を諦める(型の機能は不変)。
+// [For spiral winding] Engrave a serial number (k+1) on the rib = a mark of the arrangement order
+// around the circumference. In a spiral, the groove positions differ per rib, and unless they are
+// arranged in the correct order the bamboo rib does not form a continuous spiral, yet the printed
+// physical parts are indistinguishable. So the number is engraved on the solid band at the bottom end.
+// ・Each digit cuts the lit segments of "7 segments" as **independent thin rectangular through-holes.**
+//   Since there are gaps (G) between segments, even enclosing digits like 0/8 keep the center island
+//   connected to the body through the corner gaps = watertight like the lightening windows (engraving
+//   = holes, to avoid adding solid volume = non-manifold).
+// ・Normal (non-spiral) returns an empty array ⇒ existing STL is completely unchanged (hash match).
+// ・For an extremely small opening where there is no room (width), give up on the number (the mold function is unchanged).
 export function ribNumberHoles2D(p, k) {
   if (!p.spiral) return [];
   const h = p.height, Ri = innerRi(p), s = String(k + 1);
-  let W = 6, H = 11, T = 1.2, CG = 0.45, GX = 2;            // 桁: 幅/高/バー厚/角の隙間/桁間(mm)
-  const y0base = Math.max(4, p.tabLen * 0.4);               // 下端タブのすぐ上の無垢帯
+  let W = 6, H = 11, T = 1.2, CG = 0.45, GX = 2;            // digit: width/height/bar thickness/corner gap/inter-digit gap (mm)
+  const y0base = Math.max(4, p.tabLen * 0.4);               // the solid band just above the bottom tab
   const outer = outerR(p, Math.min(Math.max(y0base + H / 2, 0), h) / h);
-  const availW = (outer - 5) - (Ri + 3);                    // 内縁3/外縁(溝)5mm を残した使える幅
+  const availW = (outer - 5) - (Ri + 3);                    // usable width leaving inner edge 3 / outer edge (groove) 5mm
   if (availW < 6) return [];
   let blockW = s.length * W + (s.length - 1) * GX;
-  if (blockW > availW) {                                    // 収まるよう一律縮小
+  if (blockW > availW) {                                    // shrink uniformly to fit
     const sc = availW / blockW; W *= sc; H *= sc; T *= sc; CG *= sc; GX *= sc; blockW = availW;
-    if (H < 3.5) return [];                                 // 小さすぎて彫れない
+    if (H < 3.5) return [];                                 // too small to engrave
   }
-  const x0 = Ri + 3 + (availW - blockW) / 2;                // 帯の中央寄せ
-  // 各セグメントは互いに重ならない(重なると押し出しキャップが非多様体化する)。横バーは
-  // x を縦バー幅+角隙間ぶん内側に、縦バーは y を中/上下の横バーから角隙間ぶん離す。
+  const x0 = Ri + 3 + (availW - blockW) / 2;                // center the band
+  // No segment overlaps another (overlap makes the extrusion cap non-manifold). Horizontal bars are
+  // set inward in x by the vertical-bar width + corner gap; vertical bars are set away in y from the
+  // middle/top/bottom horizontal bars by the corner gap.
   const hx0 = T + CG, hx1 = W - T - CG, my = H / 2;
   const SEG = { "0": "abcdef", "1": "bc", "2": "abdeg", "3": "abcdg", "4": "bcfg", "5": "acdfg", "6": "acdefg", "7": "abc", "8": "abcdefg", "9": "abcdfg" };
   const rects = {
@@ -558,18 +638,20 @@ export function ribNumberHoles2D(p, k) {
     f: [0, my + T / 2 + CG, T, H - T - CG], b: [W - T, my + T / 2 + CG, W, H - T - CG],
     e: [0, T + CG, T, my - T / 2 - CG], c: [W - T, T + CG, W, my - T / 2 - CG],
   };
-  // earcut は穴を外形へ「橋渡し」してキャップを三角化するが、(a)穴の水平エッジが外形サンプル
-  // (STEP=0.5mm)の走査線に一致、または (b)複数の穴が同じ y を共有(左右対の縦バー f/b・e/c は
-  // 同じ高さ)すると、橋が退化して open edge になる。そこで各穴に**一意で格子から外れた** y の
-  // ずらしを与える(全穴で異なる → 走査線も他穴とも一致しない)。ずらしは上下端に同量なので
-  // バー厚は不変、量は最大 0.6mm 程度で数字の見た目は変わらない。
+  // earcut "bridges" holes to the outline to triangulate the cap, but if (a) a hole's horizontal edge
+  // coincides with the outline sample's (STEP=0.5mm) scan line, or (b) multiple holes share the same y
+  // (the mirrored vertical bars f/b and e/c are at the same height), the bridge degenerates into an
+  // open edge. So each hole is given a **unique, off-lattice** y offset (different for every hole → it
+  // matches neither a scan line nor any other hole). The offset is the same at the top and bottom
+  // ends, so the bar thickness is unchanged; the amount is at most about 0.6mm and the digit's
+  // appearance does not change.
   const holes = [];
   let hi = 0;
   for (let i = 0; i < s.length; i++) {
     const ox = x0 + i * (W + GX);
     for (const ch of SEG[s[i]]) {
       const [rx0, ry0, rx1, ry1] = rects[ch];
-      const j = 0.13 + hi * 0.031;                     // 一意・非格子(0.5の倍数を避ける)
+      const j = 0.13 + hi * 0.031;                     // unique, off-lattice (avoid multiples of 0.5)
       hi++;
       const ya = y0base + ry0 + j, yb = y0base + ry1 + j;
       holes.push([[ox + rx0, ya], [ox + rx1, ya], [ox + rx1, yb], [ox + rx0, yb]]);
@@ -577,7 +659,7 @@ export function ribNumberHoles2D(p, k) {
   }
   return holes;
 }
-// 3D羽根板 = 2D確定形状(内縁まっすぐ＋上下同位置の内側の爪＋外縁カーブ＋肉抜き)を押し出す。
+// 3D rib = extrude the 2D final shape (straight inner edge + inner tabs at the same top/bottom positions + outer-edge curve + lightening).
 export function ribShape(p, k) {
   const holes = p.lighten ? lightenHoles2D(p).holes : [];
   return shapeFromPts(ribOutline2D(p, k), [...holes, ...ribNumberHoles2D(p, k)]);
@@ -588,9 +670,10 @@ export const ribGeometry = (p, k) => {
   return g;
 };
 
-// ---- 羽根板の上下2分割(大型ランプ用) ----
-// 割り面で突き合わせ、内側の面に「当て板(スプライス)＋一体スタッド」を差して繋ぐ。
-// 薄板なので当て板が面外曲げを支える。位置決め穴はスタッドで兼ねる。
+// ---- Rib top/bottom split into two (for large lamps) ----
+// Butt them at the split face and join them with a "splice plate + integral studs" inserted on the
+// inner face. Being a thin plate, the splice plate supports out-of-plane bending. The locating holes
+// double as the studs.
 const SPLICE_T = 3, SPLICE_HALF = 22, PIN_D = 3, PIN_FIT = 0.5;
 function ribBandShape(p, k, y0, y1, pins) {
   const { height, tabLen } = p;
@@ -598,21 +681,22 @@ function ribBandShape(p, k, y0, y1, pins) {
   const STEP = 0.4;
   const pts = [];
   pts.push([innerX(y0), y0]);
-  if (y0 <= 0.001) { // 実際の下端: 底辺＋タブ
+  if (y0 <= 0.001) { // the actual bottom end: base edge + tab
     pts.push([oB - tw, 0], [oB - tw, -tabLen], [oB, -tabLen], [oB, 0]);
   } else {
-    pts.push([outerX(y0), y0]); // 割り面で真っ直ぐ横断
+    pts.push([outerX(y0), y0]); // cross straight at the split face
   }
   for (let y = y0 + STEP; y < y1; y += STEP) pts.push([outerX(y), y]);
-  if (y1 >= height - 0.001) { // 実際の上端: タブ
+  if (y1 >= height - 0.001) { // the actual top end: tab
     pts.push([oT, height], [oT, height + tabLen], [oT - tw, height + tabLen], [oT - tw, height], [innerX(height), height]);
   } else {
     pts.push([outerX(y1), y1], [innerX(y1), y1]);
   }
   for (let y = y1 - STEP; y > y0; y -= STEP) pts.push([innerX(y), y]);
-  // 外形は cleanPoly を通す(重複点・共線点の除去)。内縁が下限で一定になる区間とタブ端の
-  // 接合で重複頂点が、外縁の平坦部で共線点が出る。放置すると earcut が退化三角形を作り
-  // キャップと側壁の境界がズレて非多様体になる。スタッド穴は円弧なのでこの後で足す。
+  // Run the outline through cleanPoly (remove duplicate/collinear points). Duplicate vertices appear
+  // where the inner edge stays constant at its lower limit joins the tab end, and collinear points
+  // appear on the outer edge's flat stretches. Left in, earcut makes degenerate triangles and the
+  // cap/side-wall boundaries diverge into non-manifold. The stud holes are arcs, so they are added after this.
   const s = shapeFromPts(pts);
   if (pins) for (const [hx, hy] of pins) { const h = new THREE.Path(); h.absarc(hx, hy, (PIN_D + PIN_FIT) / 2, 0, Math.PI * 2, true); s.holes.push(h); }
   return s;
@@ -622,14 +706,16 @@ export function ribSplitParts(p, k) {
   const splitY = height / 2;
   const { outerX, innerX } = ribEdges(p, k);
   const wLo = innerX(splitY), wHi = outerX(splitY);
-  // スタッド穴は「その穴のy位置(splitY±10)と割り面」全てで帯の内側に、穴半径+マージン
-  // 以上のクリアランスを持つ位置に置く。くびれで帯が細ると穴が縁を突き抜け非多様体に
-  // なるため、安全なx区間 [lo, hi] に収める(狭ければ1本・中央、極端に狭ければ当て板のみ)。
+  // Place the stud holes where they have at least (hole radius + margin) of clearance inside the band
+  // across "that hole's y position (splitY±10) and the split face." If the band narrows at a waist the
+  // hole punches through the edge into non-manifold, so keep them within a safe x range [lo, hi] (if
+  // narrow, one hole at the center; if extremely narrow, splice plate only).
   const pinR = (PIN_D + PIN_FIT) / 2, M = 2.5;
   const yB = splitY - 10, yT = splitY + 10;
-  // 穴は y方向に ±pinR 広がるので、中心yだけでなく穴の y全域にわたって縁からの安全域を
-  // 確保する(くびれ近くで穴が曲面の縁を突き抜けて非多様体になるのを防ぐ)。上下バンド
-  // 両方で安全な x区間の交わりにピンを置く。狭ければ1本・中央、極端に狭ければ当て板のみ。
+  // A hole spans ±pinR in y, so secure a safe zone from the edge not only at the center y but across
+  // the hole's entire y range (prevents the hole from punching through the curved-surface edge into
+  // non-manifold near a waist). Place the pin at the intersection of the safe x ranges of both the top
+  // and bottom bands. If narrow, one at the center; if extremely narrow, splice plate only.
   const span = (py) => {
     let lo = -Infinity, hi = Infinity;
     for (let y = py - pinR - 1; y <= py + pinR + 1; y += 0.5) { lo = Math.max(lo, innerX(y)); hi = Math.min(hi, outerX(y)); }
@@ -642,35 +728,37 @@ export function ribSplitParts(p, k) {
   const pinsT = pxs.map((px) => [px, yT]);
   const bottom = new THREE.ExtrudeGeometry(ribBandShape(p, k, 0, splitY, pinsB), { depth: boardT, bevelEnabled: false });
   const top = new THREE.ExtrudeGeometry(ribBandShape(p, k, splitY, height, pinsT), { depth: boardT, bevelEnabled: false });
-  const sh = new THREE.Shape(); // 当て板
-  const sm = Math.min(3, (wHi - wLo) / 3);   // 帯が細い時は当て板マージンも縮めて反転を防ぐ
+  const sh = new THREE.Shape(); // splice plate
+  const sm = Math.min(3, (wHi - wLo) / 3);   // when the band is narrow, shrink the splice-plate margin too, to prevent inversion
   const sx0 = wLo + sm, sx1 = wHi - sm;
   sh.moveTo(sx0, splitY - SPLICE_HALF); sh.lineTo(sx1, splitY - SPLICE_HALF);
   sh.lineTo(sx1, splitY + SPLICE_HALF); sh.lineTo(sx0, splitY + SPLICE_HALF); sh.closePath();
   const parts = [new THREE.ExtrudeGeometry(sh, { depth: SPLICE_T, bevelEnabled: false })];
-  for (const [hx, hy] of [...pinsB, ...pinsT]) { // 一体スタッド
+  for (const [hx, hy] of [...pinsB, ...pinsT]) { // integral stud
     const stud = new THREE.CylinderGeometry(PIN_D / 2 - 0.1, PIN_D / 2 - 0.1, boardT, 16);
     stud.rotateX(Math.PI / 2);
     stud.translate(hx, hy, SPLICE_T + boardT / 2);
     parts.push(stud);
   }
-  // ExtrudeGeometry(非index) と CylinderGeometry(index) が混在するので揃える
+  // ExtrudeGeometry (non-indexed) and CylinderGeometry (indexed) are mixed, so unify them
   const splice = mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)), false);
   return { bottom, top, splice };
 }
 
-// ============ コマ(爪を纏める小さな歯車ハブ) ============
-// main 同様、縁が開いたノッチ(平行壁)を持つ小さな歯車。爪(内端 Ri〜Ri+td)がコマの縁に来る。
-// ノッチは爪の内端(Ri)まで届き、羽根はノッチを通って外へ伸びる。土台はコマを受ける。
+// ============ Koma (the small gear hub that bundles the tabs) ============
+// Like the main one, a small gear with edge-open notches (parallel walls). The tab (inner end
+// Ri〜Ri+td) meets the koma's edge. The notch reaches the tab's inner end (Ri), and the rib extends
+// out through the notch. The stand receives the koma.
 export function komaShape(p) {
   const { boards, boardT } = p;
   const R = komaR(p);
-  // ノッチ幅 = 板厚 + プリント公差 fit。爪自体は boardT のまま(公称は「爪幅=ノッチ幅=板厚」で
-  // 一致、fit は実寸のはめあいクリアランスだけを空ける)。fit=0 なら従来どおり隙間なし。
+  // Notch width = board thickness + print fit. The tab itself stays boardT (nominally "tab
+  // width = notch width = board thickness" matches, and fit only opens the actual fit clearance).
+  // With fit=0, there is no gap as before.
   const sw = boardT + Math.max(0, p.fit ?? 0);
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
-  const nR = notchR(p); // 爪の内端(Ri)まで届く深さ。komaStop2D と共有(出っ張りはこれより内側)。
+  const nR = notchR(p); // depth reaching the tab's inner end (Ri). Shared with komaStop2D (the projection is inside this).
   const shape = new THREE.Shape();
   shape.moveTo(R * Math.cos(eps), R * Math.sin(eps));
   for (let k = 0; k < boards; k++) {
@@ -683,8 +771,9 @@ export function komaShape(p) {
     const dx = Math.cos(a1), dy = Math.sin(a1), nx = -dy, ny = dx;
     shape.lineTo(nR * dx - nx * sw / 2, nR * dy - ny * sw / 2);
     shape.lineTo(nR * dx + nx * sw / 2, nR * dy + ny * sw / 2);
-    // ノッチ外側の戻り点は次の歯の起点。最後の板の分は開始点(moveTo)と厳密に一致
-    // するため省略し、closePath に任せる(重複点による退化三角形を防ぐ)。
+    // The notch's outer return point is the start of the next tooth. For the last board, it exactly
+    // matches the start point (moveTo), so it is omitted and left to closePath (prevents a degenerate
+    // triangle from a duplicate point).
     if (k < boards - 1) shape.lineTo(rOut * dx + nx * sw / 2, rOut * dy + ny * sw / 2);
   }
   shape.closePath();
@@ -694,62 +783,69 @@ export function komaGeometry(p) {
   return new THREE.ExtrudeGeometry(komaShape(p), { depth: p.komaT, bevelEnabled: false });
 }
 
-// ============ 口輪(くちわ / 開口リング) ============
-// 完成した和紙提灯の上下の開口に入れる細い輪。開口に嵌めて真円を保ち、外周に竹ひごの端を
-// 巻き留める。開口の位置・径は最外制御点が決めるので openingR から自動(外径=開口径)。
-// 太い washer でも背の高いバンドでもなく、細い針金状のフープ(径方向も高さも薄い)。
-// 既存部品(羽根板/コマ/土台)とは独立の新パーツ。
-const RING_WALL = 2;   // フープの肉厚(径方向, mm)。細く=竹ひごが外周に巻ける。
-const RING_H = 2;      // フープの高さ(=Z押し出し, mm)。薄い平たい輪(針金状)。
-// はめあいクリアランス(半径, mm)。口輪は開口の**外側**に嵌まるので、輪の**内径**が開口の外径
-// (=羽根板の外側)とすっと合う必要がある。プリント誤差で内径が縮むぶんを、この分だけ広げて逃がす。
-// 0.3(直径0.6mm)は緩かったので 0.15(直径0.3mm)へ。竹ひご・和紙で固定されるので少しきつめが良い。
+// ============ Opening ring (kuchiwa) ============
+// A thin ring inserted into the top and bottom openings of the finished washi lantern. Fitted into
+// the opening to keep it perfectly round, and the bamboo rib ends are wound and fastened around its
+// outer edge. The opening position/diameter is decided by the outermost control point, so it comes
+// automatically from openingR (outer diameter = opening diameter). Not a thick washer nor a tall band,
+// but a thin wire-like hoop (thin both radially and in height). A new part independent of the existing
+// parts (rib/koma/stand).
+const RING_WALL = 2;   // hoop wall thickness (radial, mm). Thin = the bamboo rib can wind around the outer edge.
+const RING_H = 2;      // hoop height (= Z extrusion, mm). A thin flat ring (wire-like).
+// Fit clearance (radius, mm). The opening ring fits on the **outside** of the opening, so the ring's
+// **inner diameter** must smoothly match the opening's outer diameter (= the rib's outer side). This
+// widens by this much to relieve the amount the inner diameter shrinks due to print error. 0.3
+// (diameter 0.6mm) was loose, so changed to 0.15 (diameter 0.3mm). It is fixed by the bamboo rib and
+// washi, so slightly tight is better.
 const RING_FIT = 0.15;
-// 開口(=口輪)の半径。top=true で上端、false で下端。首の有無に依らず outerR の端値を使う。
+// The opening (= opening ring) radius. top=true for the top end, false for the bottom end. Uses
+// outerR's end value regardless of whether a neck exists.
 export function openingR(p, top) { return outerR(p, top ? 1 : 0); }
-// フル円の点列。absarc(0,2π) は始点=終点の重複点を作り退化三角形を生むため、
-// 0..2π 未満の N 点で作りループを閉じない(Shape/Path が自動で閉じる)。
+// A full-circle point list. absarc(0,2π) creates a duplicate start=end point and spawns a degenerate
+// triangle, so it is built from N points below 0..2π and the loop is not closed (Shape/Path close it
+// automatically).
 function circlePts(r, N) {
   const pts = [];
   for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2; pts.push(new THREE.Vector2(r * Math.cos(a), r * Math.sin(a))); }
   return pts;
 }
 export function ringGeometry(p, top) {
-  const R = openingR(p, top);          // 開口の外径 = 羽根板の外側(火袋面)
-  const inner = R + RING_FIT;          // 内径=開口の外径+クリアランス(輪が開口の外側にすっと嵌まる)
-  const outer = inner + RING_WALL;     // 肉厚ぶん外へ。竹ひごはこの外周に巻く
+  const R = openingR(p, top);          // the opening's outer diameter = the rib's outer side (lamp body face)
+  const inner = R + RING_FIT;          // inner diameter = opening outer diameter + clearance (the ring fits smoothly onto the outside of the opening)
+  const outer = inner + RING_WALL;     // outward by the wall thickness. The bamboo rib winds around this outer edge
   const N = 96;
   const shape = new THREE.Shape(circlePts(outer, N));
-  shape.holes.push(new THREE.Path(circlePts(inner, N).reverse())); // 穴は逆巻き
+  shape.holes.push(new THREE.Path(circlePts(inner, N).reverse())); // the hole is wound in reverse
   return new THREE.ExtrudeGeometry(shape, { depth: RING_H, bevelEnabled: false, curveSegments: 1 });
 }
 
-// ============ 土台(シンプルな差し込み式) ============
-// コマの縁をU字サドル(切り欠き)で受ける「均一厚の平板」の柱×2を、
-// 1枚の薄いベース板のスリットへ差し込むだけ。柱は一定厚なので底面が完全に
-// フラット → 平置きで宙に浮く箇所なく(サポート不要で)印刷できる。
-// 両柱を1枚の板が正しい間隔で保持 → クリップや連結金具は不要。
-const GROOVE_FIT = 1.0;   // U字サドルのコマ厚クリアランス(コマがすっと嵌まる遊び)
-const SADDLE_FIT = 1.5;   // サドル受け半径のクリアランス(コマ縁を上から落とし込む余裕)
-const BASE_T = 5;         // ベース板の厚み(mm, 中央は薄く保つ)
-const COLLAR_H = 10;      // スリット周りに立てる襟(ソケット)の高さ → 差し込みを深くしぐらつき抑制
-const COLLAR_W = 4;       // 襟の壁厚(mm)
-const TENON_W = 44;       // 柱の差し込みホゾ幅(mm)
-const TENON_D = BASE_T + COLLAR_H; // ホゾ差し込み深さ = 襟の天面〜板の底(全長で受ける)
-const FOOT_HW = 29;       // 柱脚の半幅(襟の天面に接地する足)
-const SLOT_FIT = 0.4;     // スリットのはめあいクリアランス
-const BASE_MARGIN = 8;    // ベース板の端マージン
-// 柱の厚み(z) = コマ厚 + クリアランス。この一定厚の平板1枚で柱を作る。
+// ============ Stand (simple insertion type) ============
+// Two columns of "uniform-thickness flat plate" that receive the koma's edge in a U-shaped saddle
+// (notch) are simply inserted into the slots of a single thin base plate. Since the columns are of
+// constant thickness, their bottom faces are completely flat → they can be printed laid flat with no
+// overhangs (no supports needed). A single plate holds both columns at the correct spacing → no clips
+// or connecting hardware needed.
+const GROOVE_FIT = 1.0;   // the U-saddle's koma-thickness clearance (play for the koma to fit smoothly)
+const SADDLE_FIT = 1.5;   // the saddle receiving radius clearance (room to drop the koma edge in from above)
+const BASE_T = 5;         // base plate thickness (mm, keep the center thin)
+const COLLAR_H = 10;      // height of the collar (socket) raised around the slot → deepens the insertion and suppresses wobble
+const COLLAR_W = 4;       // collar wall thickness (mm)
+const TENON_W = 44;       // column insertion tenon width (mm)
+const TENON_D = BASE_T + COLLAR_H; // tenon insertion depth = collar top face ~ plate bottom (received over the full length)
+const FOOT_HW = 29;       // column foot half-width (the foot that rests on the collar top face)
+const SLOT_FIT = 0.4;     // slot fit clearance
+const BASE_MARGIN = 8;    // base plate edge margin
+// Column thickness (z) = koma thickness + clearance. The column is made from a single flat plate of this constant thickness.
 function standFullW(p) { return p.komaT + GROOVE_FIT; }
 
-// 柱プロファイル(局所 x=幅, y=高さ)。下端の差し込みホゾ＋上端のU字サドル＋肉抜き窓を含む。
+// Column profile (local x=width, y=height). Includes the insertion tenon at the bottom + the U-saddle at the top + lightening windows.
 function standProfile(seatR, H, halfOpen, colW) {
   const lipY = H - seatR * Math.cos(halfOpen);
   const lipX = seatR * Math.sin(halfOpen);
   const topY = lipY + 8;
-  const shoulder = 26;               // 脚→本体へ広がる高さ
+  const shoulder = 26;               // the height at which the foot widens into the body
   const s = new THREE.Shape();
-  s.moveTo(-TENON_W / 2, -TENON_D);  // 下端: 中央ホゾ→足→肩へテーパ
+  s.moveTo(-TENON_W / 2, -TENON_D);  // bottom: center tenon → foot → taper to the shoulder
   s.lineTo(TENON_W / 2, -TENON_D);
   s.lineTo(TENON_W / 2, 0);
   s.lineTo(FOOT_HW, 0);
@@ -758,7 +854,7 @@ function standProfile(seatR, H, halfOpen, colW) {
   s.lineTo(lipX, topY);
   s.lineTo(lipX, lipY);
   for (let i = 0; i <= 32; i++) {
-    const a = halfOpen - (i / 32) * (2 * halfOpen); // 右縁→底→左縁(U字サドル)
+    const a = halfOpen - (i / 32) * (2 * halfOpen); // right edge → bottom → left edge (U-saddle)
     s.lineTo(seatR * Math.sin(a), H - seatR * Math.cos(a));
   }
   s.lineTo(-lipX, topY);
@@ -768,10 +864,10 @@ function standProfile(seatR, H, halfOpen, colW) {
   s.lineTo(-TENON_W / 2, 0);
   s.lineTo(-TENON_W / 2, -TENON_D);
   s.closePath();
-  // 肉抜き窓。縁の脚を残しつつ中央を広く抜く(高い柱は桟で2分割し剛性を残す)。
-  const wx = colW - 8;               // 外脚を8mmだけ残す
-  const wy0 = shoulder + 5, wy1 = H - seatR - 6; // 足の肩上〜サドル底の直下まで
-  if (wx > 8 && wy1 - wy0 > 40) {    // 高い柱は2分割(桟を残す)
+  // Lightening windows. Keep the edge legs while cutting a wide center out (a tall column is split in two by a strut to retain rigidity).
+  const wx = colW - 8;               // keep just 8mm of the outer leg
+  const wy0 = shoulder + 5, wy1 = H - seatR - 6; // from just above the foot shoulder to just below the saddle bottom
+  if (wx > 8 && wy1 - wy0 > 40) {    // a tall column is split in two (keeping a strut)
     const mid = (wy0 + wy1) / 2, strut = 8;
     for (const [a, b] of [[wy0, mid - strut / 2], [mid + strut / 2, wy1]]) {
       if (b - a < 14) continue;
@@ -786,40 +882,44 @@ function standProfile(seatR, H, halfOpen, colW) {
   }
   return s;
 }
-// 柱 = 一定厚(=コマ厚+クリアランス)の平板1枚。上端のU字切り欠きでコマの縁を受け、
-// 下端の中央ホゾをベース板スリットへ差し込む。厚みが均一なので平置き印刷で底面が
-// 完全フラット → 宙に浮く箇所なし・サポート不要。コマの厚み方向はU字溝に嵌まって
-// 収まり、軸方向は左右2つの柱で挟んで位置決めする。
-// 組立プレビューで土台を正しい高さに置くための寸法(床基準):
-export function standCollarTop() { return BASE_T + COLLAR_H; } // 柱脚が乗る高さ(=襟の天面)
-export function standSaddleH(p) { return maxRadius(p) + 15; }  // 柱ローカルのサドル中心高さ
+// Column = a single flat plate of constant thickness (= koma thickness + clearance). The U-notch at
+// the top receives the koma's edge, and the center tenon at the bottom is inserted into the base
+// plate's slot. Since the thickness is uniform, the bottom face is completely flat in flat printing →
+// no overhangs, no supports. The koma's thickness direction settles into the U-groove, and its axial
+// direction is located by being clamped between the two left/right columns.
+// Dimensions for placing the stand at the correct height in the assembly preview (floor basis):
+export function standCollarTop() { return BASE_T + COLLAR_H; } // the height the column foot rests at (= collar top face)
+export function standSaddleH(p) { return maxRadius(p) + 15; }  // the column-local saddle center height
 export function standGeometry(p) {
   const R = maxRadius(p);
   const kR = komaR(p);
-  const H = standSaddleH(p);         // サドル中心(コマ中心)の高さ(最大径+床クリアランス15mm)
-  const saddleR = kR + SADDLE_FIT;   // U字溝の受け半径(コマ縁+クリアランス)
-  const halfOpen = Math.PI * 0.5;    // 半円サドル: 口の幅=直径 → コマを上から落として載せられる
+  const H = standSaddleH(p);         // saddle center (koma center) height (max radius + 15mm floor clearance)
+  const saddleR = kR + SADDLE_FIT;   // U-groove receiving radius (koma edge + clearance)
+  const halfOpen = Math.PI * 0.5;    // semicircular saddle: mouth width = diameter → the koma can be dropped in from above and seated
   const colW = saddleR * Math.sin(halfOpen) + 12;
-  const T = standFullW(p);           // 板厚 = コマ厚 + クリアランス
+  const T = standFullW(p);           // plate thickness = koma thickness + clearance
   const g = new THREE.ExtrudeGeometry(
     standProfile(saddleR, H, halfOpen, colW),
     { depth: T, bevelEnabled: false });
   g.translate(0, 0, -T / 2);
   return g;
 }
-// 2つの柱(サドル)は、2つのコマの真下に来なければ溝に嵌まらない。
-// → 柱スリット間隔 = コマ中心の間隔。コマは爪(長さtabLen)に差し込み先端まで押し込むので、
-//   コマ中心は端から komaT/2 の位置に来る。よって間隔 = 火袋 + 2*(tabLen - komaT/2)
-//   = 火袋 + 2*tabLen - komaT(爪の先端＝差し込みの止まり位置基準)。
+// The two columns (saddles) won't fit into the grooves unless they come directly beneath the two
+// koma.
+// → Column slot spacing = koma center spacing. The koma is inserted onto the tab (length tabLen) and
+//   pushed all the way to the tip, so the koma center comes at komaT/2 from the end. Hence
+//   spacing = lamp body + 2*(tabLen - komaT/2) = lamp body + 2*tabLen - komaT (based on the tab tip =
+//   the insertion stop position).
 export function standSlotSep(p) { return p.height + 2 * p.tabLen - p.komaT; }
-// ベース板: 薄い平板に柱ホゾ用スリットを2つ。全長 = コマ間隔 + スリット幅 + 両端マージン。
-// (スリットをコマ真下=±間隔/2 に置き、その外側に材料を残すため羽根板より少し長い)
+// Base plate: a thin flat plate with two column-tenon slots. Total length = koma spacing + slot width
+// + margins at both ends. (The slots are placed directly beneath the koma = ±spacing/2, with material
+// left outside them, so it is slightly longer than the rib.)
 export function standBoardLength(p) {
   return standSlotSep(p) + standFullW(p) + SLOT_FIT + 2 * BASE_MARGIN;
 }
-// 角丸長方形の穴パス(中心cx,cy / 半幅hx,hy / 角半径r)。
-// 角を丸めると「複数の穴が同じ走査線を共有する」退化を避けられ、three.js の
-// ExtrudeGeometry が非多様体(open edge)を出さずに済む。ホゾ差し込みにも優しい。
+// A rounded-rectangle hole path (center cx,cy / half-widths hx,hy / corner radius r).
+// Rounding the corners avoids the "multiple holes sharing the same scan line" degeneracy, so three.js
+// ExtrudeGeometry doesn't produce non-manifold (open edge). It is also kind to tenon insertion.
 function roundedRectPath(cx, cy, hx, hy, r) {
   r = Math.max(0.2, Math.min(r, hx - 0.05, hy - 0.05));
   const p = new THREE.Path();
@@ -833,8 +933,8 @@ function roundedRectPath(cx, cy, hx, hy, r) {
 }
 export function boardGeometry(p) {
   const len = standBoardLength(p);
-  const sep = standSlotSep(p);                          // 柱スリット間隔 = コマ間隔
-  const W = TENON_W + 2 * BASE_MARGIN;                   // ベース板の幅
+  const sep = standSlotSep(p);                          // column slot spacing = koma spacing
+  const W = TENON_W + 2 * BASE_MARGIN;                   // base plate width
   const s = new THREE.Shape();
   s.moveTo(-len / 2, -W / 2);
   s.lineTo(len / 2, -W / 2);
@@ -842,10 +942,10 @@ export function boardGeometry(p) {
   s.lineTo(-len / 2, W / 2);
   s.closePath();
   const sx = (standFullW(p) + SLOT_FIT) / 2, sy = (TENON_W + SLOT_FIT) / 2;
-  // 柱ホゾ用スリット×2。角は直角のまま(角柱ホゾがぴったり差し込めるように)。
-  // ただし2スリットのy端が厳密に同一走査線だと earcut が破綻し open edge が
-  // 出るので、上下に ±0.1mm だけ互い違いにずらして退化を回避する
-  // (ずれは SLOT_FIT=0.4mm 内なので嵌合には影響しない)。
+  // Two column-tenon slots. The corners stay square (so the rectangular tenon inserts snugly).
+  // But if the two slots' y-ends are exactly on the same scan line, earcut breaks and produces an open
+  // edge, so they are staggered by ±0.1mm up/down to avoid the degeneracy (the offset is within
+  // SLOT_FIT=0.4mm, so it does not affect the fit).
   const STAGGER = 0.1;
   const slots = [[-sep / 2, STAGGER], [sep / 2, -STAGGER]];
   const slotRect = (cx, dy, hx, hy) => {
@@ -855,22 +955,23 @@ export function boardGeometry(p) {
     return p;
   };
   for (const [cx, dy] of slots) s.holes.push(slotRect(cx, dy, sx, sy));
-  // 肉抜き: スリット間の中央を1つの大きな窓で抜く(桟なし)。端とスリット周りだけ残す。
+  // Lightening: cut the center between the slots as a single large window (no strut). Keep only the ends and around the slots.
   const wall = 9, hw = W / 2 - wall, innerHalf = sep / 2 - sx - wall;
   if (hw > 4 && innerHalf > 8) {
     s.holes.push(roundedRectPath(0, 0, innerHalf, hw, 2));
   }
   const geos = [new THREE.ExtrudeGeometry(s, { depth: BASE_T, bevelEnabled: false })];
-  // スリット周りに襟(ソケット)を立て、差し込み深さを BASE_T→BASE_T+COLLAR_H に。
-  // 各襟は独立した密閉ソリッド。板へ僅かに沈めて自己交差(=スライサでunion)させ、
-  // 面の完全一致による非多様体エッジを避ける。中央は薄いままなので材料は最小。
+  // Raise a collar (socket) around the slots, taking the insertion depth from BASE_T → BASE_T+COLLAR_H.
+  // Each collar is an independent sealed solid. Sink it slightly into the plate so it self-intersects
+  // (= unions in the slicer), avoiding a non-manifold edge from exactly coincident faces. The center
+  // stays thin, so the material is minimal.
   const SINK = 1.5, EPS = 0.03;
   for (const [cx, dy] of slots) {
     const c = new THREE.Shape();
     const oX = sx + COLLAR_W, oY = sy + COLLAR_W;
     c.moveTo(cx - oX, dy - oY); c.lineTo(cx + oX, dy - oY);
     c.lineTo(cx + oX, dy + oY); c.lineTo(cx - oX, dy + oY); c.closePath();
-    c.holes.push(slotRect(cx, dy, sx + EPS, sy + EPS)); // 板スリットと僅かに非一致
+    c.holes.push(slotRect(cx, dy, sx + EPS, sy + EPS)); // slightly non-coincident with the plate slot
     const g = new THREE.ExtrudeGeometry(c, { depth: COLLAR_H + SINK, bevelEnabled: false });
     g.translate(0, 0, BASE_T - SINK);
     geos.push(g);

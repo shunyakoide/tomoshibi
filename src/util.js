@@ -1,10 +1,10 @@
 /**
  * ============================================================================
- * 共通ユーティリティ (UTIL)
+ * SHARED UTILITIES (UTIL)
  * ============================================================================
- * UI 側(HarigataStudio / SectionEditor)で共有する小さな純粋関数。
+ * Small pure functions shared on the UI side (HarigataStudio / SectionEditor).
  * ============================================================================
  */
 
-// 値を [lo, hi] に収める。
+// Clamp a value into [lo, hi].
 export const clamp = (lo, hi, v) => Math.max(lo, Math.min(hi, v));
