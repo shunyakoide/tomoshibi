@@ -1,21 +1,22 @@
 /**
  * ============================================================================
- * 型紙(段ボール)の検証
+ * Papercraft (cardboard) verification
  * ============================================================================
- * STL は「水密(manifold)」で正しさを担保するが、型紙は紙なので判定基準が違う。
- * 型紙で壊れると困るのは次の3つ:
+ * STL correctness is guaranteed by "watertight (manifold)", but papercraft is
+ * paper, so the criteria differ. Three things that must not break in papercraft:
  *
- *   1. **原寸(1:1)であること**  — 紙面の寸法 = 実寸 mm。ここがズレたら型紙は無価値。
- *      geometry.js の不変量(羽根板の全長 / コマ外径 / 溝幅 / 溝の壁厚)と突き合わせる。
- *   2. **部品の載り漏れが無いこと** — 羽根板 N + コマ2 が全て紙に出る。
- *      ページ割り付け(行詰め+ページ跨ぎ)の取りこぼしはここでしか気付けない。
- *      併せて「**跨ぐ部品が無ければのりしろを出さない**」も検査する(不要な貼り合わせを
- *      強いていないか。以前は全ページを一律に重ねていた)。
- *   3. **NaN/undefined を出さないこと** — SVG の path に NaN が混ざるとその部品が消える
- *      (ブラウザは黙って無視するので、印刷して初めて気付く = 最悪)。
+ *   1. **Full-scale (1:1)** — paper dimensions = real mm. If this drifts, the
+ *      papercraft is worthless. Cross-check against geometry.js invariants
+ *      (rib total length / koma outer diameter / groove width / groove wall thickness).
+ *   2. **No missing parts** — all N ribs + 2 komas appear on paper. A drop from
+ *      page layout (row packing + page spanning) can only be caught here.
+ *      Also checks "**do not emit glue tabs when no part spans pages**" (are we
+ *      forcing unnecessary gluing? previously every page was uniformly overlapped).
+ *   3. **No NaN/undefined** — a NaN in an SVG path makes that part vanish
+ *      (the browser silently ignores it, so you only notice after printing = worst case).
  *
- * 実行:  npm run check:paper
- * papercraft.js / geometry.js の 2D 側を触ったら通すこと。
+ * Run:  npm run check:paper
+ * Run this after touching the 2D side of papercraft.js / geometry.js.
  * ============================================================================
  */
 import { paperHTML, paperParts, A4 } from "../src/papercraft.js";
@@ -25,14 +26,14 @@ import { PRESETS, DEFAULTS } from "../src/config.js";
 let fail = 0;
 const bad = (msg) => { console.log("FAIL:", msg); fail++; };
 const eq = (a, b, msg, tol = 0.01) => { if (Math.abs(a - b) > tol) bad(`${msg}: ${a} != ${b}`); };
-// 点列の外接矩形(外形+穴)
+// Bounding box of the point list (outline + holes)
 const bb = (q) => {
   const a = [q.outline, ...(q.holes || [])].flat();
   const xs = a.map((v) => v[0]), ys = a.map((v) => v[1]);
   return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
 };
 
-// ---- 1. 原寸: 紙面の寸法が geometry.js の値と一致するか ----
+// ---- 1. Full-scale: do the paper dimensions match geometry.js values? ----
 for (const preset of PRESETS)
   for (const height of [140, 205, 300, 400])
     for (const matT of [1, 2, 5, 10]) {
@@ -40,30 +41,30 @@ for (const preset of PRESETS)
       const { parts, pk } = paperParts(p, matT);
       const tag = `${preset.key} h${height} t${matT}`;
       const find = (pre) => parts.find((q) => q.name.startsWith(pre));
-      eq(bb(find("羽根板")).h, p.height + 2 * p.tabLen, `${tag} 羽根板の全長`);
-      // コマのノッチ幅 = 材料厚ぴったり(fit=0)。ここがズレると爪が入らない/ガタつく。
-      eq(pk.boardT + Math.max(0, pk.fit ?? 0), matT, `${tag} ノッチ幅`);
-      // 爪の内側ストッパが**必ず存在**し、3Dプリント既定より大きく張り出していること。
-      // (既定のままだと厚 3mm 以上で「余地なし」となり棚が消える = 段ボールで効かない)
-      // 棚の位置 = コマを爪先まで嵌めた時のコマ内面(height + tabLen - matT)なので、
-      // 材料厚が爪の長さに迫ると置き場が無くなる。その場合は紙面で警告する仕様(棚は作らない)。
+      eq(bb(find("羽根板")).h, p.height + 2 * p.tabLen, `${tag} rib total length`);
+      // Koma notch width = material thickness exactly (fit=0). If this drifts, the tab won't fit / will wobble.
+      eq(pk.boardT + Math.max(0, pk.fit ?? 0), matT, `${tag} notch width`);
+      // The tab's inner stopper **must exist** and protrude more than the 3D-print default.
+      // (Left at the default, at 3mm+ thickness it becomes "no room" and the shelf vanishes = ineffective on cardboard.)
+      // The shelf position = the koma's inner face when the koma is seated to the tab tip (height + tabLen - matT), so
+      // when material thickness approaches the tab length there's no place for it. In that case, by design, warn on paper (no shelf made).
       const st = komaStop2D(pk, { w: Math.max(3, matT * 1.6), gap: 0.4, min: 0.4 });
       const room = p.tabLen - matT >= 1;
-      if (room && !st) bad(`${tag} 余地があるのにストッパが生成されない`);
-      if (!room && st) bad(`${tag} 置き場が無いのにストッパを作った`);
+      if (room && !st) bad(`${tag} stopper not generated despite having room`);
+      if (!room && st) bad(`${tag} made a stopper despite no place for it`);
       const st3 = komaStop2D(pk);
-      if (st && st3 && st.Rd > st3.Rd + 1e-9) bad(`${tag} ストッパが 3D 既定より小さい`);
-      if (!st && !paperHTML(p, matT, A4).includes("ストッパ(段)が作れません")) bad(`${tag} 棚なしの警告が出ていない`);
-      // コマの溝どうしの壁が細いとき(材料厚の半分未満)は、形は変えずに紙面で知らせる仕様。
+      if (st && st3 && st.Rd > st3.Rd + 1e-9) bad(`${tag} stopper smaller than the 3D default`);
+      if (!st && !paperHTML(p, matT, A4).includes("ストッパ(段)が作れません")) bad(`${tag} no-shelf warning is not shown`);
+      // When the wall between koma grooves is thin (less than half the material thickness), by design notify on paper without changing the shape.
       const wall = (2 * Math.PI * (innerRi(pk) - 0.5)) / pk.boards - matT;
-      if (wall < matT / 2 && !paperHTML(p, matT, A4).includes("しかありません")) bad(`${tag} 壁が細いのに警告が出ていない`);
-      // コマは多角形近似(弦)+ 縁のノッチ抜きなので、外接径は直径をわずかに下回る
-      // (材料が厚いほどノッチが広く、下回る量も増える)。komaR を**上回ったら**異常。
+      if (wall < matT / 2 && !paperHTML(p, matT, A4).includes("しかありません")) bad(`${tag} no warning despite the thin wall`);
+      // The koma is a polygonal approximation (chords) + edge notch cutouts, so the circumscribed diameter is slightly under the diameter
+      // (thicker material = wider notches = more under). It's an error if it **exceeds** komaR.
       const kw = bb(find("コマ")).w, kd = 2 * komaR(pk);
-      if (!(kw <= kd + 0.01 && kw >= kd * 0.9)) bad(`${tag} コマ外径 ${kw} vs ${kd}`);
+      if (!(kw <= kd + 0.01 && kw >= kd * 0.9)) bad(`${tag} koma outer diameter ${kw} vs ${kd}`);
     }
 
-// ---- 2/3. 載り漏れ・NaN・ページ整合のスイープ ----
+// ---- 2/3. Sweep for missing parts / NaN / page consistency ----
 let n = 0;
 for (const preset of PRESETS)
   for (const height of [140, 205, 300, 400])
@@ -74,36 +75,36 @@ for (const preset of PRESETS)
           const p = { ...DEFAULTS, ...preset, height, boards, pitch };
           const tag = `${preset.key} h${height} b${boards} t${matT} pi${pitch}`;
           const { parts, pk, clamped, nMax } = paperParts(p, matT);
-          if (parts.length !== pk.boards + 4) bad(`${tag}: 部品数 ${parts.length}`); // 羽根板N + コマ2 + スタンド帯2
-          if (clamped && pk.boards !== nMax) bad(`${tag}: clamp 不整合`);
+          if (parts.length !== pk.boards + 4) bad(`${tag}: part count ${parts.length}`); // N ribs + 2 komas + 2 stand bands
+          if (clamped && pk.boards !== nMax) bad(`${tag}: clamp mismatch`);
           for (const q of parts) {
             const pts = [q.outline, ...(q.holes || [])].flat();
-            if (!pts.length) bad(`${tag}: ${q.name} 空`);
-            for (const [x, y] of pts) if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} に NaN`);
-            for (const m of q.marks || []) for (const v of m) if (!Number.isFinite(v)) bad(`${tag}: ${q.name} の目盛に NaN`);
+            if (!pts.length) bad(`${tag}: ${q.name} empty`);
+            for (const [x, y] of pts) if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
+            for (const m of q.marks || []) for (const v of m) if (!Number.isFinite(v)) bad(`${tag}: ${q.name} has NaN in marks`);
           }
           const html = paperHTML(p, matT, A4);
-          if (/NaN|Infinity|undefined/.test(html)) bad(`${tag}: HTML に NaN/undefined`);
+          if (/NaN|Infinity|undefined/.test(html)) bad(`${tag}: NaN/undefined in HTML`);
           const pages = (html.match(/class="pg"/g) || []).length;
-          if (pages < 1 || pages > 60) bad(`${tag}: ページ数 ${pages}`);
-          // 全ページに原寸確認スケールが出ていること(1枚でも欠けると縮尺事故に気付けない)
-          if ((html.match(/50mm ←/g) || []).length !== pages) bad(`${tag}: スケール欠落`);
-          for (const q of parts) if (!html.includes(q.name)) bad(`${tag}: ${q.name} が紙に無い`);
-          // のりしろは「1ページ(コンテンツ高さ CH)に収まらない部品」がある時だけ出す。
-          // A4: CH = 297 - 2*8(余白) - 14(下部の帯) = 267mm。
+          if (pages < 1 || pages > 60) bad(`${tag}: page count ${pages}`);
+          // Every page must show the full-scale check ruler (if even one is missing, a scaling accident goes unnoticed)
+          if ((html.match(/50mm ←/g) || []).length !== pages) bad(`${tag}: scale missing`);
+          for (const q of parts) if (!html.includes(q.name)) bad(`${tag}: ${q.name} not on paper`);
+          // Glue tabs are emitted only when there's a "part that doesn't fit on one page (content height CH)".
+          // A4: CH = 297 - 2*8 (margins) - 14 (bottom band) = 267mm.
           const CH = 297 - 2 * 8 - 14;
           const tallest = Math.max(...parts.map((q) => {
             const a = [q.outline, ...(q.holes || [])].flat();
             const ys = a.map((v) => v[1]), xs = a.map((v) => v[0]);
-            // 紙幅に収まらなければ 90° 回されるので、その場合は幅が高さになる
+            // If it doesn't fit the paper width it's rotated 90°, in which case the width becomes the height
             const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
             return w > 210 - 2 * 8 ? w : h;
           }));
-          // 判定は紙面に実際に引かれる注記で行う(説明文にも「のりしろ」の語があるため)
+          // Judge by the note actually drawn on paper (the explanatory text also contains the word "のりしろ" / glue tab)
           const glued = html.includes("ここから下は次のページと重なります");
-          if (tallest <= CH && glued) bad(`${tag}: 跨ぐ部品が無いのにのりしろが出ている`);
-          if (tallest > CH && !glued) bad(`${tag}: 跨ぐ部品があるのにのりしろが無い`);
+          if (tallest <= CH && glued) bad(`${tag}: glue tab emitted despite no spanning part`);
+          if (tallest > CH && !glued) bad(`${tag}: glue tab missing despite a spanning part`);
         }
 
-console.log(`\n=== ${n} 組 (原寸検証 ${PRESETS.length * 16} 組含む), ${fail} FAIL ===`);
+console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos), ${fail} FAIL ===`);
 process.exit(fail ? 1 : 0);

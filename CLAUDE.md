@@ -1,150 +1,149 @@
 # CLAUDE.md
 
-張型スタジオ (Harigata Studio) — AKARI 風の和紙提灯を作るための **3Dプリント用の型(張型)** を生成する Web アプリ。断面を直接編集すると、羽根板・コマ・土台の STL が出力される。
+Harigata Studio (張型スタジオ) — a web app that generates **3D-printable forming molds (harigata)** for building washi paper lanterns (paper lamps). Editing the cross-section directly produces STLs for the ribs, koma (hubs), and stand.
 
-## 用語と役割(まずここを読む)
+## Terminology and roles (read this first)
 
-現実の提灯づくりの工程: **型に竹ひごを巻く → 和紙を貼る → 乾いたら型をばらして抜く**。この型を分割部品として 3D プリントするのが本アプリ。
+The real-world lantern-making process: **wind bamboo ribs onto the mold → paste on washi paper → once dry, disassemble the mold and pull it out**. This app is about 3D-printing that mold as separable parts.
 
-> **現状、溝は水平なリング**(全羽根で同一位置)。螺旋にしたい場合は巻く人が斜めに巻く。各部品の役割は次の通り(**これらの定義・関係は固定。実装や説明で勝手に変えない**)。
+> **Grooves are horizontal rings by default** (identical position across every rib). An optional **spiral winding** mode (`p.spiral`) offsets the grooves per rib (`step/boards` each) so the bamboo forms one continuous descending helix; because each rib is then a different shape, spiral molds export one STL per rib, each engraved with its serial number (7-segment through-cut). Each part's role is as follows (**these definitions and relationships are fixed — do not change them arbitrarily in the implementation or explanations**).
 
 ```
-        ● コマ(上)         ← 羽根板の爪を集めて束ねる歯車状ハブ
-      ┌──┐  首(上)         ← 開口の位置決めだけをする垂直な長方形(任意)
+        ● koma (top)         ← gear-like hub that gathers and bundles the rib tabs
+      ┌──┐  neck (top)       ← vertical rectangle whose only job is positioning the opening (optional)
       │  │
-     ╱    ╲                 火袋(ひぶくろ)= 提灯の本体形状。
-    │ 溝→  │ ← 竹ひご         和紙が張られる回転面。外縁に竹ひご溝。
-    │ 溝→  │
+     ╱    ╲                  lamp body (hibukuro) = the lantern's body shape.
+    │ groove→ │ ← bamboo rib  Surface of revolution the washi is pasted onto. Bamboo-rib grooves on the outer edge.
+    │ groove→ │
      ╲    ╱
-      │  │  首(下)          ← 上下は独立(neckBot / neckTop)
+      │  │  neck (bottom)     ← top and bottom are independent (neckBot / neckTop)
       └──┘
-        ● コマ(下)
-       ╱ ╲                  ↑ 爪(つめ)= 羽根板の端の真っ直ぐな舌。コマに刺さる。
-      土台(柱2本+ベース)     コマを U字サドルで受け、床から浮かせて固定。
+        ● koma (bottom)
+       ╱ ╲                   ↑ tab (tsume) = the straight tongue at the rib's end. Plugs into the koma.
+      stand (2 posts + base)  Receives the koma in a U-shaped saddle, holding it clear of the floor.
 ```
 
-| 用語 | 役割・定義 |
+| Term | Role / definition |
 |---|---|
-| **火袋(ひぶくろ)** | 提灯の**本体形状**。和紙が張られる曲面。断面プロファイルの「最外制御点の**間**」のカーブ部分。ここにだけ竹ひご溝が入る。 |
-| **羽根板(はねいた / rib)** | 型の面を作る**放射状の板**(N枚、みかんの房のように並ぶ)。平置きで印刷する平板。外縁が火袋カーブ(+溝)、両端に爪。上下の 2 個のコマに差し込んで組む。内縁は**中央だけ内向きにえぐった曲線**(`ribInnerX()`)= 乾燥後に開口から抜きやすくするため(実物の張型を「内側を半月に削る」のと同じ狙い)。※「羽根板」は本アプリの造語。実物の職人は分割部品を個別に呼ばず「**6枚型・8枚型・10枚型**」と枚数で数える。 |
-| **竹ひご** | 火袋の外周に**水平に巻く細い竹**。提灯の横リング。羽根板外縁の溝に沿って収まる。実物では「**ヒゴ / 竹骨**」とも。 |
-| **溝(みぞ / 竹ひご溝)** | 羽根板の外縁に彫る **V ノッチ**。竹ひごが嵌まって滑り落ちないよう、返し(歯先)は**中央=赤道側**へ倒す。**等間隔**。首(開口際)には作らない。実物の職人用語では張型側面のこの溝を「**ヒゴ目(ひご目)**」と呼ぶ(目数が細かいほど上物)。 |
-| **開口(かいこう)** | 火袋の上下の**口**。= 最外制御点の半径。和紙の端であり、コマ/爪が繋がる位置。実物の口の輪は「**口輪(くちわ)**」に相当。 |
-| **首(くび / neck)** | 開口の**外側に立つ垂直な長方形の襟**。役割は**開口の位置・大きさを決めること「だけ」**。上下独立で有無を選べる(`neckBot`/`neckTop`)。**常に長方形・角度にしない**。**首の有無で爪の大きさは変わらない**。首が無ければ開口は爪の大きさになる。首には竹ひご・溝・和紙は無い。 |
-| **爪(つめ / tab)** | 羽根板の端の**真っ直ぐな舌**。コマのノッチに差し込む。幅 = **板厚 `boardT`**(公称でコマのノッチ幅と一致)。ノッチ側だけ**プリント公差 `fit`** を足して `boardT + fit` にし、実寸のはめあいクリアランスを空ける(爪自体は `boardT` のまま)。**外向き**の段差・フック・出っ張りは付けない。**上端の爪だけ**、内縁に**内向きの棚**(上コマが内側へ入るのを止めるストッパ)を持つ。提灯職人の型では首が無く「爪 = 首」を兼ねる(だから首は設計上の任意オプション)。 |
-| **コマ** | 爪を集めて束ねる**小さな歯車状ハブ**(上下 2 個、完全に同一)。外周に爪が刺さるノッチ。外径 = `komaR`。土台がこれを受ける。**実在の職人用語**で、実物では別名「**カガミ(鏡)**」(張型を上下のコマ=カガミの溝に差し込み組み上げて固定する)。 |
-| **土台(どだい / stand)** | 組んだ型を支える**台**。一定厚の**柱 2 本**が U 字サドルでコマの縁を受け、1 枚のベース板が正しい間隔で柱を保持。全面フラットでサポート不要。ユーザーは再利用することが多い(毎回は刷らない)。 |
+| **lamp body (hibukuro / 火袋)** | The lantern's **body shape**. The curved surface the washi is pasted onto. The curved portion **between** the outermost control points of the cross-section profile. Bamboo-rib grooves go here and only here. |
+| **rib (haneita / 羽根板)** | The **radial plate** that forms the mold's surface (N of them, arranged like the segments of a mandarin orange). A flat plate printed lying flat. Its outer edge is the lamp-body curve (+ grooves), with a tab at each end. It assembles by plugging into the two koma (top and bottom). Its inner edge is a curve **hollowed inward only at the center** (`ribInnerX()`) — to make it easy to pull out through the opening after drying (the same intent as carving the inside of a real forming mold into a half-moon). Note: "rib" (haneita) is a coined term for this app. Real craftspeople don't name the individual parts; they count by plate count — "**6-plate, 8-plate, 10-plate mold**". |
+| **bamboo rib (higo / 竹ひご)** | The thin bamboo **wound horizontally** around the outside of the lamp body. The lantern's horizontal rings. It seats along the grooves on the rib's outer edge. Also called "**higo / bamboo bone**" in the real craft. |
+| **groove (mizo / bamboo-rib groove)** | The **V-notch** carved into the rib's outer edge. So the bamboo rib seats in and doesn't slip off, the barb (tooth tip) leans toward **the center = the equator**. **Evenly spaced.** None are cut at the neck (near the opening). In craftspeople's terminology this side groove on the forming mold is called "**higo-me (ひご目)**" (the finer the count, the finer the work). |
+| **opening (kaikou / 開口)** | The **mouth** at the top and bottom of the lamp body. = the radius of the outermost control point. It is the edge of the washi and the position where the koma/tabs connect. In real work this rim corresponds to the "**opening ring (kuchiwa / 口輪)**". |
+| **neck (kubi / neck)** | The **vertical rectangular collar** standing outside the opening. Its role is **"only" to set the position and size of the opening**. It is independent top/bottom and can be present or absent (`neckBot`/`neckTop`). **Always a rectangle — never angled.** **The presence of a neck does not change the tab size.** Without a neck, the opening becomes the tab size. The neck carries no bamboo rib, no groove, and no washi. |
+| **tab (tsume / tab)** | The **straight tongue** at the rib's end. It plugs into the koma's notch. Width = **board thickness `boardT`** (nominally equal to the koma's notch width). Only the notch side adds the **print tolerance `fit`** to become `boardT + fit`, leaving a real-world fit clearance (the tab itself stays `boardT`). No **outward** steps, hooks, or protrusions. **Only the top tab** has an **inward shelf** on its inner edge (a stopper preventing the top koma from sliding inward). In a lantern maker's mold there is no neck and "tab = neck" (which is why the neck is an optional design element). |
+| **koma (コマ)** | The **small gear-like hub** that gathers and bundles the tabs (two of them, top and bottom, completely identical). Notches around the rim where the tabs plug in. Outer diameter = `komaR`. The stand receives it. This is a **real craft term**; in the trade it is also called "**kagami (mirror / 鏡)**" (the forming mold is assembled and fixed by inserting it into the grooves of the top and bottom koma = kagami). |
+| **stand (dodai / 土台)** | The **base** that supports the assembled mold. Two **posts** of constant thickness receive the koma's rim in a U-shaped saddle, and a single base plate holds the posts at the correct spacing. Fully flat, needs no print supports. Users often reuse it (they don't print it every time). |
 
-**組み上がりの関係**: 羽根板(爪)→ 差し込む →**コマ**→ 載る →**土台**。竹ひごは羽根板外縁の**溝**に巻く。羽根板外縁が回転して**火袋**の面になり和紙が張られる。**首**は開口の位置決め(垂直長方形)で、**爪の大きさとは独立**。
+**Assembly relationships**: rib (tab) → plugs into → **koma** → sits on → **stand**. The bamboo rib winds into the **grooves** on the rib's outer edge. The rib's outer edge revolved forms the **lamp body** surface onto which the washi is pasted. The **neck** positions the opening (a vertical rectangle) and is **independent of the tab size**.
 
-## コマンド
+## Commands
 
 ```bash
-npm run dev       # Vite 開発サーバ (HMR, --host)。既定 http://localhost:5173/
-npm run build     # 本番ビルド(= npx vite build)。変更後は必ず通ることを確認する
-npm run preview   # ビルド成果物のプレビュー
+npm run dev       # Vite dev server (HMR, --host). Default http://localhost:5173/
+npm run build     # Production build (= npx vite build). Always confirm it passes after changes.
+npm run preview   # Preview the build output
 ```
 
-テストランナーは無し。**正しさの検証は「ビルドが通る」＋「STL が水密(manifold)」**で担保する(下記)。
+No test runner. **Correctness is verified by "the build passes" + "the STL is watertight (manifold)"** (see below).
 
-## 技術スタック
+## Tech stack
 
-Vite 7 + React 18 + three.js 0.169(いずれも素の JS/JSX、TypeScript なし)。依存は最小。
+Vite 7 + React 18 + three.js 0.169 (all plain JS/JSX, no TypeScript). Minimal dependencies.
 
-## アーキテクチャ
+## Architecture
 
-- **`src/geometry.js`** — 中核。断面プロファイルと 3部品の 2D 断面 / 3D ジオメトリを生成する**純粋関数群**。three.js の Shape/ExtrudeGeometry を返すが **React・DOM には一切依存しない**(断面描画・STL 出力の両方から共有)。ロジックを足すならまずここ。
-- **`src/config.js`** — `PRESETS`(形の制御点テンプレート)/ `DEFAULTS`(初期パラメータ)/ `SIL_ROWS`(スクラブ行の定義)。
-- **`src/SectionEditor.jsx`** — 断面の**直接操作エディタ**(SVG)。制御点◇のドラッグ・追加・削除・角/なめらか切替、首/火袋/爪(羽根板)の可視化。`geometry.js` の `outerR` 等をそのまま使い 3D/STL と完全一致させる。
-- **`src/HarigataStudio.jsx`** — アプリ本体。右パネルの各種操作 UI と、4つの 3D ビュー(`2d`=断面 / `mold`=組立 / `print`=印刷 / `lit`=点灯)。
-- **`src/stl.js`** — STL エクスポート(+ 型紙 HTML をタブで開く `openHTML`)。
-- **`src/papercraft.js`** — **型紙**(段ボール/厚紙で作るための A4 原寸 1:1 印刷ページ)。`geometry.js` の 2D 関数から SVG を起こす純粋モジュール(下記「型紙」)。
-- `main.jsx` / `index.css` — エントリ・スタイル。
+- **`src/geometry.js`** — the core. **Pure functions** that generate the cross-section profile and the 2D cross-sections / 3D geometry of the three parts. They return three.js Shape/ExtrudeGeometry but **have no dependency on React or the DOM** (shared by both section drawing and STL export). If you add logic, start here.
+- **`src/config.js`** — `PRESETS` (control-point templates for shapes) / `DEFAULTS` (initial parameters) / `SIL_ROWS` (scrub-row definitions).
+- **`src/SectionEditor.jsx`** — the **direct-manipulation editor** for the cross-section (SVG). Drag/add/delete control-point ◇ handles, toggle corner/smooth, and visualize the neck/lamp-body/tab (rib). It uses `geometry.js`'s `outerR` etc. directly so it matches the 3D/STL exactly.
+- **`src/HarigataStudio.jsx`** — the app itself. The various control UIs in the right panel plus the four 3D views (`2d` = cross-section / `mold` = assembly / `print` = printing / `lit` = lit).
+- **`src/stl.js`** — STL export (+ `openHTML`, which opens the papercraft HTML in a tab).
+- **`src/papercraft.js`** — **papercraft** (A4 full-scale 1:1 print pages for building the mold from cardboard/thick paper). A pure module that derives the SVG from `geometry.js`'s 2D functions (see "Papercraft" below).
+- `main.jsx` / `index.css` — entry point and styles.
 
-## 座標系・単位
+## Coordinate system and units
 
-- **全寸法 mm**。羽根板/コマ/土台は **XY平面の Shape + Z押し出し**(=そのまま平置き印刷向き)。
-- `outerR(p, t)`: 高さ正規化 `t∈[0,1]`(0=下端, 1=上端)→ 外周半径 mm。プロファイルの核。
+- **All dimensions in mm.** Ribs/koma/stand are a **Shape on the XY plane + extruded along Z** (= oriented for flat printing as-is).
+- `outerR(p, t)`: height-normalized `t∈[0,1]` (0 = bottom, 1 = top) → outer radius in mm. The heart of the profile.
 
-## プロファイルのモデル(重要)
+## Profile model (important)
 
-シルエットは **制御点配列 `p.pts = [{t, r, sharp?}]`**(昇順)を**単調 Hermite 補間**(Fritsch–Carlson, `fukuroTangents`/`fukuroSpline`)でつないだ半径関数。反り・不要な急カーブを抑えるため接線を隣接弦と同符号・3倍以内にクランプする。
+The silhouette is a radius function connecting the **control-point array `p.pts = [{t, r, sharp?}]`** (ascending) via **monotone Hermite interpolation** (Fritsch–Carlson, `fukuroTangents`/`fukuroSpline`). To suppress warping and unwanted sharp curves, tangents are clamped to the same sign as the adjacent chords and to within 3×.
 
-- **最外の制御点(`pts[0]` / 末尾)= 開口 = 首の半径**。ここに一致させることで首→火袋に無駄なフレア(Sカーブ)が出ない。
-- **首(くび)** = 最外制御点より外側の**垂直な長方形**(常に長方形・角度ではない)。有無は `neckBot` / `neckTop` で上下独立。首の高さ・張り出しは断面図の◇(横=張り出し / 縦=首の高さ)で調整。
-- **火袋(ひぶくろ)** = 最外制御点の**間**のカーブ + 竹ひご溝。`fukuroRange(p)` がその t 範囲。
-- **首・爪の設計基準は「制御点の半径」**(`openMin`/`bodyMinR`)で、**首の有無に依存しない**。首をトグルしても爪(コマ)の大きさは変わらない。首なし側は開口が爪サイズ(`komaR`)になる。
+- **The outermost control points (`pts[0]` / last) = the opening = the neck radius.** Matching them here removes any wasteful flare (S-curve) from the neck into the lamp body.
+- **The neck (kubi)** = a **vertical rectangle** outside the outermost control point (always a rectangle — never angled). Presence is independent top/bottom via `neckBot` / `neckTop`. The neck's height and overhang are adjusted with the ◇ handle in the section view (horizontal = overhang / vertical = neck height).
+- **The lamp body (hibukuro)** = the curve **between** the outermost control points + bamboo-rib grooves. `fukuroRange(p)` gives its t range.
+- **The design reference for the neck and tab is "the control-point radius"** (`openMin`/`bodyMinR`), and it **does not depend on whether the neck exists**. Toggling the neck does not change the tab (koma) size. On the side without a neck, the opening becomes the tab size (`komaR`).
 
-## 設計ルール(繰り返し出た指摘 — 再説明しないための固定事項)
+## Design rules (repeatedly raised points — fixed items so they don't need re-explaining)
 
-形状を変えるときは以下を必ず守る。過去にこれらを外して差し戻しになった:
+Always obey the following when changing the shape. Removing these has caused reverts in the past:
 
-- **首は常に垂直な長方形**。斜めのテーパ・角度にしない。役割は開口の位置決めだけ。
-- **首の有無で爪(コマ)の大きさは変えない**。首は開口を外側へ広げるもの。首が無ければ開口 = 爪サイズ。
-- **爪は真っ直ぐな舌**。**外向き**の段差・フック・出っ張りを付けない(外縁 = コマ外径 `kR` にちょうど合わせ、はみ出さない)。
-- **例外: 上コマの内側ストッパ**(実物のあかりランプの型を参照して追加)。**上端の爪だけ**、内縁に**内向きの棚**(`komaStop2D()`)を作り、上のコマが**火袋側(内側)へ入り込むのを止める**。下端の爪は真っ直ぐな長方形のまま。
-  - **コマは作業後に「外側(爪先の側)」へ抜く**。だから棚は**コマの内側だけ**に置き、上下で挟まない → 乗り越え不要で抜き差しは自由。ここを塞ぐと型がばらせなくなる。
-  - 棚の高さは `height + tabLen - komaT` = コマを爪先まで嵌めた時の「コマ内面」の位置。これは `standSlotSep` が前提にしている位置と**一致**するので、**棚を足しても土台は動かない**(運用任せだった位置を形状で保証するだけ)。
-- **爪の幅 = 板厚 `boardT`**(公称でノッチ幅と一致)。ノッチ幅 = `boardT + fit`(`fit`=プリント公差、`komaShape()` で加算)。「キチキチに詰める」のではなく、公称一致＋実寸クリアランス `fit` だけを空ける。`fit=0` で従来どおり隙間なし。
-- **羽根板の内縁は「中央だけ」えぐる**(`ribInnerX()`)。実物のあかりランプの型がこの形で、開口から羽根を抜きやすくするためのもの。**羽根全体を曲げない**(端まで曲げると無理な形になる/一定幅の帯にすると開口 ≫ コマの形で爪に届かず羽根が2つに割れる)。上下端は**芯 `Ri` のまま**なので爪との繋がりは不変。えぐり量は中央の深さ × `RIB_CURVE_D`(実物は約2割)。**外縁・溝・爪・コマ・土台には波及しない**(内側の材料が減るだけ)。
-- **溝の返し(歯先)は中央=赤道側へ倒す**(開口側ではない)。開口の直近には溝を置かず半ピッチのバッファを取る(端の返しは効かないため)。
-- **溝は火袋カーブ全体に等間隔**で入れる。カーブには必ず溝が要る。
-- **カーブは滑らかに**。制御点由来の無駄な急カーブ・S反りを作らない(最外制御点=開口に一致させることで首際のフレアを消す)。
-- **高さ・土台は安易に変えない**。ユーザーは土台を再利用する。寸法変更は合わせ目(下記)に波及する。
+- **The neck is always a vertical rectangle.** No slanted taper or angle. Its only role is positioning the opening.
+- **Do not change the tab (koma) size based on whether a neck exists.** The neck widens the opening outward. Without a neck, opening = tab size.
+- **The tab is a straight tongue.** No **outward** steps, hooks, or protrusions (the outer edge matches the koma outer diameter `kR` exactly and does not stick out).
+- **Exception: the top koma's inner stopper** (added by reference to a real paper-lamp mold). **Only the top tab** gets an **inward shelf** on its inner edge (`komaStop2D()`) to **stop the top koma from sliding into the lamp-body side (inward)**. The bottom tab stays a plain straight rectangle.
+  - **The koma is pulled out "outward" (toward the tab tip) after work.** So the shelf sits **only on the inner side of the koma** and does not clamp it from both sides → no need to ride over it, so insertion/removal stays free. Blocking this makes the mold impossible to disassemble.
+  - The shelf's height is `height + tabLen - komaT` = the position of the "koma inner face" when the koma is seated all the way to the tab tip. This **matches** the position `standSlotSep` assumes, so **adding the shelf does not move the stand** (it just guarantees by shape a position that was previously left to operation).
+- **Tab width = board thickness `boardT`** (nominally equal to notch width). Notch width = `boardT + fit` (`fit` = print tolerance, added in `komaShape()`). Rather than "cramming it tight", match nominally and leave only the real-world clearance `fit`. With `fit=0` there is no gap, as before.
+- **Hollow the rib's inner edge "only at the center"** (`ribInnerX()`). Real paper-lamp molds have this shape, to make the rib easy to pull out through the opening. **Do not bend the whole rib** (bending it end-to-end makes an impossible shape / a constant-width band gives an opening ≫ koma shape that never reaches the tab, splitting the rib in two). The top and bottom ends stay at **core `Ri`**, so the connection to the tab is unchanged. The hollow amount is the center depth × `RIB_CURVE_D` (real ones are about 20%). **It does not propagate to the outer edge, grooves, tab, koma, or stand** (only the inner material is reduced).
+- **The groove's barb (tooth tip) leans toward the center = the equator** (not toward the opening). Do not place grooves right next to the opening; leave a half-pitch buffer (barbs at the very end don't work).
+- **Grooves go evenly spaced across the entire lamp-body curve.** The curve always needs grooves.
+- **Curves stay smooth.** Do not create wasteful sharp curves or S-warps derived from the control points (matching the outermost control point = the opening removes the flare at the neck).
+- **Don't casually change the height or the stand.** Users reuse the stand. Dimension changes propagate to the joints (below).
 
-## 部品の合わせ目(印刷して組む上での不変量)
+## Part joints (invariants for printing and assembling)
 
-型は **羽根板 × N + コマ × 2 + 土台**。再印刷時に「前のコマ・土台と合うか」はこの値で決まる:
+The mold is **rib × N + koma × 2 + stand**. Whether a reprint "fits the previous koma/stand" is determined by these values:
 
-- **羽根板の爪 ↔ コマ**: 板厚 `boardT`(爪の厚み。ノッチ幅は `boardT + fit`)/ `innerRi`(爪先=ノッチ底の半径)/ `boards`(歯数)。この3つが同じなら爪は同じ深さで刺さる。`fit` は接線方向のはめあいクリアランスを足すだけで噛み合い深さには影響しない。`komaR`(コマ外径)はコマの外への張り出しを決めるだけで噛み合いには影響しない。
-  - **実装**: この噛み合いは `innerRi()`(`src/geometry.js`)**1関数に集約**される。爪を作る `ribOutline2D()` とノッチを切る `komaShape()` が**同じ `innerRi()` を呼ぶ**ため、爪先の深さとノッチ底が必ず一致する。この不変量を壊せる箇所は `innerRi()` 一点だけ。触る前に両者への波及を確認する。
-  - **爪の深さ(握り)と土台の独立**: `innerRi()` は従来基準 `nominalRi()` から `TAB_DEEPEN` だけ中心側へ深めた値(爪先/ノッチ底)。一方 `komaR()` は `nominalRi()` 基準なので、**爪を深くしても komaR=土台寸法は動かない**。深めすぎで隣の爪ノッチと壁が薄くなり非多様体化しないよう、`ribCoreFloor()`(歯間の最低壁厚 MIN_WALL から算出)で中心側リミットを掛ける。
-  - **ノッチ底 `notchR()` も共有**: ノッチを切る `komaShape()` と、その内側の無垢部に棚を掛ける `komaStop2D()` が同じ `notchR()` を呼ぶ。棚は `notchR` より内側へ張り出すが、**張り出しすぎると隣の羽根板の棚同士が中心付近で干渉する**ため、周方向クリアランスから最小半径を掛ける(余地が無ければ棚を作らず従来形状に落とす)。`TAB_DEEPEN` を深くするほどこの棚の余地は減る(両者は同じ内側の空間を取り合う)。
-- **コマ ↔ 土台**: `komaR`(サドル受け半径 = `komaR + SADDLE_FIT`)/ `komaT`(コマ厚 = 柱厚)/ `standSlotSep(p) = height + 2*tabLen - komaT`(柱間隔)/ `maxRadius(p)`(柱高さ=床クリア)。
-  - **実装**: `komaR()`(コマ側)を `standGeometry()`(土台側)が呼ぶ**この1本のクロス辺がコマ↔土台の橋**。柱高さは `standSaddleH() → maxRadius() → outerR()` と辿れ、**プロファイルの核 `outerR()` に依存**する ⇒ プロファイルを変えると土台寸法まで自動で動く(下の注意点の実体)。
-- `komaR`/`tabDepth`/`innerRi` は小さい方の開口(`openMin`)基準。**開口半径を変えるとコマの大きさが変わる**点に注意。
+- **Rib tab ↔ koma**: board thickness `boardT` (the tab's thickness; notch width is `boardT + fit`) / `innerRi` (tab tip = notch-bottom radius) / `boards` (tooth count). If these three are the same, the tab plugs in to the same depth. `fit` only adds tangential fit clearance and does not affect engagement depth. `komaR` (koma outer diameter) only sets the koma's outward overhang and does not affect engagement.
+  - **Implementation**: this engagement is **consolidated into the single function `innerRi()`** (`src/geometry.js`). Because `ribOutline2D()` (which makes the tab) and `komaShape()` (which cuts the notch) **call the same `innerRi()`**, the tab-tip depth and the notch bottom necessarily match. The only place that can break this invariant is `innerRi()` alone. Check the impact on both before touching it.
+  - **Tab depth (engagement) and stand independence**: `innerRi()` is the legacy reference `nominalRi()` deepened toward the center by `TAB_DEEPEN` (tab tip / notch bottom). Meanwhile `komaR()` is based on `nominalRi()`, so **deepening the tab does not move komaR = the stand dimensions**. To prevent the wall between adjacent tab notches from getting thin and non-manifold from over-deepening, `ribCoreFloor()` (computed from the minimum inter-tooth wall thickness MIN_WALL) imposes a center-side limit.
+  - **Notch bottom `notchR()` is also shared**: `komaShape()` (which cuts the notch) and `komaStop2D()` (which hangs the shelf on the solid part inside it) call the same `notchR()`. The shelf overhangs inside `notchR`, but **overhanging too far makes adjacent ribs' shelves interfere near the center**, so a minimum radius is imposed from the circumferential clearance (if there is no room, no shelf is made and it falls back to the legacy shape). The deeper `TAB_DEEPEN`, the less room for this shelf (both fight over the same inner space).
+- **Koma ↔ stand**: `komaR` (saddle receiving radius = `komaR + SADDLE_FIT`) / `komaT` (koma thickness = post thickness) / `standSlotSep(p) = height + 2*tabLen - komaT` (post spacing) / `maxRadius(p)` (post height = floor clearance).
+  - **Implementation**: `komaR()` (koma side) being called by `standGeometry()` (stand side) is **the single cross-edge bridging koma ↔ stand**. The post height traces back through `standSaddleH() → maxRadius() → outerR()`, so it **depends on the profile core `outerR()`** ⇒ changing the profile automatically moves the stand dimensions too (the substance of the caveat below).
+- `komaR`/`tabDepth`/`innerRi` are based on the smaller opening (`openMin`). Note that **changing the opening radius changes the koma size**.
 
-## STL の水密性(必須の検証)
+## STL watertightness (mandatory verification)
 
-羽根板・コマ・土台は **watertight(閉じた多様体)** でなければ印刷スライサが破綻する。ジオメトリを触ったら、代表的なパラメータ範囲でスイープして検証する。判定は「無向エッジの共有数」:
+The ribs, koma, and stand must be **watertight (closed manifold)** or the print slicer breaks. After touching geometry, verify by sweeping across a representative parameter range. The test is the "shared count of undirected edges":
 
-- 2 = 閉じている(正常) / 1 = 開口エッジ / >2 = 非多様体。加えて NaN 頂点・退化(ゼロ面積)三角形が無いこと。
+- 2 = closed (normal) / 1 = open edge / >2 = non-manifold. Additionally, no NaN vertices and no degenerate (zero-area) triangles.
 
-**検証は `npm run check:manifold`**(`scripts/manifold.mjs`)。3プリセット × 高さ/竹ひご径/ピッチ/板厚/公差/枚数をスイープして 46,656 部品を検査する。`0 FAIL` 以外はマージしない。加えて「STL を変えないはずのリファクタ」では `npm run check:hash`(`scripts/hash.mjs`)で改修前後の頂点ハッシュを diff し、形が動いていないことを証明する(使い方はスクリプト冒頭のコメント)。保存機能の sanitize は `npm run check:persist`(`scripts/persist.test.mjs`)で、壊れた localStorage(pts破損・数値文字列・boards過大・未知version 等)がクラッシュ・非水密コマを生まず安全に復旧することを確認する。型紙は `npm run check:paper`(`scripts/paper.test.mjs`)。
+**Verification is `npm run check:manifold`** (`scripts/manifold.mjs`). It sweeps 3 presets × height/bamboo-rib diameter/pitch/board thickness/tolerance/plate count and inspects 46,656 parts. Anything other than `0 FAIL` does not get merged. Additionally, for "refactors that shouldn't change the STL", use `npm run check:hash` (`scripts/hash.mjs`) to diff vertex hashes before and after the change and prove the shape didn't move (usage is in the comment at the top of the script). The save feature's sanitize is verified by `npm run check:persist` (`scripts/persist.test.mjs`), confirming that corrupt localStorage (broken pts, numeric strings, oversized boards, unknown version, etc.) recovers safely without crashing or producing a non-watertight koma. Papercraft is `npm run check:paper` (`scripts/paper.test.mjs`).
 
-過去の破綻要因と対処: 深すぎる溝(→深さを `higoD*1.5` で頭打ち)、返しの急フランクの近接重複点(→押し出し前に重複点を掃除)、制御点1つのプリセット(→`splineR`/分母に div-0 ガード)、くびれで肉抜き窓に薄帯が残る(→薄い箇所は窓を縮める/落とす)。
+Past failure causes and fixes: grooves too deep (→ cap depth at `higoD*1.5`), near-duplicate points on the barb's sharp flank (→ clean duplicate points before extruding), single-control-point presets (→ div-0 guard in `splineR` / denominators), a thin strip remaining in the lightening window at a waist (→ shrink/drop the window where it's thin).
 
-**earcut の退化2種(点列を増やすと必ず踏む。`cleanPoly()` と `Y_STAGGER` で対処済み)**:
-- **共線点**: 曲線を細かくサンプリングすると、平坦な区間に「同じ直線上の点」が数百個並ぶ。側壁は点列どおりに作られるのに **earcut は共線点を落とす**ため、キャップと側壁の境界がズレて open edge になる。→ `cleanPoly()` が重複点に加え**共線点も間引く**。**外形と肉抜き窓の両方に適用すること**(窓側は元々掃除が無く、ここが穴だった)。
-  - **実装**: 点列 → `THREE.Shape` の変換は `shapeFromPts(pts, holes)` **1関数に集約**され、外形・穴の両方に必ず `cleanPoly()` を掛ける。押し出し用の Shape はここを通して作ること(手書きすると掃除を忘れて上の退化を踏む。実際 `ribBandShape` に掃除のコピーが残っていて共線点の除去だけ抜けていた)。
-- **同一走査線**: 肉抜き窓の y端が外形サンプル(`STEP=0.5mm`)と厳密に同じ高さに乗ると、窓の角と外形の頂点が共線になり **ゼロ面積の三角形**ができて open edge に。→ `Y_STAGGER=0.13` で窓の y端を格子から外す(`boardGeometry` の `STAGGER=0.1` が同じ対処)。
+**Two kinds of earcut degeneracy (you will always hit these as you increase the point count; handled by `cleanPoly()` and `Y_STAGGER`)**:
+- **Collinear points**: sampling the curve finely lays hundreds of "points on the same straight line" along a flat span. The side walls are built exactly along the point list, but **earcut drops collinear points**, so the boundary between cap and side wall shifts and becomes an open edge. → `cleanPoly()` thins out collinear points in addition to duplicates. **Apply it to both the outline and the lightening window** (the window side originally had no cleaning, and that was the hole).
+  - **Implementation**: the point-list → `THREE.Shape` conversion is **consolidated into the single function `shapeFromPts(pts, holes)`**, which always applies `cleanPoly()` to both the outline and the holes. Build extrusion Shapes through here (writing it by hand forgets the cleaning and hits the degeneracy above — in fact `ribBandShape` had a copy of the cleaning that was missing only the collinear-point removal).
+- **Same scanline**: if a lightening window's y-end lands at exactly the same height as an outline sample (`STEP=0.5mm`), the window corner and the outline vertex become collinear, producing a **zero-area triangle** and an open edge. → `Y_STAGGER=0.13` shifts the window's y-ends off the grid (`boardGeometry`'s `STAGGER=0.1` is the same fix).
 
-## 型紙(段ボールで作る)
+## Papercraft (building from cardboard)
 
-3Dプリンタが無くても作れるよう、各部品の 2D 外形を **A4 原寸(1:1)** で並べた印刷用 HTML を出す(`src/papercraft.js` → `paperHTML(p, matT)`)。印刷ビューの「型紙を開く」から新規タブで開き、ブラウザで印刷する。**紙側にも固定事項がある**:
+So it can be built without a 3D printer, the app outputs a print HTML laying out each part's 2D outline at **A4 full scale (1:1)** (`src/papercraft.js` → `paperHTML(p, matT)`). Open it in a new tab from "Open papercraft" in the print view and print it in the browser. **The paper side has its own fixed items too**:
 
-- **形の出どころは `geometry.js` の純粋関数だけ**。寸法を紙側で再実装しない(SectionEditor と同じ規約。ここがズレると型紙と STL で違う型ができる)。
-- **溝(ヒゴ目)は切らない**。段ボールに 0.5mm 精度の V ノッチは刻めないので、外縁は滑らかな曲線のまま切り(`ribOutline2D(p, k, { smooth: true })`)、竹ひごを巻く位置は**破線の目盛線**で示す。位置は STL と同じ `grooveList()` 由来。
-- **肉抜き窓は開けない**。段ボールは軽く、窓は強度を落として切る手間だけ増える。
-- **材料厚 `matT`** はユーザーが測った段ボールの実厚。コマのノッチ幅がこれで決まるので、`{ ...p, boardT: matT, komaT: matT, fit: 0 }` を**全部品に同じように**通す(型紙内の部品同士が必ず噛み合う)。3D 側の `p` は変更しない。`fit=0`(プリント公差を足さない)なのは、段ボールは繊維が潰れて入るので公称ぴったりのほうがしっかり噛むため。厚い材料では `maxBoards` を超えるので**羽根板の枚数を切り詰め**、紙面に警告を出す。
-- **爪の内側ストッパ(棚)は段ボール向けに広げる**。3Dプリント既定のままだと、厚い材料では爪先が `ribCoreFloor` まで外へ押し戻されて棚の干渉限界とほぼ重なり、**厚 3mm 以上で棚が消える**(余地 = `MIN_WALL 1.6 − 棚クリア 1.0` で決まり材料厚に依らない)。型紙は `komaStop2D(p, { w, gap, min })` の `gap`/`min` を詰めて中心の余地いっぱいまで出す(既定引数なので 3D は不変)。なお棚の位置は `height + tabLen - komaT` なので、**材料厚が爪の長さに迫ると置き場自体が無くなる** → その場合は棚を作らず「爪の長さを伸ばせ」と紙面で警告する。
-- **土台は出さない。代わりに「十字スタンド」を出す**。3Dプリント用の土台(`boardGeometry`/`standGeometry`)は薄い柱で**コマを支える**設計で、段ボールでは自立に必要な剛性が出ない(潰れる・撓む)。型紙は、竹ひごを巻く・和紙を貼る作業で型を立てたい、という要件に対して**帯2枚をX字に組む十字スタンド**を出す(`standParts`)。型は「腹=最大径が太く下コマ ⌀38 に向けてすぼまる卵形」なので、中央の下コマだけを受ければ腹は全周が宙に浮き作業を邪魔しない。帯の上辺の**V受け(開口幅 < 下コマ径)**でコマを4角(2枚分)で中央拘束し、中央スロット(一方は上・一方は下から切る)を噛み合わせてX字にする。足径 `standFootD` は薄い紙殻の重心高さからの転倒余裕で決め、下限70mm(既定形状で自立、最大高でも⌀110・A4内)。**家庭素材だけで完結**([[household-materials-only]]): 段ボール+切り込みのみ、接着・金具・軸なし。**コマ・羽根板・3D は一切変えない**(スタンドは独立の新規部品)。
-- **全ページに 50mm の原寸スケールを必ず入れる**。プリンタの「用紙に合わせる」で縮むのが最大の事故要因で、刷ってから定規で気付ける唯一の手段。**のりしろ(10mm)は「1ページに収まらない部品」を分割するときだけ**付ける。ページ割り付けは (1)部品を行へ詰める → (2)行をページへ、の2段階で、**1ページに収まる行は絶対に跨がせない**(入らなければ次ページをその行の先頭から始める=貼り合わせ不要)。各ページは `top`〜`bot` でクリップし、`bot` は「次ページが同じ行の続きなら `top+CH`(=重ねる)、そうでなければ次ページの開始位置」。この区別が無いと、次の行の頭が前ページの下端に写り込み、貼り合わせ不要な箇所にものりしろが出る。
+- **The shape comes only from `geometry.js`'s pure functions.** Do not reimplement dimensions on the paper side (same rule as SectionEditor — if this drifts, the papercraft and STL produce different molds).
+- **Don't cut the grooves (higo-me).** You can't carve a 0.5mm-precision V-notch into cardboard, so the outer edge is cut as a smooth curve (`ribOutline2D(p, k, { smooth: true })`) and the winding positions of the bamboo rib are shown with **dashed tick lines**. The positions come from the same `grooveList()` as the STL.
+- **Don't open lightening windows.** Cardboard is light, and the windows only weaken it and add cutting work.
+- **Material thickness `matT`** is the actual cardboard thickness the user measured. The koma's notch width is determined by it, so pass `{ ...p, boardT: matT, komaT: matT, fit: 0 }` **to all parts identically** (so the parts within the papercraft always mesh). Do not change the 3D side's `p`. `fit=0` (adding no print tolerance) is because cardboard's fibers crush as it goes in, so a nominal-exact fit meshes more firmly. For thick material it exceeds `maxBoards`, so **trim the rib count** and print a warning on the page.
+- **Widen the tab's inner stopper (shelf) for cardboard.** With the 3D-print defaults, on thick material the tab tip gets pushed back out to `ribCoreFloor` and nearly coincides with the shelf's interference limit, so **the shelf disappears at ≥3mm thickness** (the room = `MIN_WALL 1.6 − shelf clearance 1.0`, independent of material thickness). Papercraft tightens `komaStop2D(p, { w, gap, min })`'s `gap`/`min` to push out to the full center room (these are default arguments, so 3D is unchanged). Note the shelf's position is `height + tabLen - komaT`, so **when the material thickness approaches the tab length the placement itself vanishes** → in that case no shelf is made and the page warns to "lengthen the tab".
+- **Don't output the stand. Output a "cross stand" instead.** The 3D-print stand (`boardGeometry`/`standGeometry`) is designed to **support the koma** on thin posts, which in cardboard lacks the rigidity to stand on its own (it crushes / bends). For the requirement of wanting to stand the mold up while winding bamboo ribs and pasting washi, the papercraft outputs a **cross stand made of two strips crossed in an X** (`standParts`). Because the mold is an "egg shape with a fat belly = max diameter tapering toward the ⌀38 bottom koma", receiving only the central bottom koma leaves the whole belly floating in the air and out of the way of the work. The strips' top edges have a **V receiver (opening width < bottom koma diameter)** that constrains the koma centrally at 4 corners (2 strips' worth), and a central slot (one cut from the top, one from the bottom) interlocks them into an X. The foot diameter `standFootD` is set by the tipping margin from the center-of-gravity height of the thin paper shell, with a lower bound of 70mm (self-standing in the default shape; even at max height ⌀110, within A4). **Completed with household materials only** ([[household-materials-only]]): cardboard + cuts only, no glue, hardware, or shafts. **The koma, ribs, and 3D are not changed at all** (the stand is an independent new part).
+- **Every page must include a 50mm full-scale ruler.** Shrinking under the printer's "fit to page" is the biggest source of accidents, and this is the only way to notice it with a ruler after printing. **Glue tabs (10mm) are added only when splitting a part that doesn't fit on one page.** Page layout is two stages: (1) pack parts into rows → (2) pack rows into pages, and **a row that fits on one page is never straddled** (if it doesn't fit, start the next page at the beginning of that row = no gluing). Each page is clipped by `top`〜`bot`, where `bot` is "if the next page is a continuation of the same row, `top+CH` (= overlap), otherwise the next page's start position". Without this distinction, the head of the next row prints onto the previous page's bottom edge and a glue tab appears where no gluing is needed.
 
-検証は `npm run check:paper`(`scripts/paper.test.mjs`)。判定は水密性ではなく **① 原寸であること(紙面寸法 = geometry.js の不変量) ② 部品の載り漏れが無いこと ③ SVG に NaN が出ないこと**(NaN はブラウザが黙って無視するので、印刷して初めて気付く)。加えて**ノッチ幅 = 材料厚**と**ストッパが余地のある限り必ず生成される**ことも検査する(どちらも「組んだら嵌まらない」に直結し、紙を見ても気付けない)。
+Verification is `npm run check:paper` (`scripts/paper.test.mjs`). The test is not watertightness but **① being full scale (page dimensions = geometry.js invariants) ② no parts missing from the layout ③ no NaN in the SVG** (the browser silently ignores NaN, so you'd only notice after printing). It additionally checks that **notch width = material thickness** and that **the stopper is always generated as long as there is room** (both directly cause "won't fit when assembled" and can't be caught by looking at the paper).
 
-## 今後の課題(未実装 — 実物の型を見て出た宿題)
+## Future work (not yet implemented — homework from studying a real mold)
 
-- **竹ひご溝の連続化**: 実物の型は**平坦部がないほど細かく溝が連続**していて、職人が「何本かおきの溝」を選んで巻く(= 型が巻きピッチを決めない/竹ひごが必ずどこかの溝に落ちる)。現状は `pitch`(既定9mm)間隔の孤立した V ノッチで、間に平坦部が残る。実装するには `grooveList` の刻みを溝幅ベースに変え、`grooveOuterX` を**周期的な鋸歯**として作り直す必要がある(今は孤立Vの `max` 合成なので、詰めると歯先が削れて狙った鋸歯にならない)。併せて `pitch` の意味を決める必要あり(巻き方の目安表示だけにする / 「何本おきに巻くか」に読み替える 等)。
-- **螺旋巻き**: 羽根ごとに溝をずらして竹ひごを螺旋に巻けるようにする。以前 `spiral` パラメータと UI チェックボックスがあったが、**`grooveList` が受け取らない第3引数に渡していて実際には効いていなかった**(全羽根で溝位置が同一 = 水平リング)ため、誤解を招く死んだコードとして削除した。実装する場合は `grooveList` に溝位置のオフセットを受け取らせ、`ribOutline2D` / `ribEdges` の両方から羽根番号 `k` 由来のズラし量を渡す(両者が同じ規則で揃っている必要がある)。
-- **`ribSplitParts`(2分割モード)の爪が本体と不一致**: 分割部品の上下端タブは `outerR±tabDepth`(火袋の外径基準)にあり、`ribOutline2D` の `Ri〜kR`(コマ基準)と一致しない。**今のコマには嵌まらない**はず。分割モードを使うなら要修正。
+- **Continuous bamboo-rib grooves**: real molds have **grooves so fine and continuous there is no flat span**, and the craftsperson picks "every so many grooves" to wind (= the mold doesn't dictate the winding pitch / the bamboo rib always drops into some groove). Currently they are isolated V-notches at `pitch` (default 9mm) intervals with flat spans between. Implementing this requires changing `grooveList`'s step to be groove-width-based and rebuilding `grooveOuterX` as a **periodic sawtooth** (it's currently a `max` composite of isolated Vs, so packing them shaves the tooth tips and doesn't give the intended sawtooth). It also requires deciding the meaning of `pitch` (make it just a winding-guideline display / reinterpret it as "how many grooves apart to wind" / etc.).
+- **`ribSplitParts` (2-split mode) tabs don't match the body**: the split parts' top/bottom tabs are at `outerR±tabDepth` (based on the lamp body's outer diameter), which doesn't match `ribOutline2D`'s `Ri〜kR` (koma-based). **They shouldn't fit the current koma.** If you use split mode, this needs fixing.
 
-## 規約
+## Conventions
 
-- **コメントは日本語**(既存に合わせる)。数式・寸法には単位と意図を書く。
-- `geometry.js` は **純粋関数のまま**保つ(React/DOM を持ち込まない)。断面図と STL がズレる原因になる。
-- ビュー間で形が一致するよう、断面図(SectionEditor)は必ず `geometry.js` の関数を使って描く(**寸法の定数も含めて**独自再実装をしない)。溝の半幅は `grooveR(p)` に集約済み(以前ここが `higoD/2+0.15` と `+0.25` に分かれ、断面図が STL より細い溝を描いていた)。
+- **Comments are in English** (match the existing style). Write units and intent for formulas and dimensions.
+- Keep `geometry.js` as **pure functions** (don't bring in React/DOM). Otherwise the section view and STL will drift.
+- So the shape matches across views, always draw the section view (SectionEditor) using `geometry.js`'s functions (**including the dimensional constants** — don't reimplement them yourself). The groove half-width is consolidated into `grooveR(p)` (this used to be split between `higoD/2+0.15` and `+0.25`, and the section view drew a thinner groove than the STL).
 
-## プライバシー
+## Privacy
 
-外部共有ドキュメント(README・PR 本文等)には個人環境を識別できるパス・ユーザー名を書かない(リポジトリ相対で表記する)。
+Do not write paths or usernames that identify a personal environment in externally shared documents (README, PR bodies, etc.); use repository-relative notation.

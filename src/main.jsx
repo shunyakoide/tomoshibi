@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import HarigataStudio from "./HarigataStudio.jsx";
 import "./index.css";
 
-// レンダリング中の例外で画面全体が真っ黒になるのを防ぎ、原因を表示する
+// Prevent a render-time exception from turning the whole screen black, and show the cause
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -30,7 +30,7 @@ class ErrorBoundary extends React.Component {
           }}
         >
           <div style={{ color: "#e0a060", fontWeight: 600, marginBottom: 8 }}>
-            ⚠ 画面の描画でエラーが発生しました
+            ⚠ A rendering error occurred
           </div>
           <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>
             {(e && (e.stack || e.message)) || String(e)}

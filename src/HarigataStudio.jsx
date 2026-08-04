@@ -1,21 +1,21 @@
 /**
  * ============================================================================
- * 張型スタジオ (HARIGATA STUDIO) v5 — UI
+ * HARIGATA STUDIO (FORMING MOLD STUDIO) v5 — UI
  * ============================================================================
- * 岐阜提灯 / イサム・ノグチAKARI方式の「あかりランプ」を自作するための
- * 3Dプリント用張型(はりがた=竹ひご巻き・和紙張りの型)ジェネレーター。
- * プロファイル曲線をパラメトリックに調整し、3種のSTL(羽根板/コマ/土台)を出力する。
+ * A generator for 3D-print forming molds (harigata = molds for bamboo-rib winding
+ * and washi application) to make your own washi paper lamps.
+ * Adjust the profile curve parametrically and output three kinds of STL (rib / koma / stand).
  *
- * このファイルは React コンポーネント(UI + 3Dビューポート)に専念する。
- * 実際の形状生成・出力・設定は分割済み:
- *   - geometry.js … 断面・3Dジオメトリ(羽根板/コマ/土台)
- *   - draw2d.js   … 2D断面ビューの Canvas 描画
- *   - stl.js      … STL / ZIP 書き出し
- *   - config.js   … プリセット・スライダー・初期値・セクション定義
+ * This file focuses on the React component (UI + 3D viewport).
+ * The actual shape generation, export, and config are split out:
+ *   - geometry.js … cross-section / 3D geometry (rib / koma / stand)
+ *   - draw2d.js   … Canvas rendering of the 2D cross-section view
+ *   - stl.js      … STL / ZIP export
+ *   - config.js   … presets, sliders, defaults, section definitions
  *
- * 【ビュー】2d(断面, 既定) / mold(組立) / print(印刷レイアウト) / lit(点灯)
- * 【制作フロー】印刷 → コマ2枚に羽根板8枚を差し込み → 竹ひご巻き → 和紙張り →
- *   乾燥 → コマを外し羽根板を上下開口から抜く → 火袋完成 → 三本脚等で照明化
+ * [Views] 2d (cross-section, default) / mold (assembly) / print (print layout) / lit
+ * [Build flow] print → insert 8 ribs into 2 koma → wind bamboo ribs → apply washi →
+ *   dry → remove koma and pull ribs out through the top/bottom openings → lamp body complete → mount as lighting on three legs, etc.
  * ============================================================================
  */
 import React, { useEffect, useRef, useState } from "react";
@@ -38,50 +38,50 @@ import SectionEditor from "./SectionEditor.jsx";
 import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
 import { makeT, loadLang, saveLang } from "./i18n.js";
 
-// 起動時に1回だけ localStorage から復元(遅延初期化の重複パースを避けるためモジュール直下)。
+// Restore from localStorage once at startup (at module top level to avoid duplicate parses from lazy init).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 
 export default function HarigataStudio() {
-  const [p, setP] = useState(SAVED?.p ?? DEFAULTS); // 復元(無ければ既定)
-  const [view, setView] = useState("2d"); // 既定は2D断面ビュー(形が分かりやすい)。一時状態なので復元しない
-  const [drag, setDrag] = useState(null);  // ドラッグ中のキー(ハンドル/スクラブ行のハイライト用)
-  const [higoOpen, setHigoOpen] = useState(false); // 竹ひごアコーディオンの開閉
-  const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1); // 印刷ビューで一度に並べる羽根板の枚数
-  const [splitRibs, setSplitRibs] = useState(false); // 羽根板を上下2分割(試験機能なので復元しない=常に false 起動)
-  const [bedW, setBedW] = useState(SAVED?.bedW ?? 256); // プリントベッド幅(mm)。機種設定として復元
-  const [bedD, setBedD] = useState(SAVED?.bedD ?? 256); // プリントベッド奥行き(mm)
-  const [matT, setMatT] = useState(SAVED?.matT ?? 5);   // 型紙の材料厚(mm)。段ボールの実測厚。機種設定として復元
-  const [sel, setSel] = useState(null); // 断面エディタで選択中の制御点 index(一時状態=復元しない)
-  const [editMode, setEditMode] = useState("move"); // 断面エディタ: "move"=点を動かす / "curve"=接線ハンドル
+  const [p, setP] = useState(SAVED?.p ?? DEFAULTS); // Restore (fall back to defaults if none)
+  const [view, setView] = useState("2d"); // Default is the 2D cross-section view (easiest to read the shape). Transient state, so not restored
+  const [drag, setDrag] = useState(null);  // Key currently being dragged (for highlighting handles / scrub rows)
+  const [higoOpen, setHigoOpen] = useState(false); // Open/closed state of the bamboo-rib accordion
+  const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1); // Number of ribs laid out at once in the print view
+  const [splitRibs, setSplitRibs] = useState(false); // Split ribs into top/bottom halves (experimental, so not restored = always starts false)
+  const [bedW, setBedW] = useState(SAVED?.bedW ?? 256); // Print bed width (mm). Restored as a machine setting
+  const [bedD, setBedD] = useState(SAVED?.bedD ?? 256); // Print bed depth (mm)
+  const [matT, setMatT] = useState(SAVED?.matT ?? 5);   // Papercraft material thickness (mm). Measured cardboard thickness. Restored as a machine setting
+  const [sel, setSel] = useState(null); // Index of the control point selected in the cross-section editor (transient = not restored)
+  const [editMode, setEditMode] = useState("move"); // Cross-section editor: "move" = move points / "curve" = tangent handles
   const [glError, setGlError] = useState(null);
   const [narrow, setNarrow] = useState(
     typeof window !== "undefined" ? window.innerWidth < 860 : false
   );
-  const [lang, setLang] = useState(loadLang());   // UI 言語(ja/en)。localStorage に保存
-  const t = makeT(lang);                          // 翻訳関数(未訳は日本語へフォールバック)
+  const [lang, setLang] = useState(loadLang());   // UI language (ja/en). Saved in localStorage
+  const t = makeT(lang);                          // Translation function (falls back to Japanese for untranslated keys)
   const toggleLang = () => setLang((l) => { const nx = l === "ja" ? "en" : "ja"; saveLang(nx); return nx; });
   const mountRef = useRef(null);
   const T = useRef({});
-  const prevViewRef = useRef(null); // ビュー切替を検知して初期カメラ角を設定するため
-  const importRef = useRef(null);   // 設計読み込み用の隠し <input type=file>
+  const prevViewRef = useRef(null); // To detect view switches and set the initial camera angle
+  const importRef = useRef(null);   // Hidden <input type=file> for loading designs
 
-  // 画面幅で左右レイアウト / 縦積みを切替
+  // Switch between side-by-side and stacked layout based on screen width
   useEffect(() => {
     const onResize = () => setNarrow(window.innerWidth < 860);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // 羽根板の枚数をコマに挿さる上限へ自動で収める。板厚・公差・開口(◇)を変えて枚数が
-  // 過大になった場合(どの操作経路でも)ここで下げる → ノッチが重なった非水密コマを作らせない。
+  // Automatically clamp the rib count to the maximum that fits into the koma. If board thickness,
+  // tolerance, or opening (◇) changes make the count too large (via any path), lower it here → prevents creating a non-watertight koma with overlapping notches.
   const boardsMax = maxBoards(p);
   useEffect(() => {
     if (p.boards > boardsMax) setP((o) => ({ ...o, boards: boardsMax }));
   }, [p.boards, boardsMax]);
 
-  // 作業状態を localStorage へ自動保存。debounce 300ms でドラッグ中の連続更新の書き込み
-  // 暴発を抑え、pagehide(タブクローズ/遷移)では即 flush して直近の1操作も取りこぼさない。
-  // boards クランプ effect の後段なので、保存される値は常にクランプ後(非水密コマにならない)。
+  // Auto-save the working state to localStorage. A 300ms debounce prevents a flood of writes from
+  // continuous updates during dragging, while pagehide (tab close/navigation) flushes immediately so the last action is never lost.
+  // This runs after the boards-clamp effect, so the saved value is always post-clamp (never a non-watertight koma).
   useEffect(() => {
     const state = { p, bedW, bedD, printRibs, matT };
     const id = setTimeout(() => saveState(state), 300);
@@ -90,34 +90,34 @@ export default function HarigataStudio() {
     return () => { clearTimeout(id); window.removeEventListener("pagehide", flush); };
   }, [p, bedW, bedD, printRibs, matT]);
 
-  // ---- Undo/Redo(形状 p の履歴)----
-  // p の履歴スタック + 現在位置。ドラッグ/スクラブの連続変更は debounce で1エントリにまとめ、
-  // プリセット切替・点の追加削除・角⇄なめらか等の離散操作も同じ経路でスナップされる。setP の
-  // 全サイトは触らず「p を watch して落ち着いたら commit」する方式(単一チョークポイント不在の回避)。
-  const hist = useRef([p]);        // スナップショット列(0 が最古)
-  const hIdx = useRef(0);          // 現在位置
-  const restoring = useRef(false); // undo/redo による setP は再 commit しない印
+  // ---- Undo/Redo (history of shape p) ----
+  // History stack of p + current index. Continuous drag/scrub changes are coalesced into one entry via debounce,
+  // and discrete operations (preset switch, add/delete point, sharp⇄smooth, etc.) are snapshotted through the same path. Instead of
+  // touching every setP call site, we "watch p and commit once it settles" (works around the lack of a single choke point).
+  const hist = useRef([p]);        // Snapshot list (0 is oldest)
+  const hIdx = useRef(0);          // Current index
+  const restoring = useRef(false); // Flag: setP triggered by undo/redo should not be re-committed
   const commitTimer = useRef(null);
-  const [, bumpHist] = useState(0); // ボタンの活性/非活性を更新するための再描画トリガ
+  const [, bumpHist] = useState(0); // Re-render trigger to update button enabled/disabled state
   const HIST_CAP = 60;
   const commitNow = (np) => {
     const h = hist.current;
-    if (JSON.stringify(h[hIdx.current]) === JSON.stringify(np)) return; // 変化なしは積まない
-    h.splice(hIdx.current + 1);     // redo 側(やり直し可能な先)を捨てる
+    if (JSON.stringify(h[hIdx.current]) === JSON.stringify(np)) return; // Don't push if unchanged
+    h.splice(hIdx.current + 1);     // Discard the redo side (the future that could be redone)
     h.push(np);
     if (h.length > HIST_CAP) h.shift();
     hIdx.current = h.length - 1;
     bumpHist((n) => n + 1);
   };
   useEffect(() => {
-    if (restoring.current) { restoring.current = false; return; } // 復元による変化は積まない
+    if (restoring.current) { restoring.current = false; return; } // Don't push changes caused by restoring
     clearTimeout(commitTimer.current);
-    commitTimer.current = setTimeout(() => commitNow(p), 350); // 連続操作が落ち着いたら1エントリ
+    commitTimer.current = setTimeout(() => commitNow(p), 350); // One entry once continuous operations settle
     return () => clearTimeout(commitTimer.current);
   }, [p]);
   const undo = () => {
     clearTimeout(commitTimer.current);
-    commitNow(p);                  // 未確定の変更をまず確定(redo で戻れるように)
+    commitNow(p);                  // Commit the pending change first (so it can be reached by redo)
     if (hIdx.current <= 0) return;
     hIdx.current--;
     restoring.current = true;
@@ -126,8 +126,8 @@ export default function HarigataStudio() {
   };
   const redo = () => {
     clearTimeout(commitTimer.current);
-    commitNow(p);                  // 未確定の編集をまず確定(undo と対称)。新編集後は redo 先が
-                                   // 破棄され no-op になる = 標準的な undo/redo 挙動。取りこぼさない。
+    commitNow(p);                  // Commit the pending edit first (symmetric with undo). After a new edit the redo target
+                                   // is discarded and this becomes a no-op = standard undo/redo behavior. Nothing is lost.
     if (hIdx.current >= hist.current.length - 1) return;
     hIdx.current++;
     restoring.current = true;
@@ -136,7 +136,7 @@ export default function HarigataStudio() {
   };
   const canUndo = hIdx.current > 0;
   const canRedo = hIdx.current < hist.current.length - 1;
-  // キーボード: Cmd/Ctrl+Z = undo、Cmd/Ctrl+Shift+Z または Ctrl+Y = redo。入力中は無視。
+  // Keyboard: Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z or Ctrl+Y = redo. Ignored while typing in an input.
   useEffect(() => {
     const onKey = (e) => {
       const tag = (e.target.tagName || "").toLowerCase();
@@ -156,8 +156,8 @@ export default function HarigataStudio() {
     let cleanup;
     try {
       const scene = new THREE.Scene();
-    // 背景は mount 側の CSS グラデーションで描く。canvas は透過にして
-    // ビューごとに CAD調(明) / 点灯(暗) を切り替える。fog は再構築側で設定。
+    // The background is drawn by the CSS gradient on the mount. The canvas is transparent so
+    // each view can switch between CAD-style (light) and lit (dark). Fog is set on the rebuild side.
     const camera = new THREE.PerspectiveCamera(36, 1, 1, 4000);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -166,8 +166,8 @@ export default function HarigataStudio() {
     renderer.toneMappingExposure = 1.05;
     mount.appendChild(renderer.domElement);
 
-    // ポストプロセス: 点灯ビューだけブルーム(発光の滲み)を効かせて「光っている感」を出す。
-    // 明ビューでは bloomPass を無効化するので見た目は従来どおり。
+    // Post-processing: apply bloom (glow bleed) only in the lit view to give a "glowing" feel.
+    // In light views bloomPass is disabled, so the look is unchanged.
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.55, 0.7); // strength, radius, threshold
@@ -175,8 +175,8 @@ export default function HarigataStudio() {
     composer.addPass(bloomPass);
     composer.addPass(new OutputPass());
 
-    // スタジオ風の環境光(IBL)。Standard/Physical マテリアルに柔らかな映り込みを与え、
-    // のっぺり感を解消する。組立/印刷ビューで使用(点灯ビューは暗室演出のため外す)。
+    // Studio-style ambient lighting (IBL). Gives Standard/Physical materials soft reflections
+    // to remove flatness. Used in the assembly/print views (removed in the lit view for a dark-room effect).
     const pmrem = new THREE.PMREMGenerator(renderer);
     const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
@@ -187,7 +187,7 @@ export default function HarigataStudio() {
     const rim = new THREE.DirectionalLight(0x8890a8, 0.35); rim.position.set(-260, 120, -260); scene.add(rim);
     const bulb = new THREE.PointLight(0xffc37a, 0, 900, 1.5); scene.add(bulb);
 
-    // CAD調の地面グリッド(組立ビューのみ表示)。遠方はフォグでbgへ溶ける。
+    // CAD-style ground grid (shown only in the assembly view). The distance fades into the bg with fog.
     const groundGrid = new THREE.GridHelper(2400, 48, 0xaab0ba, 0xc7ccd4);
     groundGrid.position.y = 0;
     groundGrid.visible = false;
@@ -210,27 +210,27 @@ export default function HarigataStudio() {
     shadow.position.y = 0.5;
     scene.add(shadow);
 
-    // 点灯ビュー用テクスチャ: 床の暖かい光だまり(中央はやや暗く=真下の影、周りが明るい輪)
+    // Texture for the lit view: a warm pool of light on the floor (slightly dark center = shadow directly below, bright ring around)
     const poolTex = (() => {
       const cv = document.createElement("canvas");
       cv.width = cv.height = 256;
       const ctx = cv.getContext("2d");
       const g = ctx.createRadialGradient(128, 128, 6, 128, 128, 128);
-      g.addColorStop(0.0, "rgba(255,190,120,0.10)"); // 真下: 本体が遮り薄暗い
-      g.addColorStop(0.28, "rgba(255,178,105,0.85)"); // 明るい光の輪
+      g.addColorStop(0.0, "rgba(255,190,120,0.10)"); // Directly below: dimmed because the body blocks it
+      g.addColorStop(0.28, "rgba(255,178,105,0.85)"); // Bright ring of light
       g.addColorStop(1.0, "rgba(255,150,80,0.0)");
       ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 256);
       const t = new THREE.CanvasTexture(cv);
       t.colorSpace = THREE.SRGBColorSpace;
       return t;
     })();
-    // 火袋の発光ムラ: 縦方向に中央が最も明るいグラデーション(のっぺり防止)
+    // Emission variation of the lamp body: a gradient brightest at the vertical center (prevents flatness)
     const washiGrad = (() => {
       const cv = document.createElement("canvas");
       cv.width = 4; cv.height = 256;
       const ctx = cv.getContext("2d");
       const g = ctx.createLinearGradient(0, 0, 0, 256);
-      // 中央を広いプラトー(明)にして、細い明線が出ないようにする
+      // Make the center a wide plateau (bright) so no thin bright line appears
       g.addColorStop(0.0, "#9a6a38"); g.addColorStop(0.32, "#ffe4bc");
       g.addColorStop(0.68, "#ffe4bc"); g.addColorStop(1.0, "#9a6a38");
       ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
@@ -243,17 +243,17 @@ export default function HarigataStudio() {
     scene.add(group);
     T.current = {
       scene, camera, renderer, composer, bloomPass, poolTex, group, bulb, shadow, amb, key, groundGrid, envMap,
-      // 点灯: 床(暗い部屋)と光だまり
+      // Lit: floor (dark room) and pool of light
       litFloorMat: new THREE.MeshStandardMaterial({ color: 0x0a0d16, roughness: 1, metalness: 0 }),
       litPoolMat: new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
-      // 羽根板: コート系フィラメント風にごく薄いクリアコートを載せて上質な艶を出す
+      // Rib: apply a very thin clearcoat, like a coated filament, for a refined sheen
       ribMat: new THREE.MeshPhysicalMaterial({
         color: 0xc3b291, roughness: 0.5, metalness: 0.0,
         clearcoat: 0.25, clearcoatRoughness: 0.5, envMapIntensity: 0.9,
       }),
-      // コマ: マットな樹脂。羽根板と仕上げ差をつけて部品の区別を明快に
+      // Koma: matte resin. A finish contrast with the ribs makes the parts easy to tell apart
       komaMat: new THREE.MeshStandardMaterial({ color: 0x94897c, roughness: 0.62, metalness: 0.05, envMapIntensity: 0.85 }),
-      // 土台: 焼き締めた陶のような暗いつや消し
+      // Stand: a dark matte finish like fired stoneware
       standMat: new THREE.MeshStandardMaterial({ color: 0x6b6156, roughness: 0.7, metalness: 0.05, envMapIntensity: 0.75 }),
       washiMat: new THREE.MeshStandardMaterial({
         color: 0xf7f3ea, roughness: 0.9, transparent: true, opacity: 0.94,
@@ -272,7 +272,7 @@ export default function HarigataStudio() {
     };
     resize();
     window.addEventListener("resize", resize);
-    // ビューポートの実サイズ変化(左右レイアウト切替・パネル幅など)にも追従
+    // Also follow actual viewport size changes (side-by-side layout switch, panel width, etc.)
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
     if (ro) ro.observe(mount);
 
@@ -326,14 +326,14 @@ export default function HarigataStudio() {
     animate();
       cleanup = () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); if (ro) ro.disconnect(); if (el.parentNode === mount) mount.removeChild(el); composer.dispose(); renderer.dispose(); };
     } catch (e) {
-      // WebGL 初期化失敗(古い端末 / コンテキスト取得不可 等)。
-      // 画面全体を黒にせず UI は残し、原因メッセージだけ表示する。
+      // WebGL initialization failed (old device / cannot get context, etc.).
+      // Keep the UI instead of blacking out the whole screen, and just show the cause message.
       setGlError((e && e.message) || String(e));
     }
     return () => { if (cleanup) cleanup(); };
   }, []);
 
-  // プレビュー再構築 + 自動フレーミング
+  // Rebuild preview + auto-framing
   useEffect(() => {
     const s = T.current;
     if (!s.group) return;
@@ -342,27 +342,27 @@ export default function HarigataStudio() {
       s.group.remove(m);
       m.traverse((o) => o.geometry && o.geometry.dispose());
     }
-    const viewChanged = prevViewRef.current !== view; // 初回/ビュー切替時だけ初期カメラ角を設定
+    const viewChanged = prevViewRef.current !== view; // Set the initial camera angle only on first render / view switch
     prevViewRef.current = view;
-    if (view === "2d") return; // 2D断面ビューは別キャンバスで描画(3D構築はスキップ)
+    if (view === "2d") return; // The 2D cross-section view is drawn on a separate canvas (skip 3D building)
     const R = maxRadius(p);
-    const lightVP = view !== "lit"; // 組立/印刷は CAD調の明るい背景、点灯だけ暗い
+    const lightVP = view !== "lit"; // Assembly/print use a CAD-style bright background; only lit is dark
     s.shadow.scale.set(R * 3.2, R * 3.2, 1);
-    s.shadow.visible = view === "mold"; // 組立ビューだけコンタクトシャドウ(点灯は床+光だまりで接地)
+    s.shadow.visible = view === "mold"; // Contact shadow only in the assembly view (lit grounds via floor + pool of light)
     s.shadow.material.opacity = 0.3;
     s.groundGrid.visible = view === "mold";
-    // 環境光は明ビューのみ。点灯は暗室に灯りだけ浮かせたいので外す。
+    // Ambient light only in light views. For lit we want just the lamp glowing in a dark room, so remove it.
     s.scene.environment = lightVP ? s.envMap : null;
     s.scene.fog = view === "print" ? null
       : new THREE.Fog(lightVP ? 0xbfb5a3 : 0x070a11, 1000, 2400);
-    // IBL がフィルを担うぶんアンビエントは控えめに。キーを強めてフォルムの陰影を立て、
-    // 背景から浮かせる(白飛び防止しつつ図と地のコントラストを確保)。
+    // Since IBL provides the fill, keep ambient modest. Strengthen the key to bring out the form's shading
+    // and lift it off the background (avoids blowout while ensuring figure-ground contrast).
     s.amb.intensity = view === "print" ? 0.5 : lightVP ? 0.3 : 0.5;
     s.key.intensity = view === "print" ? 0.85 : lightVP ? 1.1 : 0.85;
     s.key.position.set(view === "print" ? 80 : 240, view === "print" ? 500 : 380, view === "print" ? 120 : 280);
     s.bulb.intensity = 0;
     s.washiMat.emissiveIntensity = 0;
-    s.bloomPass.enabled = false; // 点灯ビューでのみ有効化(下の lit ブランチ)
+    s.bloomPass.enabled = false; // Enabled only in the lit view (the lit branch below)
 
     const frame = (contentH, contentR, centerY) => {
       const cam = s.camera;
@@ -378,28 +378,28 @@ export default function HarigataStudio() {
     };
 
     if (view === "lit") {
-      const legH = p.height * 0.42; // 三本脚(1AYスタイル)
-      // 首(上下端の垂直部)には竹ひご・和紙が無い ＝ 何も張られないので描かない。
-      // 火袋(和紙が張られる中央)だけを発光スキンとして表示し、首は開いたまま。
-      const cB = cutT(p); // 首の割合(0..0.45)
+      const legH = p.height * 0.42; // Three legs (1AY style)
+      // The neck (vertical part at the top/bottom ends) has no bamboo ribs or washi = nothing is applied, so don't draw it.
+      // Show only the lamp body (the center where washi is applied) as the glowing skin, leaving the neck open.
+      const cB = cutT(p); // Neck fraction (0..0.45)
       const t0 = cB, t1 = 1 - cB;
       const pts = [];
-      const N = 160; // 縦方向を細かくサンプルして曲面(シルエット)を滑らかに
+      const N = 160; // Sample finely along the vertical to smooth the surface (silhouette)
       for (let i = 0; i <= N; i++) {
         const t = t0 + (t1 - t0) * (i / N);
         pts.push(new THREE.Vector2(outerR(p, t) + p.higoD, legH + t * p.height));
       }
       s.group.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 128), s.washiMat));
-      // 竹ひご: 火袋の水平リング。実物は和紙を竹ひごの上に貼るので、竹ひごは紙の内側にある。
-      // リング中心を outerR に置く → 外面は outerR+higoD/2 = 和紙(outerR+higoD)の内側に収まり、
-      // 面が一致して Z ファイティング(破線状のちらつき)になるのを防ぐ。色は竹本来のナチュラル色
-      // (淡い黄褐色)。逆光で黒く潰れないよう暖色の自発光を強めに足し、透ける竹ひごとして見せる。
+      // Bamboo ribs: horizontal rings of the lamp body. In reality washi is applied over the bamboo ribs, so the ribs sit inside the paper.
+      // Place the ring center at outerR → the outer surface at outerR+higoD/2 sits inside the washi (outerR+higoD),
+      // preventing the surfaces from coinciding and Z-fighting (a dashed flicker). Color is the natural bamboo tone
+      // (pale yellow-brown). Add a fairly strong warm self-emission so it isn't crushed to black in backlight, showing translucent bamboo ribs.
       const higoMat = new THREE.MeshStandardMaterial({
         color: 0xc2a266, roughness: 0.75, metalness: 0,
         emissive: 0x936026, emissiveIntensity: 0.7,
       });
       if (p.spiral) {
-        // 螺旋巻き: 竹ひごを「下へ連続していく1本の螺旋」として描く(型の溝と同じ higoSpiralPath)。
+        // Spiral winding: draw the bamboo rib as "a single spiral continuing downward" (same higoSpiralPath as the mold's grooves).
         const path = higoSpiralPath(p);
         if (path.length > 1) {
           const v = path.map(([a, y, r]) => new THREE.Vector3(r * Math.cos(a), legH + y, r * Math.sin(a)));
@@ -415,15 +415,15 @@ export default function HarigataStudio() {
           s.group.add(ring);
         }
       }
-      // 脚: 火袋の底縁(=下の開口)から外に開いて床へ。暗背景に沈まないグラファイト(黒鉄の質感は保つ)
+      // Legs: splay outward from the lamp body's bottom rim (= the lower opening) down to the floor. Graphite that doesn't sink into the dark background (keeps the black-iron texture)
       const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
-      // 付け根はスキンの底縁に一致させる: 半径・高さとも t0(=火袋の下端)の値を使う。
+      // Match the root to the skin's bottom rim: use the t0 (= lamp body's bottom end) value for both radius and height.
       const rimR = outerR(p, t0) + p.higoD, rimY = legH + t0 * p.height;
-      // 開口の黒い縁(リング)。三脚がこの縁に接続する。脚と同じ太さ・素材で一体に見せる。
+      // Black rim of the opening (a ring). The three legs connect to this rim. Same thickness/material as the legs so it looks unified.
       const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, 1.8, 14, 96), legMat);
       rim.rotation.x = Math.PI / 2; rim.position.y = rimY;
       s.group.add(rim);
-      // 足先は付け根より外へ = 開口から床へまっすぐ広がる三脚(内へすぼませない)。
+      // The feet go further out than the root = a tripod spreading straight from the opening to the floor (not tapering inward).
       const r0 = rimR, r1 = rimR + legH * 0.35;
       for (let i = 0; i < 3; i++) {
         const a = (i / 3) * Math.PI * 2 + Math.PI / 6;
@@ -439,7 +439,7 @@ export default function HarigataStudio() {
         foot.position.copy(botP);
         s.group.add(foot);
       }
-      // 床(暗い部屋) + 暖かい光だまり(あかりが床を照らす)
+      // Floor (dark room) + warm pool of light (the lamp illuminates the floor)
       const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), s.litFloorMat);
       floor.rotation.x = -Math.PI / 2;
       s.group.add(floor);
@@ -448,17 +448,17 @@ export default function HarigataStudio() {
       const pr = maxRadius(p) * 7;
       pool.scale.set(pr, pr, 1);
       s.group.add(pool);
-      // 自己発光として見せる: 外光は最小限にして火袋の emissive とブルームで光らせる。
-      // 内部電球は使わない(赤道に明るい帯=線が出るため)。emissive の縦グラデで濃淡を付ける。
+      // Present it as self-emitting: keep external light minimal and let the lamp body's emissive and bloom do the glowing.
+      // Don't use an internal bulb (it produces a bright band = line at the equator). Use the emissive vertical gradient for shading.
       s.amb.intensity = 0.12;
       s.key.intensity = 0.25; s.key.position.set(180, 320, 200);
-      s.washiMat.roughness = 1.0;          // 完全つや消し(鏡面ハイライトを消す)
-      s.washiMat.emissiveIntensity = 1.15; // 火袋の明るさ
-      s.bulb.intensity = 0;                // 内部電球オフ(透けて出る明線を防ぐ)
-      s.bloomPass.enabled = true;          // 発光の滲み → 光っている感
-      s.bloomPass.strength = 0.6; s.bloomPass.radius = 0.7; s.bloomPass.threshold = 0.85; // 柔らかいハロー
-      // 切替時だけ初期アングルを「横から(ほぼ目線)」に。これが無いと直前ビュー(印刷=真上
-      // 見下ろし rot.x=-1.35)の角度を引き継いで上から覗く絵になる。
+      s.washiMat.roughness = 1.0;          // Fully matte (removes specular highlights)
+      s.washiMat.emissiveIntensity = 1.15; // Brightness of the lamp body
+      s.bulb.intensity = 0;                // Internal bulb off (prevents a bright line showing through)
+      s.bloomPass.enabled = true;          // Glow bleed → glowing feel
+      s.bloomPass.strength = 0.6; s.bloomPass.radius = 0.7; s.bloomPass.threshold = 0.85; // Soft halo
+      // Only on switch, set the initial angle to "from the side (near eye level)". Without this it inherits the previous view's
+      // angle (print = top-down rot.x=-1.35) and ends up looking down from above.
       if (viewChanged) { s.rot.x = -0.08; s.rot.y = 0.5; }
       frame((legH + p.height) * 1.16, R * 1.1, (legH + p.height) * 0.5);
       return;
@@ -470,42 +470,42 @@ export default function HarigataStudio() {
       mesh.rotation.y = (k / p.boards) * Math.PI * 2;
       mold.add(mesh);
     }
-    // コマは上下同一形状。組立ビューでは上下2箇所に同じジオメトリを配置する。
+    // The koma are identical top and bottom. In the assembly view, place the same geometry at the two (top/bottom) positions.
     const kb = new THREE.Mesh(komaGeometry(p), s.komaMat);
-    kb.rotation.x = -Math.PI / 2; kb.position.y = -p.tabLen; // 下コマ
+    kb.rotation.x = -Math.PI / 2; kb.position.y = -p.tabLen; // Lower koma
     mold.add(kb);
     const kt = new THREE.Mesh(komaGeometry(p), s.komaMat);
-    kt.rotation.x = Math.PI / 2; kt.position.y = p.height + p.tabLen; // 上コマ(同一)
+    kt.rotation.x = Math.PI / 2; kt.position.y = p.height + p.tabLen; // Upper koma (identical)
     mold.add(kt);
 
     if (view === "mold") {
-      // 実際の作業姿勢: 型を横倒しにして土台の2つのサドルに載せた状態を見せる。
-      const collarTop = standCollarTop();           // 柱脚が乗る高さ(襟の天面)
-      const komaY = collarTop + standSaddleH(p);     // コマ中心 = サドル中心の高さ
-      const sep = standSlotSep(p);                   // コマ中心間隔 = 柱間隔(コマ着座位置基準)
-      // 型を横倒し(軸をX方向へ)。回転後コマ中心が X=±sep/2, Y=komaY に来るよう配置。
+      // Actual working pose: show the mold laid on its side, resting in the two saddles of the stand.
+      const collarTop = standCollarTop();           // Height where the column feet sit (top face of the collar)
+      const komaY = collarTop + standSaddleH(p);     // Koma center = saddle center height
+      const sep = standSlotSep(p);                   // Koma center spacing = column spacing (based on the koma seating position)
+      // Lay the mold on its side (axis along X). Position it so the koma centers land at X=±sep/2, Y=komaY after rotation.
       mold.rotation.z = Math.PI / 2;
       mold.position.set(p.height / 2, komaY, 0);
       s.group.add(mold);
-      // 土台: ベース板(床に平置き) + 柱×2(サドルでコマを受ける)
+      // Stand: base board (laid flat on the floor) + 2 columns (saddles receive the koma)
       const board = new THREE.Mesh(boardGeometry(p), s.standMat);
-      board.rotation.x = -Math.PI / 2;              // 厚み(襟)を上向きにして床へ平置き
+      board.rotation.x = -Math.PI / 2;              // Lay flat on the floor with the thickness (collar) facing up
       s.group.add(board);
       for (const sgn of [-1, 1]) {
         const col = new THREE.Mesh(standGeometry(p), s.standMat);
-        col.rotation.y = Math.PI / 2;               // 板厚方向を型軸(X)へ向ける
+        col.rotation.y = Math.PI / 2;               // Orient the board-thickness direction along the mold axis (X)
         col.position.set((sgn * sep) / 2, collarTop, 0);
         s.group.add(col);
       }
       s.shadow.scale.set(R * 3.2, R * 3.2, 1);
-      if (viewChanged) { s.rot.x = -0.12; s.rot.y = 0.32; } // 横から(型軸に沿って)見た初期アングル
-      const top = komaY + R;                         // 型の最上点
+      if (viewChanged) { s.rot.x = -0.12; s.rot.y = 0.32; } // Initial angle viewed from the side (along the mold axis)
+      const top = komaY + R;                         // Topmost point of the mold
       frame(top * 1.2, Math.max(standBoardLength(p) / 2, R) * 1.25, top * 0.5);
     } else {
-      // 印刷ビュー: Bambu Lab A1 (256×256mm)。種別ごとにセル計算しプレートを田の字配置
+      // Print view: Bambu Lab A1 (256×256mm). Compute cells per part type and arrange plates in a grid
       const BEDW = bedW, BEDD = bedD, GAP = 8;
-      // 螺旋巻きは羽根ごとに溝位置が違う(全羽根が別形状)ので、必ず全 boards 枚を並べる。
-      // 通常は全羽根同一なので printRibs 枚だけ(1枚刷って複製する運用)。
+      // With spiral winding each rib has different groove positions (every rib is a different shape), so always lay out all boards ribs.
+      // Normally all ribs are identical, so only printRibs of them (print one and duplicate).
       const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
       const ribs = [];
       for (let k = 0; k < nRibs; k++) {
@@ -516,13 +516,13 @@ export default function HarigataStudio() {
           ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
         }
       }
-      // コマ・柱は上下同一なので各1つだけ出力(印刷時にユーザーが複製・配置)。
-      // STL 出力が別々なので、プレビューでも別プレートに分ける。
+      // The koma and columns are identical top and bottom, so output only one of each (the user duplicates and places them when printing).
+      // Since the STL output is separate, split them onto separate plates in the preview too.
       const komas = [{ geo: komaGeometry(p), mat: s.komaMat }];
       const stands = [{ geo: standGeometry(p), mat: s.standMat }];
-      // ベース板は長さが火袋高さで変わるため別プレートに。柱の配置が動かないようにする
+      // The base board's length varies with the lamp body height, so put it on its own plate. This keeps the column placement fixed
       const boards = [{ geo: boardGeometry(p), mat: s.standMat }];
-      // 口輪(上下の開口リング)。完成品の開口に入れる剛性リング。各1つ。
+      // Opening rings (top/bottom opening rings). Rigid rings inserted into the finished lamp's openings. One each.
       const rings = [
         { geo: ringGeometry(p, false), mat: s.komaMat },
         { geo: ringGeometry(p, true), mat: s.komaMat },
@@ -545,10 +545,10 @@ export default function HarigataStudio() {
         const per = cols * rows;
         items.forEach((pt, i) => {
           const w = pt.bb.max.x - pt.bb.min.x, d = pt.bb.max.y - pt.bb.min.y;
-          const onPlate = Math.min(per, items.length - Math.floor(i / per) * per); // このプレートの部品数
-          const uc = Math.min(cols, onPlate), ur = Math.ceil(onPlate / cols);       // 実使用の列・行数
+          const onPlate = Math.min(per, items.length - Math.floor(i / per) * per); // Number of parts on this plate
+          const uc = Math.min(cols, onPlate), ur = Math.ceil(onPlate / cols);       // Actually used column/row counts
           const gridW = uc * cW - GAP, gridD = ur * cD - GAP;
-          const ox0 = Math.max(2, (BEDW - gridW) / 2), oz0 = Math.max(2, (BEDD - gridD) / 2); // ベッド中央に配置
+          const ox0 = Math.max(2, (BEDW - gridW) / 2), oz0 = Math.max(2, (BEDD - gridD) / 2); // Center on the bed
           placed.push({
             ...pt,
             plate: plateIdx + Math.floor(i / per),
@@ -569,14 +569,14 @@ export default function HarigataStudio() {
       const pRows = Math.ceil(plates / pCols);
       const plateMat = new THREE.MeshStandardMaterial({ color: 0x1e1e23, roughness: 0.9 });
       const platePos = (pl) => [(pl % pCols) * (BEDW + 40), Math.floor(pl / pCols) * (BEDD + 40)];
-      const gridDivs = Math.max(2, Math.round(BEDW / 32)); // ≒32mm セル
+      const gridDivs = Math.max(2, Math.round(BEDW / 32)); // ≈32mm cells
       for (let pl = 0; pl < plates; pl++) {
         const [px, pz] = platePos(pl);
         const plate = new THREE.Mesh(new THREE.BoxGeometry(BEDW, 2, BEDD), plateMat);
         plate.position.set(px + BEDW / 2, -1, pz + BEDD / 2);
         s.group.add(plate);
         const grid = new THREE.GridHelper(BEDW, gridDivs, 0x3f3f46, 0x2c2c31);
-        grid.scale.z = BEDD / BEDW; // 長方形ベッドに合わせて奥行き方向を伸縮
+        grid.scale.z = BEDD / BEDW; // Stretch the depth direction to match a rectangular bed
         grid.position.set(px + BEDW / 2, 0.15, pz + BEDD / 2);
         s.group.add(grid);
       }
@@ -584,8 +584,8 @@ export default function HarigataStudio() {
         const [px, pz] = platePos(pt.plate);
         const m = new THREE.Mesh(pt.geo, pt.mat);
         m.rotation.x = -Math.PI / 2;
-        // rotation.x=-90° で local z → world y。部品の z 下端がプレートに乗るよう持ち上げる
-        // (土台の柱は z 中央基準なので、固定 0.6 だと厚みの半分めり込む)
+        // With rotation.x=-90°, local z → world y. Lift so the part's bottom z edge sits on the plate
+        // (the stand columns are centered on z, so a fixed 0.6 would sink half the thickness in)
         m.position.set(px + pt.ox - pt.bb.min.x, 0.6 - pt.bb.min.z, pz + pt.oz + pt.bb.max.y);
         s.group.add(m);
       });
@@ -600,12 +600,12 @@ export default function HarigataStudio() {
     }
   }, [p, view, printRibs, bedW, bedD, splitRibs]);
 
-  // 印刷する羽根板の枚数(1..boards)。boards が減った場合に備えて clamp。
-  // 螺旋巻きは全羽根が別形状なので必ず全 boards 枚を書き出す(1枚複製では螺旋にならない)。
+  // Number of ribs to print (1..boards). Clamped in case boards was reduced.
+  // With spiral winding every rib is a different shape, so always export all boards ribs (duplicating one won't make a spiral).
   const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
 
-  const dlAll = () => { // 全部品を別STLとして1つのZIPにまとめる
-    const spread = (geos, gap) => { // X方向に並べて重なり回避
+  const dlAll = () => { // Bundle all parts as separate STLs into a single ZIP
+    const spread = (geos, gap) => { // Lay out along X to avoid overlap
       let x = 0;
       for (const g of geos) {
         g.computeBoundingBox();
@@ -615,9 +615,9 @@ export default function HarigataStudio() {
       }
       return geos;
     };
-    // 羽根板の書き出し単位。螺旋巻きは羽根ごとに形が違うので、スライサで個別に配置・複製
-    // できるよう **1枚=1ファイル**(harigata_rib_01.stl …)にする。通常は全羽根同一なので
-    // 従来どおり1ファイルにまとめる(1枚刷って複製)。
+    // Export unit for ribs. With spiral winding each rib differs in shape, so make it **one rib = one file**
+    // (harigata_rib_01.stl …) so they can be placed/duplicated individually in the slicer. Normally all ribs are identical, so
+    // bundle into one file as before (print one and duplicate).
     let ribEntries;
     if (splitRibs) {
       const parts = [];
@@ -639,24 +639,24 @@ export default function HarigataStudio() {
       }
       ribEntries = [{ name: `harigata_ribs_x${nRibs}.stl`, geos: ribs }];
     }
-    // コマ・柱は上下同一なので各1つだけ書き出す(印刷時に2つ複製して使う)。
+    // The koma and columns are identical top and bottom, so export only one of each (duplicate to two when printing).
     const board = boardGeometry(p);
-    // 設定 JSON を同梱: 刷った kit の ZIP 自体が設計のバックアップになる(localStorage が
-    // 消えても復元の元になる)。persist.js と同じスキーマなので将来の JSON 読込でそのまま使える。
+    // Bundle the config JSON: the printed kit's ZIP itself becomes a design backup (a source for restoring
+    // even if localStorage is lost). Same schema as persist.js, so it works as-is for future JSON loading.
     const cfg = JSON.stringify({ schemaVersion: SCHEMA_VERSION, p, bedW, bedD }, null, 2);
     exportZip([
       ...ribEntries,
       { name: "harigata_koma_print2.stl", geos: [komaGeometry(p)] },
       { name: "harigata_stand_column_print2.stl", geos: [standGeometry(p)] },
       { name: "harigata_stand_base.stl", geos: [board] },
-      // 口輪(上下の開口リング)。完成品の開口に入れ、竹ひご/和紙が留まる骨。開口径に合わせて生成。
+      // Opening rings (top/bottom opening rings). Inserted into the finished lamp's openings; the frame that holds the bamboo ribs/washi. Generated to match the opening diameter.
       { name: "harigata_ring_bottom.stl", geos: [ringGeometry(p, false)] },
       { name: "harigata_ring_top.stl", geos: [ringGeometry(p, true)] },
     ], "harigata_kit.zip", [{ name: "harigata_config.json", bytes: new TextEncoder().encode(cfg) }]);
   };
 
-  // 設計を JSON ファイルとして書き出す。localStorage(揮発するキャッシュ層)が消えても、
-  // このファイルから復元できる = 恐れずに使えるバックアップ。ZIP 内 config.json と同スキーマ。
+  // Export the design as a JSON file. Even if localStorage (a volatile cache layer) is lost,
+  // it can be restored from this file = a backup you can rely on. Same schema as the config.json inside the ZIP.
   const exportDesign = () => {
     const json = serializeState({ p, bedW, bedD, printRibs, matT });
     const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
@@ -666,8 +666,8 @@ export default function HarigataStudio() {
     URL.revokeObjectURL(url);
   };
 
-  // 設計 JSON(単体書き出し / ZIP 内 config.json のどちらでも)を読み込んで復元する。
-  // parseImport が sanitize を通すので、壊れた/古い/手書きの値でも安全にフォールバックする。
+  // Load and restore a design JSON (either the standalone export or the config.json inside the ZIP).
+  // parseImport runs a sanitize pass, so broken/old/hand-edited values fall back safely.
   const importDesign = (file) => {
     if (!file) return;
     const reader = new FileReader();
@@ -681,39 +681,39 @@ export default function HarigataStudio() {
   };
 
   const maxDia = Math.round(maxRadius(p) * 2);
-  const boardLen = Math.round(p.height + p.tabLen * 2); // 羽根板の全長
-  const connLen = Math.round(standBoardLength(p));      // 連結板の全長(最も長い部品)
-  const heightLimit = bedW - Math.round(standBoardLength(p) - p.height); // 連結板を幅に収める高さ上限
-  // 上下の開口(=上端/下端の円)の半径。参考表示(羽根はコマを外し傾けて抜くので、
-  // 単純な「開口 ≧ 羽根幅」では抜けるかを判定できない → 誤警告になるため判定はしない)。
-  const topOpen = Math.round(outerR(p, 1)); // 上の開口 半径
-  const botOpen = Math.round(outerR(p, 0)); // 下の開口 半径
+  const boardLen = Math.round(p.height + p.tabLen * 2); // Total rib length
+  const connLen = Math.round(standBoardLength(p));      // Total length of the connecting board (the longest part)
+  const heightLimit = bedW - Math.round(standBoardLength(p) - p.height); // Height upper limit to fit the connecting board within the width
+  // Radii of the top/bottom openings (= the top-end/bottom-end circles). Shown for reference (ribs are removed by taking off the koma and tilting,
+  // so a simple "opening ≥ rib width" can't determine whether they come out → it would cause false warnings, so no check is done).
+  const topOpen = Math.round(outerR(p, 1)); // Upper opening radius
+  const botOpen = Math.round(outerR(p, 0)); // Lower opening radius
 
-  // ベッド超過の判定。部品ごとに載る軸が違う: 羽根板は長軸=高さ方向 → 奥行き bedD、
-  // 連結板は長軸=長さ方向 → 幅 bedW。羽根板は上下2分割で半分にできるが、連結板は
-  // 分割できないので高さを下げるしかない。
-  const ribLen = splitRibs ? Math.round(boardLen / 2) + 12 : boardLen; // 分割時は継手ぶん+12
+  // Bed-overflow check. Each part lies along a different axis: ribs have their long axis = height direction → depth bedD,
+  // the connecting board has its long axis = length direction → width bedW. Ribs can be halved by splitting top/bottom, but the connecting board
+  // can't be split, so the only option is to lower the height.
+  const ribLen = splitRibs ? Math.round(boardLen / 2) + 12 : boardLen; // When split, +12 for the joint
   const overParts = [];
   if (ribLen > bedD) overParts.push(t("羽根板 {n}mm", { n: ribLen }));
   if (connLen > bedW) overParts.push(t("連結板 {n}mm", { n: connLen }));
   const bedWarn = overParts.length > 0;
-  // 2分割モードは分割部品の爪が本体(コマ基準)と不一致で現行コマに嵌まらない(要修正)。
-  // 直るまで自動適用は勧めず、高さを下げる案内に一本化する。
+  // In split mode the split parts' tabs don't match the body (koma-based) and won't fit the current koma (needs fixing).
+  // Until fixed, don't recommend auto-applying it; funnel to the "lower the height" guidance only.
   const canSplitFix = false;
 
-  const PANEL = 336; // インスペクタ幅(px)
+  const PANEL = 336; // Inspector width (px)
   const mono = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
   const sans = "'IBM Plex Sans JP', 'Hiragino Sans', system-ui, sans-serif";
-  const isLit = view === "lit";   // 点灯ビュー=鑑賞モード(パネル非表示・暗背景)
-  const accent = "#D95B18";       // アクセント = 和紙の灯りのオレンジ
+  const isLit = view === "lit";   // Lit view = viewing mode (panel hidden, dark background)
+  const accent = "#D95B18";       // Accent = the orange of washi lamplight
 
-  // インスペクタ:和紙色の明るい暖色ニュートラル(README Design Tokens)
+  // Inspector: bright warm neutral in washi color (README Design Tokens)
   const UI = {
     panel: "#fbf8f1", edge: "rgba(59,52,43,0.1)", head: "#3b342b",
     text: "#3b342b", sub: "#8a7c66", faint: "#a1937c", faintest: "#c0b298",
     card: "#fff", cardEdge: "rgba(59,52,43,0.09)", warn: "#c23c12",
   };
-  // ビューポート背景(組立/印刷=寒色ニュートラルCAD調、点灯=暗)。断面は SectionEditor 側。
+  // Viewport background (assembly/print = cool-neutral CAD-style, lit = dark). Cross-section is handled by SectionEditor.
   const vpBg = isLit
     ? "radial-gradient(circle at 50% 40%, #1b2230 0%, #070a11 100%)"
     : "radial-gradient(circle at 50% 34%, #eef0f3 0%, #c3c8d0 52%, #939ba6 100%)";
@@ -721,7 +721,7 @@ export default function HarigataStudio() {
     ? { bg: "rgba(16,16,18,0.72)", edge: "rgba(255,255,255,0.08)", txt: "#8a8a96" }
     : { bg: "rgba(255,255,255,0.85)", edge: "rgba(59,52,43,0.08)", txt: "#8a7c66" };
 
-  // 左右ドラッグで数値を微調整(スクラブ)。ドラッグ中は drag=key でハイライト。
+  // Fine-tune a value by dragging left/right (scrub). During the drag, drag=key highlights it.
   const startScrub = (e, cfg) => {
     e.preventDefault();
     const start = cfg.value, sx = e.clientX;
@@ -740,7 +740,7 @@ export default function HarigataStudio() {
     setDrag(cfg.key);
   };
 
-  // スクラブ行(ラベル + 値)。card=白カード内の行(区切り線あり)。
+  // Scrub row (label + value). card = a row inside a white card (with a divider).
   const scrubRow = (cfg, opts = {}) => {
     const on = drag === cfg.key;
     return (
@@ -773,7 +773,7 @@ export default function HarigataStudio() {
     </div>
   );
 
-  // プリセットアイコン:実プロファイル(スプライン)から生成した小さなシルエット
+  // Preset icon: a small silhouette generated from the actual profile (spline)
   const miniPath = (pr) => {
     const q = { height: 280, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts };
     const N = 40, rr = []; let mx = 0;
@@ -786,7 +786,7 @@ export default function HarigataStudio() {
     return dd + " Z";
   };
 
-  // ±ボタンのステッパー(離散整数向け)
+  // ± button stepper (for discrete integers)
   const stepper = (key, label, value, min, max, step, onChange, valueText) => {
     const sq = (txt, fn, off) => (
       <button onClick={off ? undefined : fn} disabled={off} style={{
@@ -808,7 +808,7 @@ export default function HarigataStudio() {
     );
   };
 
-  // 数値入力(ベッド寸法向け。Enter/フォーカス外しで確定・クランプ)
+  // Numeric input (for bed dimensions. Commits and clamps on Enter / blur)
   const numInput = (label, value, setValue, min, max) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
       <span style={{ fontSize: 12.5, color: UI.text }}>{t(label)}</span>
@@ -836,7 +836,7 @@ export default function HarigataStudio() {
     </div>
   );
 
-  // ============ 左:ビューポート ============
+  // ============ Left: viewport ============
   const viewport = (
     <main style={{
       position: "relative", minWidth: 0, minHeight: 0,
@@ -844,7 +844,7 @@ export default function HarigataStudio() {
       height: narrow ? "44vh" : "auto",
     }}>
       <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg, transition: "background 0.3s" }} />
-      {/* 断面ビュー:直接操作エディタ(WebGLキャンバスの上に重ねる) */}
+      {/* Cross-section view: direct-manipulation editor (overlaid on the WebGL canvas) */}
       {view === "2d" && <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag} sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode} t={t} />}
 
       {glError && (
@@ -861,7 +861,7 @@ export default function HarigataStudio() {
         </div>
       )}
 
-      {/* モードタブ */}
+      {/* Mode tabs */}
       <div style={{
         position: "absolute", top: 16, left: 16, display: "flex", gap: 2, padding: 4,
         borderRadius: 10, background: chip.bg,
@@ -879,7 +879,7 @@ export default function HarigataStudio() {
         ))}
       </div>
 
-      {/* 寸法チップ(常時ライブ更新) */}
+      {/* Dimension chip (always live-updating) */}
       <div style={{
         position: "absolute", top: 24, right: 24, fontSize: 12, color: chip.txt,
         fontFamily: mono, letterSpacing: "0.05em", textAlign: "right", pointerEvents: "none",
@@ -887,7 +887,7 @@ export default function HarigataStudio() {
         ⌀{maxDia} × H{p.height} mm
       </div>
 
-      {/* ベッド超過警告(部品ごとに載る軸が違うのでベッドは幅×奥行きで示す) */}
+      {/* Bed-overflow warning (each part lies along a different axis, so the bed is shown as width×depth) */}
       {!isLit && bedWarn && (
         <div
           style={{
@@ -904,7 +904,7 @@ export default function HarigataStudio() {
         </div>
       )}
 
-      {/* 点灯モードの補足 */}
+      {/* Lit-mode note */}
       {isLit && (
         <div style={{
           position: "absolute", bottom: 20, left: 20, fontSize: 11.5, color: "#8a8a96",
@@ -916,7 +916,7 @@ export default function HarigataStudio() {
     </main>
   );
 
-  // ============ 右:インスペクタ(点灯モードでは非表示) ============
+  // ============ Right: inspector (hidden in lit mode) ============
   const inspector = isLit ? null : (
     <aside style={{
       display: "flex", flexDirection: "column",
@@ -925,7 +925,7 @@ export default function HarigataStudio() {
       borderLeft: narrow ? "none" : `1px solid ${UI.edge}`,
       borderTop: narrow ? `1px solid ${UI.edge}` : "none",
     }}>
-      {/* ヘッダー */}
+      {/* Header */}
       <div style={{ padding: "20px 20px 14px", display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
         <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "0.04em", color: UI.head }}>
           {t("張型")} <span style={{ fontSize: 11.5, fontWeight: 400, color: UI.faint }}>{t("スタジオ")}</span>
@@ -940,19 +940,19 @@ export default function HarigataStudio() {
         </div>
       </div>
 
-      {/* スクロール領域 */}
+      {/* Scroll area */}
       <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px" }}>
-        {/* 上段ツールバー: 動作の性質が全く違うので2グループに分ける。
-            「編集」= 元に戻す/やり直し/初期化(今の作業状態を操作) と 「保存」= 書き出す/読み込む(ファイル入出力)。
-            各グループを枠+小見出しで囲む。パネルが狭い時は flexWrap でグループごと2段に落とす(文字単位の折り返しは nowrap で禁止)。 */}
+        {/* Top toolbar: split into two groups because the actions differ entirely in nature.
+            "Edit" = undo/redo/reset (operate on the current working state) and "Save" = export/import (file I/O).
+            Wrap each group with a border + subheading. When the panel is narrow, flexWrap drops the groups onto two rows (per-character wrapping is forbidden via nowrap). */}
         {(() => {
-          // 他のセクション(形・シルエット等)に合わせ、枠は使わず小見出し+ボタン列だけにする。
+          // To match the other sections (shape, silhouette, etc.), use no border — just a subheading + button row.
           const groupBox = { display: "flex", flexDirection: "column", gap: 7 };
           const groupTitle = { fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", color: UI.faint };
           const btnBase = { display: "flex", alignItems: "center", height: 32, padding: "0 12px", borderRadius: 8, fontFamily: sans, fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" };
           return (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 24, marginBottom: 14 }}>
-              {/* 編集グループ: 元に戻す / やり直し / 初期化 */}
+              {/* Edit group: undo / redo / reset */}
               <div style={groupBox}>
                 <span style={groupTitle}>{t("編集")}</span>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -967,11 +967,11 @@ export default function HarigataStudio() {
                       <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{t(label)}
                     </button>
                   ))}
-                  {/* 初期化は破壊的なので warn 色の枠で他と区別しつつ、編集状態の操作として同じグループに置く。 */}
+                  {/* Reset is destructive, so distinguish it with a warn-colored border, while keeping it in the same group as an operation on the edit state. */}
                   <button
                     onClick={() => {
                       if (!window.confirm(t("すべての設定を初期状態に戻します。よろしいですか?"))) return;
-                      try { localStorage.removeItem(STORAGE_KEY); } catch { /* 無効でも続行 */ }
+                      try { localStorage.removeItem(STORAGE_KEY); } catch { /* continue even if disabled */ }
                       setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1); setSplitRibs(false);
                     }}
                     title={t("すべての設定を初期状態に戻す")}
@@ -980,7 +980,7 @@ export default function HarigataStudio() {
                   </button>
                 </div>
               </div>
-              {/* 保存グループ: 書き出す / 読み込む(設計を JSON ファイルに保存/復元。localStorage が消えても復元できる) */}
+              {/* Save group: export / import (save/restore the design to a JSON file. Restorable even if localStorage is lost) */}
               <div style={groupBox}>
                 <span style={groupTitle}>{t("保存")}</span>
                 <input ref={importRef} type="file" accept=".json,application/json" style={{ display: "none" }}
@@ -997,7 +997,7 @@ export default function HarigataStudio() {
             </div>
           );
         })()}
-        {/* 形プリセット */}
+        {/* Shape presets */}
         <div style={{ marginBottom: 20 }}>
           {sectionLabel("形")}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
@@ -1024,8 +1024,8 @@ export default function HarigataStudio() {
           </div>
         </div>
 
-        {/* 選択中の点カード(断面ビューのみ)。SVG上の隠しジェスチャを明示UIに: 数値入力・
-            なめらか/角トグル・削除。geometry には触れない(pts の r/t/sharp を編集するだけ)。 */}
+        {/* Selected-point card (cross-section view only). Turns hidden gestures on the SVG into explicit UI: numeric input,
+            smooth/sharp toggle, delete. Doesn't touch geometry (just edits pts' r/t/sharp). */}
         {view === "2d" && (() => {
           const selPt = sel != null && p.pts && p.pts[sel] ? p.pts[sel] : null;
           const isEnd = selPt && (sel === 0 || sel === p.pts.length - 1);
@@ -1049,8 +1049,8 @@ export default function HarigataStudio() {
               border: "1px solid " + (active ? accent : UI.cardEdge),
             }}>{t(label)}</button>
           );
-          // カーブ調整モードへ入る時、まだハンドルが無ければ現在の Hermite 曲線から焼き込む
-          // (形は変わらない)。以降 outerR はベジェ評価になり、ハンドルで角度を編集できる。
+          // When entering curve-adjust mode, if there are no handles yet, bake them from the current Hermite curve
+          // (the shape doesn't change). From then on outerR is evaluated as Bézier, and angles can be edited with the handles.
           const enterCurve = () => {
             setEditMode("curve");
             setP((o) => (o.pts.some((q) => q.ho || q.hi) ? o : { ...o, pts: bakeBezierHandles(o.pts) }));
@@ -1088,7 +1088,7 @@ export default function HarigataStudio() {
           );
         })()}
 
-        {/* シルエット(スクラブ) */}
+        {/* Silhouette (scrub) */}
         <div style={{ marginBottom: 20 }}>
           {sectionLabel("シルエット", "左右にドラッグで調整")}
           <div style={{ border: `1px solid ${UI.cardEdge}`, borderRadius: 10, background: UI.card, overflow: "hidden" }}>
@@ -1100,7 +1100,7 @@ export default function HarigataStudio() {
           </div>
         </div>
 
-        {/* 骨組み */}
+        {/* Framework */}
         <div style={{ marginBottom: 20 }}>
           {sectionLabel("骨組み")}
           {stepper("boards", "羽根板の枚数", p.boards, 4, Math.min(16, boardsMax), 1,
@@ -1130,7 +1130,7 @@ export default function HarigataStudio() {
           )}
         </div>
 
-        {/* 竹ひご(アコーディオン) */}
+        {/* Bamboo ribs (accordion) */}
         <div style={{ borderTop: `1px solid ${UI.edge}`, marginBottom: 4 }}>
           <div onClick={() => setHigoOpen((v) => !v)}
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 0", cursor: "pointer" }}>
@@ -1154,7 +1154,7 @@ export default function HarigataStudio() {
           )}
         </div>
 
-        {/* 印刷ビュー:プリントベッド設定 */}
+        {/* Print view: print bed settings */}
         {view === "print" && (
           <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 16, marginTop: 4 }}>
             {sectionLabel("プリントベッド")}
@@ -1187,11 +1187,11 @@ export default function HarigataStudio() {
               )}
             </div>
 
-            {/* 型紙: 3Dプリンタが無くても段ボール・厚紙で作れるように原寸 A4 で刷る */}
+            {/* Papercraft: print at A4 actual size so it can be made from cardboard/cardstock even without a 3D printer */}
             <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 14, marginTop: 14 }}>
               {sectionLabel("型紙(段ボール)", "A4 原寸")}
               {stepper("matT", "材料の厚み", matT, 1, 10, 0.5, (v) => setMatT(v), `${matT} mm`)}
-              <button onClick={() => openHTML(paperHTML(p, matT), "harigata_katagami_a4.html")} style={{
+              <button onClick={() => openHTML(paperHTML(p, matT, undefined, t), "harigata_katagami_a4.html")} style={{
                 width: "100%", marginTop: 8, padding: 10, borderRadius: 10, background: UI.card, color: accent,
                 border: `1px solid rgba(217,91,24,0.45)`, fontFamily: sans, fontSize: 12.5, fontWeight: 700,
                 letterSpacing: "0.04em", cursor: "pointer",
@@ -1204,7 +1204,7 @@ export default function HarigataStudio() {
         )}
       </div>
 
-      {/* サマリー(下部固定)+ モード連動 CTA */}
+      {/* Summary (fixed at the bottom) + mode-linked CTA */}
       <div style={{ padding: "16px 20px 18px", borderTop: `1px solid ${UI.edge}` }}>
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 5, columnGap: 12, fontSize: 12, marginBottom: 14 }}>
           <span style={{ color: UI.faint }}>{t("最大径")}</span>
