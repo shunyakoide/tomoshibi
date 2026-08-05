@@ -18,7 +18,7 @@
  * ============================================================================
  */
 import React, { useRef } from "react";
-import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterX, komaR, innerRi, ribOutline2D, lightenHoles2D } from "./geometry.js";
+import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterPts, komaR, innerRi, ribOutline2D, lightenHoles2D } from "./geometry.js";
 import { clamp } from "./util.js";
 
 // SVG logical coordinates (fixed). Center axis cx, baseline y0. Display scales uniformly to fit the container.
@@ -61,14 +61,12 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
   const fr = fukuroRange(p);                 // t range of the lamp body (curve) = between the outermost control points
   const gR = grooveR(p);                     // groove half-width. Shared with geometry = the drawn groove matches the printed groove
   const gs = grooveList(p, gR);              // groove positions (mm)
-  const oX = grooveOuterX(p, gs, gR);        // outer radius including groove notches (mm)
+  const op = grooveOuterPts(p, gs, gR);      // outer-edge points with normal-cut groove notches (matches the STL)
   const kR = komaR(p), Ri = innerRi(p);      // koma outer radius / core (inner end of the tab)
-  const N = Math.max(240, Math.round(H * 2));
-  const rs = [];
-  for (let i = 0; i <= N; i++) rs.push(oX(i / N * H));
-  let d = `M ${X(rs[0]).toFixed(1)} ${Y(0).toFixed(1)}`;
-  for (let i = 1; i <= N; i++) d += ` L ${X(rs[i]).toFixed(1)} ${Y(i / N).toFixed(1)}`;
-  for (let i = N; i >= 0; i--) d += ` L ${Xm(rs[i]).toFixed(1)} ${Y(i / N).toFixed(1)}`;
+  // Right side up, then the mirrored left side down (same points → the drawn groove matches the printed groove)
+  let d = `M ${X(op[0][0]).toFixed(1)} ${Y(op[0][1] / H).toFixed(1)}`;
+  for (let i = 1; i < op.length; i++) d += ` L ${X(op[i][0]).toFixed(1)} ${Y(op[i][1] / H).toFixed(1)}`;
+  for (let i = op.length - 1; i >= 0; i--) d += ` L ${Xm(op[i][0]).toFixed(1)} ${Y(op[i][1] / H).toFixed(1)}`;
   d += " Z";
 
   // Bamboo ribs (higo) (groove center lines; same positions as the groove notches)
@@ -83,7 +81,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
     { t0: fr.lo, t1: fr.hi, fill: accent, op: 0.12 }, // lamp body
     { t0: fr.hi, t1: 1, fill: C.neck },       // top neck
   ].filter((b) => b.t1 - b.t0 > 0.001);
-  const maxR = Math.max(...rs) + 4;
+  const maxR = Math.max(...op.map((q) => q[0])) + 4;
 
   // Actual rib cross-section (overlaid on the right side). Tab tongue + core (Ri) + grooved outer edge + lightening windows.
   // The exact shape of the printed part. Coordinates are (x = radius mm, y = height mm).

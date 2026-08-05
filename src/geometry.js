@@ -304,6 +304,52 @@ export function grooveOuterX(p, grooves, gR) {
     return outerR(p, Math.min(Math.max(y, 0), h) / h) - dip;
   };
 }
+// Outer-edge point list with the bamboo-rib grooves cut ALONG THE SURFACE NORMAL (not purely
+// radially). A radial notch (grooveOuterX, a function of y) loses its effective depth and its
+// catching wall where the profile turns steeply diagonal — a single-valued-in-y outline literally
+// cannot form the undercut that stops the bamboo from sliding. This builds the notch as a V of
+// constant *perpendicular* depth, offset inward along the fixed local normal at each groove center,
+// so the depth and the wall stay effective at any face angle. Returns [[x,y],...] from y=0 to y=h
+// (endpoints exact = the smooth opening radius). With grooves=[] it returns the plain smooth edge.
+// Single source of truth: shared by ribOutline2D (the printed rib) and the section drawing.
+export function grooveOuterPts(p, grooves, gR) {
+  const h = p.height, mid = equatorY(p), STEP = 0.5;
+  const DEEP = 2.1; // perpendicular depth factor; on a flat face this equals the legacy radial depth.
+  const info = grooves.map((g) => {
+    const sl = (outerR(p, Math.min(1, (g + 0.6) / h)) - outerR(p, Math.max(0, (g - 0.6) / h))) / 1.2; // dR/dy
+    const T = Math.hypot(1, sl);                       // |tangent| = 1/cosθ
+    const depth = Math.min(p.higoD * 1.5, gR * DEEP);  // constant perpendicular depth (matches the flat notch)
+    const skew = Math.min(0.62, 0.24 + Math.abs(sl) * 0.32);
+    const cs = g < mid ? 1 : -1;                        // toward the center (equator): +y when g is below the equator
+    // Along-surface half-widths → y half-widths (÷T). Center side gentle (wide), opening side steep (narrow).
+    const hyC = (gR * (1 + skew)) / T, hyO = (gR * (1 - skew)) / T;
+    return { g, depth, hyC, hyO, cs, nx: -1 / T, ny: sl / T }; // inward unit normal (-1, sl)/|T|
+  });
+  // y-samples: a fine grid + each groove's exact tip and flank ends, so the V stays crisp.
+  const ys = new Set();
+  for (let y = 0; y <= h; y += STEP) ys.add(Math.min(y, h));
+  ys.add(h);
+  for (const it of info) {
+    ys.add(it.g);
+    ys.add(Math.max(0, it.g - (it.cs > 0 ? it.hyC : it.hyO)));
+    ys.add(Math.min(h, it.g + (it.cs > 0 ? it.hyO : it.hyC)));
+  }
+  const pts = [];
+  for (const y of [...ys].sort((a, b) => a - b)) {
+    let dip = 0, nx = 0, ny = 0;                        // nearest groove wins (grooves never overlap: pitch ≫ width)
+    for (const it of info) {
+      const d = y - it.g;
+      const wy = (d === 0 || Math.sign(d) === it.cs) ? it.hyC : it.hyO; // which flank (center/opening) this y is on
+      if (Math.abs(d) < wy) {
+        const v = it.depth * (1 - Math.abs(d) / wy);
+        if (v > dip) { dip = v; nx = it.nx; ny = it.ny; }
+      }
+    }
+    const base = outerR(p, Math.min(Math.max(y, 0), h) / h);
+    pts.push([base + dip * nx, y + dip * ny]);
+  }
+  return pts;
+}
 // Bamboo rib groove positions. Distributes them "evenly" over the lamp body, but places no groove
 // right next to the neck (opening). It gives a half-pitch buffer (= opening/neck-side clearance) at
 // the top and bottom ends and arranges the grooves evenly from the inside.
@@ -471,17 +517,17 @@ export function ribOutline2D(p, k = 0, opts = {}) {
   // The curve always gets grooves, and grooves are placed at the top/bottom ends too.
   // With spiral winding, the groove positions shift by rib index k (ribEdges aligns with the same grooveList(p,gR,k)).
   const grooves = grooveList(p, gR, k);
-  const outerX = opts.smooth
-    ? (y) => outerR(p, Math.min(Math.max(y, 0), h) / h)
-    : grooveOuterX(p, grooves, gR);
-  const Ri = innerRi(p), STEP = 0.5, pts = []; // fine, to pick up the barb's steep flank
+  // Outer edge: grooves cut along the surface normal (opts.smooth = no grooves, for the paper template).
+  const outerEdge = grooveOuterPts(p, opts.smooth ? [] : grooves, gR);
+  const Ri = innerRi(p), STEP = 0.5, pts = []; // STEP used by the inner-edge loop below
   // Tab = a straight tongue. Match the tip exactly to the koma outer radius kR (no overhang).
   const kR = komaR(p);
   // Bottom tab: stays a straight rectangle (the stopper is only on the upper koma side).
-  pts.push([Ri, 0], [Ri, -tl], [kR, -tl], [kR, 0], [outerR(p, 0), 0]);
-  for (let y = STEP; y <= h; y += STEP) pts.push([outerX(Math.min(y, h)), Math.min(y, h)]);
+  pts.push([Ri, 0], [Ri, -tl], [kR, -tl], [kR, 0]);
+  // Outer edge from y=0 (= [outerR(p,0),0]) up to y=h (= [outerR(p,1),h]); endpoints are exact.
+  for (const q of outerEdge) pts.push(q);
   // Top tab: insert the koma from the tip (outside), and the inner-edge shelf supports the underside of the koma's solid part to stop inward slippage.
-  pts.push([outerR(p, 1), h], [kR, h], [kR, h + tl], [Ri, h + tl]);
+  pts.push([kR, h], [kR, h + tl], [Ri, h + tl]);
   const stop = komaStop2D(p, opts.stop);
   if (stop) pts.push([Ri, stop.yShelf], [stop.Rd, stop.yShelf], [stop.Rd, h]); // shelf (projection)
   // Inner edge: the banana (crescent) curve from top to bottom. Both ends return to Ri, so it connects to the tabs.
