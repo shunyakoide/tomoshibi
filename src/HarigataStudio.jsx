@@ -47,7 +47,7 @@ export default function HarigataStudio() {
   const [drag, setDrag] = useState(null);  // Key currently being dragged (for highlighting handles / scrub rows)
   const [higoOpen, setHigoOpen] = useState(false); // Open/closed state of the bamboo-rib accordion
   const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1); // Number of ribs laid out at once in the print view
-  const [splitRibs, setSplitRibs] = useState(false); // Split ribs into top/bottom halves (experimental, so not restored = always starts false)
+  const [splitRibs] = useState(false); // Split-rib mode (experimental) — UI removed; kept false. Split code paths stay for future work.
   const [bedW, setBedW] = useState(SAVED?.bedW ?? 256); // Print bed width (mm). Restored as a machine setting
   const [bedD, setBedD] = useState(SAVED?.bedD ?? 256); // Print bed depth (mm)
   const [matT, setMatT] = useState(SAVED?.matT ?? 5);   // Papercraft material thickness (mm). Measured cardboard thickness. Restored as a machine setting
@@ -972,7 +972,7 @@ export default function HarigataStudio() {
                     onClick={() => {
                       if (!window.confirm(t("すべての設定を初期状態に戻します。よろしいですか?"))) return;
                       try { localStorage.removeItem(STORAGE_KEY); } catch { /* continue even if disabled */ }
-                      setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1); setSplitRibs(false);
+                      setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1);
                     }}
                     title={t("すべての設定を初期状態に戻す")}
                     style={{ ...btnBase, background: "transparent", color: UI.warn, border: `1px solid rgba(194,60,18,0.35)`, cursor: "pointer" }}>
@@ -1115,19 +1115,9 @@ export default function HarigataStudio() {
             onChange: (v) => setP((o) => ({ ...o, boardT: v })) })}
           {scrubRow({ key: "tabLen", label: "爪の長さ", value: p.tabLen, min: 5, max: 40, sens: 0.2, round: 1, unit: "mm",
             onChange: (v) => setP((o) => ({ ...o, tabLen: v })) })}
-          <div style={{ display: "flex", gap: 16, padding: "7px 0" }}>
-            {checkbox(p.neckBot ?? p.neckOn ?? true, () => setP((o) => ({ ...o, neckBot: !(o.neckBot ?? o.neckOn ?? true) })), "下の首")}
-            {checkbox(p.neckTop ?? p.neckOn ?? true, () => setP((o) => ({ ...o, neckTop: !(o.neckTop ?? o.neckOn ?? true) })), "上の首")}
-          </div>
           <div style={{ fontSize: 11, color: UI.faint, lineHeight: 1.5, padding: "2px 0 4px" }}>
             {t("首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ")}
           </div>
-          {checkbox(splitRibs, () => setSplitRibs(!splitRibs), <>{t("羽根板を上下2分割")} <span style={{ color: UI.faint }}>{t("(大型用)")}</span></>)}
-          {splitRibs && (
-            <div style={{ fontSize: 11, color: UI.warn, lineHeight: 1.5, padding: "2px 0 4px" }}>
-              {t("⚠ 試験中: 分割部品の爪が現行のコマに嵌まりません(要修正)")}
-            </div>
-          )}
         </div>
 
         {/* Bamboo ribs (accordion) */}
