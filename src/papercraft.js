@@ -24,7 +24,7 @@
  * ============================================================================
  */
 import {
-  ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, komaStop2D, notchR, komaR,
+  ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, tabDented, notchR, komaR,
 } from "./geometry.js";
 
 // Default translator: an interpolating identity (returns the Japanese key, substituting {name}
@@ -40,17 +40,10 @@ const OVERLAP = 10;  // "Glue tab" for parts spanning pages (mm). The top of the
 const GAP = 6;       // Gap between parts (mm). Margin for cutting them apart.
 const TICK = 5;      // Length of the bamboo-rib tick line (mm). Drawn inward from the outer edge.
 
-// ---- Enlarge the inner stopper (shelf) on the top tab for cardboard ----
-// With the 3D-print defaults, in thick material the tab tip is pushed back out to ribCoreFloor and nearly
-// coincides with the shelf's interference limit, so **at 3mm+ thickness the shelf disappears** (= no protrusion).
-// With hand-cut cardboard, adjacent ribs' shelves touching slightly does no real harm, so tighten the clearance
-// and adoption threshold to protrude to the full extent of the central space.
-const STOP = {
-  wRatio: 1.6,  // target protrusion = material thickness × this (in practice capped by the gap-derived interference limit below)
-  gap: 0.4,     // circumferential clearance from the adjacent rib's shelf (mm). The 3D value of 1.0 leaves no room in thick material.
-  min: 0.4,     // don't make the shelf if the protrusion is below this
-};
-const stopOpts = (matT) => ({ w: Math.max(3, matT * STOP.wRatio), gap: STOP.gap, min: STOP.min });
+// ---- Tab-tip dent (koma stop) ----
+// The koma stop is the tab-tip inner-corner dent (both tabs) mated to the koma's shallow notch, shared
+// with the 3D print via geometry.js (ribOutline2D dents the tabs, komaShape/notchR match it). Nothing
+// cardboard-specific to tune: the dent is a fixed size and applies whenever tabDented(pk) has room.
 
 // Bounding box of a point list
 function bbox(pts) {
@@ -87,7 +80,7 @@ function toPage(part, rot) {
 // No lightening windows (cardboard is light, and windows only weaken it and add cutting effort).
 function ribPart(pk, k, nRibs, matT, t) {
   const h = pk.height;
-  const outline = ribOutline2D(pk, k, { smooth: true, stop: stopOpts(matT) });
+  const outline = ribOutline2D(pk, k, { smooth: true });
   // Tick line positions use the same basis as the STL grooves (grooveList). Horizontal lines TICK mm inward from the outer edge.
   // With spiral winding the grooves shift per rib, so pass k (mark them at the same positions as 3D).
   const marks = grooveList(pk, grooveR(pk), k).map((y) => {
@@ -165,15 +158,15 @@ export function paperParts(p, matT, t = tid) {
   for (let k = 0; k < pk.boards; k++) parts.push(ribPart(pk, k, pk.boards, matT, t));
   for (let i = 0; i < 2; i++) parts.push(komaPart(pk, i, t));
   parts.push(...standParts(pk, matT, t));   // the cross stand that stands the mold up (two strips)
-  // Whether the top tab's stopper (shelf) could be made. The shelf's position is "the koma's inner face when the koma is
-  // seated to the tab tip" = height + tabLen - matT, so if the material approaches the tab length there's no room and it isn't made.
-  const stop = komaStop2D(pk, stopOpts(matT));
-  // Wall thickness remaining between the koma's notches. It tightens by the 3D-print basis (MIN_WALL=1.6mm), so thicker
-  // material makes the wall thinner relative to the notch. The shape isn't changed (we don't silently reduce the count),
-  // but if it's at a level that would tear when hand-cut (less than half the material thickness), note it on the page so the
-  // user has grounds to choose count/material/opening.
+  // Whether the tab-tip dent (the koma stop) is present. It needs a tab long enough / center roomy enough
+  // (tabDented); if not, the page warns that the koma can't be stopped from slipping inward.
+  const stop = tabDented(pk);
+  // Wall thickness remaining between the koma's notches (at the notch bottom = notchR). Thicker material
+  // widens the notches, thinning the wall. The shape isn't changed (we don't silently reduce the count),
+  // but if it's at a level that would tear when hand-cut (less than half the material thickness), note it on
+  // the page so the user has grounds to choose count/material/opening.
   const wall = (2 * Math.PI * notchR(pk)) / pk.boards - matT;
-  return { parts, pk, clamped, nMax, wall, stop: !!stop, stopW: stop ? notchR(pk) - stop.Rd : 0 };
+  return { parts, pk, clamped, nMax, wall, stop };
 }
 
 // ============ Page layout ============
@@ -289,7 +282,7 @@ export function paperHTML(p, matT, page = A4, t = tid) {
     ? `<p class="warn">${t("⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。", { wall: wall.toFixed(1), matT })}</p>`
     : "";
   const warnStop = !stop
-    ? `<p class="warn">${t("⚠ 爪の長さ({tabLen}mm)が材料厚({matT}mm)に対して短いため、<b>上端の爪のストッパ(段)が作れませんでした</b>。コマが内側へずれ落ちるのを形で止められません。「爪の長さ」を材料厚の 2倍以上({min}mm 程度)にすると段が付きます。", { tabLen: p.tabLen, matT, min: Math.max(12, matT * 2) })}</p>`
+    ? `<p class="warn">${t("⚠ 爪が短い/コマが小さいため、<b>爪先の凹み(ストッパ(段))が作れませんでした</b>。コマが内側へずれ落ちるのを形で止められません。「爪の長さ」を長く({min}mm 程度以上)、または断面図で<b>開口を広げてコマを大きく</b>すると凹みが付きます。", { min: 8 })}</p>`
     : "";
   const warn = clamped
     ? `<p class="warn">${t("⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。", { matT, nMax, boards: p.boards })}</p>`
