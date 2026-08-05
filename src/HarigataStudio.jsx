@@ -1115,10 +1115,6 @@ export default function HarigataStudio() {
             onChange: (v) => setP((o) => ({ ...o, boardT: v })) })}
           {scrubRow({ key: "tabLen", label: "爪の長さ", value: p.tabLen, min: 5, max: 40, sens: 0.2, round: 1, unit: "mm",
             onChange: (v) => setP((o) => ({ ...o, tabLen: v })) })}
-          <div style={{ display: "flex", gap: 16, padding: "7px 0" }}>
-            {checkbox(p.neckBot ?? p.neckOn ?? true, () => setP((o) => ({ ...o, neckBot: !(o.neckBot ?? o.neckOn ?? true) })), "下の首")}
-            {checkbox(p.neckTop ?? p.neckOn ?? true, () => setP((o) => ({ ...o, neckTop: !(o.neckTop ?? o.neckOn ?? true) })), "上の首")}
-          </div>
           <div style={{ fontSize: 11, color: UI.faint, lineHeight: 1.5, padding: "2px 0 4px" }}>
             {t("首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ")}
           </div>
