@@ -798,25 +798,82 @@ const RING_H = 2;      // hoop height (= Z extrusion, mm). A thin flat ring (wir
 // (diameter 0.6mm) was loose, so changed to 0.15 (diameter 0.3mm). It is fixed by the bamboo rib and
 // washi, so slightly tight is better.
 const RING_FIT = 0.15;
+// ---- Leg sockets on the bottom opening ring ----
+// The bottom ring also serves as the base of a 3-leg stand for the finished lantern. Inside the hoop,
+// three "onigiri" pads (rounded triangles) sit at 120°, each pointing its vertex toward the center,
+// and a leg rod is inserted into the bore at each pad's middle. The pad's outer (rounded) edge overlaps
+// the hoop's inner rim so the whole thing prints as one piece. Dimensions provisional.
+const LEG_N = 3;         // number of leg sockets (evenly spaced)
+const LEG_D = 6;         // leg rod diameter (mm)
+const TRI_R = 10;        // onigiri circumradius (corner distance from pad center, mm)
+const TRI_ROUND = 0.4;   // corner rounding as a fraction of the edge (0 = sharp, ~0.5 = very round)
+const LEG_OVERLAP = 0.6; // how far the pad's outer edge overlaps into the hoop rim (mm), for a joined look
 // The opening (= opening ring) radius. top=true for the top end, false for the bottom end. Uses
 // outerR's end value regardless of whether a neck exists.
 export function openingR(p, top) { return outerR(p, top ? 1 : 0); }
-// A full-circle point list. absarc(0,2π) creates a duplicate start=end point and spawns a degenerate
-// triangle, so it is built from N points below 0..2π and the loop is not closed (Shape/Path close it
-// automatically).
-function circlePts(r, N) {
+// A full-circle point list, optionally centered at (cx, cy). absarc(0,2π) creates a duplicate
+// start=end point and spawns a degenerate triangle, so it is built from N points below 0..2π and the
+// loop is not closed (Shape/Path close it automatically).
+function circlePts(r, N, cx = 0, cy = 0) {
   const pts = [];
-  for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2; pts.push(new THREE.Vector2(r * Math.cos(a), r * Math.sin(a))); }
+  for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2; pts.push(new THREE.Vector2(cx + r * Math.cos(a), cy + r * Math.sin(a))); }
   return pts;
+}
+// A flat annulus (ring) extruded along Z, centered at (cx, cy). Independently watertight.
+function annulusGeo(rOuter, rInner, N, cx = 0, cy = 0, depth = RING_H) {
+  const shape = new THREE.Shape(circlePts(rOuter, N, cx, cy));
+  shape.holes.push(new THREE.Path(circlePts(rInner, N, cx, cy).reverse())); // the hole is wound in reverse
+  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 1 });
+}
+// An "onigiri" pad: an equilateral triangle centered at (cx, cy), circumradius R, rotated by `rot`,
+// with a circular bore of radius `boreR` at the center. Extruded along Z. `t` is the corner rounding
+// as a fraction of the edge — a single number for all corners, or a per-corner [t0,t1,t2]; a corner
+// with t=0 stays sharp (used where the pad meets the ring). Independently watertight.
+function onigiriGeo(cx, cy, R, t, rot, boreR, depth) {
+  const tv = Array.isArray(t) ? t : [t, t, t];
+  const V = [0, 1, 2].map((k) => {
+    const a = rot + (k * 2 * Math.PI) / 3;
+    return new THREE.Vector2(cx + R * Math.cos(a), cy + R * Math.sin(a));
+  });
+  const lerp = (p, q, s) => new THREE.Vector2(p.x + (q.x - p.x) * s, p.y + (q.y - p.y) * s);
+  const shape = new THREE.Shape();
+  for (let i = 0; i < 3; i++) {
+    const cur = V[i], prev = V[(i + 2) % 3], next = V[(i + 1) % 3], ti = tv[i];
+    if (ti <= 0) {                     // sharp corner: go straight to the vertex
+      if (i === 0) shape.moveTo(cur.x, cur.y); else shape.lineTo(cur.x, cur.y);
+      continue;
+    }
+    const pIn = lerp(cur, prev, ti);   // arriving at the corner along the prev edge
+    const pOut = lerp(cur, next, ti);  // leaving the corner along the next edge
+    if (i === 0) shape.moveTo(pIn.x, pIn.y); else shape.lineTo(pIn.x, pIn.y);
+    shape.quadraticCurveTo(cur.x, cur.y, pOut.x, pOut.y); // round the corner (corner = control point)
+  }
+  shape.closePath();
+  shape.holes.push(new THREE.Path(circlePts(boreR, 48, cx, cy).reverse())); // leg bore (reverse-wound)
+  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 4 });
 }
 export function ringGeometry(p, top) {
   const R = openingR(p, top);          // the opening's outer diameter = the rib's outer side (lamp body face)
   const inner = R + RING_FIT;          // inner diameter = opening outer diameter + clearance (the ring fits smoothly onto the outside of the opening)
   const outer = inner + RING_WALL;     // outward by the wall thickness. The bamboo rib winds around this outer edge
   const N = 96;
-  const shape = new THREE.Shape(circlePts(outer, N));
-  shape.holes.push(new THREE.Path(circlePts(inner, N).reverse())); // the hole is wound in reverse
-  return new THREE.ExtrudeGeometry(shape, { depth: RING_H, bevelEnabled: false, curveSegments: 1 });
+  const hoop = annulusGeo(outer, inner, N);
+  if (top) return hoop;                // the top ring is a plain hoop
+  // Bottom ring = base of the 3-leg stand. Inside the hoop, three onigiri pads point their vertex
+  // toward the center; the opposite (rounded) edge overlaps the inner rim so it all prints as one piece.
+  const bore = LEG_D / 2 + RING_FIT;        // leg bore = leg rod + fit clearance
+  // Pad center: with the vertex pointing inward, the outward-facing edge's midpoint sits at Rc + R/2.
+  // Place it just inside the rim so that midpoint overlaps the hoop band by LEG_OVERLAP.
+  const Rc = inner + LEG_OVERLAP - TRI_R / 2;
+  const geos = [hoop];
+  for (let i = 0; i < LEG_N; i++) {
+    const a = (i / LEG_N) * Math.PI * 2;
+    const rot = a + Math.PI;                 // V[0] vertex points inward (toward the center)
+    // Round only the inner vertex; keep the two outer corners sharp where the pad meets the ring.
+    // Flat pad, same height as the hoop (RING_H).
+    geos.push(onigiriGeo(Rc * Math.cos(a), Rc * Math.sin(a), TRI_R, [TRI_ROUND, 0, 0], rot, bore, RING_H));
+  }
+  return mergeGeometries(geos.map((g) => (g.index ? g.toNonIndexed() : g)), false);
 }
 
 // ============ Stand (simple insertion type) ============
