@@ -20,7 +20,7 @@
  * ============================================================================
  */
 import { paperHTML, paperParts, A4 } from "../src/papercraft.js";
-import { komaR, komaStop2D, innerRi } from "../src/geometry.js";
+import { komaR, tabDented, innerRi, notchR } from "../src/geometry.js";
 import { PRESETS, DEFAULTS } from "../src/config.js";
 
 let fail = 0;
@@ -44,19 +44,14 @@ for (const preset of PRESETS)
       eq(bb(find("羽根板")).h, p.height + 2 * p.tabLen, `${tag} rib total length`);
       // Koma notch width = material thickness exactly (fit=0). If this drifts, the tab won't fit / will wobble.
       eq(pk.boardT + Math.max(0, pk.fit ?? 0), matT, `${tag} notch width`);
-      // The tab's inner stopper **must exist** and protrude more than the 3D-print default.
-      // (Left at the default, at 3mm+ thickness it becomes "no room" and the shelf vanishes = ineffective on cardboard.)
-      // The shelf position = the koma's inner face when the koma is seated to the tab tip (height + tabLen - matT), so
-      // when material thickness approaches the tab length there's no place for it. In that case, by design, warn on paper (no shelf made).
-      const st = komaStop2D(pk, { w: Math.max(3, matT * 1.6), gap: 0.4, min: 0.4 });
-      const room = p.tabLen - matT >= 1;
-      if (room && !st) bad(`${tag} stopper not generated despite having room`);
-      if (!room && st) bad(`${tag} made a stopper despite no place for it`);
-      const st3 = komaStop2D(pk);
-      if (st && st3 && st.Rd > st3.Rd + 1e-9) bad(`${tag} stopper smaller than the 3D default`);
-      if (!st && !paperHTML(p, matT, A4).includes("ストッパ(段)が作れません")) bad(`${tag} no-shelf warning is not shown`);
+      // The koma stop is the tab-tip dent, mated to the koma's shallow notch. It must be present whenever
+      // the tab has room (tabDented); otherwise the page warns that the koma can't be stopped from slipping.
+      const dented = tabDented(pk);
+      const room = p.tabLen > 7 && komaR(pk) - innerRi(pk) > 8; // the dent's room condition
+      if (room !== dented) bad(`${tag} dent presence (${dented}) != room (${room})`);
+      if (!dented && !paperHTML(p, matT, A4).includes("ストッパ(段)が作れません")) bad(`${tag} no-stop warning is not shown`);
       // When the wall between koma grooves is thin (less than half the material thickness), by design notify on paper without changing the shape.
-      const wall = (2 * Math.PI * (innerRi(pk) - 0.5)) / pk.boards - matT;
+      const wall = (2 * Math.PI * notchR(pk)) / pk.boards - matT;
       if (wall < matT / 2 && !paperHTML(p, matT, A4).includes("しかありません")) bad(`${tag} no warning despite the thin wall`);
       // The koma is a polygonal approximation (chords) + edge notch cutouts, so the circumscribed diameter is slightly under the diameter
       // (thicker material = wider notches = more under). It's an error if it **exceeds** komaR.

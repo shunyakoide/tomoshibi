@@ -413,10 +413,21 @@ export function higoSpiralPath(p, seg = 48) {
   }
   return out;
 }
+// Top & bottom tab tips are dented at the inner corner (an L-notch, TAB_DENT_W wide × TAB_DENT_H
+// deep). The dent narrows the tab tip's inner edge to innerRi + TAB_DENT_W while the tab base stays
+// at innerRi. The koma notch bottom is set to the dented tip radius, so the wider tab base catches
+// the koma's solid hub = the inward stop ("the tab hooks the koma's inner side").
+const TAB_DENT_W = 6;      // tab-tip inner-corner dent: width (mm, radial)
+const TAB_DENT_H = 6;      // tab-tip inner-corner dent: depth (mm, along the tab)
+// Whether the dent fits (short tabs / crowded centers fall back to a plain tab + full-depth notch).
+export function tabDented(p) { return p.tabLen > TAB_DENT_H + 1 && komaR(p) - innerRi(p) > TAB_DENT_W + 2; }
+// The tab tip's inner radius (where the koma notch bottom mates). Dented tabs pull the tip in by TAB_DENT_W.
+function tabTipRi(p) { return innerRi(p) + (tabDented(p) ? TAB_DENT_W : 0); }
 // The radius of the koma's notch bottom (= inside this is the koma's solid part). Relieved by 0.5
-// from the tab inner end innerRi. Shared by komaShape (which cuts the notch) and komaStop2D (which
-// adds the shelf onto that solid part).
-export function notchR(p) { return Math.max(1, innerRi(p) - 0.5); }
+// from the tab tip inner radius (tabTipRi). With a dent, the notch is shallower and its bottom sits
+// at the dent radius; the tab base (at innerRi, further in) then catches the koma hub. Shared by
+// komaShape (which cuts the notch) and komaStop2D.
+export function notchR(p) { return Math.max(1, tabTipRi(p) - 0.5); }
 
 // [Upper koma inner stopper] A shelf on the tab's inner edge that stops the upper koma from
 // entering toward the lamp body (inward) side.
@@ -521,15 +532,19 @@ export function ribOutline2D(p, k = 0, opts = {}) {
   const outerEdge = grooveOuterPts(p, opts.smooth ? [] : grooves, gR);
   const Ri = innerRi(p), STEP = 0.5, pts = []; // STEP used by the inner-edge loop below
   // Tab = a straight tongue. Match the tip exactly to the koma outer radius kR (no overhang).
-  const kR = komaR(p);
-  // Bottom tab: stays a straight rectangle (the stopper is only on the upper koma side).
-  pts.push([Ri, 0], [Ri, -tl], [kR, -tl], [kR, 0]);
+  const kR = komaR(p), dent = tabDented(p); // both tips get the inner-corner dent (matched by the koma notch)
+  // Bottom tab: straight tongue with the tip's inner corner dented in (an L-notch), same as the top.
+  pts.push([Ri, 0]);
+  if (dent) pts.push([Ri, -(tl - TAB_DENT_H)], [Ri + TAB_DENT_W, -(tl - TAB_DENT_H)], [Ri + TAB_DENT_W, -tl]);
+  else pts.push([Ri, -tl]);
+  pts.push([kR, -tl], [kR, 0]);
   // Outer edge from y=0 (= [outerR(p,0),0]) up to y=h (= [outerR(p,1),h]); endpoints are exact.
   for (const q of outerEdge) pts.push(q);
-  // Top tab: insert the koma from the tip (outside), and the inner-edge shelf supports the underside of the koma's solid part to stop inward slippage.
-  pts.push([kR, h], [kR, h + tl], [Ri, h + tl]);
-  const stop = komaStop2D(p, opts.stop);
-  if (stop) pts.push([Ri, stop.yShelf], [stop.Rd, stop.yShelf], [stop.Rd, h]); // shelf (projection)
+  // Top tab: a plain straight tongue (outer edge full kR, no stopper tooth) with the tip's inner corner
+  // dented in — an L-notch cut out of the tip's inner (small-radius) corner.
+  pts.push([kR, h], [kR, h + tl]);
+  if (dent) pts.push([Ri + TAB_DENT_W, h + tl], [Ri + TAB_DENT_W, h + tl - TAB_DENT_H], [Ri, h + tl - TAB_DENT_H]);
+  else pts.push([Ri, h + tl]);
   // Inner edge: the banana (crescent) curve from top to bottom. Both ends return to Ri, so it connects to the tabs.
   const innerX = ribInnerX(p);
   pts.push([Ri, h]);
