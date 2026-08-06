@@ -33,8 +33,14 @@ const EN = {
   "形": "Shape",
   "シルエット": "Silhouette",
   "左右にドラッグで調整": "Drag left/right to adjust",
+  "ドラッグ / 値クリックで入力": "Drag or click the value to type",
   "骨組み": "Frame",
   "プリントベッド": "Print bed",
+  "3Dプリント": "3D print",
+  "段ボール": "Cardboard",
+  "定番サイズ": "Common size",
+  "カスタム": "Custom",
+  "配置": "Layout",
   "竹ひご": "Bamboo",
   // ---- Preset names ----
   "たまご": "Egg",
@@ -43,6 +49,7 @@ const EN = {
   // ---- Labels (scrub / stepper / input) ----
   "火袋の高さ": "Body height",
   "羽根板の枚数": "Rib count",
+  "クリックで数値を入力": "Click to type a value",
   "板厚": "Board thickness",
   "爪の長さ": "Tab length",
   "竹ひご径": "Bamboo dia.",
