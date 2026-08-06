@@ -419,8 +419,9 @@ export function higoSpiralPath(p, seg = 48) {
 // the koma's solid hub = the inward stop ("the tab hooks the koma's inner side").
 const TAB_DENT_W = 6;      // tab-tip inner-corner dent: width (mm, radial)
 const TAB_DENT_H = 6;      // tab-tip inner-corner dent: depth (mm, along the tab)
-// Whether the dent fits (short tabs / crowded centers fall back to a plain tab + full-depth notch).
-export function tabDented(p) { return p.tabLen > TAB_DENT_H + 1 && komaR(p) - innerRi(p) > TAB_DENT_W + 2; }
+// Whether the dent is used. p.noTabDent forces a plain tab + full-depth notch (the papercraft sets this:
+// cardboard favors tab strength over the koma stop). Short tabs / crowded centers also fall back to plain.
+export function tabDented(p) { return !p.noTabDent && p.tabLen > TAB_DENT_H + 1 && komaR(p) - innerRi(p) > TAB_DENT_W + 2; }
 // The tab tip's inner radius (where the koma notch bottom mates). Dented tabs pull the tip in by TAB_DENT_W.
 function tabTipRi(p) { return innerRi(p) + (tabDented(p) ? TAB_DENT_W : 0); }
 // The radius of the koma's notch bottom (= inside this is the koma's solid part). Relieved by 0.5
