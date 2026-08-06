@@ -24,7 +24,7 @@
  * ============================================================================
  */
 import {
-  ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, tabDented, notchR, komaR,
+  ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, tabDented, notchR,
 } from "./geometry.js";
 
 // Default translator: an interpolating identity (returns the Japanese key, substituting {name}
@@ -78,7 +78,7 @@ function toPage(part, rot) {
 
 // Rib: a smooth outer edge with no grooves carved + tick lines at the bamboo-rib winding positions.
 // No lightening windows (cardboard is light, and windows only weaken it and add cutting effort).
-function ribPart(pk, k, nRibs, matT, t) {
+function ribPart(pk, k, name, t) {
   const h = pk.height;
   const outline = ribOutline2D(pk, k, { smooth: true });
   // Tick line positions use the same basis as the STL grooves (grooveList). Horizontal lines TICK mm inward from the outer edge.
@@ -87,58 +87,13 @@ function ribPart(pk, k, nRibs, matT, t) {
     const x = outerR(pk, Math.min(Math.max(y, 0), h) / h);
     return [x, y, x - TICK, y];
   });
-  // Number stays outside t() so the default (Japanese) name still contains the plain word for the tests.
-  return { name: `${t("羽根板")} ${k + 1}/${nRibs}`, outline, marks };
+  return { name, outline, marks };
 }
 
 // Koma: the same komaShape as 3D (= same notch bottom notchR, same notch width). Only the thickness differs.
-function komaPart(pk, i, t) {
+function komaPart(pk, name) {
   const pts = komaShape(pk).extractPoints(1).shape.map((v) => [v.x, v.y]);
-  return { name: `${t("コマ")} ${i + 1}/2`, outline: pts };
-}
-
-// ---- Cross stand (assemble two cardboard strips into an X to stand the mold up) ----
-// Winding bamboo ribs and applying washi wants the mold standing so the whole circumference is accessible. The mold is
-// "an egg shape with a fat belly (max diameter) tapering toward the bottom koma (⌀38)", so supporting only the central
-// bottom koma leaves the belly floating in the air. Two strips interlock at a central slot into an X, and two V-notches
-// on their top edges cradle the bottom koma's rim. Being a light paper shell, the feet (strip length) can be quite modest
-// from a tip-over margin (⌀70 for the default shape).
-const STAND = {
-  H: 42,        // strip height (mm) = V-cradle depth + floor clearance
-  vDepth: 12,   // V-cradle notch depth (mm). The bottom koma's rim sinks in here and centers
-  slotDepth: 22, // interlock slot depth (mm). vDepth + this < H keeps a bridge at the center (prevents severing)
-};
-const SLOT_FIT = 0.3; // interlock slot fit (mm). Small because cardboard crushes
-// Stand foot diameter (mm). Derives the minimum non-tipping diameter from the mold's center-of-gravity height, rounds to 5mm, floor 70.
-function standFootD(pk) {
-  const full = pk.height + 2 * pk.tabLen, cg = full * 0.45;   // a thin shell of revolution's CoG is roughly 45% of full height
-  const need = 2 * cg * Math.tan((15 * Math.PI) / 180);       // foot diameter that recovers even when tilted 15°
-  return Math.max(70, Math.ceil(need / 5) * 5);
-}
-// Outline of one strip. The central slot is cut from the top edge if slotTop=true, else from the bottom edge
-// (the two are flipped top/bottom to interlock). A V-cradle is always added at the top-edge center. vw = the V's opening width.
-function standStrip(L, matT, vw, slotTop, name) {
-  const H = STAND.H, sw = matT + SLOT_FIT, vd = STAND.vDepth, sd = STAND.slotDepth;
-  const o = [];
-  // Bottom edge (left → right). For the bottom slot, recess the center.
-  if (!slotTop) { o.push([-L / 2, 0], [-sw / 2, 0], [-sw / 2, sd], [sw / 2, sd], [sw / 2, 0], [L / 2, 0]); }
-  else { o.push([-L / 2, 0], [L / 2, 0]); }
-  // Right edge → top edge (right → left, V-cradle). For the top slot, a narrower slot goes further down from the V's bottom.
-  o.push([L / 2, H], [vw / 2, H], [0, H - vd]);
-  if (slotTop) { o.push([sw / 2, H - vd], [sw / 2, H - sd], [-sw / 2, H - sd], [-sw / 2, H - vd]); }
-  o.push([-vw / 2, H], [-L / 2, H]);
-  return { name, outline: o };
-}
-function standParts(pk, matT, t) {
-  const L = standFootD(pk);
-  // Make the V's opening width **narrower** than the bottom koma's diameter. If wide, the koma drops through to the V's
-  // bottom and just rests on the rim, without centering. If narrow, the koma is caught at the left/right corners of the
-  // opening, and the 4 corners across both strips constrain the koma at the center.
-  const vw = Math.min(L - 8, Math.max(matT + 8, 2 * komaR(pk) - 6));
-  return [
-    standStrip(L, matT, vw, false, `${t("スタンド帯")} 1/2 (${t("下スロット")})`),
-    standStrip(L, matT, vw, true, `${t("スタンド帯")} 2/2 (${t("上スロット")})`),
-  ];
+  return { name, outline: pts };
 }
 
 /**
@@ -149,24 +104,35 @@ function standParts(pk, matT, t) {
 export function paperParts(p, matT, t = tid) {
   // fit=0: add no print tolerance (nominal = exactly the material thickness). Cardboard crushes its fibers going in, so
   // adding the 3D-print fit (0.3mm default) would instead make it wobble and the tab couldn't hold the koma.
-  const pk = { ...p, boardT: matT, komaT: matT, fit: 0 };
+  // noTabDent: cardboard skips the tab-tip dent (the koma stop) — cardboard favors keeping the tab strong (the
+  // dent removes tab material) over the inward stop; the koma notch then stays full-depth so the plain tab fits.
+  const pk = { ...p, boardT: matT, komaT: matT, fit: 0, noTabDent: true };
   const nMax = maxBoards(pk);
   const clamped = pk.boards > nMax;
   if (clamped) pk.boards = nMax;
 
-  const parts = [];
-  for (let k = 0; k < pk.boards; k++) parts.push(ribPart(pk, k, pk.boards, matT, t));
-  for (let i = 0; i < 2; i++) parts.push(komaPart(pk, i, t));
-  parts.push(...standParts(pk, matT, t));   // the cross stand that stands the mold up (two strips)
-  // Whether the tab-tip dent (the koma stop) is present. It needs a tab long enough / center roomy enough
-  // (tabDented); if not, the page warns that the koma can't be stopped from slipping inward.
-  const stop = tabDented(pk);
+  // All ribs are identical unless spiral winding shifts the groove (tick) positions per rib. When they
+  // are identical, emit a single rib labeled "×N" (cut N copies) instead of N duplicate sheets.
+  const ribParts = [];
+  if (pk.spiral) {
+    for (let k = 0; k < pk.boards; k++) ribParts.push(ribPart(pk, k, `${t("羽根板")} ${k + 1}/${pk.boards}`, t));
+  } else {
+    ribParts.push(ribPart(pk, 0, `${t("羽根板")} ×${pk.boards}`, t)); // Number stays outside t() so the default name still contains the plain word for the tests.
+  }
+  // Koma: two identical sheets (top & bottom) normally. But if two komas would spill onto an extra page
+  // (a wasteful koma-only page after the ribs), fall back to a single "×2" sheet. Decided by comparing the
+  // page count on A4 (the print page).
+  const twoKoma = [komaPart(pk, `${t("コマ")} 1/2`), komaPart(pk, `${t("コマ")} 2/2`)];
+  const oneKoma = [komaPart(pk, `${t("コマ")} ×2`)];
+  const pageCount = (ks) => layout([...ribParts, ...ks], A4).pages.length;
+  const komas = pageCount(twoKoma) > pageCount(oneKoma) ? oneKoma : twoKoma;
+  const parts = [...ribParts, ...komas];
   // Wall thickness remaining between the koma's notches (at the notch bottom = notchR). Thicker material
   // widens the notches, thinning the wall. The shape isn't changed (we don't silently reduce the count),
   // but if it's at a level that would tear when hand-cut (less than half the material thickness), note it on
   // the page so the user has grounds to choose count/material/opening.
   const wall = (2 * Math.PI * notchR(pk)) / pk.boards - matT;
-  return { parts, pk, clamped, nMax, wall, stop };
+  return { parts, pk, clamped, nMax, wall };
 }
 
 // ============ Page layout ============
@@ -272,7 +238,7 @@ function pageSVG(lay, i, page, info, t) {
  * Open it in the browser and print via Ctrl/⌘+P → "Actual size (100%), no margins".
  */
 export function paperHTML(p, matT, page = A4, t = tid) {
-  const { parts, pk, clamped, nMax, stop, wall } = paperParts(p, matT, t);
+  const { parts, pk, clamped, nMax, wall } = paperParts(p, matT, t);
   const lay = layout(parts, page);
   const info = { pages: lay.pages.length, title: t("張型スタジオ 型紙 {name} 原寸", { name: page.name }) };
   const svgs = [];
@@ -280,9 +246,6 @@ export function paperHTML(p, matT, page = A4, t = tid) {
 
   const warnWall = wall < matT / 2
     ? `<p class="warn">${t("⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。", { wall: wall.toFixed(1), matT })}</p>`
-    : "";
-  const warnStop = !stop
-    ? `<p class="warn">${t("⚠ 爪が短い/コマが小さいため、<b>爪先の凹み(ストッパ(段))が作れませんでした</b>。コマが内側へずれ落ちるのを形で止められません。「爪の長さ」を長く({min}mm 程度以上)、または断面図で<b>開口を広げてコマを大きく</b>すると凹みが付きます。", { min: 8 })}</p>`
     : "";
   const warn = clamped
     ? `<p class="warn">${t("⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。", { matT, nMax, boards: p.boards })}</p>`
@@ -323,16 +286,18 @@ export function paperHTML(p, matT, page = A4, t = tid) {
     <span class="hint">${t("PDF が欲しいときは、印刷ダイアログの<b>「送信先」を「PDFに保存」</b>にしてください。")}<br>
       ${t("いずれの場合も<b>「実際のサイズ / 100%」「余白: なし」</b>を選び、「用紙に合わせる」は外してください。")}</span>
   </div>
-  ${warn}${warnWall}${warnStop}
+  ${warn}${warnWall}
   <ol>
     <li>${t("<b>「実際のサイズ / 100%」で印刷</b>してください(「用紙に合わせる」は禁止)。刷ったら各ページ下の <b>50mm スケール</b>を定規で必ず確認。")}</li>
     <li>${t("ページを跨ぐ部品は、<b>のりしろ(灰色の破線より下)</b>を次ページに重ね、四隅のトンボを合わせて貼り合わせます。")}</li>
     <li>${t("紙を段ボールに貼り、<b>実線だけ</b>を切り抜きます。<b>破線の目盛は切りません</b> — 竹ひごを巻く位置の印です。")}</li>
     <li>${t("段ボールの<b>波の向き(目)は羽根板の長手方向</b>に合わせると折れにくくなります。")}</li>
     <li>${t("材料厚 <code>{matT}mm</code> 前提でコマの溝の幅を決めています。実測厚と違うと嵌まりません(緩い/入らない)。", { matT })}</li>
+    <li>${pk.spiral
+      ? t("羽根板は各枚で竹ひごの巻き位置が異なるため<b>全{boards}枚</b>を掲載しています(番号順に使用)。", { boards: pk.boards })
+      : t("羽根板は全て<b>同一形状</b>のため型紙は1枚だけ掲載。同じものを<b>{boards}枚</b>切り出してください。", { boards: pk.boards })}</li>
     <li>${t("コマ2枚は<b>同一形状</b>です(上下で同じものを使います)。")}</li>
-    <li>${t("組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます。上端の爪の内側にある<b>段(ストッパ)</b>が、上のコマが内側へ入り込むのを止めます。差し込みが緩ければ接着してください。")}</li>
-    <li>${t("<b>スタンド(帯2枚)</b>: 中央のスロットを噛み合わせて<b>X字に立て</b>ます(一方は上から、一方は下からスロットを切ってあるので直交して組めます)。上辺のV字に<b>下のコマの縁を載せる</b>と、型が立って腹(最大径)が宙に浮き、竹ひごや和紙の作業が全周からできます。ぐらつく場合は接着してください。")}</li>
+    <li>${t("組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます(段ボール版は強度優先で爪先の凹みなし=まっすぐな爪)。差し込みが緩ければ接着してください。")}</li>
   </ol>
   <p style="color:#8a7f6e;font-size:12px;margin:6px 0 0">${t("火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。", { height: p.height, boards: pk.boards, pitch: p.pitch })}</p>
 </div>
