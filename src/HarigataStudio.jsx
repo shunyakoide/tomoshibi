@@ -38,14 +38,80 @@ import SectionEditor from "./SectionEditor.jsx";
 import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
 import { makeT, loadLang, saveLang } from "./i18n.js";
 
+// ---- Accessible slider row ----
+// A labeled parameter control: native <input type=range> (free keyboard stepping, touch dragging,
+// and screen-reader semantics) with a filled track, plus a value you can click to type an exact number.
+// Replaces the old drag-only "scrub" row, which had no track, no keyboard access, and no direct entry.
+//  - cfg: { key, label, value, min, max, round, unit, display?, onChange }  (round = step / snap quantum)
+//  - drag/setDrag: shared highlight state (row tints while this control is active), same as before.
+//  - card/last: when inside a white card, draw a divider between rows.
+function ScrubRow({ cfg, ui, accent, mono, t, drag, setDrag, card, last }) {
+  const [editing, setEditing] = React.useState(false);
+  const inputRef = React.useRef(null);
+  const id = `scrub-${cfg.key}`;
+  const { value, min, max, round, unit } = cfg;
+  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  const on = drag === cfg.key;
+  // Snap to the row's quantum and clamp to range (used by both the range slider and typed entry)
+  const snap = (v) => clamp(min, max, +(Math.round(v / round) * round).toFixed(4));
+  React.useEffect(() => { if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); } }, [editing]);
+  const commit = (raw) => {
+    const v = Number(raw);
+    if (Number.isFinite(v)) cfg.onChange(snap(v));
+    setEditing(false);
+  };
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10, minHeight: 44,
+      padding: card ? "5px 13px" : "4px 0",
+      borderBottom: card && !last ? `1px solid ${ui.cardEdge}` : "none",
+      background: on ? "rgba(217,91,24,0.06)" : "transparent",
+    }}>
+      <label htmlFor={id} style={{ fontSize: 12.5, color: ui.text, flex: "0 0 auto", whiteSpace: "nowrap" }}>
+        {t(cfg.label)}
+      </label>
+      <input
+        id={id} type="range" min={min} max={max} step={round} value={value}
+        aria-label={`${t(cfg.label)} (${unit})`} aria-valuetext={`${cfg.display ?? value} ${unit}`}
+        onChange={(e) => cfg.onChange(snap(+e.target.value))}
+        onPointerDown={() => setDrag(cfg.key)}
+        onPointerUp={() => setDrag(null)}
+        onFocus={() => setDrag(cfg.key)}
+        onBlur={() => setDrag(null)}
+        style={{ flex: "1 1 auto", minWidth: 60, "--pct": pct + "%", "--fill": accent, "--track": "#ccd2da" }}
+      />
+      {editing ? (
+        <input
+          ref={inputRef} type="number" inputMode="decimal" defaultValue={value}
+          min={min} max={max} step={round}
+          onKeyDown={(e) => { if (e.key === "Enter") commit(e.currentTarget.value); else if (e.key === "Escape") setEditing(false); }}
+          onBlur={(e) => commit(e.currentTarget.value)}
+          style={{
+            width: 62, padding: "4px 6px", textAlign: "right", fontFamily: mono, fontSize: 12.5, fontWeight: 600,
+            color: ui.text, background: "#fff", border: `1px solid ${accent}`, borderRadius: 6, flex: "0 0 auto",
+          }} />
+      ) : (
+        <button onClick={() => setEditing(true)} title={t("クリックで数値を入力")} style={{
+          minWidth: 62, textAlign: "right", fontFamily: mono, fontSize: 12.5, fontWeight: 600,
+          color: on ? accent : ui.text, background: "transparent", border: "none", cursor: "text",
+          padding: "4px 2px", flex: "0 0 auto",
+        }}>
+          {cfg.display ?? cfg.value}
+          <span style={{ color: ui.faintest, fontWeight: 400 }}> {unit}</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Restore from localStorage once at startup (at module top level to avoid duplicate parses from lazy init).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 
 export default function HarigataStudio() {
   const [p, setP] = useState(SAVED?.p ?? DEFAULTS); // Restore (fall back to defaults if none)
   const [view, setView] = useState("2d"); // Default is the 2D cross-section view (easiest to read the shape). Transient state, so not restored
+  const [printMode, setPrintMode] = useState("stl"); // Print view output method: "stl" (3D print) or "paper" (cardboard template). Transient
   const [drag, setDrag] = useState(null);  // Key currently being dragged (for highlighting handles / scrub rows)
-  const [higoOpen, setHigoOpen] = useState(false); // Open/closed state of the bamboo-rib accordion
   const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1); // Number of ribs laid out at once in the print view
   const [splitRibs] = useState(false); // Split-rib mode (experimental) — UI removed; kept false. Split code paths stay for future work.
   const [bedW, setBedW] = useState(SAVED?.bedW ?? 256); // Print bed width (mm). Restored as a machine setting
@@ -721,56 +787,29 @@ export default function HarigataStudio() {
     ? { bg: "rgba(16,16,18,0.72)", edge: "rgba(255,255,255,0.08)", txt: "#8a8a96" }
     : { bg: "rgba(255,255,255,0.85)", edge: "rgba(59,52,43,0.08)", txt: "#8a7c66" };
 
-  // Fine-tune a value by dragging left/right (scrub). During the drag, drag=key highlights it.
-  const startScrub = (e, cfg) => {
-    e.preventDefault();
-    const start = cfg.value, sx = e.clientX;
-    const move = (ev) => {
-      let v = start + (ev.clientX - sx) * cfg.sens;
-      v = Math.round(v / cfg.round) * cfg.round;
-      cfg.onChange(clamp(cfg.min, cfg.max, +v.toFixed(2)));
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      setDrag(null);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    setDrag(cfg.key);
-  };
+  // Scrub row → accessible slider (see ScrubRow). Keeps the (cfg, opts) call shape used across the panel.
+  const scrubRow = (cfg, opts = {}) => (
+    <ScrubRow key={cfg.key} cfg={cfg} ui={UI} accent={accent} mono={mono} t={t}
+      drag={drag} setDrag={setDrag} card={opts.card} last={opts.last} />
+  );
 
-  // Scrub row (label + value). card = a row inside a white card (with a divider).
-  const scrubRow = (cfg, opts = {}) => {
-    const on = drag === cfg.key;
-    return (
-      <div key={cfg.key} onPointerDown={(e) => startScrub(e, cfg)}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: opts.card ? "9px 13px" : "7px 0", cursor: "ew-resize",
-          borderBottom: opts.card && !opts.last ? `1px solid ${UI.cardEdge}` : "none",
-          background: on ? "rgba(217,91,24,0.06)" : "transparent",
-        }}>
-        <span style={{ fontSize: 12.5, color: UI.text }}>{t(cfg.label)}</span>
-        <span style={{ fontFamily: mono, fontSize: 12.5, fontWeight: 600, color: on ? accent : UI.text }}>
-          {cfg.display ?? cfg.value}
-          <span style={{ color: UI.faintest, fontWeight: 400 }}> {cfg.unit}</span>
-        </span>
-      </div>
-    );
-  };
-
+  // Accessible checkbox: a real <button role="checkbox"> so Tab/Space/Enter and screen readers work
+  // (the old <div onClick> was invisible to the keyboard). 44px min height for a comfortable touch target.
   const checkbox = (checked, onToggle, label) => (
-    <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", cursor: "pointer" }}>
-      <span style={{
-        width: 16, height: 16, borderRadius: 5, flex: "none",
+    <button role="checkbox" aria-checked={checked} onClick={onToggle} style={{
+      display: "flex", alignItems: "center", gap: 9, padding: "8px 0", minHeight: 44,
+      width: "100%", textAlign: "left", background: "transparent", border: "none",
+      font: "inherit", cursor: "pointer",
+    }}>
+      <span aria-hidden="true" style={{
+        width: 18, height: 18, borderRadius: 5, flex: "none",
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 11, color: "#fff",
+        fontSize: 12, color: "#fff",
         background: checked ? accent : UI.card,
         border: checked ? "none" : "1px solid rgba(59,52,43,0.3)",
       }}>{checked ? "✓" : ""}</span>
       <span style={{ fontSize: 12.5, color: UI.text }}>{typeof label === "string" ? t(label) : label}</span>
-    </div>
+    </button>
   );
 
   // Preset icon: a small silhouette generated from the actual profile (spline)
@@ -888,7 +927,7 @@ export default function HarigataStudio() {
       </div>
 
       {/* Bed-overflow warning (each part lies along a different axis, so the bed is shown as width×depth) */}
-      {!isLit && bedWarn && (
+      {!isLit && bedWarn && !(view === "print" && printMode === "paper") && (
         <div
           style={{
             position: "absolute", bottom: 20, left: 20, display: "flex", alignItems: "center", gap: 10,
@@ -941,7 +980,7 @@ export default function HarigataStudio() {
       </div>
 
       {/* Scroll area */}
-      <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px" }}>
+      <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px", touchAction: "pan-y" }}>
         {/* Top toolbar: split into two groups because the actions differ entirely in nature.
             "Edit" = undo/redo/reset (operate on the current working state) and "Save" = export/import (file I/O).
             Wrap each group with a border + subheading. When the panel is narrow, flexWrap drops the groups onto two rows (per-character wrapping is forbidden via nowrap). */}
@@ -1090,7 +1129,7 @@ export default function HarigataStudio() {
 
         {/* Silhouette (scrub) */}
         <div style={{ marginBottom: 20 }}>
-          {sectionLabel("シルエット", "左右にドラッグで調整")}
+          {sectionLabel("シルエット", "ドラッグ / 値クリックで入力")}
           <div style={{ border: `1px solid ${UI.cardEdge}`, borderRadius: 10, background: UI.card, overflow: "hidden" }}>
             {SIL_ROWS.map((r, i) => scrubRow(
               { key: r.key, label: r.label, value: p[r.key], min: r.min, max: r.max, sens: r.sens, round: r.round, unit: r.unit,
@@ -1120,76 +1159,88 @@ export default function HarigataStudio() {
           </div>
         </div>
 
-        {/* Bamboo ribs (accordion) */}
-        <div style={{ borderTop: `1px solid ${UI.edge}`, marginBottom: 4 }}>
-          <div onClick={() => setHigoOpen((v) => !v)}
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 0", cursor: "pointer" }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.06em", color: UI.text }}>{t("竹ひご")}</span>
-            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>⌀{p.higoD} / {p.pitch}mm</span>
-              <span style={{ color: UI.faint, fontSize: 11, transform: higoOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
-            </span>
+        {/* Bamboo ribs — flat section, consistent with Shape / Silhouette / Frame (no accordion). */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionLabel("竹ひご")}
+          {scrubRow({ key: "higoD", label: "竹ひご径", value: p.higoD, display: p.higoD.toFixed(1), min: 1, max: 4, sens: 0.02, round: 0.5, unit: "mm",
+            onChange: (v) => setP((o) => ({ ...o, higoD: v })) })}
+          {scrubRow({ key: "pitch", label: "ひごピッチ", value: p.pitch, min: 8, max: 30, sens: 0.3, round: 1, unit: "mm",
+            onChange: (v) => setP((o) => ({ ...o, pitch: v })) })}
+          <div style={{ marginTop: 4 }}>
+            {checkbox(p.spiral ?? false, () => setP((o) => ({ ...o, spiral: !(o.spiral ?? false) })),
+              <>{t("螺旋巻き")} <span style={{ color: UI.faint }}>{t("(溝を下へ連続させる)")}</span></>)}
           </div>
-          {higoOpen && (
-            <div style={{ padding: "0 0 10px" }}>
-              {scrubRow({ key: "higoD", label: "竹ひご径", value: p.higoD, display: p.higoD.toFixed(1), min: 1, max: 4, sens: 0.02, round: 0.5, unit: "mm",
-                onChange: (v) => setP((o) => ({ ...o, higoD: v })) })}
-              {scrubRow({ key: "pitch", label: "ひごピッチ", value: p.pitch, min: 8, max: 30, sens: 0.3, round: 1, unit: "mm",
-                onChange: (v) => setP((o) => ({ ...o, pitch: v })) })}
-              <div style={{ marginTop: 8 }}>
-                {checkbox(p.spiral ?? false, () => setP((o) => ({ ...o, spiral: !(o.spiral ?? false) })),
-                  <>{t("螺旋巻き")} <span style={{ color: UI.faint }}>{t("(溝を下へ連続させる)")}</span></>)}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Print view: print bed settings */}
+        {/* Print view: two mutually-exclusive output methods (3D print vs cardboard). A segmented toggle
+            picks one and shows only its settings; the footer CTA switches to match (STL export / open template). */}
         {view === "print" && (
           <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 16, marginTop: 4 }}>
-            {sectionLabel("プリントベッド")}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-              {[180, 220, 250, 256, 300, 350].map((sz) => {
-                const active = bedW === sz && bedD === sz;
+            <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+              {[["stl", "3Dプリント"], ["paper", "段ボール"]].map(([k, l]) => {
+                const active = printMode === k;
                 return (
-                  <button key={sz} onClick={() => { setBedW(sz); setBedD(sz); }} style={{
-                    padding: "6px 11px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", borderRadius: 8, fontFamily: sans,
-                    background: active ? accent : UI.card, color: active ? "#fff" : UI.text,
+                  <button key={k} onClick={() => setPrintMode(k)} style={{
+                    flex: 1, padding: "8px 4px", fontFamily: sans, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                    borderRadius: 8, background: active ? accent : UI.card, color: active ? "#fff" : UI.text,
                     border: "1px solid " + (active ? accent : UI.cardEdge),
-                  }}>{sz}</button>
+                  }}>{t(l)}</button>
                 );
               })}
             </div>
-            {numInput("幅", bedW, setBedW, 100, 420)}
-            {numInput("奥行き", bedD, setBedD, 100, 420)}
-            <div style={{ marginTop: 6 }}>
-              {p.spiral ? (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
-                  <span style={{ fontSize: 12.5, color: UI.text }}>{t("印刷する羽根板")}</span>
-                  <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>
-                    {t("螺旋: 全")}{p.boards}{t("枚(各1枚)")}
-                  </span>
-                </div>
-              ) : (
-                stepper("printRibs", "印刷する羽根板", nRibs, 1, p.boards, 1,
-                  (v) => setPrintRibs(v),
-                  <>{nRibs}<span style={{ color: UI.faintest, fontWeight: 400 }}> / {p.boards}</span></>)
-              )}
-            </div>
 
-            {/* Papercraft: print at A4 actual size so it can be made from cardboard/cardstock even without a 3D printer */}
-            <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 14, marginTop: 14 }}>
-              {sectionLabel("型紙(段ボール)", "A4 原寸")}
-              {stepper("matT", "材料の厚み", matT, 1, 10, 0.5, (v) => setMatT(v), `${matT} mm`)}
-              <button onClick={() => openHTML(paperHTML(p, matT, undefined, t), "harigata_katagami_a4.html")} style={{
-                width: "100%", marginTop: 8, padding: 10, borderRadius: 10, background: UI.card, color: accent,
-                border: `1px solid rgba(217,91,24,0.45)`, fontFamily: sans, fontSize: 12.5, fontWeight: 700,
-                letterSpacing: "0.04em", cursor: "pointer",
-              }}>{t("型紙を開く (A4 原寸)")}</button>
-              <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 8 }}>
-                {t("新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。")}
-              </div>
-            </div>
+            {printMode === "stl" ? (
+              <>
+                {sectionLabel("プリントベッド")}
+                {/* Common (square) bed presets — a dropdown instead of a wrapping chip row (saves ~1 row of height).
+                    Sets width = depth; the 幅/奥行き inputs below stay for rectangular / custom beds. */}
+                {(() => {
+                  const presets = [180, 220, 250, 256, 300, 350];
+                  const isPreset = bedW === bedD && presets.includes(bedW);
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <span style={{ fontSize: 12.5, color: UI.text }}>{t("定番サイズ")}</span>
+                      <select value={isPreset ? String(bedW) : "custom"}
+                        onChange={(e) => { const v = +e.target.value; if (v) { setBedW(v); setBedD(v); } }}
+                        style={{
+                          width: 150, padding: "6px 8px", borderRadius: 8, fontFamily: sans, fontSize: 12.5,
+                          color: UI.text, background: UI.card, border: `1px solid ${UI.cardEdge}`, cursor: "pointer",
+                        }}>
+                        {!isPreset && <option value="custom">{t("カスタム")}</option>}
+                        {presets.map((sz) => <option key={sz} value={sz}>{sz} × {sz} mm</option>)}
+                      </select>
+                    </div>
+                  );
+                })()}
+                {numInput("幅", bedW, setBedW, 100, 420)}
+                {numInput("奥行き", bedD, setBedD, 100, 420)}
+
+                {/* Layout — how many rib copies to lay out on the plate. This is a per-job output choice,
+                    not a bed dimension, so it gets its own group. */}
+                <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 14, marginTop: 14 }}>
+                  {sectionLabel("配置")}
+                  {p.spiral ? (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
+                      <span style={{ fontSize: 12.5, color: UI.text }}>{t("印刷する羽根板")}</span>
+                      <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>
+                        {t("螺旋: 全")}{p.boards}{t("枚(各1枚)")}
+                      </span>
+                    </div>
+                  ) : (
+                    stepper("printRibs", "印刷する羽根板", nRibs, 1, p.boards, 1,
+                      (v) => setPrintRibs(v),
+                      <>{nRibs}<span style={{ color: UI.faintest, fontWeight: 400 }}> / {p.boards}</span></>)
+                  )}
+                </div>
+              </>
+            ) : (
+              /* Cardboard: A4 full-scale template that can be built without a 3D printer.
+                 Only the material thickness lives here; the "open template" action is the footer CTA. */
+              <>
+                {sectionLabel("型紙(段ボール)", "A4 原寸")}
+                {stepper("matT", "材料の厚み", matT, 1, 10, 0.5, (v) => setMatT(v), `${matT} mm`)}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1210,16 +1261,30 @@ export default function HarigataStudio() {
         </div>
 
         {view === "print" ? (
-          <>
-            <button onClick={dlAll} style={{
-              width: "100%", padding: 12, border: "none", borderRadius: 10, background: accent, color: "#fff",
-              fontFamily: sans, fontSize: 13.5, fontWeight: 700, letterSpacing: "0.08em", cursor: "pointer",
-              boxShadow: "0 3px 10px rgba(217,91,24,0.3)",
-            }}>{t("STL 書き出し")}</button>
-            <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
-              {t("コマ・柱は上下同一のため各1つ入っています。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong>{t("して印刷してください。設定は ")}<span style={{ fontFamily: mono }}>harigata_config.json</span>{t(" として同梱されます(バックアップ用)。")}
-            </div>
-          </>
+          printMode === "paper" ? (
+            /* Cardboard mode: the primary action opens the A4 template (matches the segmented toggle above). */
+            <>
+              <button onClick={() => openHTML(paperHTML(p, matT, undefined, t), "harigata_katagami_a4.html")} style={{
+                width: "100%", padding: 12, border: "none", borderRadius: 10, background: accent, color: "#fff",
+                fontFamily: sans, fontSize: 13.5, fontWeight: 700, letterSpacing: "0.04em", cursor: "pointer",
+                boxShadow: "0 3px 10px rgba(217,91,24,0.3)",
+              }}>{t("型紙を開く (A4 原寸)")}</button>
+              <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
+                {t("新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。")}
+              </div>
+            </>
+          ) : (
+            <>
+              <button onClick={dlAll} style={{
+                width: "100%", padding: 12, border: "none", borderRadius: 10, background: accent, color: "#fff",
+                fontFamily: sans, fontSize: 13.5, fontWeight: 700, letterSpacing: "0.08em", cursor: "pointer",
+                boxShadow: "0 3px 10px rgba(217,91,24,0.3)",
+              }}>{t("STL 書き出し")}</button>
+              <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
+                {t("コマ・柱は上下同一のため各1つ入っています。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong>{t("して印刷してください。設定は ")}<span style={{ fontFamily: mono }}>harigata_config.json</span>{t(" として同梱されます(バックアップ用)。")}
+              </div>
+            </>
+          )
         ) : (
           <button onClick={() => setView("print")} style={{
             width: "100%", padding: 12, borderRadius: 10, background: "#fff", color: accent,
