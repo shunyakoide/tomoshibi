@@ -18,7 +18,7 @@
  *   dry → remove koma and pull ribs out through the top/bottom openings → lamp body complete → mount as lighting on three legs, etc.
  * ============================================================================
  */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -37,6 +37,31 @@ import { loadSaved, saveState, serializeState, parseImport, STORAGE_KEY, SCHEMA_
 import SectionEditor from "./SectionEditor.jsx";
 import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
 import { makeT, loadLang, saveLang } from "./i18n.js";
+
+// ---- Bed-fit test (shared by the overflow warning and the print-plate layout) ----
+// Can a flat part with footprint [a, b] be laid on a W×D bed, and at what in-plane angle?
+// Policy: keep it axis-aligned ("horizontal") whenever it fits that way — only tilt when it would
+// otherwise overrun the bed edge. When a tilt is needed we sweep 0..90° for the angle that best fits
+// across the bed (≈45° on a square bed; along the diagonal, so steeper/shallower, on a rectangular one,
+// which fits a noticeably larger part than a fixed 45°). Returns { fits, angle } (angle in degrees).
+// One function for the warning, the height limit, and the layout keeps "we warned it won't fit", the
+// recommended max height, and "the preview shows it fitting" all consistent.
+function fitOnBed([a, b], W, D) {
+  const EPS = 0.01;
+  // Axis-aligned first: fit with the long side along the bed's long side.
+  if (Math.max(a, b) <= Math.max(W, D) + EPS && Math.min(a, b) <= Math.min(W, D) + EPS) {
+    return { fits: true, angle: (a >= b) === (W >= D) ? 0 : 90 };
+  }
+  // Overruns axis-aligned → tilt to the best angle across the bed.
+  let best = Infinity, angle = 0;
+  for (let deg = 1; deg < 90; deg += 1) {
+    const th = (deg * Math.PI) / 180, c = Math.cos(th), s = Math.sin(th);
+    const bw = a * c + b * s, bh = a * s + b * c;   // rotated bounding box (0<deg<90 ⇒ cos,sin ≥ 0)
+    const r = Math.max(bw / W, bh / D);             // ≤1 ⇒ fits at this angle
+    if (r < best) { best = r; angle = deg; }
+  }
+  return { fits: best <= 1.0001, angle };
+}
 
 // ---- Accessible slider row ----
 // A labeled parameter control: native <input type=range> (free keyboard stepping, touch dragging,
@@ -596,11 +621,24 @@ export default function HarigataStudio() {
 
       let plateIdx = 0;
       const placed = [];
+      // Orient each flat part within the bed plane before laying it out, using the same best-fit angle
+      // fitOnBed() reports to the overflow warning — axis-aligned when that fits, otherwise tilted to the
+      // part's optimal angle across the bed (≈45° on a square bed, steeper/shallower on a rectangular one).
+      // rotateZ turns the part in its own XY = the bed plane (after the -90° X tilt applied at placement);
+      // the extruded Z thickness is unchanged. Preview-only — the STL export lays parts out separately, so
+      // geometry / manifoldness is unaffected.
+      const orientGeo = (geo) => {
+        geo.computeBoundingBox();
+        const b = geo.boundingBox;
+        const { angle } = fitOnBed([b.max.x - b.min.x, b.max.y - b.min.y], BEDW, BEDD);
+        if (angle) geo.rotateZ((angle * Math.PI) / 180);
+        geo.computeBoundingBox();
+      };
       const layout = (items) => {
         if (!items.length) return;
         let mW = 0, mD = 0;
         items.forEach((pt) => {
-          pt.geo.computeBoundingBox();
+          orientGeo(pt.geo);
           pt.bb = pt.geo.boundingBox;
           mW = Math.max(mW, pt.bb.max.x - pt.bb.min.x);
           mD = Math.max(mD, pt.bb.max.y - pt.bb.min.y);
@@ -747,22 +785,40 @@ export default function HarigataStudio() {
   };
 
   const maxDia = Math.round(maxRadius(p) * 2);
-  const boardLen = Math.round(p.height + p.tabLen * 2); // Total rib length
-  const connLen = Math.round(standBoardLength(p));      // Total length of the connecting board (the longest part)
-  const heightLimit = bedW - Math.round(standBoardLength(p) - p.height); // Height upper limit to fit the connecting board within the width
   // Radii of the top/bottom openings (= the top-end/bottom-end circles). Shown for reference (ribs are removed by taking off the koma and tilting,
   // so a simple "opening ≥ rib width" can't determine whether they come out → it would cause false warnings, so no check is done).
   const topOpen = Math.round(outerR(p, 1)); // Upper opening radius
   const botOpen = Math.round(outerR(p, 0)); // Lower opening radius
 
-  // Bed-overflow check. Each part lies along a different axis: ribs have their long axis = height direction → depth bedD,
-  // the connecting board has its long axis = length direction → width bedW. Ribs can be halved by splitting top/bottom, but the connecting board
-  // can't be split, so the only option is to lower the height.
-  const ribLen = splitRibs ? Math.round(boardLen / 2) + 12 : boardLen; // When split, +12 for the joint
-  const overParts = [];
-  if (ribLen > bedD) overParts.push(t("羽根板 {n}mm", { n: ribLen }));
-  if (connLen > bedW) overParts.push(t("連結板 {n}mm", { n: connLen }));
+  // Real footprints of every printed part (rebuilt only when the design changes). Using the actual
+  // bounding boxes — not a hard-coded "rib runs along depth, base along width" guess — lets the bed-fit
+  // test respect a 90° turn and a 45° diagonal tilt, and check each part on its own (incl. the base,
+  // koma, posts, and opening rings). The old guess broke on non-square (custom W≠D) beds.
+  const bedFit = useMemo(() => {
+    const dim = (g) => { g.computeBoundingBox(); const b = g.boundingBox; return [b.max.x - b.min.x, b.max.y - b.min.y]; };
+    const rb = dim(ringGeometry(p, false)), rt = dim(ringGeometry(p, true));
+    return {
+      rib: dim(ribGeometry(p, 0)), koma: dim(komaGeometry(p)), col: dim(standGeometry(p)),
+      base: dim(boardGeometry(p)), ring: Math.max(...rb) >= Math.max(...rt) ? rb : rt,
+    };
+  }, [p]);
+  const BED_PARTS = [["羽根板", bedFit.rib], ["コマ", bedFit.koma], ["柱", bedFit.col], ["連結板", bedFit.base], ["開口リング", bedFit.ring]];
+  const overParts = BED_PARTS.filter(([, d]) => !fitOnBed(d, bedW, bedD).fits)
+    .map(([name, d]) => t("{name} {n}mm", { name: t(name), n: Math.round(Math.max(...d)) }));
   const bedWarn = overParts.length > 0;
+  const ribLen = Math.round(Math.max(...bedFit.rib)); // Rib total length (long side), for the summary
+  const ribBaseOver = !fitOnBed(bedFit.rib, bedW, bedD).fits || !fitOnBed(bedFit.base, bedW, bedD).fits;
+  // Largest body height at which BOTH length-driven parts still fit (the rib is usually the tighter one —
+  // it's wider than the base, so it hits the diagonal limit sooner). Their widths are height-independent,
+  // so we can test candidate heights analytically without rebuilding geometry. Fit is monotonic in height
+  // (taller = harder), so we walk up from the minimum and stop at the first height that no longer fits.
+  const ribW = Math.min(...bedFit.rib);                         // rib width (radial extent, height-independent)
+  const baseW = Math.min(...bedFit.base);                       // base plate width (short side)
+  const baseConst = Math.round(standBoardLength(p) - p.height); // base length minus height (height-independent part)
+  const fitsAtHeight = (h) =>
+    fitOnBed([ribW, h + 2 * p.tabLen], bedW, bedD).fits && fitOnBed([baseW, h + baseConst], bedW, bedD).fits;
+  let heightLimit = 140;
+  for (let h = 140; h <= 400; h++) { if (fitsAtHeight(h)) heightLimit = h; else break; }
   // In split mode the split parts' tabs don't match the body (koma-based) and won't fit the current koma (needs fixing).
   // Until fixed, don't recommend auto-applying it; funnel to the "lower the height" guidance only.
   const canSplitFix = false;
@@ -937,8 +993,12 @@ export default function HarigataStudio() {
           }}>
           <span style={{ fontSize: 15 }}>⚠️</span>
           <span>
-            {t("{parts} がベッド {w}×{d}mm を超過", { parts: overParts.join(" · "), w: bedW, d: bedD })}<br />
-            <span style={{ color: UI.sub }}>{t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit })}</span>
+            {t("{parts} がベッド {w}×{d}mm を超過", { parts: overParts.join(" · "), w: bedW, d: bedD })}
+            {/* The height hint only applies to length-driven parts (rib / base); skip it when only a
+                height-independent part (ring/koma/post) overflows, or when no height is small enough. */}
+            {ribBaseOver && heightLimit >= 140 && (
+              <><br /><span style={{ color: UI.sub }}>{t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit })}</span></>
+            )}
           </span>
         </div>
       )}
@@ -1251,7 +1311,7 @@ export default function HarigataStudio() {
           <span style={{ color: UI.faint }}>{t("最大径")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>⌀{maxDia} mm</span>
           <span style={{ color: UI.faint }}>{t("羽根板の全長")}</span>
-          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: ribLen > bedD ? UI.warn : UI.text }}>
+          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: !fitOnBed(bedFit.rib, bedW, bedD).fits ? UI.warn : UI.text }}>
             {ribLen} mm{splitRibs ? t(" (2分割)") : ""}
           </span>
           <span style={{ color: UI.faint }}>{t("上下の開口(半径)")}</span>
