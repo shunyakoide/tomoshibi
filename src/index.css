@@ -38,37 +38,63 @@ body {
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 22px;
+  height: 24px;
   background: transparent;
+  /* Let the browser handle horizontal thumb drags even though <body> is touch-action:none */
+  touch-action: pan-x;
 }
+/* --pct / --fill / --track are set inline per-row so the track shows a filled portion up to the value */
 input[type="range"]::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 2px;
-  background: #ccd2da;
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(
+    to right,
+    var(--fill, #e8590c) 0 var(--pct, 0%),
+    var(--track, #ccd2da) var(--pct, 0%)
+  );
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 15px;
-  height: 15px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #e8590c;
   border: 2px solid #fff;
   box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4);
-  margin-top: -6px;
+  margin-top: -7px;
   cursor: pointer;
 }
 input[type="range"]::-moz-range-track {
-  height: 4px;
-  border-radius: 2px;
-  background: #ccd2da;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--track, #ccd2da);
+}
+input[type="range"]::-moz-range-progress {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--fill, #e8590c);
 }
 input[type="range"]::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
+  width: 18px;
+  height: 18px;
   border: 2px solid #fff;
   border-radius: 50%;
   background: #e8590c;
   box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4);
   cursor: pointer;
+}
+
+/* Visible keyboard-focus ring on every interactive control (inline styles can't express :focus-visible).
+   Mouse clicks don't trigger :focus-visible, so this only shows for keyboard/AT users. */
+button:focus-visible,
+input:focus-visible,
+[role="checkbox"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #d95b18;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+input[type="range"]:focus-visible {
+  outline-offset: 4px;
 }
