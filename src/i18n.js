@@ -24,6 +24,24 @@ const EN = {
   // ---- Header ----
   "張型": "Harigata",
   "スタジオ": "Studio",
+  // ---- Welcome / onboarding (first run, reopened from the "?" in the header) ----
+  "はじめかた": "Getting started",
+  "和紙提灯の「張型」をつくる": "Design the forming mold for a washi paper lantern",
+  "断面を決める": "Draw the section",
+  "◇ドラッグで形をつくる": "Drag the ◇ to shape the curve",
+  "出力する": "Export it",
+  "STL か 原寸の型紙": "STL, or a 1:1 paper template",
+  "貼る": "Build it",
+  "竹ひごを巻いて和紙を貼る": "Wind bamboo, paste the washi",
+  "画面に映っているのは提灯そのものではなく、その上で組み立てる「型」です":
+    "What you see is not the lantern itself — it is the mold the lantern is built on",
+  "3Dプリンタが無くても、段ボール用の原寸型紙を出せます":
+    "No 3D printer needed: it also prints a full-scale template for cardboard",
+  "和紙の型紙(先に切っておく用)は、どちらの出力にも付いてきます":
+    "The washi template — for cutting the paper before pasting — comes with either output",
+  "上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。":
+    "The tabs above also show the assembly and the lantern lit. Reopen this with the \"?\" at the top right.",
+  "さわってみる": "Start",
   // ---- Toolbar ----
   "元に戻す": "Undo",
   "やり直し": "Redo",
