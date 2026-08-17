@@ -71,7 +71,7 @@ function fitOnBed([a, b], W, D) {
 //  - cfg: { key, label, value, min, max, round, unit, display?, onChange }  (round = step / snap quantum)
 //  - drag/setDrag: shared highlight state (row tints while this control is active), same as before.
 //  - card/last: when inside a white card, draw a divider between rows.
-function ScrubRow({ cfg, ui, accent, mono, t, drag, setDrag, card, last }) {
+function ScrubRow({ cfg, ui, accent, mono, t, drag, setDrag }) {
   const [editing, setEditing] = React.useState(false);
   const inputRef = React.useRef(null);
   const id = `scrub-${cfg.key}`;
@@ -89,8 +89,7 @@ function ScrubRow({ cfg, ui, accent, mono, t, drag, setDrag, card, last }) {
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 10, minHeight: 44,
-      padding: card ? "5px 13px" : "4px 0",
-      borderBottom: card && !last ? `1px solid ${ui.cardEdge}` : "none",
+      padding: "4px 0",
       background: on ? "rgba(217,91,24,0.06)" : "transparent",
     }}>
       <label htmlFor={id} style={{ fontSize: 12.5, color: ui.text, flex: "0 0 auto", whiteSpace: "nowrap" }}>
@@ -862,9 +861,9 @@ export default function HarigataStudio() {
     : { bg: "rgba(255,255,255,0.85)", edge: "rgba(59,52,43,0.08)", txt: "#8a7c66" };
 
   // Scrub row → accessible slider (see ScrubRow). Keeps the (cfg, opts) call shape used across the panel.
-  const scrubRow = (cfg, opts = {}) => (
+  const scrubRow = (cfg) => (
     <ScrubRow key={cfg.key} cfg={cfg} ui={UI} accent={accent} mono={mono} t={t}
-      drag={drag} setDrag={setDrag} card={opts.card} last={opts.last} />
+      drag={drag} setDrag={setDrag} />
   );
 
   // Accessible checkbox: a real <button role="checkbox"> so Tab/Space/Enter and screen readers work
@@ -1209,13 +1208,10 @@ export default function HarigataStudio() {
         {/* Silhouette (scrub) */}
         <div style={{ marginBottom: 20 }}>
           {sectionLabel("シルエット", "ドラッグ / 値クリックで入力")}
-          <div style={{ border: `1px solid ${UI.cardEdge}`, borderRadius: 10, background: UI.card, overflow: "hidden" }}>
-            {SIL_ROWS.map((r, i) => scrubRow(
-              { key: r.key, label: r.label, value: p[r.key], min: r.min, max: r.max, sens: r.sens, round: r.round, unit: r.unit,
-                onChange: (v) => setP((o) => ({ ...o, [r.key]: v })) },
-              { card: true, last: i === SIL_ROWS.length - 1 }
-            ))}
-          </div>
+          {SIL_ROWS.map((r) => scrubRow(
+            { key: r.key, label: r.label, value: p[r.key], min: r.min, max: r.max, sens: r.sens, round: r.round, unit: r.unit,
+              onChange: (v) => setP((o) => ({ ...o, [r.key]: v })) }
+          ))}
         </div>
 
         {/* Framework */}
