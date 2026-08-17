@@ -6,6 +6,11 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   base: "./",
   plugins: [react()],
+  // A dedicated port instead of Vite's default 5173, which every other Vite project also wants.
+  // strictPort makes a collision fail loudly rather than silently drifting to 5174/5175… (the real
+  // annoyance: you can no longer tell which project is on which port). Same offset for preview.
+  server: { port: 8173, strictPort: true },
+  preview: { port: 8174, strictPort: true },
   build: {
     target: "es2020",
     // The standalone three.js chunk is intentional, so raise the size-warning threshold.
