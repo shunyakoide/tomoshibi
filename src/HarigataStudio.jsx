@@ -31,8 +31,8 @@ import {
   standCollarTop, standSaddleH, standSlotSep, bakeBezierHandles, ringGeometry,
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
-import { exportZip, openHTML, downloadFile } from "./stl.js";
-import { paperHTML, washiHTML, washiPDF } from "./papercraft.js";
+import { exportZip, openHTML } from "./stl.js";
+import { paperHTML, washiPDF } from "./papercraft.js";
 import { clamp } from "./util.js";
 import { loadSaved, saveState, serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
@@ -1251,12 +1251,36 @@ export default function HarigataStudio() {
           </div>
         </div>
 
+        {/* Washi: the paper skin's own allowances. Part of the design (the panel is derived from the
+            silhouette and the rib count), not an output method — the template itself always ships
+            with whichever output you pick, so there is no separate download here. */}
+        <div style={{ marginBottom: 20 }}>
+          {sectionLabel("和紙", "羽根板の間 1面分")}
+          {stepper("washiSide", "のりしろ(左右)", washiSide, 0, 15, 1, (v) => setWashiSide(v), `${washiSide} mm`)}
+          {stepper("washiEnd", "被せ代(上下)", washiEnd, 0, 15, 1, (v) => setWashiEnd(v), `${washiEnd} mm`)}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
+            <span style={{ fontSize: 12.5, color: UI.text }}>{t("1面のサイズ")}</span>
+            <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>
+              {Math.round(2 * washiG.wMax)} × {Math.round(washiG.sTot + 2 * washiEnd)} mm × {p.boards}
+            </span>
+          </div>
+          <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 2 }}>
+            {t("貼る前に和紙を切るための原寸型紙です。STL の ZIP と段ボールの型紙に同梱されます。")}
+          </div>
+        </div>
+
         {/* Print view: two mutually-exclusive output methods (3D print vs cardboard). A segmented toggle
-            picks one and shows only its settings; the footer CTA switches to match (STL export / open template). */}
+            picks one and shows only its settings; the footer CTA switches to match (STL export / open template).
+            The washi template is deliberately NOT a third option here: it is not another way to make the mold,
+            it is the paper skin you need on top of whichever mold you built. It lives with the design settings
+            above and ships inside whichever output you choose. */}
         {view === "print" && (
           <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 16, marginTop: 4 }}>
+            {/* Titled, because the panel is one long scroll: without it the toggle reads as another
+                shape setting rather than "this is the print/export section". */}
+            {sectionLabel("印刷・書き出し", "型のつくり方")}
             <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-              {[["stl", "3Dプリント"], ["paper", "段ボール"], ["washi", "和紙"]].map(([k, l]) => {
+              {[["stl", "3Dプリント"], ["paper", "段ボール"]].map(([k, l]) => {
                 const active = printMode === k;
                 return (
                   <button key={k} onClick={() => setPrintMode(k)} style={{
@@ -1312,26 +1336,12 @@ export default function HarigataStudio() {
                   )}
                 </div>
               </>
-            ) : printMode === "paper" ? (
+            ) : (
               /* Cardboard: A4 full-scale template that can be built without a 3D printer.
                  Only the material thickness lives here; the "open template" action is the footer CTA. */
               <>
                 {sectionLabel("型紙(段ボール)", "A4 原寸")}
                 {stepper("matT", "材料の厚み", matT, 1, 10, 0.5, (v) => setMatT(v), `${matT} mm`)}
-              </>
-            ) : (
-              /* Washi: the flat pattern of the paper skin itself (one rib-to-rib panel), so the washi
-                 can be cut before pasting instead of trimmed after. Only the two allowances live here. */
-              <>
-                {sectionLabel("型紙(和紙)", "A4 原寸")}
-                {stepper("washiSide", "のりしろ(左右)", washiSide, 0, 15, 1, (v) => setWashiSide(v), `${washiSide} mm`)}
-                {stepper("washiEnd", "被せ代(上下)", washiEnd, 0, 15, 1, (v) => setWashiEnd(v), `${washiEnd} mm`)}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
-                  <span style={{ fontSize: 12.5, color: UI.text }}>{t("1面のサイズ")}</span>
-                  <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>
-                    {Math.round(2 * washiG.wMax)} × {Math.round(washiG.sTot + 2 * washiEnd)} mm × {p.boards}
-                  </span>
-                </div>
               </>
             )}
           </div>
@@ -1357,32 +1367,13 @@ export default function HarigataStudio() {
           printMode === "paper" ? (
             /* Cardboard mode: the primary action opens the A4 template (matches the segmented toggle above). */
             <>
-              <button onClick={() => openHTML(paperHTML(p, matT, undefined, t), "harigata_katagami_a4.html")} style={{
+              <button onClick={() => openHTML(paperHTML(p, matT, undefined, t, { side: washiSide, end: washiEnd }), "harigata_katagami_a4.html")} style={{
                 width: "100%", padding: 12, border: "none", borderRadius: 10, background: accent, color: "#fff",
                 fontFamily: sans, fontSize: 13.5, fontWeight: 700, letterSpacing: "0.04em", cursor: "pointer",
                 boxShadow: "0 3px 10px rgba(217,91,24,0.3)",
               }}>{t("型紙を開く (A4 原寸)")}</button>
               <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
-                {t("新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。")}
-              </div>
-            </>
-          ) : printMode === "washi" ? (
-            /* Washi mode: the primary action opens the paper-skin template (one rib-to-rib panel). */
-            <>
-              <button onClick={() => openHTML(washiHTML(p, { side: washiSide, end: washiEnd }, undefined, t), "harigata_washi_a4.html")} style={{
-                width: "100%", padding: 12, border: "none", borderRadius: 10, background: accent, color: "#fff",
-                fontFamily: sans, fontSize: 13.5, fontWeight: 700, letterSpacing: "0.04em", cursor: "pointer",
-                boxShadow: "0 3px 10px rgba(217,91,24,0.3)",
-              }}>{t("和紙の型紙を開く (A4 原寸)")}</button>
-              {/* The PDF is the same drawing without the on-screen instructions — handy to keep or send.
-                  Always English-labelled (a self-contained PDF cannot carry a Japanese font). */}
-              <button onClick={() => downloadFile(washiPDF(p, { side: washiSide, end: washiEnd }, undefined, makeT("en")), "harigata_washi_a4.pdf", "application/pdf")} style={{
-                width: "100%", padding: 10, marginTop: 8, borderRadius: 10, background: "#fff", color: accent,
-                border: `1px solid rgba(217,91,24,0.5)`, fontFamily: sans, fontSize: 12.5, fontWeight: 700,
-                letterSpacing: "0.04em", cursor: "pointer",
-              }}>{t("PDFで保存 (A4 原寸)")}</button>
-              <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
-                {t("新しいタブで開きます。羽根板と羽根板の間の1面分を平らに開いた形です。和紙の下に敷いて写してから切ってください。")}
+                {t("新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。和紙の型紙も一緒に出ます。")}
               </div>
             </>
           ) : (

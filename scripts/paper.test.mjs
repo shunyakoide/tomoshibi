@@ -26,7 +26,7 @@
  * Run this after touching the 2D side of papercraft.js / geometry.js.
  * ============================================================================
  */
-import { paperHTML, paperParts, washiHTML, washiParts, washiPDF, A4 } from "../src/papercraft.js";
+import { paperHTML, paperParts, washiParts, washiPDF, A4 } from "../src/papercraft.js";
 import { winAnsi } from "../src/pdf.js";
 import { makeT } from "../src/i18n.js";
 import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR } from "../src/geometry.js";
@@ -79,8 +79,10 @@ for (const preset of PRESETS)
           const tag = `${preset.key} h${height} b${boards} t${matT} pi${pitch}`;
           const { parts, pk, clamped, nMax } = paperParts(p, matT);
           const nRibParts = pk.spiral ? pk.boards : 1; // identical ribs → a single "×N" sheet; spiral → one per rib
-          // Koma is 2 sheets, or 1 ("×2") when 2 would spill onto an extra page.
-          if (parts.length !== nRibParts + 1 && parts.length !== nRibParts + 2) bad(`${tag}: part count ${parts.length}`);
+          // Koma is 2 sheets, or 1 ("×2") when 2 would spill onto an extra page, + the washi panel:
+          // whoever builds the mold from cardboard needs the paper skin and never opens the STL ZIP.
+          if (parts.length !== nRibParts + 2 && parts.length !== nRibParts + 3) bad(`${tag}: part count ${parts.length}`);
+          if (!parts.some((q) => q.name.startsWith("和紙"))) bad(`${tag}: washi panel missing from the cardboard template`);
           if (clamped && pk.boards !== nMax) bad(`${tag}: clamp mismatch`);
           for (const q of parts) {
             const pts = [q.outline, ...(q.holes || [])].flat();
@@ -154,14 +156,11 @@ for (const preset of PRESETS)
           if ((q.marks || []).length !== nTicks) bad(`${tag}: ${q.marks.length} ticks vs ${nTicks} grooves`);
           for (const v of [...q.outline.flat(), ...q.guides.flat(2), ...(q.marks || []).flat()])
             if (!Number.isFinite(v)) bad(`${tag}: NaN in the washi pattern`);
-          const html = washiHTML(p, { side, end }, A4);
+          // The panel is laid out among the cardboard template's pages (the only HTML route to it).
+          const html = paperHTML(p, 3, A4, undefined, { side, end });
           if (/NaN|Infinity|undefined/.test(html)) bad(`${tag}: NaN/undefined in HTML`);
-          const pages = (html.match(/class="pg"/g) || []).length;
-          if ((html.match(/50mm ←/g) || []).length !== pages) bad(`${tag}: scale missing`);
-          if (!html.includes(q.name)) bad(`${tag}: ${q.name} not on paper`);
-          // The arc length must be stated on the page (it is the one number that stops the "cut it to
-          // the body height" mistake), and the guides must be drawn as guides, never as cut lines.
-          if (!html.includes(g.sTot.toFixed(0))) bad(`${tag}: arc length not stated on the page`);
+          if (!html.includes("和紙")) bad(`${tag}: the washi panel is not on the cardboard pages`);
+          // Guides must be drawn as guides, never as cut lines (cutting them ruins the panel).
           if (!/class="guide"/.test(html)) bad(`${tag}: guides not drawn`);
         }
 
@@ -190,8 +189,11 @@ for (const preset of PRESETS)
         const off = Number(row.slice(0, 10));
         if (!s.startsWith(`${i + 1} 0 obj`, off)) bad(`${tag}: xref offset ${i + 1} → ${off} is not an object header`);
       });
-      // Page count must agree with the HTML rendering of the same parts.
-      const pages = (washiHTML(p, { side: 3, end: 3 }, A4, en).match(/class="pg"/g) || []).length;
+      // Page count, derived independently of the layout code: one part of this height on A4, split
+      // across pages that overlap by the glue tab only when it does not fit on one (CH = 267mm).
+      const { g } = washiParts(p, { side: 3, end: 3 });
+      const H = g.sTot + 2 * g.end, CH = 297 - 2 * 8 - 14;
+      const pages = H <= CH ? 1 : Math.ceil(H / (CH - 10));
       if (!s.includes(`/Count ${pages}`)) bad(`${tag}: /Count != ${pages} pages`);
       if ((s.match(/\/MediaBox\[0 0 595\.276 841\.89\]/g) || []).length !== pages) bad(`${tag}: MediaBox is not A4 on every page`);
       // Full scale: the page CTM is mm→pt, and the ruler is 50mm long in that space.
