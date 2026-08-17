@@ -31,6 +31,7 @@ const EN = {
   "すべての設定を初期状態に戻します。よろしいですか?": "Reset all settings to their defaults. Continue?",
   // ---- Section headings ----
   "形": "Shape",
+  "ひな形 · 選んでから断面で調整": "Templates · pick one, then edit in the section view",
   "シルエット": "Silhouette",
   "左右にドラッグで調整": "Drag left/right to adjust",
   "ドラッグ / 値クリックで入力": "Drag or click the value to type",
@@ -111,8 +112,17 @@ const EN = {
   "首": "Neck",
   "火袋": "Body",
   "開口/首": "Opening/Neck",
-  "点をドラッグで動かす · クリックで選択(右で数値·なめらか/角·削除) · 緑の＋で点を追加":
-    "Drag a point to move it · click to select (edit values, smooth/corner, delete on the right) · add a point with the green +",
+  // Legend at the bottom-left of the section view (glyph / verb / description columns).
+  // Keep the description column short — it sits next to a fixed-width verb column in a corner card.
+  "点の操作": "Editing the points",
+  "カーブ調整中": "Curve mode",
+  "ドラッグ": "Drag",
+  "クリック": "Click",
+  "ふくらみを変える": "Reshape the curve",
+  "選ぶ → 右パネルで編集": "Select → edit on the right",
+  "点を増やす": "Add a point",
+  "点は動きません(「点を動かす」へ)": "Points stay put (switch to Move)",
+  "カーブの向き・強さ": "Curve angle & tension",
   // ---- Selected-point card (inspector) ----
   "選択中の点": "Selected point",
   "✥ 点を動かす": "✥ Move",

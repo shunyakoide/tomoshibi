@@ -1114,9 +1114,11 @@ export default function HarigataStudio() {
             </div>
           );
         })()}
-        {/* Shape presets */}
+        {/* Shape presets. Labelled as templates: picking one REPLACES the control points, it does not
+            lock the shape — the silhouette is then edited freely in the section view. Without saying so,
+            the three chips read as "the shape is one of these three". */}
         <div style={{ marginBottom: 20 }}>
-          {sectionLabel("形")}
+          {sectionLabel("形", "ひな形 · 選んでから断面で調整")}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
             {PRESETS.map((pr) => {
               const active = p.shape === pr.key;

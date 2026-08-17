@@ -350,14 +350,90 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
         ))}
       </svg>
 
-      {/* Operation hint */}
-      <div style={{
-        position: "absolute", bottom: 14, right: 18, display: "flex", alignItems: "center", gap: 8,
-        fontSize: 11.5, color: C.label, fontFamily: "'IBM Plex Sans JP',sans-serif",
-        maxWidth: "60%", textAlign: "right", pointerEvents: "none", lineHeight: 1.5,
-      }}>
-        <span style={{ width: 8, height: 8, borderRadius: "50%", background: accent, flex: "none" }} />
-        {t("点をドラッグで動かす · クリックで選択(右で数値·なめらか/角·削除) · 緑の＋で点を追加")}
+      {/* Operation legend (bottom-left). The ◇ handles are the least discoverable part of the app, so
+          the marks are redrawn here at the same colors/shapes as on the canvas rather than described
+          in words. Content follows editMode: in curve-adjust mode the + ghosts are hidden and the point
+          itself doesn't move, which reads as a bug unless it is said out loud. */}
+      <Legend accent={accent} editMode={editMode} t={t} />
+    </div>
+  );
+}
+
+// One mark from the canvas, drawn at legend size (18×18 box, centered on 9,9).
+function Glyph({ kind, accent }) {
+  return (
+    <svg viewBox="0 0 18 18" width="18" height="18" style={{ display: "block", flex: "none" }}>
+      {kind === "pt" && ( // control point ◇
+        <rect x="4" y="4" width="10" height="10" rx="2" transform="rotate(45 9 9)"
+          fill={accent} stroke={accent} strokeWidth="2" />
+      )}
+      {kind === "sel" && ( // control point ◇ with the selection ring
+        <>
+          <circle cx="9" cy="9" r="8" fill="none" stroke={C.bound} strokeWidth="1.3" strokeDasharray="3 3" />
+          <rect x="5.5" y="5.5" width="7" height="7" rx="1.5" transform="rotate(45 9 9)"
+            fill={accent} stroke={accent} strokeWidth="1.6" />
+        </>
+      )}
+      {kind === "add" && ( // add-point ghost (+)
+        <>
+          <circle cx="9" cy="9" r="8" fill={C.handleFill} stroke={C.bound} strokeWidth="1.3" strokeDasharray="2.5 2.5" />
+          <path d="M5.5 9H12.5M9 5.5V12.5" stroke={C.bound} strokeWidth="1.7" />
+        </>
+      )}
+      {kind === "top" && ( // body-height handle (●)
+        <circle cx="9" cy="9" r="5.5" fill={C.handleFill} stroke={accent} strokeWidth="2" />
+      )}
+      {kind === "tangent" && ( // tangent handle: direction line + grab circle
+        <>
+          <path d="M2 16L11 7" stroke={C.bound} strokeWidth="1.4" />
+          <circle cx="13" cy="5" r="4" fill="#eef7f0" stroke={C.bound} strokeWidth="2" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+// Rows are [glyph, verb, description]. The verb column is what makes the marks act different
+// (drag vs click), so it is kept as its own column instead of being folded into the sentence.
+const LEGEND = {
+  move: {
+    title: "点の操作",
+    rows: [
+      ["pt", "ドラッグ", "ふくらみを変える"],
+      ["sel", "クリック", "選ぶ → 右パネルで編集"],
+      ["add", "クリック", "点を増やす"],
+      ["top", "ドラッグ", "火袋の高さ"],
+    ],
+  },
+  curve: {
+    title: "カーブ調整中",
+    rows: [
+      ["tangent", "ドラッグ", "カーブの向き・強さ"],
+      ["pt", "—", "点は動きません(「点を動かす」へ)"],
+    ],
+  },
+};
+
+function Legend({ accent, editMode, t }) {
+  const g = LEGEND[editMode] || LEGEND.move;
+  return (
+    <div style={{
+      position: "absolute", bottom: 14, left: 14, pointerEvents: "none",
+      fontFamily: "'IBM Plex Sans JP',sans-serif", maxWidth: 300,
+      background: "rgba(255,253,248,0.82)", border: `1px solid ${C.faint}`, borderRadius: 10,
+      padding: "9px 12px 10px", backdropFilter: "blur(2px)",
+    }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", color: C.label, marginBottom: 6 }}>
+        {t(g.title)}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "18px auto 1fr", columnGap: 8, rowGap: 5, alignItems: "center" }}>
+        {g.rows.map(([kind, verb, desc]) => (
+          <React.Fragment key={kind + verb}>
+            <Glyph kind={kind} accent={accent} />
+            <span style={{ fontSize: 10.5, fontWeight: 600, color: C.label, whiteSpace: "nowrap" }}>{t(verb)}</span>
+            <span style={{ fontSize: 11.5, color: C.value, lineHeight: 1.35 }}>{t(desc)}</span>
+          </React.Fragment>
+        ))}
       </div>
     </div>
   );
