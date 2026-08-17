@@ -34,8 +34,9 @@ import {
 import { exportZip, openHTML } from "./stl.js";
 import { paperHTML, washiPDF } from "./papercraft.js";
 import { clamp } from "./util.js";
-import { loadSaved, saveState, serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION } from "./persist.js";
+import { loadSaved, saveState, serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION, loadWelcomeSeen, saveWelcomeSeen } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
+import Welcome from "./Welcome.jsx";
 import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
 import { makeT, loadLang, saveLang } from "./i18n.js";
 
@@ -153,6 +154,12 @@ export default function HarigataStudio() {
   const [narrow, setNarrow] = useState(
     typeof window !== "undefined" ? window.innerWidth < 860 : false
   );
+  // First-run onboarding card: auto-opens until it is dismissed once. Deliberately keyed on the
+  // dismissal flag ALONE and not on "is there a saved design" — the autosave flushes on pagehide, so
+  // a first-time visitor who merely reloads already has saved state and would never see the card,
+  // which is exactly the person it is for. The cost is that an existing user meets it once.
+  const [welcome, setWelcome] = useState(() => !loadWelcomeSeen());
+  const closeWelcome = () => { saveWelcomeSeen(); setWelcome(false); };
   const [lang, setLang] = useState(loadLang());   // UI language (ja/en). Saved in localStorage
   const t = makeT(lang);                          // Translation function (falls back to Japanese for untranslated keys)
   const toggleLang = () => setLang((l) => { const nx = l === "ja" ? "en" : "ja"; saveLang(nx); return nx; });
@@ -1048,6 +1055,14 @@ export default function HarigataStudio() {
           {t("張型")} <span style={{ fontSize: 11.5, fontWeight: 400, color: UI.faint }}>{t("スタジオ")}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Reopen the onboarding card. Once dismissed it never auto-opens again, so this is the
+              only way back to "what is this app" — keep it next to the language toggle. */}
+          <button onClick={() => setWelcome(true)} title={t("はじめかた")} aria-label={t("はじめかた")} style={{
+            width: 22, height: 22, borderRadius: "50%", cursor: "pointer", padding: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            border: `1px solid ${UI.cardEdge}`, background: UI.card, color: UI.sub,
+            fontFamily: mono, fontSize: 12, fontWeight: 700, lineHeight: 1,
+          }}>?</button>
           <button onClick={toggleLang} title="Language / 言語" style={{
             fontFamily: mono, fontSize: 10.5, letterSpacing: "0.08em", cursor: "pointer",
             padding: "3px 8px", borderRadius: 6, border: `1px solid ${UI.cardEdge}`,
@@ -1406,6 +1421,7 @@ export default function HarigataStudio() {
     }}>
       {viewport}
       {inspector}
+      {welcome && <Welcome onClose={closeWelcome} accent={accent} ui={UI} sans={sans} t={t} />}
     </div>
   );
 }

@@ -57,6 +57,7 @@ Vite 7 + React 18 + three.js 0.169 (all plain JS/JSX, no TypeScript). Minimal de
 - **`src/config.js`** — `PRESETS` (control-point templates for shapes) / `DEFAULTS` (initial parameters) / `SIL_ROWS` (scrub-row definitions).
 - **`src/SectionEditor.jsx`** — the **direct-manipulation editor** for the cross-section (SVG). Drag/add/delete control-point ◇ handles, toggle corner/smooth, and visualize the neck/lamp-body/tab (rib). It uses `geometry.js`'s `outerR` etc. directly so it matches the 3D/STL exactly.
 - **`src/HarigataStudio.jsx`** — the app itself. The various control UIs in the right panel plus the four 3D views (`2d` = cross-section / `mold` = assembly / `print` = printing / `lit` = lit).
+- **`src/Welcome.jsx`** — the **first-run onboarding card** (see "Onboarding" below). Presentational only: no app state, no geometry.
 - **`src/pdf.js`** — minimal, dependency-free **PDF writer** (vector only, base-14 Helvetica). Consumes the same drawing ops as the SVG renderer, so the printed PDF and the printed HTML are the same drawing. Used for the washi template bundled in the kit ZIP.
 - **`src/stl.js`** — STL export (+ `openHTML`, which opens the papercraft HTML in a tab).
 - **`src/papercraft.js`** — **papercraft** (A4 full-scale 1:1 print pages for building the mold from cardboard/thick paper) and the **washi template** (`washiParts` / `washiPDF`, the paper skin's own flat pattern). A pure module that derives the drawing from `geometry.js`'s 2D functions (see "Papercraft" / "Washi template" below). Everything goes through one page pipeline — `pageOps()` (clip band, glue tab, ruler, registration marks) rendered as SVG by `pagesHTML()` or as PDF by `pagesPDF()` — so the print rules can't drift apart between templates or between the two encodings.
@@ -148,6 +149,19 @@ Trimming the washi **after** it is pasted is the fiddliest step of the build and
 - **The PDF is always English-labelled.** A self-contained PDF cannot carry a CJK font (embedding one would dwarf the file), so `washiPDF` is called with `makeT("en")` and `winAnsi()` folds the leftover symbols (←, ▼). Nothing dimensional depends on the labels — but this is why the English ruler note is kept short (a long line collides with the right-aligned footer, which no CSS will save you from in a PDF).
 - **Pages are built once as drawing ops** (`pageOps`) and rendered as SVG *or* PDF. Add a new page element there, not in one renderer — and the line/text styles live in the `STYLE` table (the stylesheet is generated from it) so the two renderers cannot drift.
 - **All panels are identical, spiral winding included** (every bay sees the same helix), so one sheet is laid out labelled `×N`. Spiral only shifts the right-edge ticks by `step/boards` — that is `grooveList(p, gR, 0)` vs `grooveList(p, gR, 1)`, not a separate calculation.
+
+## Onboarding (first-time visitors)
+
+The app is published on a static host, so most first-time visitors arrive knowing nothing — and in English (`loadLang()` defaults to `en`). Two pieces cover them, deliberately split by the question they answer:
+
+- **"What is this?" → `src/Welcome.jsx`**, one card shown on the first visit. The object on screen is not the lantern, it is the *mold*; the output is an STL or a full-scale paper template; the washi template comes with either one. **One card, not a step-through tour**: the app is a single screen with no empty state, and a spotlight overlay would have to track a viewport that stretches (the section view is a `preserveAspectRatio` SVG). Esc / backdrop / button all close it, and it never blocks anything.
+- **"How do I work the ◇?" → the legend at the bottom-left of `SectionEditor`.** It **redraws the canvas marks themselves** (control point, selection ring, add-point ghost, height handle, tangent handle) at legend size in the same shapes and colors, rather than describing them in words. Its content follows `editMode`: in curve-adjust mode the `+` ghosts are hidden and the point itself doesn't move, which reads as a bug unless the legend says so.
+
+Fixed points:
+
+- **The dismissal flag is `harigata.welcome` (`persist.js`), separate from the design state.** Exporting/importing a design must not carry "has this person seen the intro", and clearing one must not touch the other.
+- **Auto-open keys on that flag ALONE — do not add "…and there is no saved design".** The autosave flushes on `pagehide`, so a first-time visitor who merely reloads before touching anything already has saved state and would never see the card, which is exactly the person it is for. The cost is that an existing user meets it once.
+- **The "?" in the inspector header is the only way back.** Once dismissed the card never auto-opens again, so don't remove that button (note the inspector is hidden in lit mode — that's fine, lit is a viewing mode).
 
 ## Future work (not yet implemented — homework from studying a real mold)
 
