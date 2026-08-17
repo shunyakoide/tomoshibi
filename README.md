@@ -32,7 +32,7 @@ opening**. This app generates that mold as 3D-printable split parts.
 - **Bamboo-rib grooves** — evenly spaced V-notches with barbs so the bamboo seats and won't slip.
 - **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
 - **Cardboard papercraft mode** — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the parts from cardboard, plus a fold-together cross stand.
-- **Washi template (和紙の型紙)** — the paper skin itself, developed flat: one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. Includes the side overlap, the cover allowance past the openings, and dashed guides for the rib lines and bamboo positions.
+- **Washi template (和紙の型紙)** — the paper skin itself, developed flat: one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. Includes the side overlap, the cover allowance past the openings, and dashed guides for the rib lines and bamboo positions. It ships with whichever output you choose — a PDF in the STL kit ZIP, or one more sheet in the cardboard template.
 - **English / Japanese UI** — toggle in the top bar.
 - **Watertight by construction** — every exported part is a closed manifold, verified by an automated sweep (see [CONTRIBUTING](CONTRIBUTING.md)).
 
@@ -79,15 +79,16 @@ page includes a 50 mm scale bar; make sure your printer prints at 100% (not "fit
 ### Cutting the washi first
 
 Trimming the washi after it is pasted is the fiddliest part of the build, and a torn wet
-edge shows. The Print view's **"Washi"** mode opens a full-scale template of one panel —
-the surface between two adjacent ribs, developed flat. Slip it under the washi (it is
-translucent), trace it, and cut all N panels before you paste anything. Its length is the
-length **along the curve**, not the body height, so it reaches the openings exactly.
+edge shows. The app also gives you a full-scale template of one panel — the surface between two
+adjacent ribs, developed flat. Slip it under the washi (it is translucent), trace it, and
+cut all N panels before you paste anything. Its length is the length **along the curve**,
+not the body height, so it reaches the openings exactly.
 
-The same template is bundled in the STL kit ZIP as a print-ready `harigata_washi_a4.pdf`
-(also downloadable on its own), so the kit already contains everything needed for the
-paper skin. The PDF is written directly by the app — no dependencies — and its labels are
-English, since a self-contained PDF can't carry a Japanese font.
+It is not a separate download: the panel's allowances live in the **Washi** section of the
+side panel, and the template itself comes with whichever output you pick — a print-ready
+`harigata_washi_a4.pdf` inside the STL kit ZIP, or one more sheet among the cardboard
+template's pages. The PDF is written directly by the app — no dependencies — and its
+labels are English, since a self-contained PDF can't carry a Japanese font.
 
 ---
 
