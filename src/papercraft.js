@@ -20,12 +20,22 @@
  *   cardboard lacks the rigidity to stand on its own (it crushes/bends). Rather than printing a half-baked
  *   stand, the papercraft is limited to "the mold itself (ribs + koma)". Users are expected to provide their own stand.
  *
- * A React/DOM-free pure module (just returns an HTML string; stl.js's openHTML opens it in a tab).
+ *
+ * The same page machinery also prints the **washi template** (`washiHTML` / `washiPDF`) — the flat
+ * pattern of the paper skin itself, so the washi can be cut BEFORE pasting instead of trimmed after.
+ * That one is not cardboard-specific: it is just as useful for a 3D-printed mold.
+ *
+ * Every page is built once as a list of drawing ops (`pageOps`) and then rendered as **SVG for the
+ * browser** or as **PDF for the kit ZIP** (pdf.js). One drawing, two encodings — a full-scale bug
+ * cannot hide in only one of them.
+ *
+ * A React/DOM-free pure module (returns strings / byte arrays; stl.js opens or downloads them).
  * ============================================================================
  */
 import {
-  ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, tabDented, notchR,
+  ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, tabDented, notchR, washiGore,
 } from "./geometry.js";
+import { buildPDF } from "./pdf.js";
 
 // Default translator: an interpolating identity (returns the Japanese key, substituting {name}
 // placeholders). The UI passes the real i18n `t` (which looks up English); callers that omit it
@@ -62,13 +72,15 @@ function bbox(pts) {
  */
 function toPage(part, rot) {
   const conv = ([x, y]) => (rot ? [y, -x] : [x, y]);   // 90° rotation (keeping y-up)
-  const all = [part.outline, ...(part.holes || [])].flat().concat((part.marks || []).flatMap((m) => [[m[0], m[1]], [m[2], m[3]]]));
+  const all = [part.outline, ...(part.holes || []), ...(part.guides || [])].flat()
+    .concat((part.marks || []).flatMap((m) => [[m[0], m[1]], [m[2], m[3]]]));
   const b = bbox(all.map(conv));
   const fix = (q) => { const [x, y] = conv(q); return [x - b.x0, b.y1 - y]; }; // flip y
   return {
     name: part.name,
     outline: part.outline.map(fix),
     holes: (part.holes || []).map((hh) => hh.map(fix)),
+    guides: (part.guides || []).map((g) => g.map(fix)),
     marks: (part.marks || []).map((m) => [...fix([m[0], m[1]]), ...fix([m[2], m[3]])]),
     w: b.w, h: b.h,
   };
@@ -188,82 +200,140 @@ function layout(parts, page) {
   return { placed, CW, CH, pages };
 }
 
+// ============ Page drawing (shared by the SVG and PDF renderers) ============
+// A page is built once as a list of **drawing ops in mm page coordinates** (y down from the sheet's
+// top-left), and the two renderers only translate ops into their own syntax. The rules that decide
+// whether the print is usable — the clip band, the glue tab, the 50mm ruler, the registration
+// crosses — therefore exist exactly once, and the PDF cannot silently disagree with the HTML.
+//
+// Line/text styles live here too (not in the stylesheet) for the same reason: the CSS block is
+// generated from this table, and the PDF reads the same numbers.
+const STYLE = {
+  cut: { stroke: "#000", w: 0.25 },                              // cut line
+  tick: { stroke: "#000", w: 0.25, dash: [1.2, 1] },             // bamboo-rib ticks (do not cut)
+  guide: { stroke: "#777", w: 0.25, dash: [4, 2.5] },            // alignment guides (do not cut)
+  reg: { stroke: "#000", w: 0.2 },                               // registration marks / scale
+  glue: { stroke: "#888", w: 0.2, dash: [3, 2] },                // page-overlap (glue tab) line
+  pname: { fill: "#999", size: 3.4, anchor: "middle" },          // part name, faint, inside the part
+  note: { fill: "#888", size: 2.6, anchor: "start" },
+  foot: { fill: "#666", size: 2.8, anchor: "end" },
+};
+const styleCSS = () => Object.entries(STYLE).map(([k, s]) => (s.size
+  ? `.${k} { font-size: ${s.size}px; fill: ${s.fill}; text-anchor: ${s.anchor}; font-family: sans-serif }`
+  : `.${k} { fill: none; stroke: ${s.stroke}; stroke-width: ${s.w}${s.dash ? `; stroke-dasharray: ${s.dash.join(" ")}` : ""} }`)).join("\n  ");
+
+/** Ops for page i. The [top, top+CH] band of content coordinates lands inside the clip rectangle. */
+function pageOps(lay, i, page, info, t) {
+  const { top, bot } = lay.pages[i];
+  const ops = [];
+  const path = (pts, style, close = false) => ops.push({ k: "path", pts, style, close });
+  const text = (x, y, str, style) => ops.push({ k: "text", x, y, str, style });
+
+  // Parts, clipped to the page band. Without the clip a spanning part bleeds into the bottom info
+  // band and the neighbouring page's content prints on this sheet.
+  ops.push({ k: "clip", x: MARGIN, y: MARGIN, w: lay.CW, h: bot - top });
+  const ox = MARGIN, oy = MARGIN - top;                          // content → page coordinates
+  for (const q of lay.placed) {
+    if (q.y >= bot || q.y + q.h <= top) continue;                // not in this band
+    const at = ([x, y]) => [ox + q.x + x, oy + q.y + y];
+    path(q.outline.map(at), "cut", true);
+    for (const hh of q.holes) path(hh.map(at), "cut", true);
+    for (const gd of q.guides || []) path(gd.map(at), "guide");  // open polyline: a guide, not a cut
+    for (const m of q.marks) path([at([m[0], m[1]]), at([m[2], m[3]])], "tick");
+    // The part name goes faintly **inside the part** for identification after cutting. Placed near
+    // the top it would land on the "cut-away side" like a post's U-saddle, so place it slightly
+    // below center (62%) where material remains.
+    text(ox + q.x + q.w / 2, oy + q.y + q.h * 0.62, q.name, "pname");
+  }
+  ops.push({ k: "unclip" });
+
+  // Registration marks (crosses in the four corners). Used to align when gluing sheets together.
+  for (const [x, y] of [[MARGIN, MARGIN], [MARGIN + lay.CW, MARGIN], [MARGIN, MARGIN + lay.CH], [MARGIN + lay.CW, MARGIN + lay.CH]]) {
+    path([[x - 3, y], [x + 3, y]], "reg");
+    path([[x, y - 3], [x, y + 3]], "reg");
+  }
+  // Glue-tab band. Drawn only when the next page intrudes into this page's band (= a part spans
+  // pages). If no part spans, pages don't overlap, so neither the line nor the note appears.
+  const next = lay.pages[i + 1];
+  const glueTop = next && next.top < bot ? next.top : null;
+  if (glueTop != null) {
+    const gy = MARGIN + (glueTop - top);
+    path([[MARGIN, gy], [MARGIN + lay.CW, gy]], "glue");
+    text(MARGIN + 2, gy - 1.5, t("▼ここから下は次のページと重なります(のりしろ)"), "note");
+  }
+  // Full-scale check ruler (50mm). Always verify with a ruler that no printer scaling was applied.
+  const sy = page.h - MARGIN - 5, sx = MARGIN;
+  path([[sx, sy], [sx + 50, sy]], "reg");
+  path([[sx, sy - 2], [sx, sy + 2]], "reg");
+  path([[sx + 25, sy - 1.5], [sx + 25, sy + 1.5]], "reg");
+  path([[sx + 50, sy - 2], [sx + 50, sy + 2]], "reg");
+  text(sx + 53, sy + 1.5, t("50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)"), "note");
+  text(page.w - MARGIN, sy + 1.5, `${info.title} — ${i + 1} / ${info.pages}`, "foot");
+  return ops;
+}
+
 // ============ SVG / HTML generation ============
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const n2 = (v) => (Math.round(v * 100) / 100).toString();
-const pathOf = (pts) => pts.map(([x, y], i) => `${i ? "L" : "M"}${n2(x)} ${n2(y)}`).join("") + "Z";
 
-// SVG for one page. Page i maps the [top, top+CH] band of content coordinates.
+/** Ops → one page's SVG. The clip is an SVG clipPath; ops already carry absolute page coordinates. */
 function pageSVG(lay, i, page, info, t) {
-  const { top, bot } = lay.pages[i];
-  const parts = [];
-  for (const q of lay.placed) {
-    if (q.y >= bot || q.y + q.h <= top) continue;          // don't draw parts not in this band
-    const g = [`<path d="${pathOf(q.outline)}" class="cut"/>`];
-    for (const hh of q.holes) g.push(`<path d="${pathOf(hh)}" class="cut"/>`);
-    for (const m of q.marks) g.push(`<line x1="${n2(m[0])}" y1="${n2(m[1])}" x2="${n2(m[2])}" y2="${n2(m[3])}" class="tick"/>`);
-    // The part name goes faintly **inside the part** for identification after cutting. Placed near the top it would land on
-    // the "cut-away side" like a post's U-saddle, so place it slightly below center (62%) where material remains.
-    g.push(`<text x="${n2(q.w / 2)}" y="${n2(q.h * 0.62)}" class="pname">${esc(q.name)}</text>`);
-    parts.push(`<g transform="translate(${n2(q.x)} ${n2(q.y)})">${g.join("")}</g>`);
+  const body = [];
+  let clipped = null;
+  for (const op of pageOps(lay, i, page, info, t)) {
+    if (op.k === "clip") {
+      body.push(`<defs><clipPath id="clip${i}"><rect x="${n2(op.x)}" y="${n2(op.y)}" width="${n2(op.w)}" height="${n2(op.h)}"/></clipPath></defs>`
+        + `<g clip-path="url(#clip${i})">`);
+      clipped = true;
+    } else if (op.k === "unclip") { body.push("</g>"); clipped = false; }
+    else if (op.k === "path") {
+      body.push(`<path d="${op.pts.map(([x, y], j) => `${j ? "L" : "M"}${n2(x)} ${n2(y)}`).join("")}${op.close ? "Z" : ""}" class="${op.style}"/>`);
+    } else if (op.k === "text") {
+      body.push(`<text x="${n2(op.x)}" y="${n2(op.y)}" class="${op.style}">${esc(op.str)}</text>`);
+    }
   }
-  // Registration marks (crosses in the four corners). Used to align when gluing sheets together.
-  const cross = (x, y) => `<path d="M${n2(x - 3)} ${n2(y)}H${n2(x + 3)}M${n2(x)} ${n2(y - 3)}V${n2(y + 3)}" class="reg"/>`;
-  const marks = [cross(MARGIN, MARGIN), cross(MARGIN + lay.CW, MARGIN), cross(MARGIN, MARGIN + lay.CH), cross(MARGIN + lay.CW, MARGIN + lay.CH)].join("");
-  // Glue-tab band. Drawn only when the next page intrudes into this page's band (= a part spans pages).
-  // If no part spans, pages don't overlap, so neither the line nor the note appears.
-  const next = lay.pages[i + 1];
-  const glueTop = next && next.top < bot ? next.top : null;   // only when there's an actual overlap
-  const glueY = MARGIN + (glueTop - top);
-  const glue = glueTop == null ? ""
-    : `<line x1="${MARGIN}" y1="${n2(glueY)}" x2="${n2(MARGIN + lay.CW)}" y2="${n2(glueY)}" class="glue"/>`
-      + `<text x="${n2(MARGIN + 2)}" y="${n2(glueY - 1.5)}" class="note">${esc(t("▼ここから下は次のページと重なります(のりしろ)"))}</text>`;
-  // Full-scale check ruler (50mm). Always verify with a ruler that no printer scaling was applied.
-  const sy = page.h - MARGIN - 5, sx = MARGIN;
-  const ruler = `<path d="M${sx} ${n2(sy)}h50M${sx} ${n2(sy - 2)}v4M${n2(sx + 25)} ${n2(sy - 1.5)}v3M${n2(sx + 50)} ${n2(sy - 2)}v4" class="reg"/>`
-    + `<text x="${n2(sx + 53)}" y="${n2(sy + 1.5)}" class="note">${esc(t("50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)"))}</text>`;
-  const foot = `<text x="${n2(page.w - MARGIN)}" y="${n2(sy + 1.5)}" class="foot">${esc(info.title)} — ${i + 1} / ${info.pages}</text>`;
-
-  // Clip parts to the page band (top..bot). This prevents a spanning part from bleeding into the bottom info band,
-  // and it also determines the page break (without the clip, the neighboring page's content bleeds onto the paper).
-  const clip = `clip${i}`;
+  if (clipped) body.push("</g>");
   return `<svg class="pg" width="${page.w}mm" height="${page.h}mm" viewBox="0 0 ${page.w} ${page.h}" xmlns="http://www.w3.org/2000/svg">`
-    + `<defs><clipPath id="${clip}"><rect x="${MARGIN}" y="${MARGIN}" width="${n2(lay.CW)}" height="${n2(bot - top)}"/></clipPath></defs>`
-    + `<g clip-path="url(#${clip})"><g transform="translate(${MARGIN} ${n2(MARGIN - top)})">${parts.join("")}</g></g>`
-    + marks + glue + ruler + foot + `</svg>`;
+    + body.join("") + `</svg>`;
 }
 
 /**
- * Return the papercraft's printable HTML (self-contained, single file).
- * Open it in the browser and print via Ctrl/⌘+P → "Actual size (100%), no margins".
+ * Parts → a print-ready PDF (Uint8Array) of the same pages the HTML shows. `t` should be the
+ * **English** translator: the PDF carries base-14 Helvetica only, so Japanese labels cannot be drawn
+ * (see pdf.js). Nothing dimensional depends on the labels — the drawing itself is identical.
  */
-export function paperHTML(p, matT, page = A4, t = tid) {
-  const { parts, pk, clamped, nMax, wall } = paperParts(p, matT, t);
+export function pagesPDF(parts, page, t, title) {
   const lay = layout(parts, page);
-  const info = { pages: lay.pages.length, title: t("張型スタジオ 型紙 {name} 原寸", { name: page.name }) };
+  const info = { pages: lay.pages.length, title };
+  const pages = [];
+  for (let i = 0; i < lay.pages.length; i++) pages.push(pageOps(lay, i, page, info, t));
+  return buildPDF(pages, page, STYLE, title);
+}
+
+/**
+ * Shared page shell: parts → laid-out pages + the on-screen instruction band (hidden when printing).
+ * Both templates (the cardboard mold and the washi skin) go through here, so the print rules that
+ * actually decide whether the result is usable — full-scale ruler, registration crosses, glue tabs,
+ * "save as HTML" — cannot drift apart between them.
+ *   head(pages) → { h1, body }: the title line and the instruction HTML for that template.
+ *   file: basename for the "Save as HTML" button.
+ */
+function pagesHTML(parts, page, t, { title, head, file }) {
+  const lay = layout(parts, page);
+  const info = { pages: lay.pages.length, title };
   const svgs = [];
   for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(lay, i, page, info, t));
+  const H = head(lay.pages.length);
 
-  const warnWall = wall < matT / 2
-    ? `<p class="warn">${t("⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。", { wall: wall.toFixed(1), matT })}</p>`
-    : "";
-  const warn = clamped
-    ? `<p class="warn">${t("⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。", { matT, nMax, boards: p.boards })}</p>`
-    : "";
-
-  return `<meta charset="utf-8"><title>${esc(info.title)}</title>
+  return `<meta charset="utf-8"><title>${esc(title)}</title>
 <style>
   /* One sheet per page, exactly paper-sized. The SVG carries the margins, so this is 0. */
   @page { size: ${page.name}; margin: 0 }
   body { margin: 0; font-family: system-ui, "Hiragino Sans", sans-serif; color: #2b2118; background: #eae6df }
   .pg { display: block; background: #fff; page-break-after: always; break-after: page; margin: 0 auto 12px }
-  .cut  { fill: none; stroke: #000; stroke-width: 0.25 }               /* cut line */
-  .tick { fill: none; stroke: #000; stroke-width: 0.25; stroke-dasharray: 1.2 1 } /* bamboo-rib ticks (do not cut) */
-  .reg  { fill: none; stroke: #000; stroke-width: 0.2 }                /* registration marks / scale */
-  .glue { fill: none; stroke: #888; stroke-width: 0.2; stroke-dasharray: 3 2 }
-  .pname { font-size: 3.4px; fill: #999; text-anchor: middle; font-family: sans-serif }
-  .note  { font-size: 2.6px; fill: #888; font-family: sans-serif }
-  .foot  { font-size: 2.8px; fill: #666; text-anchor: end; font-family: sans-serif }
+  /* Line and text styles are generated from the shared STYLE table, so the PDF renderer draws with
+     exactly the same widths, dashes and sizes. */
+  ${styleCSS()}
   .head { max-width: 190mm; margin: 16px auto; padding: 16px 20px; background: #fff; border-radius: 10px; line-height: 1.75; font-size: 13px }
   .head h1 { font-size: 16px; margin: 0 0 10px }
   .head ol { padding-left: 1.2em; margin: 8px 0 } .head li { margin: 3px 0 }
@@ -279,39 +349,115 @@ export function paperHTML(p, matT, page = A4, t = tid) {
   @media print { .head { display: none } body { background: #fff } .pg { margin: 0 } }
 </style>
 <div class="head">
-  <h1>${t("張型スタジオ — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)", { name: page.name, pages: lay.pages.length })}</h1>
+  <h1>${H.h1}</h1>
   <div class="acts">
     <button onclick="window.print()">${t("印刷 / PDFで保存")}</button>
     <button class="sub" onclick="saveHtml()">${t("HTMLで保存")}</button>
     <span class="hint">${t("PDF が欲しいときは、印刷ダイアログの<b>「送信先」を「PDFに保存」</b>にしてください。")}<br>
       ${t("いずれの場合も<b>「実際のサイズ / 100%」「余白: なし」</b>を選び、「用紙に合わせる」は外してください。")}</span>
   </div>
-  ${warn}${warnWall}
-  <ol>
+  ${H.body}
+</div>
+${svgs.join("\n")}
+<script>
+// Save this page itself as an HTML file (to reprint later or hand to another device).
+// The page is self-contained (no external references), so this single file reproduces it.
+function saveHtml() {
+  var html = "<!doctype html>\\n" + document.documentElement.outerHTML;
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+  a.download = "${file}_${page.name.toLowerCase()}.html";
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 10000);
+}
+</script>`;
+}
+
+/**
+ * Return the papercraft's printable HTML (self-contained, single file).
+ * Open it in the browser and print via Ctrl/⌘+P → "Actual size (100%), no margins".
+ */
+export function paperHTML(p, matT, page = A4, t = tid) {
+  const { parts, pk, clamped, nMax, wall } = paperParts(p, matT, t);
+  return pagesHTML(parts, page, t, {
+    title: t("張型スタジオ 型紙 {name} 原寸", { name: page.name }),
+    file: "harigata_katagami",
+    head: (pages) => ({
+      h1: t("張型スタジオ — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)", { name: page.name, pages }),
+      body: (clamped
+        ? `<p class="warn">${t("⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。", { matT, nMax, boards: p.boards })}</p>`
+        : "")
+        + (wall < matT / 2
+          ? `<p class="warn">${t("⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。", { wall: wall.toFixed(1), matT })}</p>`
+          : "")
+        + `<ol>
     <li>${t("<b>「実際のサイズ / 100%」で印刷</b>してください(「用紙に合わせる」は禁止)。刷ったら各ページ下の <b>50mm スケール</b>を定規で必ず確認。")}</li>
     <li>${t("ページを跨ぐ部品は、<b>のりしろ(灰色の破線より下)</b>を次ページに重ね、四隅のトンボを合わせて貼り合わせます。")}</li>
     <li>${t("紙を段ボールに貼り、<b>実線だけ</b>を切り抜きます。<b>破線の目盛は切りません</b> — 竹ひごを巻く位置の印です。")}</li>
     <li>${t("段ボールの<b>波の向き(目)は羽根板の長手方向</b>に合わせると折れにくくなります。")}</li>
     <li>${t("材料厚 <code>{matT}mm</code> 前提でコマの溝の幅を決めています。実測厚と違うと嵌まりません(緩い/入らない)。", { matT })}</li>
     <li>${pk.spiral
-      ? t("羽根板は各枚で竹ひごの巻き位置が異なるため<b>全{boards}枚</b>を掲載しています(番号順に使用)。", { boards: pk.boards })
-      : t("羽根板は全て<b>同一形状</b>のため型紙は1枚だけ掲載。同じものを<b>{boards}枚</b>切り出してください。", { boards: pk.boards })}</li>
+          ? t("羽根板は各枚で竹ひごの巻き位置が異なるため<b>全{boards}枚</b>を掲載しています(番号順に使用)。", { boards: pk.boards })
+          : t("羽根板は全て<b>同一形状</b>のため型紙は1枚だけ掲載。同じものを<b>{boards}枚</b>切り出してください。", { boards: pk.boards })}</li>
     <li>${t("コマ2枚は<b>同一形状</b>です(上下で同じものを使います)。")}</li>
     <li>${t("組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます(段ボール版は強度優先で爪先の凹みなし=まっすぐな爪)。差し込みが緩ければ接着してください。")}</li>
   </ol>
-  <p style="color:#8a7f6e;font-size:12px;margin:6px 0 0">${t("火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。", { height: p.height, boards: pk.boards, pitch: p.pitch })}</p>
-</div>
-${svgs.join("\n")}
-<script>
-// Save this page itself as an HTML file (to reprint later or hand to another device).
-// The papercraft is self-contained (no external references), so this single file reproduces it.
-function saveHtml() {
-  var html = "<!doctype html>\\n" + document.documentElement.outerHTML;
-  var a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
-  a.download = "harigata_katagami_${page.name.toLowerCase()}.html";
-  a.click();
-  setTimeout(function () { URL.revokeObjectURL(a.href); }, 10000);
+  <p style="color:#8a7f6e;font-size:12px;margin:6px 0 0">${t("火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。", { height: p.height, boards: pk.boards, pitch: p.pitch })}</p>`,
+    }),
+  });
 }
-</script>`;
+
+// ============ Washi skin template (cut the paper BEFORE pasting) ============
+// One sheet = the surface between two adjacent ribs, developed flat (geometry.js `washiGore`).
+// All panels are identical, so a single template is laid out and cut N times — and because washi is
+// translucent, the sheet is meant to be slipped UNDER the paper and traced, not glued onto it.
+export function washiParts(p, opts = {}, t = tid) {
+  const g = washiGore(p, opts);
+  const sheets = Math.ceil(Math.max(3, p.boards || 8) / g.span);
+  // Number stays outside t() so the default name still contains the plain word (same as the ribs).
+  const parts = [{ name: `${t("和紙")} ×${sheets}`, outline: g.outline, marks: g.marks, guides: g.guides }];
+  return { parts, g, sheets };
+}
+
+/**
+ * The washi panels as a **print-ready PDF** (Uint8Array). Same pages as `washiHTML`, minus the
+ * on-screen instruction band — this is the file bundled in the kit ZIP, so it prints directly with
+ * no "open the HTML and re-print it" step. `t` must be an ASCII translator (see pdf.js); it defaults
+ * to the identity, which would emit Japanese, so callers pass the English one.
+ */
+export function washiPDF(p, opts = {}, page = A4, t = tid) {
+  const { parts } = washiParts(p, opts, t);
+  return pagesPDF(parts, page, t, t("張型スタジオ 和紙型紙 {name} 原寸", { name: page.name }));
+}
+
+/** Printable HTML for the washi panels (same page rules as the cardboard template). */
+export function washiHTML(p, opts = {}, page = A4, t = tid) {
+  const { parts, g, sheets } = washiParts(p, opts, t);
+  const w = 2 * g.wMax, CW = page.w - 2 * MARGIN;
+  // The layout rotates a too-wide part to portrait; if it doesn't fit either way it would be silently
+  // clipped, so say so instead (the fix is more ribs = narrower panels, or bigger paper).
+  const tooWide = w > CW && g.sTot > CW;
+  return pagesHTML(parts, page, t, {
+    title: t("張型スタジオ 和紙型紙 {name} 原寸", { name: page.name }),
+    file: "harigata_washi",
+    head: (pages) => ({
+      h1: t("張型スタジオ — 和紙の型紙({name} 原寸 / 全 {pages} ページ)", { name: page.name, pages }),
+      body: (tooWide
+        ? `<p class="warn">${t("⚠ 1面の幅 {w}mm が用紙({name} 幅 {cw}mm)に収まりません。<b>羽根板の枚数を増やす</b>と1面が細くなります。", { w: w.toFixed(0), name: page.name, cw: CW.toFixed(0) })}</p>`
+        : "")
+        + `<ol>
+    <li>${t("<b>「実際のサイズ / 100%」で印刷</b>してください(「用紙に合わせる」は禁止)。刷ったら各ページ下の <b>50mm スケール</b>を定規で必ず確認。")}</li>
+    <li>${t("ページを跨ぐ部品は、<b>のりしろ(灰色の破線より下)</b>を次ページに重ね、四隅のトンボを合わせて貼り合わせます。")}</li>
+    <li>${t("和紙は薄いので、<b>この型紙を和紙の下に敷いて写して</b>から切ります(貼り付けないでください)。<b>実線だけ</b>が切り線です。")}</li>
+    <li>${t("<b>1面 = 羽根板と羽根板の間</b>の1枚です。同じものを<b>{sheets}枚</b>切り出してください(全ての面で同じ形です)。", { sheets })}</li>
+    <li>${t("縦の破線が<b>羽根板の位置</b>です。左右にはみ出した <b>{side}mm がのりしろ</b>で、隣の面と重ねて貼ります。", { side: g.side })}</li>
+    <li>${g.end > 0
+          ? t("上下の横破線が<b>開口の線</b>です。その外側の <b>{end}mm は被せ代</b>で、口輪に巻き込んで留めます。", { end: g.end })
+          : t("上下の端が<b>開口の線</b>です(被せ代なし)。")}</li>
+    <li>${t("横向きの短い破線は<b>竹ひごの位置</b>です(切りません)。貼るときの高さ合わせに使えます。")}</li>
+    <li>${t("紙の縦は火袋の高さ({height}mm)ではなく<b>曲面に沿った長さ {arc}mm</b> です。まっすぐ測った長さで切ると足りません。", { height: Math.round(p.height), arc: g.sTot.toFixed(0) })}</li>
+  </ol>
+  <p style="color:#8a7f6e;font-size:12px;margin:6px 0 0">${t("1面 {w}×{hgt}mm / 全{sheets}枚 — 曲面を平面に開くため、傾斜の急な所で最大 {pct}% ほど紙が余ります(湿らせて貼れば馴染みます。枚数を増やすと小さくなります)。この帯は画面表示だけで、印刷はされません。", { w: w.toFixed(0), hgt: (g.sTot + 2 * g.end).toFixed(0), sheets, pct: (g.stretch * 100).toFixed(1) })}</p>`,
+    }),
+  });
 }

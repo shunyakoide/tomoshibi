@@ -32,6 +32,7 @@ opening**. This app generates that mold as 3D-printable split parts.
 - **Bamboo-rib grooves** — evenly spaced V-notches with barbs so the bamboo seats and won't slip.
 - **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
 - **Cardboard papercraft mode** — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the parts from cardboard, plus a fold-together cross stand.
+- **Washi template (和紙の型紙)** — the paper skin itself, developed flat: one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. Includes the side overlap, the cover allowance past the openings, and dashed guides for the rib lines and bamboo positions.
 - **English / Japanese UI** — toggle in the top bar.
 - **Watertight by construction** — every exported part is a closed manifold, verified by an automated sweep (see [CONTRIBUTING](CONTRIBUTING.md)).
 
@@ -75,6 +76,19 @@ The Print view's **"Open papercraft"** button opens full-scale A4 pages. Cut the
 hubs and a fold-together cross stand from cardboard — no glue or hardware needed. Every
 page includes a 50 mm scale bar; make sure your printer prints at 100% (not "fit to page").
 
+### Cutting the washi first
+
+Trimming the washi after it is pasted is the fiddliest part of the build, and a torn wet
+edge shows. The Print view's **"Washi"** mode opens a full-scale template of one panel —
+the surface between two adjacent ribs, developed flat. Slip it under the washi (it is
+translucent), trace it, and cut all N panels before you paste anything. Its length is the
+length **along the curve**, not the body height, so it reaches the openings exactly.
+
+The same template is bundled in the STL kit ZIP as a print-ready `harigata_washi_a4.pdf`
+(also downloadable on its own), so the kit already contains everything needed for the
+paper skin. The PDF is written directly by the app — no dependencies — and its labels are
+English, since a self-contained PDF can't carry a Japanese font.
+
 ---
 
 ## Tech stack
@@ -106,7 +120,7 @@ dev setup, the verification gates (`npm run check:manifold` / `check:hash` / `ch
 - **口輪** — 完成した提灯の上下開口に入れて真円を保つ薄い輪。
 
 **特長**: 断面の直接編集 / 竹ひご溝（螺旋巻きにも対応・羽根に通し番号を刻印）/
-3Dプリンタが無くても作れる段ボール型紙（原寸 A4）/ 英日 UI 切替 /
+3Dプリンタが無くても作れる段ボール型紙（原寸 A4）/ 貼る前に切るための和紙の型紙（原寸 A4）/ 英日 UI 切替 /
 全パーツ水密（自動スイープで検証）。
 
 **使い方**: 上部タブで **断面/組立/印刷/点灯** を切替、右パネルで断面の制御点をドラッグして
