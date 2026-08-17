@@ -130,6 +130,12 @@ function ScrubRow({ cfg, ui, accent, mono, t, drag, setDrag }) {
   );
 }
 
+// Dark-room background for the lit view. Painted as a real scene background rather than left to the
+// mount's CSS gradient: since three r170 the alpha channel survives UnrealBloomPass, and bloom runs in
+// the lit view alone — so the canvas turned transparent there and the gradient showed through, meeting
+// the fogged floor in a hard horizon seam. Same colour as the lit fog, so floor and sky meet invisibly.
+const LIT_BG = new THREE.Color(0x070a11);
+
 // Restore from localStorage once at startup (at module top level to avoid duplicate parses from lazy init).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 
@@ -456,6 +462,7 @@ export default function HarigataStudio() {
     s.groundGrid.visible = view === "mold";
     // Ambient light only in light views. For lit we want just the lamp glowing in a dark room, so remove it.
     s.scene.environment = lightVP ? s.envMap : null;
+    s.scene.background = lightVP ? null : LIT_BG;  // see LIT_BG: light views stay transparent over the CSS gradient
     s.scene.fog = view === "print" ? null
       : new THREE.Fog(lightVP ? 0xbfb5a3 : 0x070a11, 1000, 2400);
     // Since IBL provides the fill, keep ambient modest. Strengthen the key to bring out the form's shading
