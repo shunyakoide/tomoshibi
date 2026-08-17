@@ -29,9 +29,10 @@ import {
   maxRadius, outerR, cutT, standBoardLength, maxBoards, grooveR, grooveList, higoSpiralPath,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
   standCollarTop, standSaddleH, standSlotSep, bakeBezierHandles, ringGeometry,
+  washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
-import { exportZip, openHTML } from "./stl.js";
-import { paperHTML } from "./papercraft.js";
+import { exportZip, openHTML, downloadFile } from "./stl.js";
+import { paperHTML, washiHTML, washiPDF } from "./papercraft.js";
 import { clamp } from "./util.js";
 import { loadSaved, saveState, serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
@@ -135,13 +136,18 @@ const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 export default function HarigataStudio() {
   const [p, setP] = useState(SAVED?.p ?? DEFAULTS); // Restore (fall back to defaults if none)
   const [view, setView] = useState("2d"); // Default is the 2D cross-section view (easiest to read the shape). Transient state, so not restored
-  const [printMode, setPrintMode] = useState("stl"); // Print view output method: "stl" (3D print) or "paper" (cardboard template). Transient
+  const [printMode, setPrintMode] = useState("stl"); // Print view output method: "stl" (3D print) / "paper" (cardboard template) / "washi" (paper-skin template). Transient
   const [drag, setDrag] = useState(null);  // Key currently being dragged (for highlighting handles / scrub rows)
   const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1); // Number of ribs laid out at once in the print view
   const [splitRibs] = useState(false); // Split-rib mode (experimental) — UI removed; kept false. Split code paths stay for future work.
   const [bedW, setBedW] = useState(SAVED?.bedW ?? 256); // Print bed width (mm). Restored as a machine setting
   const [bedD, setBedD] = useState(SAVED?.bedD ?? 256); // Print bed depth (mm)
   const [matT, setMatT] = useState(SAVED?.matT ?? 5);   // Papercraft material thickness (mm). Measured cardboard thickness. Restored as a machine setting
+  // Washi template allowances (mm). Side = the overlap where neighbouring panels lap over the rib;
+  // end = how far the sheet runs past the opening to fold over the opening ring. A craft preference,
+  // so they are restored like matT.
+  const [washiSide, setWashiSide] = useState(SAVED?.washiSide ?? WASHI_SIDE);
+  const [washiEnd, setWashiEnd] = useState(SAVED?.washiEnd ?? WASHI_END);
   const [sel, setSel] = useState(null); // Index of the control point selected in the cross-section editor (transient = not restored)
   const [editMode, setEditMode] = useState("move"); // Cross-section editor: "move" = move points / "curve" = tangent handles
   const [glError, setGlError] = useState(null);
@@ -174,12 +180,12 @@ export default function HarigataStudio() {
   // continuous updates during dragging, while pagehide (tab close/navigation) flushes immediately so the last action is never lost.
   // This runs after the boards-clamp effect, so the saved value is always post-clamp (never a non-watertight koma).
   useEffect(() => {
-    const state = { p, bedW, bedD, printRibs, matT };
+    const state = { p, bedW, bedD, printRibs, matT, washiSide, washiEnd };
     const id = setTimeout(() => saveState(state), 300);
     const flush = () => { clearTimeout(id); saveState(state); };
     window.addEventListener("pagehide", flush);
     return () => { clearTimeout(id); window.removeEventListener("pagehide", flush); };
-  }, [p, bedW, bedD, printRibs, matT]);
+  }, [p, bedW, bedD, printRibs, matT, washiSide, washiEnd]);
 
   // ---- Undo/Redo (history of shape p) ----
   // History stack of p + current index. Continuous drag/scrub changes are coalesced into one entry via debounce,
@@ -748,6 +754,11 @@ export default function HarigataStudio() {
     // Bundle the config JSON: the printed kit's ZIP itself becomes a design backup (a source for restoring
     // even if localStorage is lost). Same schema as persist.js, so it works as-is for future JSON loading.
     const cfg = JSON.stringify({ schemaVersion: SCHEMA_VERSION, p, bedW, bedD }, null, 2);
+    // The washi template rides along in the kit ZIP. It belongs to the same design (its panel width is
+    // set by the rib count you are about to print), and unlike the parts it cannot be re-derived from
+    // the STLs. A PDF rather than the HTML page, so it prints at 100% with no intermediate step —
+    // always with the English labels, since a self-contained PDF cannot carry a Japanese font (pdf.js).
+    const enc = new TextEncoder();
     exportZip([
       ...ribEntries,
       { name: "harigata_koma_print2.stl", geos: [komaGeometry(p)] },
@@ -756,13 +767,16 @@ export default function HarigataStudio() {
       // Opening rings (top/bottom opening rings). Inserted into the finished lamp's openings; the frame that holds the bamboo ribs/washi. Generated to match the opening diameter.
       { name: "harigata_ring_bottom.stl", geos: [ringGeometry(p, false)] },
       { name: "harigata_ring_top.stl", geos: [ringGeometry(p, true)] },
-    ], "harigata_kit.zip", [{ name: "harigata_config.json", bytes: new TextEncoder().encode(cfg) }]);
+    ], "harigata_kit.zip", [
+      { name: "harigata_config.json", bytes: enc.encode(cfg) },
+      { name: "harigata_washi_a4.pdf", bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, makeT("en")) },
+    ]);
   };
 
   // Export the design as a JSON file. Even if localStorage (a volatile cache layer) is lost,
   // it can be restored from this file = a backup you can rely on. Same schema as the config.json inside the ZIP.
   const exportDesign = () => {
-    const json = serializeState({ p, bedW, bedD, printRibs, matT });
+    const json = serializeState({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd });
     const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
     const a = document.createElement("a");
     a.href = url; a.download = "harigata_design.json";
@@ -779,12 +793,16 @@ export default function HarigataStudio() {
       const s = parseImport(String(reader.result));
       if (!s) { window.alert(t("設計ファイルを読み込めませんでした(JSON が壊れています)。")); return; }
       setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setMatT(s.matT);
+      setWashiSide(s.washiSide); setWashiEnd(s.washiEnd);
     };
     reader.onerror = () => window.alert(t("設計ファイルを読み込めませんでした(JSON が壊れています)。"));
     reader.readAsText(file);
   };
 
   const maxDia = Math.round(maxRadius(p) * 2);
+  // Washi panel (gore) figures shown in the print panel. A 0.5mm meridian sweep, so memoize it
+  // rather than recomputing on every render (drag/scrub re-renders constantly).
+  const washiG = useMemo(() => washiGore(p, { side: washiSide, end: washiEnd }), [p, washiSide, washiEnd]);
   // Radii of the top/bottom openings (= the top-end/bottom-end circles). Shown for reference (ribs are removed by taking off the koma and tilting,
   // so a simple "opening ≥ rib width" can't determine whether they come out → it would cause false warnings, so no check is done).
   const topOpen = Math.round(outerR(p, 1)); // Upper opening radius
@@ -983,7 +1001,8 @@ export default function HarigataStudio() {
       </div>
 
       {/* Bed-overflow warning (each part lies along a different axis, so the bed is shown as width×depth) */}
-      {!isLit && bedWarn && !(view === "print" && printMode === "paper") && (
+      {/* The bed only constrains 3D printing — hide it while a paper template is selected. */}
+      {!isLit && bedWarn && !(view === "print" && printMode !== "stl") && (
         <div
           style={{
             position: "absolute", bottom: 20, left: 20, display: "flex", alignItems: "center", gap: 10,
@@ -1237,7 +1256,7 @@ export default function HarigataStudio() {
         {view === "print" && (
           <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 16, marginTop: 4 }}>
             <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-              {[["stl", "3Dプリント"], ["paper", "段ボール"]].map(([k, l]) => {
+              {[["stl", "3Dプリント"], ["paper", "段ボール"], ["washi", "和紙"]].map(([k, l]) => {
                 const active = printMode === k;
                 return (
                   <button key={k} onClick={() => setPrintMode(k)} style={{
@@ -1293,12 +1312,26 @@ export default function HarigataStudio() {
                   )}
                 </div>
               </>
-            ) : (
+            ) : printMode === "paper" ? (
               /* Cardboard: A4 full-scale template that can be built without a 3D printer.
                  Only the material thickness lives here; the "open template" action is the footer CTA. */
               <>
                 {sectionLabel("型紙(段ボール)", "A4 原寸")}
                 {stepper("matT", "材料の厚み", matT, 1, 10, 0.5, (v) => setMatT(v), `${matT} mm`)}
+              </>
+            ) : (
+              /* Washi: the flat pattern of the paper skin itself (one rib-to-rib panel), so the washi
+                 can be cut before pasting instead of trimmed after. Only the two allowances live here. */
+              <>
+                {sectionLabel("型紙(和紙)", "A4 原寸")}
+                {stepper("washiSide", "のりしろ(左右)", washiSide, 0, 15, 1, (v) => setWashiSide(v), `${washiSide} mm`)}
+                {stepper("washiEnd", "被せ代(上下)", washiEnd, 0, 15, 1, (v) => setWashiEnd(v), `${washiEnd} mm`)}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
+                  <span style={{ fontSize: 12.5, color: UI.text }}>{t("1面のサイズ")}</span>
+                  <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>
+                    {Math.round(2 * washiG.wMax)} × {Math.round(washiG.sTot + 2 * washiEnd)} mm × {p.boards}
+                  </span>
+                </div>
               </>
             )}
           </div>
@@ -1333,6 +1366,25 @@ export default function HarigataStudio() {
                 {t("新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。")}
               </div>
             </>
+          ) : printMode === "washi" ? (
+            /* Washi mode: the primary action opens the paper-skin template (one rib-to-rib panel). */
+            <>
+              <button onClick={() => openHTML(washiHTML(p, { side: washiSide, end: washiEnd }, undefined, t), "harigata_washi_a4.html")} style={{
+                width: "100%", padding: 12, border: "none", borderRadius: 10, background: accent, color: "#fff",
+                fontFamily: sans, fontSize: 13.5, fontWeight: 700, letterSpacing: "0.04em", cursor: "pointer",
+                boxShadow: "0 3px 10px rgba(217,91,24,0.3)",
+              }}>{t("和紙の型紙を開く (A4 原寸)")}</button>
+              {/* The PDF is the same drawing without the on-screen instructions — handy to keep or send.
+                  Always English-labelled (a self-contained PDF cannot carry a Japanese font). */}
+              <button onClick={() => downloadFile(washiPDF(p, { side: washiSide, end: washiEnd }, undefined, makeT("en")), "harigata_washi_a4.pdf", "application/pdf")} style={{
+                width: "100%", padding: 10, marginTop: 8, borderRadius: 10, background: "#fff", color: accent,
+                border: `1px solid rgba(217,91,24,0.5)`, fontFamily: sans, fontSize: 12.5, fontWeight: 700,
+                letterSpacing: "0.04em", cursor: "pointer",
+              }}>{t("PDFで保存 (A4 原寸)")}</button>
+              <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
+                {t("新しいタブで開きます。羽根板と羽根板の間の1面分を平らに開いた形です。和紙の下に敷いて写してから切ってください。")}
+              </div>
+            </>
           ) : (
             <>
               <button onClick={dlAll} style={{
@@ -1342,6 +1394,7 @@ export default function HarigataStudio() {
               }}>{t("STL 書き出し")}</button>
               <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
                 {t("コマ・柱は上下同一のため各1つ入っています。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong>{t("して印刷してください。設定は ")}<span style={{ fontFamily: mono }}>harigata_config.json</span>{t(" として同梱されます(バックアップ用)。")}
+                <br />{t("和紙の型紙 ")}<span style={{ fontFamily: mono }}>harigata_washi_a4.pdf</span>{t(" も同梱されます(そのまま原寸で印刷)。")}
               </div>
             </>
           )
