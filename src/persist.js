@@ -22,6 +22,18 @@ import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.js";
 export const STORAGE_KEY = "harigata.studio";
 export const SCHEMA_VERSION = 1;
 
+// First-run onboarding card: a separate key from the design state, because it is not part of the
+// design (exporting / importing a design must not carry "has this person seen the intro" with it,
+// and clearing the flag must not touch the shape). Same shape as i18n's language key.
+export const WELCOME_KEY = "harigata.welcome";
+export function loadWelcomeSeen() {
+  try { return localStorage.getItem(WELCOME_KEY) === "1"; }
+  catch { return true; }   // storage blocked → don't nag on every load
+}
+export function saveWelcomeSeen() {
+  try { localStorage.setItem(WELCOME_KEY, "1"); } catch { /* the card simply shows again next time */ }
+}
+
 // Allowed range [min, max] per numeric field. Restored values don't pass through the
 // UI's clamping, so out-of-range values from corrupt localStorage or external JSON flow
 // straight into geometry and break it (in particular pitch:0 makes grooveList's
