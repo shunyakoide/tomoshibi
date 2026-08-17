@@ -21,9 +21,10 @@
  *   stand, the papercraft is limited to "the mold itself (ribs + koma)". Users are expected to provide their own stand.
  *
  *
- * The same page machinery also prints the **washi template** (`washiHTML` / `washiPDF`) — the flat
- * pattern of the paper skin itself, so the washi can be cut BEFORE pasting instead of trimmed after.
- * That one is not cardboard-specific: it is just as useful for a 3D-printed mold.
+ * The **washi template** (`washiParts` / `washiPDF`) — the flat pattern of the paper skin itself, so
+ * the washi can be cut BEFORE pasting instead of trimmed after — rides along with both routes rather
+ * than being a separate download: it is laid out among the cardboard pages here, and exported as a
+ * PDF inside the kit ZIP for the 3D-printed mold.
  *
  * Every page is built once as a list of drawing ops (`pageOps`) and then rendered as **SVG for the
  * browser** or as **PDF for the kit ZIP** (pdf.js). One drawing, two encodings — a full-scale bug
@@ -113,7 +114,7 @@ function komaPart(pk, name) {
  * Depending on material thickness, boards may exceed maxBoards (the notches overlap at the center), so always clamp it,
  * and return whether it was clamped in `clamped` so the UI/page can warn.
  */
-export function paperParts(p, matT, t = tid) {
+export function paperParts(p, matT, t = tid, washiOpts = {}) {
   // fit=0: add no print tolerance (nominal = exactly the material thickness). Cardboard crushes its fibers going in, so
   // adding the 3D-print fit (0.3mm default) would instead make it wobble and the tab couldn't hold the koma.
   // noTabDent: cardboard skips the tab-tip dent (the koma stop) — cardboard favors keeping the tab strong (the
@@ -136,9 +137,13 @@ export function paperParts(p, matT, t = tid) {
   // page count on A4 (the print page).
   const twoKoma = [komaPart(pk, `${t("コマ")} 1/2`), komaPart(pk, `${t("コマ")} 2/2`)];
   const oneKoma = [komaPart(pk, `${t("コマ")} ×2`)];
-  const pageCount = (ks) => layout([...ribParts, ...ks], A4).pages.length;
+  // The washi panel ships with the cardboard template too. Someone building the mold out of cardboard
+  // needs the paper skin just as much, and they never open the STL ZIP (where the PDF rides). Built
+  // from pk, so the panel width follows the possibly-clamped rib count = the mold this sheet makes.
+  const washiSheets = washiParts(pk, washiOpts, t).parts;
+  const pageCount = (ks) => layout([...ribParts, ...ks, ...washiSheets], A4).pages.length;
   const komas = pageCount(twoKoma) > pageCount(oneKoma) ? oneKoma : twoKoma;
-  const parts = [...ribParts, ...komas];
+  const parts = [...ribParts, ...komas, ...washiSheets];
   // Wall thickness remaining between the koma's notches (at the notch bottom = notchR). Thicker material
   // widens the notches, thinning the wall. The shape isn't changed (we don't silently reduce the count),
   // but if it's at a level that would tear when hand-cut (less than half the material thickness), note it on
@@ -377,8 +382,8 @@ function saveHtml() {
  * Return the papercraft's printable HTML (self-contained, single file).
  * Open it in the browser and print via Ctrl/⌘+P → "Actual size (100%), no margins".
  */
-export function paperHTML(p, matT, page = A4, t = tid) {
-  const { parts, pk, clamped, nMax, wall } = paperParts(p, matT, t);
+export function paperHTML(p, matT, page = A4, t = tid, washiOpts = {}) {
+  const { parts, pk, clamped, nMax, wall } = paperParts(p, matT, t, washiOpts);
   return pagesHTML(parts, page, t, {
     title: t("張型スタジオ 型紙 {name} 原寸", { name: page.name }),
     file: "harigata_katagami",
@@ -400,6 +405,7 @@ export function paperHTML(p, matT, page = A4, t = tid) {
           ? t("羽根板は各枚で竹ひごの巻き位置が異なるため<b>全{boards}枚</b>を掲載しています(番号順に使用)。", { boards: pk.boards })
           : t("羽根板は全て<b>同一形状</b>のため型紙は1枚だけ掲載。同じものを<b>{boards}枚</b>切り出してください。", { boards: pk.boards })}</li>
     <li>${t("コマ2枚は<b>同一形状</b>です(上下で同じものを使います)。")}</li>
+    <li>${t("最後の<b>「和紙」の型紙</b>は段ボールではなく<b>和紙を切る</b>ためのものです。羽根板の間1面分なので、同じものを<b>{boards}枚</b>。和紙は薄いので<b>下に敷いて写して</b>から切ります(貼り付けない)。", { boards: pk.boards })}</li>
     <li>${t("組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます(段ボール版は強度優先で爪先の凹みなし=まっすぐな爪)。差し込みが緩ければ接着してください。")}</li>
   </ol>
   <p style="color:#8a7f6e;font-size:12px;margin:6px 0 0">${t("火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。", { height: p.height, boards: pk.boards, pitch: p.pitch })}</p>`,
@@ -420,44 +426,13 @@ export function washiParts(p, opts = {}, t = tid) {
 }
 
 /**
- * The washi panels as a **print-ready PDF** (Uint8Array). Same pages as `washiHTML`, minus the
- * on-screen instruction band — this is the file bundled in the kit ZIP, so it prints directly with
- * no "open the HTML and re-print it" step. `t` must be an ASCII translator (see pdf.js); it defaults
- * to the identity, which would emit Japanese, so callers pass the English one.
+ * The washi panels as a **print-ready PDF** (Uint8Array) — the file bundled in the kit ZIP, so the
+ * 3D-print route prints it directly with no intermediate step. (The cardboard route needs no PDF:
+ * the same panel is laid out among its own template pages by `paperParts`.) `t` must be an ASCII
+ * translator (see pdf.js); it defaults to the identity, which would emit Japanese, so callers pass
+ * the English one.
  */
 export function washiPDF(p, opts = {}, page = A4, t = tid) {
   const { parts } = washiParts(p, opts, t);
   return pagesPDF(parts, page, t, t("張型スタジオ 和紙型紙 {name} 原寸", { name: page.name }));
-}
-
-/** Printable HTML for the washi panels (same page rules as the cardboard template). */
-export function washiHTML(p, opts = {}, page = A4, t = tid) {
-  const { parts, g, sheets } = washiParts(p, opts, t);
-  const w = 2 * g.wMax, CW = page.w - 2 * MARGIN;
-  // The layout rotates a too-wide part to portrait; if it doesn't fit either way it would be silently
-  // clipped, so say so instead (the fix is more ribs = narrower panels, or bigger paper).
-  const tooWide = w > CW && g.sTot > CW;
-  return pagesHTML(parts, page, t, {
-    title: t("張型スタジオ 和紙型紙 {name} 原寸", { name: page.name }),
-    file: "harigata_washi",
-    head: (pages) => ({
-      h1: t("張型スタジオ — 和紙の型紙({name} 原寸 / 全 {pages} ページ)", { name: page.name, pages }),
-      body: (tooWide
-        ? `<p class="warn">${t("⚠ 1面の幅 {w}mm が用紙({name} 幅 {cw}mm)に収まりません。<b>羽根板の枚数を増やす</b>と1面が細くなります。", { w: w.toFixed(0), name: page.name, cw: CW.toFixed(0) })}</p>`
-        : "")
-        + `<ol>
-    <li>${t("<b>「実際のサイズ / 100%」で印刷</b>してください(「用紙に合わせる」は禁止)。刷ったら各ページ下の <b>50mm スケール</b>を定規で必ず確認。")}</li>
-    <li>${t("ページを跨ぐ部品は、<b>のりしろ(灰色の破線より下)</b>を次ページに重ね、四隅のトンボを合わせて貼り合わせます。")}</li>
-    <li>${t("和紙は薄いので、<b>この型紙を和紙の下に敷いて写して</b>から切ります(貼り付けないでください)。<b>実線だけ</b>が切り線です。")}</li>
-    <li>${t("<b>1面 = 羽根板と羽根板の間</b>の1枚です。同じものを<b>{sheets}枚</b>切り出してください(全ての面で同じ形です)。", { sheets })}</li>
-    <li>${t("縦の破線が<b>羽根板の位置</b>です。左右にはみ出した <b>{side}mm がのりしろ</b>で、隣の面と重ねて貼ります。", { side: g.side })}</li>
-    <li>${g.end > 0
-          ? t("上下の横破線が<b>開口の線</b>です。その外側の <b>{end}mm は被せ代</b>で、口輪に巻き込んで留めます。", { end: g.end })
-          : t("上下の端が<b>開口の線</b>です(被せ代なし)。")}</li>
-    <li>${t("横向きの短い破線は<b>竹ひごの位置</b>です(切りません)。貼るときの高さ合わせに使えます。")}</li>
-    <li>${t("紙の縦は火袋の高さ({height}mm)ではなく<b>曲面に沿った長さ {arc}mm</b> です。まっすぐ測った長さで切ると足りません。", { height: Math.round(p.height), arc: g.sTot.toFixed(0) })}</li>
-  </ol>
-  <p style="color:#8a7f6e;font-size:12px;margin:6px 0 0">${t("1面 {w}×{hgt}mm / 全{sheets}枚 — 曲面を平面に開くため、傾斜の急な所で最大 {pct}% ほど紙が余ります(湿らせて貼れば馴染みます。枚数を増やすと小さくなります)。この帯は画面表示だけで、印刷はされません。", { w: w.toFixed(0), hgt: (g.sTot + 2 * g.end).toFixed(0), sheets, pct: (g.stretch * 100).toFixed(1) })}</p>`,
-    }),
-  });
 }

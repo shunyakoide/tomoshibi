@@ -35,6 +35,8 @@ const EN = {
   "左右にドラッグで調整": "Drag left/right to adjust",
   "ドラッグ / 値クリックで入力": "Drag or click the value to type",
   "骨組み": "Frame",
+  "印刷・書き出し": "Print / export",
+  "型のつくり方": "How to make the mold",
   "プリントベッド": "Print bed",
   "3Dプリント": "3D print",
   "段ボール": "Cardboard",
@@ -74,8 +76,8 @@ const EN = {
   "A4 原寸": "A4 · 1:1",
   "材料の厚み": "Material thickness",
   "型紙を開く (A4 原寸)": "Open template (A4, 1:1)",
-  "新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。":
-    "Opens in a new tab. Print at \"Actual size (100%)\" and check the 50mm scale with a ruler. Bamboo grooves are shown as tick marks, not cut.",
+  "新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。和紙の型紙も一緒に出ます。":
+    "Opens in a new tab. Print at \"Actual size (100%)\" and check the 50mm scale with a ruler. Bamboo grooves are shown as tick marks, not cut. The washi template comes with it.",
   // ---- Summary ----
   "最大径": "Max diameter",
   "羽根板の全長": "Rib length",
@@ -91,7 +93,6 @@ const EN = {
   " として同梱されます(バックアップ用)。": " (for backup).",
   "和紙の型紙 ": "The washi template ",
   " も同梱されます(そのまま原寸で印刷)。": " is bundled too (print it at 100% as-is).",
-  "PDFで保存 (A4 原寸)": "Save as PDF (A4, 1:1)",
   // ---- Warnings / status ----
   "⚠ 3Dプレビューを初期化できませんでした": "⚠ Could not initialize the 3D preview",
   "お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。":
@@ -166,13 +167,6 @@ const EN = {
   "火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。": "Body height {height}mm / {boards} ribs / bamboo pitch {pitch}mm — this band is on-screen only and is not printed.",
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
-  "型紙(和紙)": "Washi template",
-  "のりしろ(左右)": "Overlap (sides)",
-  "被せ代(上下)": "Cover (ends)",
-  "1面のサイズ": "Panel size",
-  "和紙の型紙を開く (A4 原寸)": "Open washi template (A4, 1:1)",
-  "新しいタブで開きます。羽根板と羽根板の間の1面分を平らに開いた形です。和紙の下に敷いて写してから切ってください。":
-    "Opens in a new tab. It is one rib-to-rib panel developed flat. Slip it under the washi, trace it, then cut.",
   "張型スタジオ 和紙型紙 {name} 原寸": "Harigata Studio washi template {name} (full scale)",
   "張型スタジオ — 和紙の型紙({name} 原寸 / 全 {pages} ページ)": "Harigata Studio — washi template ({name} full scale / {pages} pages)",
   "⚠ 1面の幅 {w}mm が用紙({name} 幅 {cw}mm)に収まりません。<b>羽根板の枚数を増やす</b>と1面が細くなります。":
