@@ -53,6 +53,12 @@ export function openHTML(html, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 60000); // don't revoke until the new tab has finished loading
 }
 
+// Download an already-built file (bytes or string), e.g. the washi template PDF. Unlike openHTML,
+// there is nothing to preview — the file is the deliverable.
+export function downloadFile(data, filename, mime = "application/octet-stream") {
+  triggerDownload(new Blob([data], { type: mime }), filename);
+}
+
 // ---- Minimal ZIP (uncompressed STORE + CRC32). Bundle multiple STLs into one file without adding dependencies ----
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);

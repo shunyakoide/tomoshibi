@@ -89,6 +89,9 @@ const EN = {
   "2つに複製": "duplicate to two",
   "して印刷してください。設定は ": " and print them. Settings are bundled as ",
   " として同梱されます(バックアップ用)。": " (for backup).",
+  "和紙の型紙 ": "The washi template ",
+  " も同梱されます(そのまま原寸で印刷)。": " is bundled too (print it at 100% as-is).",
+  "PDFで保存 (A4 原寸)": "Save as PDF (A4, 1:1)",
   // ---- Warnings / status ----
   "⚠ 3Dプレビューを初期化できませんでした": "⚠ Could not initialize the 3D preview",
   "お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。":
@@ -140,7 +143,9 @@ const EN = {
   "下スロット": "bottom slot",
   "上スロット": "top slot",
   "▼ここから下は次のページと重なります(のりしろ)": "▼ From here down overlaps the next page (glue tab)",
-  "50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)": "50mm ← check with a ruler (if it's off, reprint at \"Actual size / 100%\")",
+  // Kept short: it shares the bottom band with the right-aligned footer, and the PDF draws the
+  // English text at the same size (a longer line collides with the footer).
+  "50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)": "50mm ← check with a ruler (print at 100%)",
   "張型スタジオ 型紙 {name} 原寸": "Harigata Studio papercraft {name} (full scale)",
   "⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。": "⚠ The koma has <b>only {wall}mm of wall between grooves</b> (groove width matches the material at {matT}mm). That's thin enough to tear when hand-cut. To thicken it: <b>reduce the number of ribs</b>, <b>use thinner material</b>, or in the section view <b>widen the opening to make the koma larger</b>.",
   "⚠ 爪の長さ({tabLen}mm)が材料厚({matT}mm)に対して短いため、<b>上端の爪のストッパ(段)が作れませんでした</b>。コマが内側へずれ落ちるのを形で止められません。「爪の長さ」を材料厚の 2倍以上({min}mm 程度)にすると段が付きます。": "⚠ The tab length ({tabLen}mm) is short for the material thickness ({matT}mm), so <b>the stopper (shelf) on the top tab could not be made</b>. Nothing in the shape stops the koma from sliding inward. Set \"Tab length\" to at least twice the material thickness (around {min}mm) and the shelf appears.",
@@ -159,6 +164,34 @@ const EN = {
   "組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます。上端の爪の内側にある<b>段(ストッパ)</b>が、上のコマが内側へ入り込むのを止めます。差し込みが緩ければ接着してください。": "Assembly: plug the rib tabs radially into the two koma. The <b>shelf (stopper)</b> on the inner side of the top tab stops the top koma from sliding inward. If the fit is loose, glue it.",
   "<b>スタンド(帯2枚)</b>: 中央のスロットを噛み合わせて<b>X字に立て</b>ます(一方は上から、一方は下からスロットを切ってあるので直交して組めます)。上辺のV字に<b>下のコマの縁を載せる</b>と、型が立って腹(最大径)が宙に浮き、竹ひごや和紙の作業が全周からできます。ぐらつく場合は接着してください。": "<b>Stand (two strips)</b>: interlock the central slots to <b>stand them in an X</b> (one slot is cut from the top, the other from the bottom, so they cross). Rest the <b>bottom koma's rim</b> in the V-notches on the top edges; the mold then stands with its belly (max diameter) floating free, so you can work the bamboo and washi all the way around. If it wobbles, glue it.",
   "火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。": "Body height {height}mm / {boards} ribs / bamboo pitch {pitch}mm — this band is on-screen only and is not printed.",
+  // ---- Washi template (cut the paper before pasting) ----
+  "和紙": "Washi",
+  "型紙(和紙)": "Washi template",
+  "のりしろ(左右)": "Overlap (sides)",
+  "被せ代(上下)": "Cover (ends)",
+  "1面のサイズ": "Panel size",
+  "和紙の型紙を開く (A4 原寸)": "Open washi template (A4, 1:1)",
+  "新しいタブで開きます。羽根板と羽根板の間の1面分を平らに開いた形です。和紙の下に敷いて写してから切ってください。":
+    "Opens in a new tab. It is one rib-to-rib panel developed flat. Slip it under the washi, trace it, then cut.",
+  "張型スタジオ 和紙型紙 {name} 原寸": "Harigata Studio washi template {name} (full scale)",
+  "張型スタジオ — 和紙の型紙({name} 原寸 / 全 {pages} ページ)": "Harigata Studio — washi template ({name} full scale / {pages} pages)",
+  "⚠ 1面の幅 {w}mm が用紙({name} 幅 {cw}mm)に収まりません。<b>羽根板の枚数を増やす</b>と1面が細くなります。":
+    "⚠ A panel is {w}mm wide and does not fit the paper ({name} is {cw}mm wide). <b>Increasing the rib count</b> makes each panel narrower.",
+  "和紙は薄いので、<b>この型紙を和紙の下に敷いて写して</b>から切ります(貼り付けないでください)。<b>実線だけ</b>が切り線です。":
+    "Washi is translucent, so <b>slip this template under the washi and trace it</b> before cutting (do not glue it on). <b>Only the solid lines</b> are cut lines.",
+  "<b>1面 = 羽根板と羽根板の間</b>の1枚です。同じものを<b>{sheets}枚</b>切り出してください(全ての面で同じ形です)。":
+    "<b>One panel = the bay between two ribs.</b> Cut <b>{sheets}</b> identical sheets (every bay is the same shape).",
+  "縦の破線が<b>羽根板の位置</b>です。左右にはみ出した <b>{side}mm がのりしろ</b>で、隣の面と重ねて貼ります。":
+    "The vertical dashed lines are <b>where the ribs sit</b>. The <b>{side}mm outside them is overlap</b> — lap it over the neighbouring panel.",
+  "上下の横破線が<b>開口の線</b>です。その外側の <b>{end}mm は被せ代</b>で、口輪に巻き込んで留めます。":
+    "The horizontal dashed lines are <b>the openings</b>. The <b>{end}mm beyond them is cover</b> — wrap it over the opening ring.",
+  "上下の端が<b>開口の線</b>です(被せ代なし)。": "The top and bottom edges are <b>the openings</b> (no cover allowance).",
+  "横向きの短い破線は<b>竹ひごの位置</b>です(切りません)。貼るときの高さ合わせに使えます。":
+    "The short horizontal dashes mark <b>the bamboo ribs</b> (do not cut). Use them to line the panel up vertically.",
+  "紙の縦は火袋の高さ({height}mm)ではなく<b>曲面に沿った長さ {arc}mm</b> です。まっすぐ測った長さで切ると足りません。":
+    "The sheet's length is <b>{arc}mm measured along the curve</b>, not the body height ({height}mm). Cut it to the straight height and it comes up short.",
+  "1面 {w}×{hgt}mm / 全{sheets}枚 — 曲面を平面に開くため、傾斜の急な所で最大 {pct}% ほど紙が余ります(湿らせて貼れば馴染みます。枚数を増やすと小さくなります)。この帯は画面表示だけで、印刷はされません。":
+    "Panel {w}×{hgt}mm / {sheets} sheets — flattening a curved surface leaves up to about {pct}% slack where the profile is steepest (damp washi takes it up; more ribs reduce it). This band is on-screen only and is not printed.",
 };
 
 // Return the translation function for language `lang`. t(key, params?): for English, look up EN
