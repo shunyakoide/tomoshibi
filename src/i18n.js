@@ -92,6 +92,9 @@ const EN = {
     "Up to {n} ribs at this opening/thickness (koma notches would overlap). Thinner boards allow more.",
   // ---- Paper template (cardboard) ----
   "型紙(段ボール)": "Paper template",
+  "A4 原寸 · beta": "A4 1:1 · beta",
+  "この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。":
+    "This output is still in development. Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Measure your material's real thickness, and check the printed 50 mm scale bar with a ruler.",
   "A4 原寸": "A4 · 1:1",
   "材料の厚み": "Material thickness",
   "型紙を開く (A4 原寸)": "Open template (A4, 1:1)",
@@ -179,6 +182,8 @@ const EN = {
   "⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。": "⚠ The koma has <b>only {wall}mm of wall between grooves</b> (groove width matches the material at {matT}mm). That's thin enough to tear when hand-cut. To thicken it: <b>reduce the number of ribs</b>, <b>use thinner material</b>, or in the section view <b>widen the opening to make the koma larger</b>.",
   "⚠ 爪の長さ({tabLen}mm)が材料厚({matT}mm)に対して短いため、<b>上端の爪のストッパ(段)が作れませんでした</b>。コマが内側へずれ落ちるのを形で止められません。「爪の長さ」を材料厚の 2倍以上({min}mm 程度)にすると段が付きます。": "⚠ The tab length ({tabLen}mm) is short for the material thickness ({matT}mm), so <b>the stopper (shelf) on the top tab could not be made</b>. Nothing in the shape stops the koma from sliding inward. Set \"Tab length\" to at least twice the material thickness (around {min}mm) and the shelf appears.",
   "⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。": "⚠ At {matT}mm material thickness, at most {nMax} ribs fit (the grooves widen and overlap at the koma's center). Exported with {boards} reduced to <b>{nMax} ribs</b>. To keep the count, use thinner material.",
+  "<b>段ボール版は開発中(beta)です。</b> 寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。切る前に 50mm スケールと材料の実測厚を確認してください。":
+    "<b>The cardboard route is still in development (beta).</b> Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Before you cut, check the 50 mm scale bar and your material's real thickness.",
   "張型スタジオ — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)": "Harigata Studio — cardboard papercraft ({name} full scale / {pages} pages)",
   "印刷 / PDFで保存": "Print / Save as PDF",
   "HTMLで保存": "Save as HTML",
@@ -195,6 +200,12 @@ const EN = {
   "火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。": "Body height {height}mm / {boards} ribs / bamboo pitch {pitch}mm — this band is on-screen only and is not printed.",
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
+  "羽根板の間 1面分": "one rib-to-rib panel",
+  "のりしろ(左右)": "Overlap (sides)",
+  "被せ代(上下)": "Cover (ends)",
+  "1面のサイズ": "Panel size",
+  "貼る前に和紙を切るための原寸型紙です。STL の ZIP と段ボールの型紙に同梱されます。":
+    "A full-scale template for cutting the washi before you paste it. It ships inside the STL kit ZIP and with the cardboard template.",
   "張型スタジオ 和紙型紙 {name} 原寸": "Harigata Studio washi template {name} (full scale)",
   "張型スタジオ — 和紙の型紙({name} 原寸 / 全 {pages} ページ)": "Harigata Studio — washi template ({name} full scale / {pages} pages)",
   "⚠ 1面の幅 {w}mm が用紙({name} 幅 {cw}mm)に収まりません。<b>羽根板の枚数を増やす</b>と1面が細くなります。":

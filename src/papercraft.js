@@ -344,6 +344,10 @@ function pagesHTML(parts, page, t, { title, head, file }) {
   .head ol { padding-left: 1.2em; margin: 8px 0 } .head li { margin: 3px 0 }
   .head code { background: #f2efe9; padding: 1px 5px; border-radius: 4px }
   .warn { background: #fff4e8; border-left: 3px solid #d95b18; padding: 8px 12px; border-radius: 4px }
+  /* Status note ("this route is still in development"). Deliberately quieter than .warn: nothing is
+     wrong with this particular print, so it must not read as an error about the design. */
+  .beta { background: #f4f2ed; border-left: 3px solid #b9b0a0; padding: 8px 12px; border-radius: 4px; color: #6b6252 }
+  .beta b { color: #4a4438 }
   /* action buttons (screen only); .head is hidden when printing, so they never appear on paper */
   .acts { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 14px }
   .acts button { font: inherit; font-weight: 700; padding: 10px 18px; border-radius: 9px; cursor: pointer;
@@ -389,7 +393,10 @@ export function paperHTML(p, matT, page = A4, t = tid, washiOpts = {}) {
     file: "harigata_katagami",
     head: (pages) => ({
       h1: t("張型スタジオ — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)", { name: page.name, pages }),
-      body: (clamped
+      // Screen-only (the .head block is display:none when printing), so saying it here costs the
+      // printed sheet nothing while still reaching the person about to cut a sheet of cardboard.
+      body: `<p class="beta">${t("<b>段ボール版は開発中(beta)です。</b> 寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。切る前に 50mm スケールと材料の実測厚を確認してください。")}</p>`
+        + (clamped
         ? `<p class="warn">${t("⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。", { matT, nMax, boards: p.boards })}</p>`
         : "")
         + (wall < matT / 2

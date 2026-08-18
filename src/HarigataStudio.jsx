@@ -443,8 +443,11 @@ export default function HarigataStudio() {
                 shape setting rather than "this is the print/export section". */}
             <SectionLabel title="印刷・書き出し" hint="型のつくり方" />
             <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-              {[["stl", "3Dプリント"], ["paper", "段ボール"]].map(([k, l]) => (
-                <SegButton key={k} label={l} active={printMode === k} onClick={() => setPrintMode(k)} large />
+              {/* Cardboard is marked beta: its dimensions come from the same geometry.js functions
+                  as the printed parts and are covered by check:paper, but the route has had far
+                  less real-world building behind it than the STL one. */}
+              {[["stl", "3Dプリント", null], ["paper", "段ボール", "beta"]].map(([k, l, badge]) => (
+                <SegButton key={k} label={l} badge={badge} active={printMode === k} onClick={() => setPrintMode(k)} large />
               ))}
             </div>
 
@@ -489,7 +492,10 @@ export default function HarigataStudio() {
               /* Cardboard: the A4 full-scale template for building without a 3D printer. Only the
                  material thickness lives here; "open the template" is the footer CTA. */
               <>
-                <SectionLabel title="型紙(段ボール)" hint="A4 原寸" />
+                <SectionLabel title="型紙(段ボール)" hint="A4 原寸 · beta" />
+                <Note style={{ marginTop: 0, marginBottom: 12 }}>
+                  {t("この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。")}
+                </Note>
                 <Stepper label="材料の厚み" value={matT} min={1} max={10} step={0.5} onChange={setMatT}>
                   {matT} mm
                 </Stepper>
