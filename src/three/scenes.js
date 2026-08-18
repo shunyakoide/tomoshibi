@@ -39,8 +39,11 @@ function frame(s, contentH, contentR, centerY) {
   s.baseDist = Math.max((contentH / 2) / Math.tan(fovV / 2), contentR / Math.tan(fovH / 2)) * 1.45;
   cam.far = Math.max(4000, s.baseDist * 3);
   cam.updateProjectionMatrix();
-  s.zoom = 1;
-  s.lookY = centerY;
+  // Re-framing also puts the camera back at the framing distance, so any zoom the user had dialled
+  // in is dropped — as it was before OrbitControls. A design edit changes what "fits" the view, and
+  // a zoom kept across that lands somewhere arbitrary.
+  s.setZoomRange(s.baseDist);
+  s.setOrbit({ dist: s.baseDist, lookY: centerY });
 }
 
 // The mold itself: N ribs radiating from the axis, plus the two identical koma at each end.
@@ -138,7 +141,7 @@ function buildLit(s, p, viewChanged) {
   s.bloomPass.strength = 0.6; s.bloomPass.radius = 0.7; s.bloomPass.threshold = 0.85;  // soft halo
   // Only on a view switch: start from the side, near eye level. Otherwise it inherits the previous
   // view's angle (print looks straight down) and opens looking at the lamp from above.
-  if (viewChanged) { s.rot.x = -0.08; s.rot.y = 0.5; }
+  if (viewChanged) s.setOrbit({ pitch: -0.08, yaw: 0.5 });
   frame(s, (legH + p.height) * 1.16, maxRadius(p) * 1.1, (legH + p.height) * 0.5);
 }
 
@@ -164,7 +167,7 @@ function buildMold(s, p, viewChanged) {
     s.group.add(col);
   }
   s.shadow.scale.set(R * 3.2, R * 3.2, 1);
-  if (viewChanged) { s.rot.x = -0.12; s.rot.y = 0.32; }   // from the side, along the mold axis
+  if (viewChanged) s.setOrbit({ pitch: -0.12, yaw: 0.32 });   // from the side, along the mold axis
   const top = komaY + R;
   frame(s, top * 1.2, Math.max(standBoardLength(p) / 2, R) * 1.25, top * 0.5);
 }
@@ -255,8 +258,7 @@ function buildPrint(s, p, { printRibs, bedW, bedD }) {
   const totalW = pCols * (bedW + 40) - 40, totalD = pRows * (bedD + 40) - 40;
   for (const m of s.group.children) { m.position.x -= totalW / 2; m.position.z -= totalD / 2; }
   const span = Math.max(totalW, totalD) + 50;
-  s.rot.x = -1.35;                                       // straight down at the plates
-  s.rot.y = 0;
+  s.setOrbit({ pitch: -1.35, yaw: 0 });                  // straight down at the plates
   frame(s, span * 0.95, span / 2, 0);
 }
 
