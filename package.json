@@ -31,6 +31,7 @@
     "check:paper": "node scripts/paper.test.mjs"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "three": "^0.185.1"

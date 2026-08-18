@@ -26,7 +26,7 @@ import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts, ringGeometry,
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
-import { exportZip, openHTML } from "./stl.js";
+import { exportZip, openHTML, downloadFile } from "./stl.js";
 import { paperHTML, washiPDF } from "./papercraft.js";
 import { fitOnBed } from "./bed.js";
 import { useViewport } from "./three/viewport.js";
@@ -167,14 +167,10 @@ export default function HarigataStudio() {
 
   // Export the design as JSON. localStorage is a volatile cache; this file is the backup you can
   // rely on. Same schema as the config.json inside the ZIP.
-  const exportDesign = () => {
-    const json = serializeState({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd });
-    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-    const a = document.createElement("a");
-    a.href = url; a.download = "harigata_design.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const exportDesign = () => downloadFile(
+    serializeState({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd }),
+    "harigata_design.json", "application/json",
+  );
 
   // Load a design JSON (the standalone export, or the config.json out of the ZIP). parseImport
   // sanitizes, so broken / old / hand-edited values fall back safely instead of breaking geometry.
