@@ -17,6 +17,7 @@
  */
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -25,7 +26,16 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { clamp } from "../util.js";
 
 // Camera-orbit limits. Pitch stops short of straight down/up so the model never flips.
-const PITCH = [-1.3, 0.4], ZOOM = [0.45, 3];
+// The low end is -1.35 because that is the print view's top-down pose (scenes.js). It used to be
+// -1.3, which the print view then overshot by writing rot.x directly: the first drag re-clamped it
+// and the plates visibly jumped 2.9 degrees before they moved. One limit, no overshoot.
+const PITCH = [-1.35, 0.4], ZOOM = [0.45, 3];
+
+// The scene builders think in `pitch`: 0 = level with the target, negative = looking down at it.
+// OrbitControls thinks in a polar angle measured from +Y. The old render loop placed the camera at
+// y = target.y - dist*sin(pitch), so cos(phi) = -sin(pitch) — this is that same relation, and it is
+// what keeps every stored pose meaning exactly what it did before.
+const polarOf = (pitch) => Math.acos(clamp(-1, 1, -Math.sin(pitch)));
 
 // A CanvasTexture painted with a single gradient. Three of the viewport's textures are exactly
 // that — the contact shadow, the floor pool of light, and the lamp body's emission ramp.
@@ -123,7 +133,7 @@ export function createViewport(mount) {
       color: 0xf7f3ea, roughness: 0.9, transparent: true, opacity: 0.94,
       emissive: 0xffd0a0, emissiveIntensity: 0, emissiveMap: washiGrad, side: THREE.DoubleSide,
     }),
-    rot: { x: -0.15, y: 0.5 }, baseDist: 700, zoom: 1,
+    baseDist: 700,
   };
 
   // ---- Resize ----
@@ -142,77 +152,59 @@ export function createViewport(mount) {
   ro?.observe(mount);
 
   // ---- Orbit / zoom input ----
-  // Pointer events rather than a mouse* + touch* pair: one code path covers mouse, touch and pen,
-  // and pinch falls out of tracking the live pointers. `touch-action: none` on <body> (index.css)
-  // is what lets a touch drag reach us instead of scrolling the page.
+  // three's OrbitControls rather than a hand-rolled pointer path: it already covers mouse, touch and
+  // pen through pointer events, derives pinch from the live pointers, and cleans up after itself.
+  // `touch-action: none` on <body> (index.css) is still what lets a touch drag reach it instead of
+  // scrolling the page.
   const el = renderer.domElement;
-  const active = new Map();       // pointerId → last client position
-  let pinch = 0;                  // distance between two pointers at the previous move
-  const two = () => [...active.values()];
+  const controls = new OrbitControls(camera, el);
+  controls.enablePan = false;              // the model is always centred; panning only loses it
+  controls.enableDamping = true;           // the one behavioural gain over the old direct mapping
+  controls.dampingFactor = 0.09;
+  // polarOf is increasing in pitch, so the limits map across in order.
+  controls.minPolarAngle = polarOf(PITCH[0]);   // looking down at the model
+  controls.maxPolarAngle = polarOf(PITCH[1]);   // looking slightly up at it
+  // Two fingers dolly only, as before: TOUCH.DOLLY_PAN with panning off leaves just the dolly.
+  controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
 
-  const onDown = (e) => {
-    el.setPointerCapture?.(e.pointerId);
-    active.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (active.size === 2) { const [a, b] = two(); pinch = Math.hypot(a.x - b.x, a.y - b.y); }
+  // Place the camera in the builders' terms. Every field is optional and anything left out keeps its
+  // current value, so a view can set its pose and let frame() set the distance and target after.
+  state.setOrbit = ({ pitch, yaw, dist, lookY }) => {
+    const sph = new THREE.Spherical().setFromVector3(camera.position.clone().sub(controls.target));
+    if (dist != null) sph.radius = dist;
+    if (pitch != null) sph.phi = polarOf(pitch);
+    if (yaw != null) sph.theta = yaw;
+    if (lookY != null) controls.target.set(0, lookY, 0);
+    sph.makeSafe();
+    camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(sph));
+    controls.update();
   };
-  const onMove = (e) => {
-    const prev = active.get(e.pointerId);
-    if (!prev) return;
-    const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
-    active.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (active.size >= 2) {
-      const [a, b] = two();
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      state.zoom = clamp(ZOOM[0], ZOOM[1], state.zoom - (d - pinch) * 0.004);
-      pinch = d;
-      return;                     // two fingers = zoom only, no rotation
-    }
-    state.rot.y += dx * 0.008;
-    state.rot.x = clamp(PITCH[0], PITCH[1], state.rot.x + dy * 0.006);
+  // How far the wheel/pinch may travel, as a multiple of the framing distance the view chose.
+  state.setZoomRange = (baseDist) => {
+    controls.minDistance = baseDist * ZOOM[0];
+    controls.maxDistance = baseDist * ZOOM[1];
   };
-  const onUp = (e) => {
-    active.delete(e.pointerId);
-    el.releasePointerCapture?.(e.pointerId);
-  };
-  const onWheel = (e) => {
-    e.preventDefault();
-    state.zoom = clamp(ZOOM[0], ZOOM[1], state.zoom + e.deltaY * 0.0012);
-  };
-  el.addEventListener("pointerdown", onDown);
-  el.addEventListener("pointermove", onMove);
-  el.addEventListener("pointerup", onUp);
-  el.addEventListener("pointercancel", onUp);
-  el.addEventListener("wheel", onWheel, { passive: false });
+  state.setOrbit({ pitch: -0.15, yaw: 0.5, dist: state.baseDist, lookY: 120 });
+  state.setZoomRange(state.baseDist);
 
   // ---- Render loop ----
   let raf;
   const animate = () => {
     raf = requestAnimationFrame(animate);
-    const dist = state.baseDist * state.zoom;
-    const { x, y } = state.rot;
-    const lookY = state.lookY ?? 120;
-    camera.position.set(
-      dist * Math.sin(y) * Math.cos(x),
-      lookY - dist * Math.sin(x),
-      dist * Math.cos(y) * Math.cos(x)
-    );
-    camera.lookAt(0, lookY, 0);
+    controls.update();   // required every frame while damping is on
     composer.render();
   };
   animate();
 
-  // Every listener added above is removed here. The window-level ones used to be left behind, so a
+  // Everything added above is removed here. The window-level listeners used to be left behind, so a
   // remount (React StrictMode does one on every dev load) left a second set of handlers rotating
-  // the same camera — a drag moved it twice as far.
+  // the same camera — a drag moved it twice as far. controls.dispose() is the same contract for the
+  // orbit input, which is why it has to be called and not just dropped.
   const dispose = () => {
     cancelAnimationFrame(raf);
     window.removeEventListener("resize", resize);
     ro?.disconnect();
-    el.removeEventListener("pointerdown", onDown);
-    el.removeEventListener("pointermove", onMove);
-    el.removeEventListener("pointerup", onUp);
-    el.removeEventListener("pointercancel", onUp);
-    el.removeEventListener("wheel", onWheel);
+    controls.dispose();
     if (el.parentNode === mount) mount.removeChild(el);
     composer.dispose();
     renderer.dispose();
