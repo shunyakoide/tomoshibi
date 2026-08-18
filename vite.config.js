@@ -16,11 +16,12 @@ export default defineConfig({
     // The standalone three.js chunk is intentional, so raise the size-warning threshold.
     chunkSizeWarningLimit: 700,
     // three.js is large, so split it into its own chunk for better cache efficiency.
+    // Function form, not the `{ three: ["three"] }` object form: Vite 8 bundles with Rolldown,
+    // which only accepts a function here (the object form fails the build outright). Matching on
+    // the module path also catches three/examples/jsm/*, which the object form missed.
     rollupOptions: {
       output: {
-        manualChunks: {
-          three: ["three"],
-        },
+        manualChunks: (id) => (/node_modules[\\/]three[\\/]/.test(id) ? "three" : undefined),
       },
     },
   },

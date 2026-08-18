@@ -1,100 +1,197 @@
-/* Minimal reset — for the fullscreen 3D canvas */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* ============================================================================
+   Reset, form controls, and the inspector's component classes.
+   ----------------------------------------------------------------------------
+   The panel's buttons each used to carry an inline style object with a ternary per
+   property for their active and disabled looks. They are classes now: the repetition
+   is gone, "disabled" and "active" are declared once for all of them, and :hover /
+   :active exist at all — an inline style cannot express them, so until now nothing
+   in the panel responded to the pointer before it was clicked.
 
-html,
-body,
-#root {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
+   The custom properties (--accent, --text, --card-edge, --accent-40 …) are published
+   at startup by ui/theme.js, which is where the palette is defined. It lives in JS
+   because SVG presentation attributes need a real colour, not a var().
+   ============================================================================ */
 
-html {
-  /* Workaround for iOS Safari address-bar resizing (prevents 100vh jitter) */
-  height: -webkit-fill-available;
-}
-
+/* ---- reset (the app is a fullscreen canvas + panel; nothing scrolls but the panel) ---- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+html { height: -webkit-fill-available; }   /* iOS Safari address-bar resize (stops 100vh jitter) */
 body {
-  background: #ece8e2;
-  color: #242019;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  /* Handle touch gestures entirely on the app side (orbit / zoom),
-     suppressing the browser's scroll and pinch-zoom */
-  overscroll-behavior: none;
-  touch-action: none;
+  background: #ece8e2; color: #242019;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  /* Touch gestures are handled by the app (orbit / zoom), not the browser */
+  overscroll-behavior: none; touch-action: none;
 }
+#root { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }   /* notch / home indicator */
 
-/* Respect iOS safe areas (notch / home indicator) */
-#root {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
+/* ---- range slider ----
+   --pct is set inline per row (how far along the value sits); the colours come from the palette.
+   The thumb keeps its own #e8590c: it has always been a slightly different orange from the filled
+   track, and matching them would be a visual change rather than a refactor. */
 input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 24px;
-  background: transparent;
-  /* Let the browser handle horizontal thumb drags even though <body> is touch-action:none */
-  touch-action: pan-x;
+  -webkit-appearance: none; appearance: none; height: 24px; background: transparent;
+  touch-action: pan-x;   /* let the browser drive horizontal thumb drags despite touch-action:none on body */
 }
-/* --pct / --fill / --track are set inline per-row so the track shows a filled portion up to the value */
 input[type="range"]::-webkit-slider-runnable-track {
-  height: 5px;
-  border-radius: 3px;
-  background: linear-gradient(
-    to right,
-    var(--fill, #e8590c) 0 var(--pct, 0%),
-    var(--track, #ccd2da) var(--pct, 0%)
-  );
+  height: 5px; border-radius: 3px;
+  background: linear-gradient(to right, var(--accent) 0 var(--pct, 0%), #ccd2da var(--pct, 0%));
 }
 input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #e8590c;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4);
-  margin-top: -7px;
-  cursor: pointer;
+  -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin-top: -7px;
+  border-radius: 50%; background: #e8590c; border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4); cursor: pointer;
 }
-input[type="range"]::-moz-range-track {
-  height: 5px;
-  border-radius: 3px;
-  background: var(--track, #ccd2da);
-}
-input[type="range"]::-moz-range-progress {
-  height: 5px;
-  border-radius: 3px;
-  background: var(--fill, #e8590c);
-}
+input[type="range"]::-moz-range-track { height: 5px; border-radius: 3px; background: #ccd2da; }
+input[type="range"]::-moz-range-progress { height: 5px; border-radius: 3px; background: var(--accent); }
 input[type="range"]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #e8590c;
-  box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4);
-  cursor: pointer;
+  width: 18px; height: 18px; border-radius: 50%; background: #e8590c; border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4); cursor: pointer;
 }
 
-/* Visible keyboard-focus ring on every interactive control (inline styles can't express :focus-visible).
-   Mouse clicks don't trigger :focus-visible, so this only shows for keyboard/AT users. */
-button:focus-visible,
-input:focus-visible,
-[role="checkbox"]:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid #d95b18;
-  outline-offset: 2px;
-  border-radius: 6px;
+/* Keyboard-focus ring on every control. Mouse clicks don't match :focus-visible, so this is only
+   ever seen by keyboard and AT users. */
+button:focus-visible, input:focus-visible, [role="checkbox"]:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px;
 }
-input[type="range"]:focus-visible {
-  outline-offset: 4px;
+input[type="range"]:focus-visible { outline-offset: 4px; }
+
+/* ---- buttons ---- */
+.btn {
+  display: flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; border-radius: 8px;
+  font-family: var(--sans); font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  cursor: pointer; transition: background 0.13s, border-color 0.13s;
 }
+.btn--accent { background: var(--card); color: var(--accent); border: 1px solid var(--accent-4); }
+.btn--ghost { background: var(--card); color: var(--sub); border: 1px solid var(--card-edge); }
+.btn--warn { background: transparent; color: var(--warn); border: 1px solid var(--warn-35); }
+.btn--accent:hover, .btn--ghost:hover { background: #fffaf5; border-color: var(--accent-55); }
+.btn--warn:hover { background: var(--warn-06); }
+
+/* One rule for every disabled button in the panel, instead of a ternary per property */
+.btn:disabled, .step-btn:disabled, .block-btn:disabled {
+  background: transparent; color: var(--faintest); border-color: var(--card-edge);
+  opacity: 0.55; cursor: default;
+}
+
+.step-btn {   /* the ± squares */
+  width: 26px; height: 26px; padding: 0; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card); color: var(--accent); border: 1px solid var(--accent-45);
+  font-size: 15px; font-weight: 600; line-height: 1; cursor: pointer;
+}
+.step-btn:hover:not(:disabled) { background: var(--accent-08); }
+
+.seg {   /* one option of a segmented control; the chosen one is filled */
+  flex: 1; padding: 7px 4px; border-radius: 8px; cursor: pointer;
+  background: var(--card); color: var(--text); border: 1px solid var(--card-edge);
+  font-family: var(--sans); font-size: 12px; font-weight: 600;
+}
+.seg:hover { border-color: var(--accent-45); }
+.seg[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.seg--lg { padding: 8px 4px; font-size: 12.5px; }   /* the print-mode toggle sits a little larger */
+
+.cta {   /* full-width call to action at the foot of the panel */
+  width: 100%; padding: 12px; border: none; border-radius: 10px; cursor: pointer;
+  background: var(--accent); color: #fff; box-shadow: 0 3px 10px var(--accent-3);
+  font-family: var(--sans); font-size: 13.5px; font-weight: 700; letter-spacing: 0.08em;
+}
+.cta:hover { filter: brightness(1.06); }
+.cta--outline { background: #fff; color: var(--accent); border: 1px solid var(--accent-5); box-shadow: none; }
+
+.block-btn {   /* full-width secondary action inside a card (delete this point) */
+  width: 100%; padding: 9px; border-radius: 8px; cursor: pointer;
+  background: transparent; color: var(--warn); border: 1px solid var(--warn-4);
+  font-family: var(--sans); font-size: 12px; font-weight: 600;
+}
+.block-btn:hover:not(:disabled) { background: var(--warn-06); }
+
+.chip {   /* shape preset: a miniature of the profile above its name */
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 4px 7px; border-radius: 10px; cursor: pointer; font-family: var(--sans);
+  background: var(--card); color: var(--text); border: 1px solid var(--card-edge);
+}
+.chip:hover { border-color: var(--accent-45); }
+.chip[aria-pressed="true"] {
+  background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 3px 8px var(--accent-25);
+}
+
+.tab {   /* viewport mode tabs, floating over the canvas */
+  padding: 7px 14px; border: none; border-radius: 7px; cursor: pointer; transition: all 0.15s;
+  background: transparent; color: #6f6350;
+  font-family: var(--sans); font-size: 12.5px; font-weight: 500;
+}
+.tab[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 700; }
+
+/* Header affordances: the "?" that reopens the intro, and the language toggle */
+.icon-btn, .lang-btn {
+  background: var(--card); color: var(--sub); border: 1px solid var(--card-edge);
+  font-family: var(--mono); font-weight: 700; cursor: pointer;
+}
+.icon-btn {
+  width: 22px; height: 22px; padding: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1;
+}
+.lang-btn { padding: 3px 8px; border-radius: 6px; font-size: 10.5px; letter-spacing: 0.08em; }
+.icon-btn:hover, .lang-btn:hover { color: var(--accent); border-color: var(--accent-45); }
+
+/* ---- rows and fields ---- */
+.scrub-row {   /* label · track · a value you can click to type into */
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 0;
+}
+.scrub-row[data-active="true"] { background: var(--accent-06); }
+.scrub-row > label { flex: 0 0 auto; white-space: nowrap; font-size: 12.5px; color: var(--text); }
+.scrub-row input[type="range"] { flex: 1 1 auto; min-width: 60px; }
+.scrub-row[data-active="true"] .val-btn { color: var(--accent); }
+
+.val-btn {   /* looks like text, behaves like a field */
+  min-width: 62px; padding: 4px 2px; flex: 0 0 auto; text-align: right;
+  background: transparent; border: none; color: var(--text); cursor: text;
+  font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+}
+.val-btn:hover { color: var(--accent); }
+.val-field {   /* replaces the value while it is being typed into */
+  width: 62px; padding: 4px 6px; border-radius: 6px; flex: 0 0 auto; text-align: right;
+  background: #fff; border: 1px solid var(--accent); color: var(--text);
+  font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+}
+
+.field-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+.mm-field {
+  width: 66px; padding: 6px 8px; border-radius: 8px; text-align: right;
+  background: var(--card); border: 1px solid var(--card-edge); color: var(--text);
+  font-family: var(--mono); font-size: 13px;
+}
+.unit { font-size: 11px; color: var(--sub); }                     /* "mm" after a number field */
+.unit-soft { font-weight: 400; color: var(--faintest); }          /* "mm" inside a slider row's value:
+   inherits the value's size, so the right-aligned readout keeps its width */
+
+.row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; }
+.row-label { font-size: 12.5px; color: var(--text); }
+.row-value { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.step-group { display: flex; align-items: center; gap: 10px; }
+.step-val {
+  min-width: 44px; text-align: center; color: var(--text);
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+}
+
+.check {   /* checkbox as a real button, so Tab/Space and screen readers work */
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: 44px; padding: 8px 0;
+  text-align: left; background: transparent; border: none; font: inherit; cursor: pointer;
+}
+.check-box {
+  width: 18px; height: 18px; flex: none; border-radius: 5px; font-size: 12px; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card); border: 1px solid rgba(59, 52, 43, 0.3);
+}
+.check[aria-checked="true"] .check-box { background: var(--accent); border-color: transparent; }
+.check-label { font-size: 12.5px; color: var(--text); }
+
+/* ---- headings and notes ---- */
+.sec-label { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.sec-label > b { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint); }
+.sec-label > i { font-size: 10px; font-style: normal; color: var(--faintest); }
+.tool-group { display: flex; flex-direction: column; gap: 7px; }
+.tool-group > span { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint); }
+.tool-group > div { display: flex; gap: 6px; }
+.note { font-size: 10.5px; line-height: 1.6; color: var(--faint); }
+.hint { font-size: 11px; line-height: 1.5; color: var(--faint); padding: 2px 0 4px; }

@@ -40,7 +40,7 @@ The real-world lantern-making process: **wind bamboo ribs onto the mold → past
 ## Commands
 
 ```bash
-npm run dev       # Vite dev server (HMR, --host). Default http://localhost:5173/
+npm run dev       # Vite dev server (HMR, --host). http://localhost:8173/ (strictPort: a clash fails loudly)
 npm run build     # Production build (= npx vite build). Always confirm it passes after changes.
 npm run preview   # Preview the build output
 ```
@@ -49,19 +49,25 @@ No test runner. **Correctness is verified by "the build passes" + "the STL is wa
 
 ## Tech stack
 
-Vite 7 + React 18 + three.js 0.169 (all plain JS/JSX, no TypeScript). Minimal dependencies.
+Vite 8 + React 19 + three.js r185 (all plain JS/JSX, no TypeScript). Minimal dependencies — three runtime deps, two dev.
 
 ## Architecture
 
 - **`src/geometry.js`** — the core. **Pure functions** that generate the cross-section profile and the 2D cross-sections / 3D geometry of the three parts. They return three.js Shape/ExtrudeGeometry but **have no dependency on React or the DOM** (shared by both section drawing and STL export). If you add logic, start here.
 - **`src/config.js`** — `PRESETS` (control-point templates for shapes) / `DEFAULTS` (initial parameters) / `SIL_ROWS` (scrub-row definitions).
 - **`src/SectionEditor.jsx`** — the **direct-manipulation editor** for the cross-section (SVG). Drag/add/delete control-point ◇ handles, toggle corner/smooth, and visualize the neck/lamp-body/tab (rib). It uses `geometry.js`'s `outerR` etc. directly so it matches the 3D/STL exactly.
-- **`src/HarigataStudio.jsx`** — the app itself. The various control UIs in the right panel plus the four 3D views (`2d` = cross-section / `mold` = assembly / `print` = printing / `lit` = lit).
+- **`src/HarigataStudio.jsx`** — the app's **state and composition only**. It holds the design `p` and the transient UI state, wires the hooks, and lays out the viewport + inspector. It renders no control of its own and builds no 3D — those moved out (below). Keep it that way: the moment a scene detail or a button's styling lands back here, the file starts growing towards the 1,400 lines it used to be.
+- **`src/three/viewport.js`** — everything created **once per mount**: renderer, post-processing chain, lights, shared materials, camera-orbit input, and the render loop. Input is a single **pointer-event** path (mouse / touch / pen, with pinch derived from the live pointers) and every listener is removed on dispose — the earlier mouse+touch pair left window listeners behind, so a StrictMode remount rotated the camera twice per drag.
+- **`src/three/scenes.js`** — `buildScene()` and one builder per view (`mold` / `print` / `lit`). It empties the viewport's group and refills it. Every shape comes from `geometry.js`; the only geometry it touches is rotating parts flat for the **print preview**, which is preview-only (the export lays parts out itself).
+- **`src/bed.js`** — `fitOnBed()`. Shared by the overflow warning, the recommended max height, and the plate layout, so those three can never disagree.
+- **`src/hooks.js`** — `useUndoRedo` (watches `p` and commits once it settles, since there is no single choke point for edits) / `useAutosave` / `useNarrow` (`useSyncExternalStore`, so the first render already knows) / `useLang`.
+- **`src/ui/`** — `theme.js` (the palette + the `t` context — see below), `controls.jsx` (ScrubRow / Stepper / NumInput / Checkbox / SegButton / CTA / Note), and the panel's larger pieces: `PresetChips.jsx`, `PointCard.jsx`, `Toolbar.jsx`.
 - **`src/Welcome.jsx`** — the **first-run onboarding card** (see "Onboarding" below). Presentational only: no app state, no geometry.
 - **`src/pdf.js`** — minimal, dependency-free **PDF writer** (vector only, base-14 Helvetica). Consumes the same drawing ops as the SVG renderer, so the printed PDF and the printed HTML are the same drawing. Used for the washi template bundled in the kit ZIP.
 - **`src/stl.js`** — STL export (+ `openHTML`, which opens the papercraft HTML in a tab).
 - **`src/papercraft.js`** — **papercraft** (A4 full-scale 1:1 print pages for building the mold from cardboard/thick paper) and the **washi template** (`washiParts` / `washiPDF`, the paper skin's own flat pattern). A pure module that derives the drawing from `geometry.js`'s 2D functions (see "Papercraft" / "Washi template" below). Everything goes through one page pipeline — `pageOps()` (clip band, glue tab, ruler, registration marks) rendered as SVG by `pagesHTML()` or as PDF by `pagesPDF()` — so the print rules can't drift apart between templates or between the two encodings.
-- `main.jsx` / `index.css` — entry point and styles.
+- `main.jsx` — entry point (+ the error boundary that keeps a render error from blacking out the screen).
+- **`src/index.css`** — reset, range-slider skin, focus ring, and the inspector's **component classes** (`.btn`, `.seg`, `.cta`, `.chip`, `.scrub-row`, …). Two rules for working here: the **palette is defined in `ui/theme.js`**, which publishes it as custom properties at startup (it has to live in JS because SVG presentation attributes need a real colour, not a `var()`); and anything that depends on **state a style attribute cannot express** — `:hover`, `:disabled`, `[aria-pressed="true"]` — belongs here rather than as a ternary in JSX.
 
 ## Coordinate system and units
 
@@ -112,7 +118,7 @@ The ribs, koma, and stand must be **watertight (closed manifold)** or the print 
 
 - 2 = closed (normal) / 1 = open edge / >2 = non-manifold. Additionally, no NaN vertices and no degenerate (zero-area) triangles.
 
-**Verification is `npm run check:manifold`** (`scripts/manifold.mjs`). It sweeps 3 presets × height/bamboo-rib diameter/pitch/board thickness/tolerance/plate count and inspects 46,656 parts. Anything other than `0 FAIL` does not get merged. Additionally, for "refactors that shouldn't change the STL", use `npm run check:hash` (`scripts/hash.mjs`) to diff vertex hashes before and after the change and prove the shape didn't move (usage is in the comment at the top of the script). The save feature's sanitize is verified by `npm run check:persist` (`scripts/persist.test.mjs`), confirming that corrupt localStorage (broken pts, numeric strings, oversized boards, unknown version, etc.) recovers safely without crashing or producing a non-watertight koma. Papercraft **and the washi template** are `npm run check:paper` (`scripts/paper.test.mjs`).
+**Verification is `npm run check:manifold`** (`scripts/manifold.mjs`). It sweeps 3 presets × height/bamboo-rib diameter/pitch/board thickness/tolerance/plate count and inspects 46,656 parts. Anything other than `0 FAIL` does not get merged. Additionally, for "refactors that shouldn't change the STL", use `npm run check:hash` (`scripts/hash.mjs`) to diff vertex hashes before and after the change and prove the shape didn't move (usage is in the comment at the top of the script). **`check:hash` is only comparable within one three.js version**: it hashes the position array in order, so a three upgrade that merely flips which diagonal splits a quad face rewrites every hash while the solid is untouched (this is exactly what r169 → r185 did to `boardGeometry` / `ribSplitParts().splice`). Across a three upgrade, compare order-insensitive quantities instead — triangle count, signed volume, surface area, bounding box — which did stay identical for all 2,016 sampled parts. The save feature's sanitize is verified by `npm run check:persist` (`scripts/persist.test.mjs`), confirming that corrupt localStorage (broken pts, numeric strings, oversized boards, unknown version, etc.) recovers safely without crashing or producing a non-watertight koma. Papercraft **and the washi template** are `npm run check:paper` (`scripts/paper.test.mjs`).
 
 Past failure causes and fixes: grooves too deep (→ cap depth at `higoD*1.5`), near-duplicate points on the barb's sharp flank (→ clean duplicate points before extruding), single-control-point presets (→ div-0 guard in `splineR` / denominators), a thin strip remaining in the lightening window at a waist (→ shrink/drop the window where it's thin).
 

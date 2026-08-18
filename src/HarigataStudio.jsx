@@ -1,727 +1,115 @@
 /**
  * ============================================================================
- * HARIGATA STUDIO (FORMING MOLD STUDIO) v5 — UI
+ * HARIGATA STUDIO (FORMING MOLD STUDIO) — app shell
  * ============================================================================
- * A generator for 3D-print forming molds (harigata = molds for bamboo-rib winding
- * and washi application) to make your own washi paper lamps.
- * Adjust the profile curve parametrically and output three kinds of STL (rib / koma / stand).
+ * A generator for 3D-printable forming molds (harigata = the mold you wind bamboo ribs onto and
+ * paste washi over) for making your own paper lanterns. Edit the profile curve and out come the
+ * STLs — ribs, koma, stand — or a full-scale paper template if you have no printer.
  *
- * This file focuses on the React component (UI + 3D viewport).
- * The actual shape generation, export, and config are split out:
- *   - geometry.js … cross-section / 3D geometry (rib / koma / stand)
- *   - draw2d.js   … Canvas rendering of the 2D cross-section view
- *   - stl.js      … STL / ZIP export
- *   - config.js   … presets, sliders, defaults, section definitions
+ * This file is now only the app's state and composition. The parts it composes:
+ *   geometry.js        … cross-section / 3D geometry (rib / koma / stand). The single source of shape
+ *   three/viewport.js  … renderer, lights, materials, orbit input, render loop
+ *   three/scenes.js    … what each view draws (mold / print plates / lit)
+ *   hooks.js           … undo-redo, autosave, responsive flag, language
+ *   ui/                … theme + the inspector's controls, chips, point card, toolbar
+ *   SectionEditor.jsx  … the direct-manipulation section editor (SVG)
+ *   stl.js / papercraft.js / pdf.js … exports
  *
- * [Views] 2d (cross-section, default) / mold (assembly) / print (print layout) / lit
- * [Build flow] print → insert 8 ribs into 2 koma → wind bamboo ribs → apply washi →
- *   dry → remove koma and pull ribs out through the top/bottom openings → lamp body complete → mount as lighting on three legs, etc.
+ * [Views] 2d (section, default) / mold (assembly) / print (plates) / lit
+ * [Build flow] print → 8 ribs into 2 koma → wind bamboo → paste washi → dry → take the koma off and
+ *   pull the ribs out through the openings → lamp body done → mount on three legs as a lamp.
  * ============================================================================
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import * as THREE from "three";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  maxRadius, outerR, cutT, standBoardLength, maxBoards, grooveR, grooveList, higoSpiralPath,
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
-  standCollarTop, standSaddleH, standSlotSep, bakeBezierHandles, ringGeometry,
+  maxRadius, outerR, standBoardLength, maxBoards,
+  ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts, ringGeometry,
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
 import { exportZip, openHTML } from "./stl.js";
 import { paperHTML, washiPDF } from "./papercraft.js";
-import { clamp } from "./util.js";
-import { loadSaved, saveState, serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION, loadWelcomeSeen, saveWelcomeSeen } from "./persist.js";
+import { fitOnBed } from "./bed.js";
+import { useViewport } from "./three/viewport.js";
+import { buildScene } from "./three/scenes.js";
+import { useAutosave, useLang, useNarrow, useUndoRedo } from "./hooks.js";
+import {
+  loadSaved, serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION,
+  loadWelcomeSeen, saveWelcomeSeen,
+} from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
 import Welcome from "./Welcome.jsx";
-import { PRESETS, DEFAULTS, SIL_ROWS } from "./config.js";
-import { makeT, loadLang, saveLang } from "./i18n.js";
+import { DEFAULTS, SIL_ROWS } from "./config.js";
+import { makeT } from "./i18n.js";
+import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.js";
+import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, SegButton, CTA, Note } from "./ui/controls.jsx";
+import PresetChips from "./ui/PresetChips.jsx";
+import PointCard from "./ui/PointCard.jsx";
+import Toolbar from "./ui/Toolbar.jsx";
 
-// ---- Bed-fit test (shared by the overflow warning and the print-plate layout) ----
-// Can a flat part with footprint [a, b] be laid on a W×D bed, and at what in-plane angle?
-// Policy: keep it axis-aligned ("horizontal") whenever it fits that way — only tilt when it would
-// otherwise overrun the bed edge. When a tilt is needed we sweep 0..90° for the angle that best fits
-// across the bed (≈45° on a square bed; along the diagonal, so steeper/shallower, on a rectangular one,
-// which fits a noticeably larger part than a fixed 45°). Returns { fits, angle } (angle in degrees).
-// One function for the warning, the height limit, and the layout keeps "we warned it won't fit", the
-// recommended max height, and "the preview shows it fitting" all consistent.
-function fitOnBed([a, b], W, D) {
-  const EPS = 0.01;
-  // Axis-aligned first: fit with the long side along the bed's long side.
-  if (Math.max(a, b) <= Math.max(W, D) + EPS && Math.min(a, b) <= Math.min(W, D) + EPS) {
-    return { fits: true, angle: (a >= b) === (W >= D) ? 0 : 90 };
-  }
-  // Overruns axis-aligned → tilt to the best angle across the bed.
-  let best = Infinity, angle = 0;
-  for (let deg = 1; deg < 90; deg += 1) {
-    const th = (deg * Math.PI) / 180, c = Math.cos(th), s = Math.sin(th);
-    const bw = a * c + b * s, bh = a * s + b * c;   // rotated bounding box (0<deg<90 ⇒ cos,sin ≥ 0)
-    const r = Math.max(bw / W, bh / D);             // ≤1 ⇒ fits at this angle
-    if (r < best) { best = r; angle = deg; }
-  }
-  return { fits: best <= 1.0001, angle };
-}
+const PANEL = 336;          // inspector width (px)
+const BED_PRESETS = [180, 220, 250, 256, 300, 350];
+const VIEWS = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]];
 
-// ---- Accessible slider row ----
-// A labeled parameter control: native <input type=range> (free keyboard stepping, touch dragging,
-// and screen-reader semantics) with a filled track, plus a value you can click to type an exact number.
-// Replaces the old drag-only "scrub" row, which had no track, no keyboard access, and no direct entry.
-//  - cfg: { key, label, value, min, max, round, unit, display?, onChange }  (round = step / snap quantum)
-//  - drag/setDrag: shared highlight state (row tints while this control is active), same as before.
-//  - card/last: when inside a white card, draw a divider between rows.
-function ScrubRow({ cfg, ui, accent, mono, t, drag, setDrag }) {
-  const [editing, setEditing] = React.useState(false);
-  const inputRef = React.useRef(null);
-  const id = `scrub-${cfg.key}`;
-  const { value, min, max, round, unit } = cfg;
-  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
-  const on = drag === cfg.key;
-  // Snap to the row's quantum and clamp to range (used by both the range slider and typed entry)
-  const snap = (v) => clamp(min, max, +(Math.round(v / round) * round).toFixed(4));
-  React.useEffect(() => { if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); } }, [editing]);
-  const commit = (raw) => {
-    const v = Number(raw);
-    if (Number.isFinite(v)) cfg.onChange(snap(v));
-    setEditing(false);
-  };
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 10, minHeight: 44,
-      padding: "4px 0",
-      background: on ? "rgba(217,91,24,0.06)" : "transparent",
-    }}>
-      <label htmlFor={id} style={{ fontSize: 12.5, color: ui.text, flex: "0 0 auto", whiteSpace: "nowrap" }}>
-        {t(cfg.label)}
-      </label>
-      <input
-        id={id} type="range" min={min} max={max} step={round} value={value}
-        aria-label={`${t(cfg.label)} (${unit})`} aria-valuetext={`${cfg.display ?? value} ${unit}`}
-        onChange={(e) => cfg.onChange(snap(+e.target.value))}
-        onPointerDown={() => setDrag(cfg.key)}
-        onPointerUp={() => setDrag(null)}
-        onFocus={() => setDrag(cfg.key)}
-        onBlur={() => setDrag(null)}
-        style={{ flex: "1 1 auto", minWidth: 60, "--pct": pct + "%", "--fill": accent, "--track": "#ccd2da" }}
-      />
-      {editing ? (
-        <input
-          ref={inputRef} type="number" inputMode="decimal" defaultValue={value}
-          min={min} max={max} step={round}
-          onKeyDown={(e) => { if (e.key === "Enter") commit(e.currentTarget.value); else if (e.key === "Escape") setEditing(false); }}
-          onBlur={(e) => commit(e.currentTarget.value)}
-          style={{
-            width: 62, padding: "4px 6px", textAlign: "right", fontFamily: mono, fontSize: 12.5, fontWeight: 600,
-            color: ui.text, background: "#fff", border: `1px solid ${accent}`, borderRadius: 6, flex: "0 0 auto",
-          }} />
-      ) : (
-        <button onClick={() => setEditing(true)} title={t("クリックで数値を入力")} style={{
-          minWidth: 62, textAlign: "right", fontFamily: mono, fontSize: 12.5, fontWeight: 600,
-          color: on ? accent : ui.text, background: "transparent", border: "none", cursor: "text",
-          padding: "4px 2px", flex: "0 0 auto",
-        }}>
-          {cfg.display ?? cfg.value}
-          <span style={{ color: ui.faintest, fontWeight: 400 }}> {unit}</span>
-        </button>
-      )}
-    </div>
-  );
-}
-
-// Restore from localStorage once at startup (at module top level to avoid duplicate parses from lazy init).
+// Restore from localStorage once at startup (module top level, so a lazy initializer can't parse twice).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 
 export default function HarigataStudio() {
-  const [p, setP] = useState(SAVED?.p ?? DEFAULTS); // Restore (fall back to defaults if none)
-  const [view, setView] = useState("2d"); // Default is the 2D cross-section view (easiest to read the shape). Transient state, so not restored
-  const [printMode, setPrintMode] = useState("stl"); // Print view output method: "stl" (3D print) / "paper" (cardboard template) / "washi" (paper-skin template). Transient
-  const [drag, setDrag] = useState(null);  // Key currently being dragged (for highlighting handles / scrub rows)
-  const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1); // Number of ribs laid out at once in the print view
-  const [splitRibs] = useState(false); // Split-rib mode (experimental) — UI removed; kept false. Split code paths stay for future work.
-  const [bedW, setBedW] = useState(SAVED?.bedW ?? 256); // Print bed width (mm). Restored as a machine setting
-  const [bedD, setBedD] = useState(SAVED?.bedD ?? 256); // Print bed depth (mm)
-  const [matT, setMatT] = useState(SAVED?.matT ?? 5);   // Papercraft material thickness (mm). Measured cardboard thickness. Restored as a machine setting
-  // Washi template allowances (mm). Side = the overlap where neighbouring panels lap over the rib;
-  // end = how far the sheet runs past the opening to fold over the opening ring. A craft preference,
-  // so they are restored like matT.
+  const [p, setP] = useState(SAVED?.p ?? DEFAULTS);
+  const [view, setView] = useState("2d");           // section view first: easiest place to read the shape. Transient
+  const [printMode, setPrintMode] = useState("stl"); // print view output: "stl" (3D print) / "paper" (cardboard). Transient
+  const [drag, setDrag] = useState(null);           // key being dragged (highlights handles / slider rows)
+  const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1);
+  const [bedW, setBedW] = useState(SAVED?.bedW ?? 256);   // print bed (mm). Restored as a machine setting
+  const [bedD, setBedD] = useState(SAVED?.bedD ?? 256);
+  const [matT, setMatT] = useState(SAVED?.matT ?? 5);     // measured cardboard thickness (mm)
+  // Washi allowances (mm): side = the overlap where neighbouring panels lap over a rib, end = how far
+  // the sheet runs past the opening to fold over the ring. A craft preference, restored like matT.
   const [washiSide, setWashiSide] = useState(SAVED?.washiSide ?? WASHI_SIDE);
   const [washiEnd, setWashiEnd] = useState(SAVED?.washiEnd ?? WASHI_END);
-  const [sel, setSel] = useState(null); // Index of the control point selected in the cross-section editor (transient = not restored)
-  const [editMode, setEditMode] = useState("move"); // Cross-section editor: "move" = move points / "curve" = tangent handles
+  const [sel, setSel] = useState(null);             // selected control point in the section editor (transient)
+  const [editMode, setEditMode] = useState("move"); // section editor: "move" points / "curve" tangent handles
   const [glError, setGlError] = useState(null);
-  const [narrow, setNarrow] = useState(
-    typeof window !== "undefined" ? window.innerWidth < 860 : false
-  );
-  // First-run onboarding card: auto-opens until it is dismissed once. Deliberately keyed on the
-  // dismissal flag ALONE and not on "is there a saved design" — the autosave flushes on pagehide, so
-  // a first-time visitor who merely reloads already has saved state and would never see the card,
+  // Split-rib mode (experimental) — no UI; its tabs don't match the koma yet (see CLAUDE.md future work).
+  const splitRibs = false;
+
+  const narrow = useNarrow(860);
+  const { lang, toggleLang, t } = useLang();
+  const { undo, redo, canUndo, canRedo } = useUndoRedo(p, setP);
+  const [mountRef, three] = useViewport(setGlError);
+  const prevView = useRef(null);   // detects a view switch, to set that view's opening camera angle
+
+  // First-run onboarding card: auto-opens until dismissed once. Deliberately keyed on the dismissal
+  // flag ALONE and not on "is there a saved design" — the autosave flushes on pagehide, so a
+  // first-time visitor who merely reloads already has saved state and would never see the card,
   // which is exactly the person it is for. The cost is that an existing user meets it once.
   const [welcome, setWelcome] = useState(() => !loadWelcomeSeen());
   const closeWelcome = () => { saveWelcomeSeen(); setWelcome(false); };
-  const [lang, setLang] = useState(loadLang());   // UI language (ja/en). Saved in localStorage
-  const t = makeT(lang);                          // Translation function (falls back to Japanese for untranslated keys)
-  const toggleLang = () => setLang((l) => { const nx = l === "ja" ? "en" : "ja"; saveLang(nx); return nx; });
-  const mountRef = useRef(null);
-  const T = useRef({});
-  const prevViewRef = useRef(null); // To detect view switches and set the initial camera angle
-  const importRef = useRef(null);   // Hidden <input type=file> for loading designs
 
-  // Switch between side-by-side and stacked layout based on screen width
-  useEffect(() => {
-    const onResize = () => setNarrow(window.innerWidth < 860);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  // Automatically clamp the rib count to the maximum that fits into the koma. If board thickness,
-  // tolerance, or opening (◇) changes make the count too large (via any path), lower it here → prevents creating a non-watertight koma with overlapping notches.
+  // Clamp the rib count to what fits the koma. If board thickness, tolerance or the opening (◇)
+  // changes make it too large — by any path — lower it here, so overlapping notches can never
+  // produce a non-watertight koma.
   const boardsMax = maxBoards(p);
   useEffect(() => {
     if (p.boards > boardsMax) setP((o) => ({ ...o, boards: boardsMax }));
   }, [p.boards, boardsMax]);
 
-  // Auto-save the working state to localStorage. A 300ms debounce prevents a flood of writes from
-  // continuous updates during dragging, while pagehide (tab close/navigation) flushes immediately so the last action is never lost.
-  // This runs after the boards-clamp effect, so the saved value is always post-clamp (never a non-watertight koma).
+  // Runs after the clamp above, so what lands in localStorage is always the clamped design.
+  useAutosave({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd });
+
+  // Rebuild the 3D preview whenever the design or the view changes.
   useEffect(() => {
-    const state = { p, bedW, bedD, printRibs, matT, washiSide, washiEnd };
-    const id = setTimeout(() => saveState(state), 300);
-    const flush = () => { clearTimeout(id); saveState(state); };
-    window.addEventListener("pagehide", flush);
-    return () => { clearTimeout(id); window.removeEventListener("pagehide", flush); };
-  }, [p, bedW, bedD, printRibs, matT, washiSide, washiEnd]);
+    const viewChanged = prevView.current !== view;
+    prevView.current = view;
+    buildScene(three.current, { p, view, viewChanged, printRibs, splitRibs, bedW, bedD });
+  }, [p, view, printRibs, bedW, bedD, splitRibs, three]);
 
-  // ---- Undo/Redo (history of shape p) ----
-  // History stack of p + current index. Continuous drag/scrub changes are coalesced into one entry via debounce,
-  // and discrete operations (preset switch, add/delete point, sharp⇄smooth, etc.) are snapshotted through the same path. Instead of
-  // touching every setP call site, we "watch p and commit once it settles" (works around the lack of a single choke point).
-  const hist = useRef([p]);        // Snapshot list (0 is oldest)
-  const hIdx = useRef(0);          // Current index
-  const restoring = useRef(false); // Flag: setP triggered by undo/redo should not be re-committed
-  const commitTimer = useRef(null);
-  const [, bumpHist] = useState(0); // Re-render trigger to update button enabled/disabled state
-  const HIST_CAP = 60;
-  const commitNow = (np) => {
-    const h = hist.current;
-    if (JSON.stringify(h[hIdx.current]) === JSON.stringify(np)) return; // Don't push if unchanged
-    h.splice(hIdx.current + 1);     // Discard the redo side (the future that could be redone)
-    h.push(np);
-    if (h.length > HIST_CAP) h.shift();
-    hIdx.current = h.length - 1;
-    bumpHist((n) => n + 1);
-  };
-  useEffect(() => {
-    if (restoring.current) { restoring.current = false; return; } // Don't push changes caused by restoring
-    clearTimeout(commitTimer.current);
-    commitTimer.current = setTimeout(() => commitNow(p), 350); // One entry once continuous operations settle
-    return () => clearTimeout(commitTimer.current);
-  }, [p]);
-  const undo = () => {
-    clearTimeout(commitTimer.current);
-    commitNow(p);                  // Commit the pending change first (so it can be reached by redo)
-    if (hIdx.current <= 0) return;
-    hIdx.current--;
-    restoring.current = true;
-    setP(hist.current[hIdx.current]);
-    bumpHist((n) => n + 1);
-  };
-  const redo = () => {
-    clearTimeout(commitTimer.current);
-    commitNow(p);                  // Commit the pending edit first (symmetric with undo). After a new edit the redo target
-                                   // is discarded and this becomes a no-op = standard undo/redo behavior. Nothing is lost.
-    if (hIdx.current >= hist.current.length - 1) return;
-    hIdx.current++;
-    restoring.current = true;
-    setP(hist.current[hIdx.current]);
-    bumpHist((n) => n + 1);
-  };
-  const canUndo = hIdx.current > 0;
-  const canRedo = hIdx.current < hist.current.length - 1;
-  // Keyboard: Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z or Ctrl+Y = redo. Ignored while typing in an input.
-  useEffect(() => {
-    const onKey = (e) => {
-      const tag = (e.target.tagName || "").toLowerCase();
-      if (tag === "input" || tag === "textarea") return;
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
-      const k = e.key.toLowerCase();
-      if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
-      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); redo(); }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
-
-  useEffect(() => {
-    const mount = mountRef.current;
-    let cleanup;
-    try {
-      const scene = new THREE.Scene();
-    // The background is drawn by the CSS gradient on the mount. The canvas is transparent so
-    // each view can switch between CAD-style (light) and lit (dark). Fog is set on the rebuild side.
-    const camera = new THREE.PerspectiveCamera(36, 1, 1, 4000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
-    mount.appendChild(renderer.domElement);
-
-    // Post-processing: apply bloom (glow bleed) only in the lit view to give a "glowing" feel.
-    // In light views bloomPass is disabled, so the look is unchanged.
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.55, 0.7); // strength, radius, threshold
-    bloomPass.enabled = false;
-    composer.addPass(bloomPass);
-    composer.addPass(new OutputPass());
-
-    // Studio-style ambient lighting (IBL). Gives Standard/Physical materials soft reflections
-    // to remove flatness. Used in the assembly/print views (removed in the lit view for a dark-room effect).
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    pmrem.dispose();
-
-    const amb = new THREE.AmbientLight(0xffffff, 0.55);
-    scene.add(amb);
-    const key = new THREE.DirectionalLight(0xffffff, 0.85); key.position.set(240, 380, 280); scene.add(key);
-    const rim = new THREE.DirectionalLight(0x8890a8, 0.35); rim.position.set(-260, 120, -260); scene.add(rim);
-    const bulb = new THREE.PointLight(0xffc37a, 0, 900, 1.5); scene.add(bulb);
-
-    // CAD-style ground grid (shown only in the assembly view). The distance fades into the bg with fog.
-    const groundGrid = new THREE.GridHelper(2400, 48, 0xaab0ba, 0xc7ccd4);
-    groundGrid.position.y = 0;
-    groundGrid.visible = false;
-    scene.add(groundGrid);
-    const shadowTex = (() => {
-      const cv = document.createElement("canvas");
-      cv.width = cv.height = 128;
-      const ctx = cv.getContext("2d");
-      const g = ctx.createRadialGradient(64, 64, 8, 64, 64, 64);
-      g.addColorStop(0, "rgba(0,0,0,0.5)");
-      g.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
-      return new THREE.CanvasTexture(cv);
-    })();
-    const shadow = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })
-    );
-    shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = 0.5;
-    scene.add(shadow);
-
-    // Texture for the lit view: a warm pool of light on the floor (slightly dark center = shadow directly below, bright ring around)
-    const poolTex = (() => {
-      const cv = document.createElement("canvas");
-      cv.width = cv.height = 256;
-      const ctx = cv.getContext("2d");
-      const g = ctx.createRadialGradient(128, 128, 6, 128, 128, 128);
-      g.addColorStop(0.0, "rgba(255,190,120,0.10)"); // Directly below: dimmed because the body blocks it
-      g.addColorStop(0.28, "rgba(255,178,105,0.85)"); // Bright ring of light
-      g.addColorStop(1.0, "rgba(255,150,80,0.0)");
-      ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 256);
-      const t = new THREE.CanvasTexture(cv);
-      t.colorSpace = THREE.SRGBColorSpace;
-      return t;
-    })();
-    // Emission variation of the lamp body: a gradient brightest at the vertical center (prevents flatness)
-    const washiGrad = (() => {
-      const cv = document.createElement("canvas");
-      cv.width = 4; cv.height = 256;
-      const ctx = cv.getContext("2d");
-      const g = ctx.createLinearGradient(0, 0, 0, 256);
-      // Make the center a wide plateau (bright) so no thin bright line appears
-      g.addColorStop(0.0, "#9a6a38"); g.addColorStop(0.32, "#ffe4bc");
-      g.addColorStop(0.68, "#ffe4bc"); g.addColorStop(1.0, "#9a6a38");
-      ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
-      const t = new THREE.CanvasTexture(cv);
-      t.colorSpace = THREE.SRGBColorSpace;
-      return t;
-    })();
-
-    const group = new THREE.Group();
-    scene.add(group);
-    T.current = {
-      scene, camera, renderer, composer, bloomPass, poolTex, group, bulb, shadow, amb, key, groundGrid, envMap,
-      // Lit: floor (dark room) and pool of light
-      litFloorMat: new THREE.MeshStandardMaterial({ color: 0x0a0d16, roughness: 1, metalness: 0 }),
-      litPoolMat: new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
-      // Rib: apply a very thin clearcoat, like a coated filament, for a refined sheen
-      ribMat: new THREE.MeshPhysicalMaterial({
-        color: 0xc3b291, roughness: 0.5, metalness: 0.0,
-        clearcoat: 0.25, clearcoatRoughness: 0.5, envMapIntensity: 0.9,
-      }),
-      // Koma: matte resin. A finish contrast with the ribs makes the parts easy to tell apart
-      komaMat: new THREE.MeshStandardMaterial({ color: 0x94897c, roughness: 0.62, metalness: 0.05, envMapIntensity: 0.85 }),
-      // Stand: a dark matte finish like fired stoneware
-      standMat: new THREE.MeshStandardMaterial({ color: 0x6b6156, roughness: 0.7, metalness: 0.05, envMapIntensity: 0.75 }),
-      washiMat: new THREE.MeshStandardMaterial({
-        color: 0xf7f3ea, roughness: 0.9, transparent: true, opacity: 0.94,
-        emissive: 0xffd0a0, emissiveIntensity: 0, emissiveMap: washiGrad, side: THREE.DoubleSide,
-      }),
-      rot: { x: -0.15, y: 0.5 }, baseDist: 700, zoom: 1, idle: 0,
-    };
-
-    const resize = () => {
-      const w = mount.clientWidth, h = mount.clientHeight;
-      if (!w || !h) return;
-      renderer.setSize(w, h);
-      composer.setSize(w, h);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    // Also follow actual viewport size changes (side-by-side layout switch, panel width, etc.)
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
-    if (ro) ro.observe(mount);
-
-    let drag = false, px = 0, py = 0, pinch = 0;
-    const el = renderer.domElement;
-    const down = (x, y) => { drag = true; T.current.idle = 0; px = x; py = y; };
-    const move = (x, y) => {
-      if (!drag) return;
-      const s = T.current;
-      s.idle = 0;
-      s.rot.y += (x - px) * 0.008;
-      s.rot.x = Math.min(0.4, Math.max(-1.3, s.rot.x + (y - py) * 0.006));
-      px = x; py = y;
-    };
-    el.addEventListener("mousedown", (e) => down(e.clientX, e.clientY));
-    window.addEventListener("mousemove", (e) => move(e.clientX, e.clientY));
-    window.addEventListener("mouseup", () => (drag = false));
-    el.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      T.current.idle = 0;
-      T.current.zoom = Math.min(3, Math.max(0.45, T.current.zoom + e.deltaY * 0.0012));
-    }, { passive: false });
-    el.addEventListener("touchstart", (e) => {
-      if (e.touches.length === 1) down(e.touches[0].clientX, e.touches[0].clientY);
-      if (e.touches.length === 2) pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    }, { passive: true });
-    el.addEventListener("touchmove", (e) => {
-      if (e.touches.length === 1) move(e.touches[0].clientX, e.touches[0].clientY);
-      if (e.touches.length === 2) {
-        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        T.current.idle = 0;
-        T.current.zoom = Math.min(3, Math.max(0.45, T.current.zoom - (d - pinch) * 0.004));
-        pinch = d;
-      }
-    }, { passive: true });
-    el.addEventListener("touchend", () => (drag = false));
-
-    let raf;
-    const animate = () => {
-      raf = requestAnimationFrame(animate);
-      const s = T.current;
-      const dist = s.baseDist * s.zoom;
-      s.camera.position.set(
-        dist * Math.sin(s.rot.y) * Math.cos(s.rot.x),
-        (s.lookY ?? 120) - dist * Math.sin(s.rot.x),
-        dist * Math.cos(s.rot.y) * Math.cos(s.rot.x)
-      );
-      s.camera.lookAt(0, s.lookY ?? 120, 0);
-      s.composer.render();
-    };
-    animate();
-      cleanup = () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); if (ro) ro.disconnect(); if (el.parentNode === mount) mount.removeChild(el); composer.dispose(); renderer.dispose(); };
-    } catch (e) {
-      // WebGL initialization failed (old device / cannot get context, etc.).
-      // Keep the UI instead of blacking out the whole screen, and just show the cause message.
-      setGlError((e && e.message) || String(e));
-    }
-    return () => { if (cleanup) cleanup(); };
-  }, []);
-
-  // Rebuild preview + auto-framing
-  useEffect(() => {
-    const s = T.current;
-    if (!s.group) return;
-    while (s.group.children.length) {
-      const m = s.group.children[0];
-      s.group.remove(m);
-      m.traverse((o) => o.geometry && o.geometry.dispose());
-    }
-    const viewChanged = prevViewRef.current !== view; // Set the initial camera angle only on first render / view switch
-    prevViewRef.current = view;
-    if (view === "2d") return; // The 2D cross-section view is drawn on a separate canvas (skip 3D building)
-    const R = maxRadius(p);
-    const lightVP = view !== "lit"; // Assembly/print use a CAD-style bright background; only lit is dark
-    s.shadow.scale.set(R * 3.2, R * 3.2, 1);
-    s.shadow.visible = view === "mold"; // Contact shadow only in the assembly view (lit grounds via floor + pool of light)
-    s.shadow.material.opacity = 0.3;
-    s.groundGrid.visible = view === "mold";
-    // Ambient light only in light views. For lit we want just the lamp glowing in a dark room, so remove it.
-    s.scene.environment = lightVP ? s.envMap : null;
-    s.scene.fog = view === "print" ? null
-      : new THREE.Fog(lightVP ? 0xbfb5a3 : 0x070a11, 1000, 2400);
-    // Since IBL provides the fill, keep ambient modest. Strengthen the key to bring out the form's shading
-    // and lift it off the background (avoids blowout while ensuring figure-ground contrast).
-    s.amb.intensity = view === "print" ? 0.5 : lightVP ? 0.3 : 0.5;
-    s.key.intensity = view === "print" ? 0.85 : lightVP ? 1.1 : 0.85;
-    s.key.position.set(view === "print" ? 80 : 240, view === "print" ? 500 : 380, view === "print" ? 120 : 280);
-    s.bulb.intensity = 0;
-    s.washiMat.emissiveIntensity = 0;
-    s.bloomPass.enabled = false; // Enabled only in the lit view (the lit branch below)
-
-    const frame = (contentH, contentR, centerY) => {
-      const cam = s.camera;
-      const fovV = (cam.fov * Math.PI) / 180;
-      const fovH = 2 * Math.atan(Math.tan(fovV / 2) * cam.aspect);
-      const dV = (contentH / 2) / Math.tan(fovV / 2);
-      const dH = contentR / Math.tan(fovH / 2);
-      s.baseDist = Math.max(dV, dH) * 1.45;
-      cam.far = Math.max(4000, s.baseDist * 3);
-      cam.updateProjectionMatrix();
-      s.zoom = 1;
-      s.lookY = centerY;
-    };
-
-    if (view === "lit") {
-      const legH = p.height * 0.42; // Three legs (1AY style)
-      // The neck (vertical part at the top/bottom ends) has no bamboo ribs or washi = nothing is applied, so don't draw it.
-      // Show only the lamp body (the center where washi is applied) as the glowing skin, leaving the neck open.
-      const cB = cutT(p); // Neck fraction (0..0.45)
-      const t0 = cB, t1 = 1 - cB;
-      const pts = [];
-      const N = 160; // Sample finely along the vertical to smooth the surface (silhouette)
-      for (let i = 0; i <= N; i++) {
-        const t = t0 + (t1 - t0) * (i / N);
-        pts.push(new THREE.Vector2(outerR(p, t) + p.higoD, legH + t * p.height));
-      }
-      s.group.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 128), s.washiMat));
-      // Bamboo ribs: horizontal rings of the lamp body. In reality washi is applied over the bamboo ribs, so the ribs sit inside the paper.
-      // Place the ring center at outerR → the outer surface at outerR+higoD/2 sits inside the washi (outerR+higoD),
-      // preventing the surfaces from coinciding and Z-fighting (a dashed flicker). Color is the natural bamboo tone
-      // (pale yellow-brown). Add a fairly strong warm self-emission so it isn't crushed to black in backlight, showing translucent bamboo ribs.
-      const higoMat = new THREE.MeshStandardMaterial({
-        color: 0xc2a266, roughness: 0.75, metalness: 0,
-        emissive: 0x936026, emissiveIntensity: 0.7,
-      });
-      if (p.spiral) {
-        // Spiral winding: draw the bamboo rib as "a single spiral continuing downward" (same higoSpiralPath as the mold's grooves).
-        const path = higoSpiralPath(p);
-        if (path.length > 1) {
-          const v = path.map(([a, y, r]) => new THREE.Vector3(r * Math.cos(a), legH + y, r * Math.sin(a)));
-          const curve = new THREE.CatmullRomCurve3(v);
-          const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, v.length * 2, p.higoD / 2, 8, false), higoMat);
-          s.group.add(tube);
-        }
-      } else {
-        for (const gy of grooveList(p, grooveR(p))) {
-          const t = gy / p.height;
-          const ring = new THREE.Mesh(new THREE.TorusGeometry(outerR(p, t), p.higoD / 2, 10, 96), higoMat);
-          ring.rotation.x = Math.PI / 2; ring.position.y = legH + gy;
-          s.group.add(ring);
-        }
-      }
-      // Legs: splay outward from the lamp body's bottom rim (= the lower opening) down to the floor. Graphite that doesn't sink into the dark background (keeps the black-iron texture)
-      const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
-      // Match the root to the skin's bottom rim: use the t0 (= lamp body's bottom end) value for both radius and height.
-      const rimR = outerR(p, t0) + p.higoD, rimY = legH + t0 * p.height;
-      // Black rim of the opening (a ring). The three legs connect to this rim. Same thickness/material as the legs so it looks unified.
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, 1.8, 14, 96), legMat);
-      rim.rotation.x = Math.PI / 2; rim.position.y = rimY;
-      s.group.add(rim);
-      // The feet go further out than the root = a tripod spreading straight from the opening to the floor (not tapering inward).
-      const r0 = rimR, r1 = rimR + legH * 0.35;
-      for (let i = 0; i < 3; i++) {
-        const a = (i / 3) * Math.PI * 2 + Math.PI / 6;
-        const topP = new THREE.Vector3(r0 * Math.cos(a), rimY, r0 * Math.sin(a));
-        const botP = new THREE.Vector3(r1 * Math.cos(a), 2, r1 * Math.sin(a));
-        const dir = new THREE.Vector3().subVectors(botP, topP);
-        const len = dir.length();
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, len, 12), legMat);
-        leg.position.copy(topP).addScaledVector(dir, 0.5);
-        leg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
-        s.group.add(leg);
-        const foot = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 12), legMat);
-        foot.position.copy(botP);
-        s.group.add(foot);
-      }
-      // Floor (dark room) + warm pool of light (the lamp illuminates the floor)
-      const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), s.litFloorMat);
-      floor.rotation.x = -Math.PI / 2;
-      s.group.add(floor);
-      const pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), s.litPoolMat);
-      pool.rotation.x = -Math.PI / 2; pool.position.y = 0.4;
-      const pr = maxRadius(p) * 7;
-      pool.scale.set(pr, pr, 1);
-      s.group.add(pool);
-      // Present it as self-emitting: keep external light minimal and let the lamp body's emissive and bloom do the glowing.
-      // Don't use an internal bulb (it produces a bright band = line at the equator). Use the emissive vertical gradient for shading.
-      s.amb.intensity = 0.12;
-      s.key.intensity = 0.25; s.key.position.set(180, 320, 200);
-      s.washiMat.roughness = 1.0;          // Fully matte (removes specular highlights)
-      s.washiMat.emissiveIntensity = 1.15; // Brightness of the lamp body
-      s.bulb.intensity = 0;                // Internal bulb off (prevents a bright line showing through)
-      s.bloomPass.enabled = true;          // Glow bleed → glowing feel
-      s.bloomPass.strength = 0.6; s.bloomPass.radius = 0.7; s.bloomPass.threshold = 0.85; // Soft halo
-      // Only on switch, set the initial angle to "from the side (near eye level)". Without this it inherits the previous view's
-      // angle (print = top-down rot.x=-1.35) and ends up looking down from above.
-      if (viewChanged) { s.rot.x = -0.08; s.rot.y = 0.5; }
-      frame((legH + p.height) * 1.16, R * 1.1, (legH + p.height) * 0.5);
-      return;
-    }
-
-    const mold = new THREE.Group();
-    for (let k = 0; k < p.boards; k++) {
-      const mesh = new THREE.Mesh(ribGeometry(p, k), s.ribMat);
-      mesh.rotation.y = (k / p.boards) * Math.PI * 2;
-      mold.add(mesh);
-    }
-    // The koma are identical top and bottom. In the assembly view, place the same geometry at the two (top/bottom) positions.
-    const kb = new THREE.Mesh(komaGeometry(p), s.komaMat);
-    kb.rotation.x = -Math.PI / 2; kb.position.y = -p.tabLen; // Lower koma
-    mold.add(kb);
-    const kt = new THREE.Mesh(komaGeometry(p), s.komaMat);
-    kt.rotation.x = Math.PI / 2; kt.position.y = p.height + p.tabLen; // Upper koma (identical)
-    mold.add(kt);
-
-    if (view === "mold") {
-      // Actual working pose: show the mold laid on its side, resting in the two saddles of the stand.
-      const collarTop = standCollarTop();           // Height where the column feet sit (top face of the collar)
-      const komaY = collarTop + standSaddleH(p);     // Koma center = saddle center height
-      const sep = standSlotSep(p);                   // Koma center spacing = column spacing (based on the koma seating position)
-      // Lay the mold on its side (axis along X). Position it so the koma centers land at X=±sep/2, Y=komaY after rotation.
-      mold.rotation.z = Math.PI / 2;
-      mold.position.set(p.height / 2, komaY, 0);
-      s.group.add(mold);
-      // Stand: base board (laid flat on the floor) + 2 columns (saddles receive the koma)
-      const board = new THREE.Mesh(boardGeometry(p), s.standMat);
-      board.rotation.x = -Math.PI / 2;              // Lay flat on the floor with the thickness (collar) facing up
-      s.group.add(board);
-      for (const sgn of [-1, 1]) {
-        const col = new THREE.Mesh(standGeometry(p), s.standMat);
-        col.rotation.y = Math.PI / 2;               // Orient the board-thickness direction along the mold axis (X)
-        col.position.set((sgn * sep) / 2, collarTop, 0);
-        s.group.add(col);
-      }
-      s.shadow.scale.set(R * 3.2, R * 3.2, 1);
-      if (viewChanged) { s.rot.x = -0.12; s.rot.y = 0.32; } // Initial angle viewed from the side (along the mold axis)
-      const top = komaY + R;                         // Topmost point of the mold
-      frame(top * 1.2, Math.max(standBoardLength(p) / 2, R) * 1.25, top * 0.5);
-    } else {
-      // Print view: Bambu Lab A1 (256×256mm). Compute cells per part type and arrange plates in a grid
-      const BEDW = bedW, BEDD = bedD, GAP = 8;
-      // With spiral winding each rib has different groove positions (every rib is a different shape), so always lay out all boards ribs.
-      // Normally all ribs are identical, so only printRibs of them (print one and duplicate).
-      const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
-      const ribs = [];
-      for (let k = 0; k < nRibs; k++) {
-        if (splitRibs) {
-          const sp = ribSplitParts(p, k);
-          ribs.push({ geo: sp.bottom, mat: s.ribMat }, { geo: sp.top, mat: s.ribMat }, { geo: sp.splice, mat: s.komaMat });
-        } else {
-          ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
-        }
-      }
-      // The koma and columns are identical top and bottom, so output only one of each (the user duplicates and places them when printing).
-      // Since the STL output is separate, split them onto separate plates in the preview too.
-      const komas = [{ geo: komaGeometry(p), mat: s.komaMat }];
-      const stands = [{ geo: standGeometry(p), mat: s.standMat }];
-      // The base board's length varies with the lamp body height, so put it on its own plate. This keeps the column placement fixed
-      const boards = [{ geo: boardGeometry(p), mat: s.standMat }];
-      // Opening rings (top/bottom opening rings). Rigid rings inserted into the finished lamp's openings. One each.
-      const rings = [
-        { geo: ringGeometry(p, false), mat: s.komaMat },
-        { geo: ringGeometry(p, true), mat: s.komaMat },
-      ];
-
-      let plateIdx = 0;
-      const placed = [];
-      // Orient each flat part within the bed plane before laying it out, using the same best-fit angle
-      // fitOnBed() reports to the overflow warning — axis-aligned when that fits, otherwise tilted to the
-      // part's optimal angle across the bed (≈45° on a square bed, steeper/shallower on a rectangular one).
-      // rotateZ turns the part in its own XY = the bed plane (after the -90° X tilt applied at placement);
-      // the extruded Z thickness is unchanged. Preview-only — the STL export lays parts out separately, so
-      // geometry / manifoldness is unaffected.
-      const orientGeo = (geo) => {
-        geo.computeBoundingBox();
-        const b = geo.boundingBox;
-        const { angle } = fitOnBed([b.max.x - b.min.x, b.max.y - b.min.y], BEDW, BEDD);
-        if (angle) geo.rotateZ((angle * Math.PI) / 180);
-        geo.computeBoundingBox();
-      };
-      const layout = (items) => {
-        if (!items.length) return;
-        let mW = 0, mD = 0;
-        items.forEach((pt) => {
-          orientGeo(pt.geo);
-          pt.bb = pt.geo.boundingBox;
-          mW = Math.max(mW, pt.bb.max.x - pt.bb.min.x);
-          mD = Math.max(mD, pt.bb.max.y - pt.bb.min.y);
-        });
-        const cW = mW + GAP, cD = mD + GAP;
-        const cols = Math.max(1, Math.floor((BEDW - GAP) / cW));
-        const rows = Math.max(1, Math.floor((BEDD - GAP) / cD));
-        const per = cols * rows;
-        items.forEach((pt, i) => {
-          const w = pt.bb.max.x - pt.bb.min.x, d = pt.bb.max.y - pt.bb.min.y;
-          const onPlate = Math.min(per, items.length - Math.floor(i / per) * per); // Number of parts on this plate
-          const uc = Math.min(cols, onPlate), ur = Math.ceil(onPlate / cols);       // Actually used column/row counts
-          const gridW = uc * cW - GAP, gridD = ur * cD - GAP;
-          const ox0 = Math.max(2, (BEDW - gridW) / 2), oz0 = Math.max(2, (BEDD - gridD) / 2); // Center on the bed
-          placed.push({
-            ...pt,
-            plate: plateIdx + Math.floor(i / per),
-            ox: ox0 + (i % per % cols) * cW + (mW - w) / 2,
-            oz: oz0 + Math.floor((i % per) / cols) * cD + (mD - d) / 2,
-          });
-        });
-        plateIdx += Math.ceil(items.length / per);
-      };
-      layout(ribs);
-      layout(komas);
-      layout(stands);
-      layout(boards);
-      layout(rings);
-
-      const plates = plateIdx;
-      const pCols = Math.ceil(Math.sqrt(plates));
-      const pRows = Math.ceil(plates / pCols);
-      const plateMat = new THREE.MeshStandardMaterial({ color: 0x1e1e23, roughness: 0.9 });
-      const platePos = (pl) => [(pl % pCols) * (BEDW + 40), Math.floor(pl / pCols) * (BEDD + 40)];
-      const gridDivs = Math.max(2, Math.round(BEDW / 32)); // ≈32mm cells
-      for (let pl = 0; pl < plates; pl++) {
-        const [px, pz] = platePos(pl);
-        const plate = new THREE.Mesh(new THREE.BoxGeometry(BEDW, 2, BEDD), plateMat);
-        plate.position.set(px + BEDW / 2, -1, pz + BEDD / 2);
-        s.group.add(plate);
-        const grid = new THREE.GridHelper(BEDW, gridDivs, 0x3f3f46, 0x2c2c31);
-        grid.scale.z = BEDD / BEDW; // Stretch the depth direction to match a rectangular bed
-        grid.position.set(px + BEDW / 2, 0.15, pz + BEDD / 2);
-        s.group.add(grid);
-      }
-      placed.forEach((pt) => {
-        const [px, pz] = platePos(pt.plate);
-        const m = new THREE.Mesh(pt.geo, pt.mat);
-        m.rotation.x = -Math.PI / 2;
-        // With rotation.x=-90°, local z → world y. Lift so the part's bottom z edge sits on the plate
-        // (the stand columns are centered on z, so a fixed 0.6 would sink half the thickness in)
-        m.position.set(px + pt.ox - pt.bb.min.x, 0.6 - pt.bb.min.z, pz + pt.oz + pt.bb.max.y);
-        s.group.add(m);
-      });
-
-      const totalW = pCols * (BEDW + 40) - 40;
-      const totalD = pRows * (BEDD + 40) - 40;
-      s.group.children.forEach((m) => { m.position.x -= totalW / 2; m.position.z -= totalD / 2; });
-      const span = Math.max(totalW, totalD) + 50;
-      s.rot.x = -1.35;
-      s.rot.y = 0;
-      frame(span * 0.95, span / 2, 0);
-    }
-  }, [p, view, printRibs, bedW, bedD, splitRibs]);
-
-  // Number of ribs to print (1..boards). Clamped in case boards was reduced.
-  // With spiral winding every rib is a different shape, so always export all boards ribs (duplicating one won't make a spiral).
+  // Ribs to print (1..boards). With spiral winding every rib is a different shape, so all of them
+  // are exported — duplicating one would not make a spiral.
   const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
 
-  const dlAll = () => { // Bundle all parts as separate STLs into a single ZIP
-    const spread = (geos, gap) => { // Lay out along X to avoid overlap
+  // ---- Exports ----
+  const downloadKit = () => {
+    const spread = (geos, gap) => {   // lay parts out along X so they don't overlap in one file
       let x = 0;
       for (const g of geos) {
         g.computeBoundingBox();
@@ -731,9 +119,9 @@ export default function HarigataStudio() {
       }
       return geos;
     };
-    // Export unit for ribs. With spiral winding each rib differs in shape, so make it **one rib = one file**
-    // (harigata_rib_01.stl …) so they can be placed/duplicated individually in the slicer. Normally all ribs are identical, so
-    // bundle into one file as before (print one and duplicate).
+    // Rib file layout. Spiral winding makes every rib different, so it is one rib per file
+    // (harigata_rib_01.stl …) and they can be placed individually in the slicer. Otherwise the ribs
+    // are identical and they go in one file (print one, duplicate it).
     let ribEntries;
     if (splitRibs) {
       const parts = [];
@@ -755,32 +143,30 @@ export default function HarigataStudio() {
       }
       ribEntries = [{ name: `harigata_ribs_x${nRibs}.stl`, geos: ribs }];
     }
-    // The koma and columns are identical top and bottom, so export only one of each (duplicate to two when printing).
-    const board = boardGeometry(p);
-    // Bundle the config JSON: the printed kit's ZIP itself becomes a design backup (a source for restoring
-    // even if localStorage is lost). Same schema as persist.js, so it works as-is for future JSON loading.
+    // The config JSON rides along so the printed kit's ZIP is itself a design backup, restorable
+    // even if localStorage is gone. Same schema as persist.js, so it loads back as-is.
+    // The washi template comes too: it belongs to this design (its panel width follows the rib count
+    // you are about to print) and, unlike the parts, cannot be re-derived from the STLs. A PDF rather
+    // than the HTML page so it prints at 100% with no intermediate step — always English-labelled,
+    // since a self-contained PDF cannot carry a Japanese font (pdf.js).
     const cfg = JSON.stringify({ schemaVersion: SCHEMA_VERSION, p, bedW, bedD }, null, 2);
-    // The washi template rides along in the kit ZIP. It belongs to the same design (its panel width is
-    // set by the rib count you are about to print), and unlike the parts it cannot be re-derived from
-    // the STLs. A PDF rather than the HTML page, so it prints at 100% with no intermediate step —
-    // always with the English labels, since a self-contained PDF cannot carry a Japanese font (pdf.js).
-    const enc = new TextEncoder();
     exportZip([
       ...ribEntries,
+      // Koma and posts are identical top and bottom, so one of each (duplicated in the slicer).
       { name: "harigata_koma_print2.stl", geos: [komaGeometry(p)] },
       { name: "harigata_stand_column_print2.stl", geos: [standGeometry(p)] },
-      { name: "harigata_stand_base.stl", geos: [board] },
-      // Opening rings (top/bottom opening rings). Inserted into the finished lamp's openings; the frame that holds the bamboo ribs/washi. Generated to match the opening diameter.
+      { name: "harigata_stand_base.stl", geos: [boardGeometry(p)] },
+      // Opening rings: set into the finished lantern's openings to hold the bamboo and washi.
       { name: "harigata_ring_bottom.stl", geos: [ringGeometry(p, false)] },
       { name: "harigata_ring_top.stl", geos: [ringGeometry(p, true)] },
     ], "harigata_kit.zip", [
-      { name: "harigata_config.json", bytes: enc.encode(cfg) },
+      { name: "harigata_config.json", bytes: new TextEncoder().encode(cfg) },
       { name: "harigata_washi_a4.pdf", bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, makeT("en")) },
     ]);
   };
 
-  // Export the design as a JSON file. Even if localStorage (a volatile cache layer) is lost,
-  // it can be restored from this file = a backup you can rely on. Same schema as the config.json inside the ZIP.
+  // Export the design as JSON. localStorage is a volatile cache; this file is the backup you can
+  // rely on. Same schema as the config.json inside the ZIP.
   const exportDesign = () => {
     const json = serializeState({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd });
     const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
@@ -790,34 +176,42 @@ export default function HarigataStudio() {
     URL.revokeObjectURL(url);
   };
 
-  // Load and restore a design JSON (either the standalone export or the config.json inside the ZIP).
-  // parseImport runs a sanitize pass, so broken/old/hand-edited values fall back safely.
+  // Load a design JSON (the standalone export, or the config.json out of the ZIP). parseImport
+  // sanitizes, so broken / old / hand-edited values fall back safely instead of breaking geometry.
   const importDesign = (file) => {
     if (!file) return;
     const reader = new FileReader();
+    const fail = () => window.alert(t("設計ファイルを読み込めませんでした(JSON が壊れています)。"));
     reader.onload = () => {
       const s = parseImport(String(reader.result));
-      if (!s) { window.alert(t("設計ファイルを読み込めませんでした(JSON が壊れています)。")); return; }
+      if (!s) return fail();
       setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setMatT(s.matT);
       setWashiSide(s.washiSide); setWashiEnd(s.washiEnd);
     };
-    reader.onerror = () => window.alert(t("設計ファイルを読み込めませんでした(JSON が壊れています)。"));
+    reader.onerror = fail;
     reader.readAsText(file);
   };
 
-  const maxDia = Math.round(maxRadius(p) * 2);
-  // Washi panel (gore) figures shown in the print panel. A 0.5mm meridian sweep, so memoize it
-  // rather than recomputing on every render (drag/scrub re-renders constantly).
-  const washiG = useMemo(() => washiGore(p, { side: washiSide, end: washiEnd }), [p, washiSide, washiEnd]);
-  // Radii of the top/bottom openings (= the top-end/bottom-end circles). Shown for reference (ribs are removed by taking off the koma and tilting,
-  // so a simple "opening ≥ rib width" can't determine whether they come out → it would cause false warnings, so no check is done).
-  const topOpen = Math.round(outerR(p, 1)); // Upper opening radius
-  const botOpen = Math.round(outerR(p, 0)); // Lower opening radius
+  const resetAll = () => {
+    if (!window.confirm(t("すべての設定を初期状態に戻します。よろしいですか?"))) return;
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* continue even if storage is disabled */ }
+    setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1);
+  };
 
-  // Real footprints of every printed part (rebuilt only when the design changes). Using the actual
-  // bounding boxes — not a hard-coded "rib runs along depth, base along width" guess — lets the bed-fit
-  // test respect a 90° turn and a 45° diagonal tilt, and check each part on its own (incl. the base,
-  // koma, posts, and opening rings). The old guess broke on non-square (custom W≠D) beds.
+  // ---- Derived figures ----
+  const maxDia = Math.round(maxRadius(p) * 2);
+  // Washi panel figures for the panel readout. A 0.5mm meridian sweep, so memoize it rather than
+  // recompute on every render (dragging re-renders constantly).
+  const washiG = useMemo(() => washiGore(p, { side: washiSide, end: washiEnd }), [p, washiSide, washiEnd]);
+  // Opening radii, shown for reference only. Ribs come out by removing a koma and tilting them, so
+  // "opening ≥ rib width" would not actually decide whether they clear — no check, no false warning.
+  const topOpen = Math.round(outerR(p, 1));
+  const botOpen = Math.round(outerR(p, 0));
+
+  // Real footprint of every printed part (rebuilt only when the design changes). Measuring the
+  // actual bounding boxes — rather than assuming "the rib runs along depth, the base along width" —
+  // lets the fit test use a 90° turn or a diagonal tilt, and check each part on its own. The old
+  // guess broke on non-square (custom W≠D) beds.
   const bedFit = useMemo(() => {
     const dim = (g) => { g.computeBoundingBox(); const b = g.boundingBox; return [b.max.x - b.min.x, b.max.y - b.min.y]; };
     const rb = dim(ringGeometry(p, false)), rt = dim(ringGeometry(p, true));
@@ -826,134 +220,29 @@ export default function HarigataStudio() {
       base: dim(boardGeometry(p)), ring: Math.max(...rb) >= Math.max(...rt) ? rb : rt,
     };
   }, [p]);
-  const BED_PARTS = [["羽根板", bedFit.rib], ["コマ", bedFit.koma], ["柱", bedFit.col], ["連結板", bedFit.base], ["開口リング", bedFit.ring]];
-  const overParts = BED_PARTS.filter(([, d]) => !fitOnBed(d, bedW, bedD).fits)
+  const overParts = [["羽根板", bedFit.rib], ["コマ", bedFit.koma], ["柱", bedFit.col], ["連結板", bedFit.base], ["開口リング", bedFit.ring]]
+    .filter(([, d]) => !fitOnBed(d, bedW, bedD).fits)
     .map(([name, d]) => t("{name} {n}mm", { name: t(name), n: Math.round(Math.max(...d)) }));
-  const bedWarn = overParts.length > 0;
-  const ribLen = Math.round(Math.max(...bedFit.rib)); // Rib total length (long side), for the summary
-  const ribBaseOver = !fitOnBed(bedFit.rib, bedW, bedD).fits || !fitOnBed(bedFit.base, bedW, bedD).fits;
-  // Largest body height at which BOTH length-driven parts still fit (the rib is usually the tighter one —
-  // it's wider than the base, so it hits the diagonal limit sooner). Their widths are height-independent,
-  // so we can test candidate heights analytically without rebuilding geometry. Fit is monotonic in height
-  // (taller = harder), so we walk up from the minimum and stop at the first height that no longer fits.
-  const ribW = Math.min(...bedFit.rib);                         // rib width (radial extent, height-independent)
-  const baseW = Math.min(...bedFit.base);                       // base plate width (short side)
-  const baseConst = Math.round(standBoardLength(p) - p.height); // base length minus height (height-independent part)
-  const fitsAtHeight = (h) =>
-    fitOnBed([ribW, h + 2 * p.tabLen], bedW, bedD).fits && fitOnBed([baseW, h + baseConst], bedW, bedD).fits;
-  let heightLimit = 140;
-  for (let h = 140; h <= 400; h++) { if (fitsAtHeight(h)) heightLimit = h; else break; }
-  // In split mode the split parts' tabs don't match the body (koma-based) and won't fit the current koma (needs fixing).
-  // Until fixed, don't recommend auto-applying it; funnel to the "lower the height" guidance only.
-  const canSplitFix = false;
+  const ribFits = fitOnBed(bedFit.rib, bedW, bedD).fits;
+  const ribLen = Math.round(Math.max(...bedFit.rib));   // rib overall length, for the summary
+  const ribBaseOver = !ribFits || !fitOnBed(bedFit.base, bedW, bedD).fits;
+  // Tallest body at which BOTH length-driven parts still fit. The rib is usually the tighter one
+  // (wider than the base, so it hits the diagonal limit sooner). Their widths don't depend on height,
+  // so heights can be tested analytically without rebuilding geometry; fit is monotonic in height, so
+  // walk up from the minimum and stop at the first height that no longer fits.
+  const heightLimit = useMemo(() => {
+    const ribW = Math.min(...bedFit.rib), baseW = Math.min(...bedFit.base);
+    const baseConst = Math.round(standBoardLength(p) - p.height);   // base length minus height
+    let limit = 140;
+    for (let h = 140; h <= 400; h++) {
+      if (!fitOnBed([ribW, h + 2 * p.tabLen], bedW, bedD).fits || !fitOnBed([baseW, h + baseConst], bedW, bedD).fits) break;
+      limit = h;
+    }
+    return limit;
+  }, [bedFit, p, bedW, bedD]);
 
-  const PANEL = 336; // Inspector width (px)
-  const mono = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
-  const sans = "'IBM Plex Sans JP', 'Hiragino Sans', system-ui, sans-serif";
-  const isLit = view === "lit";   // Lit view = viewing mode (panel hidden, dark background)
-  const accent = "#D95B18";       // Accent = the orange of washi lamplight
-
-  // Inspector: bright warm neutral in washi color
-  const UI = {
-    panel: "#fbf8f1", edge: "rgba(59,52,43,0.1)", head: "#3b342b",
-    text: "#3b342b", sub: "#8a7c66", faint: "#a1937c", faintest: "#c0b298",
-    card: "#fff", cardEdge: "rgba(59,52,43,0.09)", warn: "#c23c12",
-  };
-  // Viewport background (assembly/print = cool-neutral CAD-style, lit = dark). Cross-section is handled by SectionEditor.
-  const vpBg = isLit
-    ? "radial-gradient(circle at 50% 40%, #1b2230 0%, #070a11 100%)"
-    : "radial-gradient(circle at 50% 34%, #eef0f3 0%, #c3c8d0 52%, #939ba6 100%)";
-  const chip = isLit
-    ? { bg: "rgba(16,16,18,0.72)", edge: "rgba(255,255,255,0.08)", txt: "#8a8a96" }
-    : { bg: "rgba(255,255,255,0.85)", edge: "rgba(59,52,43,0.08)", txt: "#8a7c66" };
-
-  // Scrub row → accessible slider (see ScrubRow). Keeps the (cfg, opts) call shape used across the panel.
-  const scrubRow = (cfg) => (
-    <ScrubRow key={cfg.key} cfg={cfg} ui={UI} accent={accent} mono={mono} t={t}
-      drag={drag} setDrag={setDrag} />
-  );
-
-  // Accessible checkbox: a real <button role="checkbox"> so Tab/Space/Enter and screen readers work
-  // (the old <div onClick> was invisible to the keyboard). 44px min height for a comfortable touch target.
-  const checkbox = (checked, onToggle, label) => (
-    <button role="checkbox" aria-checked={checked} onClick={onToggle} style={{
-      display: "flex", alignItems: "center", gap: 9, padding: "8px 0", minHeight: 44,
-      width: "100%", textAlign: "left", background: "transparent", border: "none",
-      font: "inherit", cursor: "pointer",
-    }}>
-      <span aria-hidden="true" style={{
-        width: 18, height: 18, borderRadius: 5, flex: "none",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 12, color: "#fff",
-        background: checked ? accent : UI.card,
-        border: checked ? "none" : "1px solid rgba(59,52,43,0.3)",
-      }}>{checked ? "✓" : ""}</span>
-      <span style={{ fontSize: 12.5, color: UI.text }}>{typeof label === "string" ? t(label) : label}</span>
-    </button>
-  );
-
-  // Preset icon: a small silhouette generated from the actual profile (spline)
-  const miniPath = (pr) => {
-    const q = { height: 280, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts };
-    const N = 40, rr = []; let mx = 0;
-    for (let i = 0; i <= N; i++) { const r = outerR(q, i / N); rr.push(r); if (r > mx) mx = r; }
-    const kx = 16 / mx;
-    const Xc = (r) => 30 + r * kx, Xm = (r) => 30 - r * kx, Yc = (t) => 42 - t * 36;
-    let dd = `M ${Xc(rr[0]).toFixed(1)} ${Yc(0).toFixed(1)}`;
-    for (let i = 1; i <= N; i++) dd += ` L ${Xc(rr[i]).toFixed(1)} ${Yc(i / N).toFixed(1)}`;
-    for (let i = N; i >= 0; i--) dd += ` L ${Xm(rr[i]).toFixed(1)} ${Yc(i / N).toFixed(1)}`;
-    return dd + " Z";
-  };
-
-  // ± button stepper (for discrete integers)
-  const stepper = (key, label, value, min, max, step, onChange, valueText) => {
-    const sq = (txt, fn, off) => (
-      <button onClick={off ? undefined : fn} disabled={off} style={{
-        width: 26, height: 26, borderRadius: 7, cursor: off ? "default" : "pointer",
-        background: UI.card, color: off ? UI.faintest : accent,
-        border: `1px solid ${off ? UI.cardEdge : "rgba(217,91,24,0.45)"}`, fontSize: 15, fontWeight: 600, lineHeight: 1,
-        opacity: off ? 0.5 : 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center",
-      }}>{txt}</button>
-    );
-    return (
-      <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
-        <span style={{ fontSize: 12.5, color: UI.text }}>{t(label)}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {sq("−", () => onChange(clamp(min, max, +(value - step).toFixed(2))), value <= min)}
-          <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: UI.text, minWidth: 44, textAlign: "center" }}>{valueText}</span>
-          {sq("＋", () => onChange(clamp(min, max, +(value + step).toFixed(2))), value >= max)}
-        </div>
-      </div>
-    );
-  };
-
-  // Numeric input (for bed dimensions. Commits and clamps on Enter / blur)
-  const numInput = (label, value, setValue, min, max) => (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
-      <span style={{ fontSize: 12.5, color: UI.text }}>{t(label)}</span>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <input key={value} type="number" defaultValue={value} min={min} max={max} step={1}
-          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-          onBlur={(e) => {
-            const v = Math.round(Number(e.target.value));
-            setValue(Number.isFinite(v) && v > 0 ? clamp(min, max, v) : value);
-          }}
-          style={{
-            width: 66, padding: "6px 8px", borderRadius: 8, textAlign: "right",
-            fontFamily: mono, fontSize: 13, color: UI.text,
-            background: UI.card, border: `1px solid ${UI.cardEdge}`,
-          }} />
-        <span style={{ fontSize: 11, color: UI.sub }}>mm</span>
-      </div>
-    </div>
-  );
-
-  const sectionLabel = (txt, extra) => (
-    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", color: UI.faint }}>{t(txt)}</span>
-      {extra && <span style={{ fontSize: 10, color: UI.faintest }}>{t(extra)}</span>}
-    </div>
-  );
+  const isLit = view === "lit";   // lit = a viewing mode: panel hidden, dark background
+  const chip = chipStyle(isLit);
 
   // ============ Left: viewport ============
   const viewport = (
@@ -962,9 +251,12 @@ export default function HarigataStudio() {
       flex: narrow ? "0 0 auto" : "1 1 auto",
       height: narrow ? "44vh" : "auto",
     }}>
-      <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg, transition: "background 0.3s" }} />
-      {/* Cross-section view: direct-manipulation editor (overlaid on the WebGL canvas) */}
-      {view === "2d" && <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag} sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode} t={t} />}
+      <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg(isLit), transition: "background 0.3s" }} />
+      {/* Section view: the direct-manipulation editor, overlaid on the WebGL canvas */}
+      {view === "2d" && (
+        <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag}
+          sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode} t={t} />
+      )}
 
       {glError && (
         <div style={{
@@ -987,18 +279,12 @@ export default function HarigataStudio() {
         backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
         border: `1px solid ${chip.edge}`, boxShadow: "0 2px 10px rgba(59,52,43,0.07)",
       }}>
-        {[["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]].map(([k, l]) => (
-          <button key={k} onClick={() => setView(k)} style={{
-            padding: "7px 14px", fontSize: 12.5, cursor: "pointer",
-            borderRadius: 7, border: "none", fontFamily: sans,
-            fontWeight: view === k ? 700 : 500,
-            background: view === k ? accent : "transparent",
-            color: view === k ? "#fff" : "#6f6350", transition: "all 0.15s",
-          }}>{t(l)}</button>
+        {VIEWS.map(([k, l]) => (
+          <button key={k} className="tab" aria-pressed={view === k} onClick={() => setView(k)}>{t(l)}</button>
         ))}
       </div>
 
-      {/* Dimension chip (always live-updating) */}
+      {/* Dimension chip (always live) */}
       <div style={{
         position: "absolute", top: 24, right: 24, fontSize: 12, color: chip.txt,
         fontFamily: mono, letterSpacing: "0.05em", textAlign: "right", pointerEvents: "none",
@@ -1006,21 +292,20 @@ export default function HarigataStudio() {
         ⌀{maxDia} × H{p.height} mm
       </div>
 
-      {/* Bed-overflow warning (each part lies along a different axis, so the bed is shown as width×depth) */}
-      {/* The bed only constrains 3D printing — hide it while a paper template is selected. */}
-      {!isLit && bedWarn && !(view === "print" && printMode !== "stl") && (
-        <div
-          style={{
-            position: "absolute", bottom: 20, left: 20, display: "flex", alignItems: "center", gap: 10,
-            padding: "10px 14px", background: "#fff", border: "1px solid rgba(217,91,24,0.4)",
-            borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
-            fontSize: 12.5, color: UI.text, textAlign: "left", maxWidth: "60%",
-          }}>
+      {/* Bed-overflow warning. Each part lies along a different axis, so the bed is width×depth.
+          The bed only constrains 3D printing — hidden while a paper template is selected. */}
+      {!isLit && overParts.length > 0 && !(view === "print" && printMode !== "stl") && (
+        <div style={{
+          position: "absolute", bottom: 20, left: 20, display: "flex", alignItems: "center", gap: 10,
+          padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
+          borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
+          fontSize: 12.5, color: UI.text, textAlign: "left", maxWidth: "60%",
+        }}>
           <span style={{ fontSize: 15 }}>⚠️</span>
           <span>
             {t("{parts} がベッド {w}×{d}mm を超過", { parts: overParts.join(" · "), w: bedW, d: bedD })}
-            {/* The height hint only applies to length-driven parts (rib / base); skip it when only a
-                height-independent part (ring/koma/post) overflows, or when no height is small enough. */}
+            {/* The height hint only applies to the length-driven parts (rib / base); skip it when only
+                a height-independent part (ring / koma / post) overflows, or when no height is small enough. */}
             {ribBaseOver && heightLimit >= 140 && (
               <><br /><span style={{ color: UI.sub }}>{t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit })}</span></>
             )}
@@ -1028,7 +313,6 @@ export default function HarigataStudio() {
         </div>
       )}
 
-      {/* Lit-mode note */}
       {isLit && (
         <div style={{
           position: "absolute", bottom: 20, left: 20, fontSize: 11.5, color: "#8a8a96",
@@ -1055,373 +339,212 @@ export default function HarigataStudio() {
           {t("張型")} <span style={{ fontSize: 11.5, fontWeight: 400, color: UI.faint }}>{t("スタジオ")}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Reopen the onboarding card. Once dismissed it never auto-opens again, so this is the
+          {/* Reopens the onboarding card. Once dismissed it never auto-opens again, so this is the
               only way back to "what is this app" — keep it next to the language toggle. */}
-          <button onClick={() => setWelcome(true)} title={t("はじめかた")} aria-label={t("はじめかた")} style={{
-            width: 22, height: 22, borderRadius: "50%", cursor: "pointer", padding: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            border: `1px solid ${UI.cardEdge}`, background: UI.card, color: UI.sub,
-            fontFamily: mono, fontSize: 12, fontWeight: 700, lineHeight: 1,
-          }}>?</button>
-          <button onClick={toggleLang} title="Language / 言語" style={{
-            fontFamily: mono, fontSize: 10.5, letterSpacing: "0.08em", cursor: "pointer",
-            padding: "3px 8px", borderRadius: 6, border: `1px solid ${UI.cardEdge}`,
-            background: UI.card, color: UI.sub, fontWeight: 700,
-          }}>{lang === "ja" ? "EN" : "日本語"}</button>
+          <button className="icon-btn" onClick={() => setWelcome(true)} title={t("はじめかた")} aria-label={t("はじめかた")}>?</button>
+          <button className="lang-btn" onClick={toggleLang} title="Language / 言語">{lang === "ja" ? "EN" : "日本語"}</button>
           <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.12em", color: UI.faintest }}>LAMP KIT</div>
         </div>
       </div>
 
       {/* Scroll area */}
       <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px", touchAction: "pan-y" }}>
-        {/* Top toolbar: split into two groups because the actions differ entirely in nature.
-            "Edit" = undo/redo/reset (operate on the current working state) and "Save" = export/import (file I/O).
-            Wrap each group with a border + subheading. When the panel is narrow, flexWrap drops the groups onto two rows (per-character wrapping is forbidden via nowrap). */}
-        {(() => {
-          // To match the other sections (shape, silhouette, etc.), use no border — just a subheading + button row.
-          const groupBox = { display: "flex", flexDirection: "column", gap: 7 };
-          const groupTitle = { fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", color: UI.faint };
-          const btnBase = { display: "flex", alignItems: "center", height: 32, padding: "0 12px", borderRadius: 8, fontFamily: sans, fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" };
-          return (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 24, marginBottom: 14 }}>
-              {/* Edit group: undo / redo / reset */}
-              <div style={groupBox}>
-                <span style={groupTitle}>{t("編集")}</span>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {[["↺", "元に戻す", undo, canUndo], ["↻", "やり直し", redo, canRedo]].map(([icon, label, fn, on]) => (
-                    <button key={label} onClick={on ? fn : undefined} disabled={!on} title={`${t(label)} (${icon === "↺" ? "⌘Z" : "⇧⌘Z"})`}
-                      style={{
-                        ...btnBase, gap: 5,
-                        background: on ? UI.card : "transparent", color: on ? accent : UI.faintest,
-                        border: `1px solid ${on ? "rgba(217,91,24,0.4)" : UI.cardEdge}`,
-                        cursor: on ? "pointer" : "default", opacity: on ? 1 : 0.55,
-                      }}>
-                      <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{t(label)}
-                    </button>
-                  ))}
-                  {/* Reset is destructive, so distinguish it with a warn-colored border, while keeping it in the same group as an operation on the edit state. */}
-                  <button
-                    onClick={() => {
-                      if (!window.confirm(t("すべての設定を初期状態に戻します。よろしいですか?"))) return;
-                      try { localStorage.removeItem(STORAGE_KEY); } catch { /* continue even if disabled */ }
-                      setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1);
-                    }}
-                    title={t("すべての設定を初期状態に戻す")}
-                    style={{ ...btnBase, background: "transparent", color: UI.warn, border: `1px solid rgba(194,60,18,0.35)`, cursor: "pointer" }}>
-                    {t("初期化")}
-                  </button>
-                </div>
-              </div>
-              {/* Save group: export / import (save/restore the design to a JSON file. Restorable even if localStorage is lost) */}
-              <div style={groupBox}>
-                <span style={groupTitle}>{t("保存")}</span>
-                <input ref={importRef} type="file" accept=".json,application/json" style={{ display: "none" }}
-                  onChange={(e) => { importDesign(e.target.files[0]); e.target.value = ""; }} />
-                <div style={{ display: "flex", gap: 6 }}>
-                  {[["書き出す", exportDesign, "設計を JSON ファイルに保存"], ["読み込む", () => importRef.current?.click(), "設計 JSON ファイルから復元"]].map(([label, fn, tip]) => (
-                    <button key={label} onClick={fn} title={t(tip)}
-                      style={{ ...btnBase, background: UI.card, color: UI.sub, border: `1px solid ${UI.cardEdge}`, cursor: "pointer" }}>
-                      {t(label)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-        {/* Shape presets. Labelled as templates: picking one REPLACES the control points, it does not
-            lock the shape — the silhouette is then edited freely in the section view. Without saying so,
-            the three chips read as "the shape is one of these three". */}
-        <div style={{ marginBottom: 20 }}>
-          {sectionLabel("形", "ひな形 · 選んでから断面で調整")}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
-            {PRESETS.map((pr) => {
-              const active = p.shape === pr.key;
-              return (
-                <button key={pr.key}
-                  onClick={() => { setSel(null); setP((o) => ({ ...o, shape: pr.key, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })) })); }}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-                    padding: "8px 4px 7px", borderRadius: 10, cursor: "pointer", fontFamily: sans,
-                    background: active ? accent : UI.card, color: active ? "#fff" : UI.text,
-                    border: "1px solid " + (active ? accent : UI.cardEdge),
-                    boxShadow: active ? "0 3px 8px rgba(217,91,24,0.25)" : "none",
-                  }}>
-                  <svg viewBox="0 0 60 46" style={{ width: 40, height: 32, display: "block" }}>
-                    <path d={miniPath(pr)} fill={active ? "rgba(255,255,255,0.25)" : "rgba(59,52,43,0.05)"}
-                      stroke={active ? "#fff" : "#8a7c66"} strokeWidth="2" />
-                  </svg>
-                  <span style={{ fontSize: 11, fontWeight: 500 }}>{t(pr.name)}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <Toolbar undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo}
+          onReset={resetAll} onExport={exportDesign} onImport={importDesign} />
 
-        {/* Selected-point card (cross-section view only). Turns hidden gestures on the SVG into explicit UI: numeric input,
-            smooth/sharp toggle, delete. Doesn't touch geometry (just edits pts' r/t/sharp). */}
-        {view === "2d" && (() => {
-          const selPt = sel != null && p.pts && p.pts[sel] ? p.pts[sel] : null;
-          const isEnd = selPt && (sel === 0 || sel === p.pts.length - 1);
-          const setPt = (patch) => setP((o) => {
-            const pts = o.pts.map((q) => ({ ...q }));
-            pts[sel] = { ...pts[sel], ...patch };
-            return { ...o, pts };
-          });
-          const setHmm = (mm) => setP((o) => {
-            const pts = o.pts.map((q) => ({ ...q }));
-            const lo = sel > 0 ? pts[sel - 1].t + 0.04 : 0.01;
-            const hi = sel < pts.length - 1 ? pts[sel + 1].t - 0.04 : 0.99;
-            pts[sel] = { ...pts[sel], t: clamp(lo, hi, mm / p.height) };
-            return { ...o, pts };
-          });
-          const del = () => { if (p.pts.length <= 2) return; setP((o) => ({ ...o, pts: o.pts.filter((_, j) => j !== sel) })); setSel(null); };
-          const segBtn = (label, active, onClick) => (
-            <button onClick={onClick} style={{
-              flex: 1, padding: "7px 4px", fontFamily: sans, fontSize: 12, fontWeight: 600, cursor: "pointer",
-              borderRadius: 8, background: active ? accent : UI.card, color: active ? "#fff" : UI.text,
-              border: "1px solid " + (active ? accent : UI.cardEdge),
-            }}>{t(label)}</button>
-          );
-          // When entering curve-adjust mode, if there are no handles yet, bake them from the current Hermite curve
-          // (the shape doesn't change). From then on outerR is evaluated as Bézier, and angles can be edited with the handles.
-          const enterCurve = () => {
-            setEditMode("curve");
-            setP((o) => (o.pts.some((q) => q.ho || q.hi) ? o : { ...o, pts: bakeBezierHandles(o.pts) }));
-          };
-          return (
-            <div style={{ marginBottom: 20 }}>
-              {sectionLabel("選択中の点", selPt ? (isEnd ? "開口/首" : `#${sel + 1}`) : undefined)}
-              {selPt ? (
-                <div style={{ border: `1px solid ${UI.cardEdge}`, borderRadius: 10, background: UI.card, padding: "12px 12px 10px" }}>
-                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-                    {segBtn("✥ 点を動かす", editMode === "move", () => setEditMode("move"))}
-                    {segBtn("◠ カーブ調整", editMode === "curve", enterCurve)}
-                  </div>
-                  {numInput("張り出し(半径)", Math.round(selPt.r), (v) => setPt({ r: clamp(10, 130, v) }), 10, 130)}
-                  {numInput("高さ位置", Math.round(selPt.t * p.height), (v) => setHmm(v), 1, p.height)}
-                  <div style={{ display: "flex", gap: 6, margin: "4px 0 10px" }}>
-                    {segBtn("◇ なめらか", !selPt.sharp, () => setPt({ sharp: false }))}
-                    {segBtn("■ 角", !!selPt.sharp, () => setPt({ sharp: true }))}
-                  </div>
-                  <button onClick={del} disabled={p.pts.length <= 2} style={{
-                    width: "100%", padding: 9, fontFamily: sans, fontSize: 12, fontWeight: 600,
-                    borderRadius: 8, cursor: p.pts.length <= 2 ? "not-allowed" : "pointer",
-                    background: "transparent", color: p.pts.length <= 2 ? UI.faintest : UI.warn,
-                    border: `1px solid ${p.pts.length <= 2 ? UI.cardEdge : "rgba(194,60,18,0.4)"}`,
-                    opacity: p.pts.length <= 2 ? 0.6 : 1,
-                  }}>{t("この点を削除")}</button>
-                </div>
-              ) : (
-                <div style={{
-                  border: `1px dashed ${UI.cardEdge}`, borderRadius: 10, padding: "14px 14px",
-                  fontSize: 11.5, color: UI.faint, lineHeight: 1.6,
-                }}>{t("断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。")}</div>
-              )}
-            </div>
-          );
-        })()}
+        <PresetChips active={p.shape} onPick={(pr) => {
+          setSel(null);
+          setP((o) => ({ ...o, shape: pr.key, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })) }));
+        }} />
 
-        {/* Silhouette (scrub) */}
+        {view === "2d" && (
+          <PointCard p={p} setP={setP} sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode} />
+        )}
+
+        {/* Silhouette */}
         <div style={{ marginBottom: 20 }}>
-          {sectionLabel("シルエット", "ドラッグ / 値クリックで入力")}
-          {SIL_ROWS.map((r) => scrubRow(
-            { key: r.key, label: r.label, value: p[r.key], min: r.min, max: r.max, sens: r.sens, round: r.round, unit: r.unit,
-              onChange: (v) => setP((o) => ({ ...o, [r.key]: v })) }
+          <SectionLabel title="シルエット" hint="ドラッグ / 値クリックで入力" />
+          {SIL_ROWS.map((r) => (
+            <ScrubRow key={r.key} drag={drag} setDrag={setDrag}
+              cfg={{ ...r, value: p[r.key], onChange: (v) => setP((o) => ({ ...o, [r.key]: v })) }} />
           ))}
         </div>
 
         {/* Framework */}
         <div style={{ marginBottom: 20 }}>
-          {sectionLabel("骨組み")}
-          {stepper("boards", "羽根板の枚数", p.boards, 4, Math.min(16, boardsMax), 1,
-            (v) => setP((o) => ({ ...o, boards: v })),
-            <>{p.boards}<span style={{ color: UI.faintest, fontWeight: 400 }}>{t(" 枚")}</span></>)}
+          <SectionLabel title="骨組み" />
+          <Stepper label="羽根板の枚数" value={p.boards} min={4} max={Math.min(16, boardsMax)} step={1}
+            onChange={(v) => setP((o) => ({ ...o, boards: v }))}>
+            {p.boards}<span style={{ color: UI.faintest, fontWeight: 400 }}>{t(" 枚")}</span>
+          </Stepper>
           {boardsMax < 16 && p.boards >= boardsMax && (
-            <div style={{ fontSize: 11, color: UI.faint, lineHeight: 1.5, padding: "2px 0 4px" }}>
+            <div className="hint">
               {t("この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます", { n: Math.min(16, boardsMax) })}
             </div>
           )}
-          {scrubRow({ key: "boardT", label: "板厚", value: p.boardT, display: p.boardT.toFixed(1), min: 1, max: 4, sens: 0.02, round: 0.2, unit: "mm",
-            onChange: (v) => setP((o) => ({ ...o, boardT: v })) })}
-          {scrubRow({ key: "tabLen", label: "爪の長さ", value: p.tabLen, min: 5, max: 40, sens: 0.2, round: 1, unit: "mm",
-            onChange: (v) => setP((o) => ({ ...o, tabLen: v })) })}
-          <div style={{ fontSize: 11, color: UI.faint, lineHeight: 1.5, padding: "2px 0 4px" }}>
+          <ScrubRow drag={drag} setDrag={setDrag} cfg={{
+            key: "boardT", label: "板厚", value: p.boardT, display: p.boardT.toFixed(1),
+            min: 1, max: 4, round: 0.2, unit: "mm", onChange: (v) => setP((o) => ({ ...o, boardT: v })),
+          }} />
+          <ScrubRow drag={drag} setDrag={setDrag} cfg={{
+            key: "tabLen", label: "爪の長さ", value: p.tabLen,
+            min: 5, max: 40, round: 1, unit: "mm", onChange: (v) => setP((o) => ({ ...o, tabLen: v })),
+          }} />
+          <div className="hint">
             {t("首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ")}
           </div>
         </div>
 
-        {/* Bamboo ribs — flat section, consistent with Shape / Silhouette / Frame (no accordion). */}
+        {/* Bamboo ribs */}
         <div style={{ marginBottom: 20 }}>
-          {sectionLabel("竹ひご")}
-          {scrubRow({ key: "higoD", label: "竹ひご径", value: p.higoD, display: p.higoD.toFixed(1), min: 1, max: 4, sens: 0.02, round: 0.5, unit: "mm",
-            onChange: (v) => setP((o) => ({ ...o, higoD: v })) })}
-          {scrubRow({ key: "pitch", label: "ひごピッチ", value: p.pitch, min: 8, max: 30, sens: 0.3, round: 1, unit: "mm",
-            onChange: (v) => setP((o) => ({ ...o, pitch: v })) })}
+          <SectionLabel title="竹ひご" />
+          <ScrubRow drag={drag} setDrag={setDrag} cfg={{
+            key: "higoD", label: "竹ひご径", value: p.higoD, display: p.higoD.toFixed(1),
+            min: 1, max: 4, round: 0.5, unit: "mm", onChange: (v) => setP((o) => ({ ...o, higoD: v })),
+          }} />
+          <ScrubRow drag={drag} setDrag={setDrag} cfg={{
+            key: "pitch", label: "ひごピッチ", value: p.pitch,
+            min: 8, max: 30, round: 1, unit: "mm", onChange: (v) => setP((o) => ({ ...o, pitch: v })),
+          }} />
           <div style={{ marginTop: 4 }}>
-            {checkbox(p.spiral ?? false, () => setP((o) => ({ ...o, spiral: !(o.spiral ?? false) })),
-              <>{t("螺旋巻き")} <span style={{ color: UI.faint }}>{t("(溝を下へ連続させる)")}</span></>)}
+            <Checkbox checked={p.spiral ?? false} onToggle={() => setP((o) => ({ ...o, spiral: !(o.spiral ?? false) }))}
+              label={<>{t("螺旋巻き")} <span style={{ color: UI.faint }}>{t("(溝を下へ連続させる)")}</span></>} />
           </div>
         </div>
 
-        {/* Washi: the paper skin's own allowances. Part of the design (the panel is derived from the
-            silhouette and the rib count), not an output method — the template itself always ships
-            with whichever output you pick, so there is no separate download here. */}
+        {/* Washi: the paper skin's own allowances. Part of the design (the panel follows the
+            silhouette and the rib count), not an output method — the template ships with whichever
+            output you pick, so there is no separate download here. */}
         <div style={{ marginBottom: 20 }}>
-          {sectionLabel("和紙", "羽根板の間 1面分")}
-          {stepper("washiSide", "のりしろ(左右)", washiSide, 0, 15, 1, (v) => setWashiSide(v), `${washiSide} mm`)}
-          {stepper("washiEnd", "被せ代(上下)", washiEnd, 0, 15, 1, (v) => setWashiEnd(v), `${washiEnd} mm`)}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
-            <span style={{ fontSize: 12.5, color: UI.text }}>{t("1面のサイズ")}</span>
-            <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>
+          <SectionLabel title="和紙" hint="羽根板の間 1面分" />
+          <Stepper label="のりしろ(左右)" value={washiSide} min={0} max={15} step={1} onChange={setWashiSide}>
+            {washiSide} mm
+          </Stepper>
+          <Stepper label="被せ代(上下)" value={washiEnd} min={0} max={15} step={1} onChange={setWashiEnd}>
+            {washiEnd} mm
+          </Stepper>
+          <div className="row">
+            <span className="row-label">{t("1面のサイズ")}</span>
+            <span className="row-value">
               {Math.round(2 * washiG.wMax)} × {Math.round(washiG.sTot + 2 * washiEnd)} mm × {p.boards}
             </span>
           </div>
-          <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 2 }}>
+          <Note style={{ marginTop: 2 }}>
             {t("貼る前に和紙を切るための原寸型紙です。STL の ZIP と段ボールの型紙に同梱されます。")}
-          </div>
+          </Note>
         </div>
 
-        {/* Print view: two mutually-exclusive output methods (3D print vs cardboard). A segmented toggle
-            picks one and shows only its settings; the footer CTA switches to match (STL export / open template).
-            The washi template is deliberately NOT a third option here: it is not another way to make the mold,
-            it is the paper skin you need on top of whichever mold you built. It lives with the design settings
-            above and ships inside whichever output you choose. */}
+        {/* Print view: two mutually-exclusive output methods (3D print vs cardboard). The segmented
+            toggle picks one and shows only its settings; the footer CTA switches to match. The washi
+            template is deliberately NOT a third option: it is not another way to make the mold, it is
+            the paper skin you need on top of whichever mold you built. */}
         {view === "print" && (
           <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 16, marginTop: 4 }}>
             {/* Titled, because the panel is one long scroll: without it the toggle reads as another
                 shape setting rather than "this is the print/export section". */}
-            {sectionLabel("印刷・書き出し", "型のつくり方")}
+            <SectionLabel title="印刷・書き出し" hint="型のつくり方" />
             <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-              {[["stl", "3Dプリント"], ["paper", "段ボール"]].map(([k, l]) => {
-                const active = printMode === k;
-                return (
-                  <button key={k} onClick={() => setPrintMode(k)} style={{
-                    flex: 1, padding: "8px 4px", fontFamily: sans, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-                    borderRadius: 8, background: active ? accent : UI.card, color: active ? "#fff" : UI.text,
-                    border: "1px solid " + (active ? accent : UI.cardEdge),
-                  }}>{t(l)}</button>
-                );
-              })}
+              {[["stl", "3Dプリント"], ["paper", "段ボール"]].map(([k, l]) => (
+                <SegButton key={k} label={l} active={printMode === k} onClick={() => setPrintMode(k)} large />
+              ))}
             </div>
 
             {printMode === "stl" ? (
               <>
-                {sectionLabel("プリントベッド")}
-                {/* Common (square) bed presets — a dropdown instead of a wrapping chip row (saves ~1 row of height).
-                    Sets width = depth; the 幅/奥行き inputs below stay for rectangular / custom beds. */}
-                {(() => {
-                  const presets = [180, 220, 250, 256, 300, 350];
-                  const isPreset = bedW === bedD && presets.includes(bedW);
-                  return (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                      <span style={{ fontSize: 12.5, color: UI.text }}>{t("定番サイズ")}</span>
-                      <select value={isPreset ? String(bedW) : "custom"}
-                        onChange={(e) => { const v = +e.target.value; if (v) { setBedW(v); setBedD(v); } }}
-                        style={{
-                          width: 150, padding: "6px 8px", borderRadius: 8, fontFamily: sans, fontSize: 12.5,
-                          color: UI.text, background: UI.card, border: `1px solid ${UI.cardEdge}`, cursor: "pointer",
-                        }}>
-                        {!isPreset && <option value="custom">{t("カスタム")}</option>}
-                        {presets.map((sz) => <option key={sz} value={sz}>{sz} × {sz} mm</option>)}
-                      </select>
-                    </div>
-                  );
-                })()}
-                {numInput("幅", bedW, setBedW, 100, 420)}
-                {numInput("奥行き", bedD, setBedD, 100, 420)}
+                <SectionLabel title="プリントベッド" />
+                {/* Common (square) bed presets as a dropdown rather than a wrapping chip row (saves a
+                    row of height). It sets width = depth; 幅/奥行き below stay for rectangular beds. */}
+                <div className="field-row" style={{ marginBottom: 12 }}>
+                  <span className="row-label">{t("定番サイズ")}</span>
+                  <select value={bedW === bedD && BED_PRESETS.includes(bedW) ? String(bedW) : "custom"}
+                    aria-label={t("定番サイズ")}
+                    onChange={(e) => { const v = +e.target.value; if (v) { setBedW(v); setBedD(v); } }}
+                    style={{
+                      width: 150, padding: "6px 8px", borderRadius: 8, fontFamily: sans, fontSize: 12.5,
+                      color: UI.text, background: UI.card, border: `1px solid ${UI.cardEdge}`, cursor: "pointer",
+                    }}>
+                    {!(bedW === bedD && BED_PRESETS.includes(bedW)) && <option value="custom">{t("カスタム")}</option>}
+                    {BED_PRESETS.map((sz) => <option key={sz} value={sz}>{sz} × {sz} mm</option>)}
+                  </select>
+                </div>
+                <NumInput label="幅" value={bedW} onChange={setBedW} min={100} max={420} />
+                <NumInput label="奥行き" value={bedD} onChange={setBedD} min={100} max={420} />
 
-                {/* Layout — how many rib copies to lay out on the plate. This is a per-job output choice,
-                    not a bed dimension, so it gets its own group. */}
+                {/* Layout — how many rib copies go on the plate. A per-job output choice, not a bed
+                    dimension, so it gets its own group. */}
                 <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 14, marginTop: 14 }}>
-                  {sectionLabel("配置")}
+                  <SectionLabel title="配置" />
                   {p.spiral ? (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
-                      <span style={{ fontSize: 12.5, color: UI.text }}>{t("印刷する羽根板")}</span>
-                      <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>
-                        {t("螺旋: 全")}{p.boards}{t("枚(各1枚)")}
-                      </span>
+                    <div className="row">
+                      <span className="row-label">{t("印刷する羽根板")}</span>
+                      <span className="row-value">{t("螺旋: 全")}{p.boards}{t("枚(各1枚)")}</span>
                     </div>
                   ) : (
-                    stepper("printRibs", "印刷する羽根板", nRibs, 1, p.boards, 1,
-                      (v) => setPrintRibs(v),
-                      <>{nRibs}<span style={{ color: UI.faintest, fontWeight: 400 }}> / {p.boards}</span></>)
+                    <Stepper label="印刷する羽根板" value={nRibs} min={1} max={p.boards} step={1} onChange={setPrintRibs}>
+                      {nRibs}<span style={{ color: UI.faintest, fontWeight: 400 }}> / {p.boards}</span>
+                    </Stepper>
                   )}
                 </div>
               </>
             ) : (
-              /* Cardboard: A4 full-scale template that can be built without a 3D printer.
-                 Only the material thickness lives here; the "open template" action is the footer CTA. */
+              /* Cardboard: the A4 full-scale template for building without a 3D printer. Only the
+                 material thickness lives here; "open the template" is the footer CTA. */
               <>
-                {sectionLabel("型紙(段ボール)", "A4 原寸")}
-                {stepper("matT", "材料の厚み", matT, 1, 10, 0.5, (v) => setMatT(v), `${matT} mm`)}
+                <SectionLabel title="型紙(段ボール)" hint="A4 原寸" />
+                <Stepper label="材料の厚み" value={matT} min={1} max={10} step={0.5} onChange={setMatT}>
+                  {matT} mm
+                </Stepper>
               </>
             )}
           </div>
         )}
       </div>
 
-      {/* Summary (fixed at the bottom) + mode-linked CTA */}
+      {/* Summary (pinned to the bottom) + the CTA for the current mode */}
       <div style={{ padding: "16px 20px 18px", borderTop: `1px solid ${UI.edge}` }}>
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 5, columnGap: 12, fontSize: 12, marginBottom: 14 }}>
           <span style={{ color: UI.faint }}>{t("最大径")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>⌀{maxDia} mm</span>
           <span style={{ color: UI.faint }}>{t("羽根板の全長")}</span>
-          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: !fitOnBed(bedFit.rib, bedW, bedD).fits ? UI.warn : UI.text }}>
+          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: ribFits ? UI.text : UI.warn }}>
             {ribLen} mm{splitRibs ? t(" (2分割)") : ""}
           </span>
           <span style={{ color: UI.faint }}>{t("上下の開口(半径)")}</span>
-          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>
-            {topOpen} / {botOpen} mm
-          </span>
+          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>{topOpen} / {botOpen} mm</span>
         </div>
 
-        {view === "print" ? (
-          printMode === "paper" ? (
-            /* Cardboard mode: the primary action opens the A4 template (matches the segmented toggle above). */
-            <>
-              <button onClick={() => openHTML(paperHTML(p, matT, undefined, t, { side: washiSide, end: washiEnd }), "harigata_katagami_a4.html")} style={{
-                width: "100%", padding: 12, border: "none", borderRadius: 10, background: accent, color: "#fff",
-                fontFamily: sans, fontSize: 13.5, fontWeight: 700, letterSpacing: "0.04em", cursor: "pointer",
-                boxShadow: "0 3px 10px rgba(217,91,24,0.3)",
-              }}>{t("型紙を開く (A4 原寸)")}</button>
-              <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
-                {t("新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。和紙の型紙も一緒に出ます。")}
-              </div>
-            </>
-          ) : (
-            <>
-              <button onClick={dlAll} style={{
-                width: "100%", padding: 12, border: "none", borderRadius: 10, background: accent, color: "#fff",
-                fontFamily: sans, fontSize: 13.5, fontWeight: 700, letterSpacing: "0.08em", cursor: "pointer",
-                boxShadow: "0 3px 10px rgba(217,91,24,0.3)",
-              }}>{t("STL 書き出し")}</button>
-              <div style={{ fontSize: 10.5, color: UI.faint, lineHeight: 1.6, marginTop: 9 }}>
-                {t("コマ・柱は上下同一のため各1つ入っています。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong>{t("して印刷してください。設定は ")}<span style={{ fontFamily: mono }}>harigata_config.json</span>{t(" として同梱されます(バックアップ用)。")}
-                <br />{t("和紙の型紙 ")}<span style={{ fontFamily: mono }}>harigata_washi_a4.pdf</span>{t(" も同梱されます(そのまま原寸で印刷)。")}
-              </div>
-            </>
-          )
+        {view !== "print" ? (
+          <CTA label="印刷・書き出しへ進む →" outline onClick={() => setView("print")} />
+        ) : printMode === "paper" ? (
+          <>
+            <CTA label="型紙を開く (A4 原寸)"
+              onClick={() => openHTML(paperHTML(p, matT, undefined, t, { side: washiSide, end: washiEnd }), "harigata_katagami_a4.html")} />
+            <Note>{t("新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。和紙の型紙も一緒に出ます。")}</Note>
+          </>
         ) : (
-          <button onClick={() => setView("print")} style={{
-            width: "100%", padding: 12, borderRadius: 10, background: "#fff", color: accent,
-            border: "1px solid rgba(217,91,24,0.5)", fontFamily: sans, fontSize: 13.5, fontWeight: 700,
-            letterSpacing: "0.08em", cursor: "pointer",
-          }}>{t("印刷・書き出しへ進む →")}</button>
+          <>
+            <CTA label="STL 書き出し" onClick={downloadKit} />
+            <Note>
+              {t("コマ・柱は上下同一のため各1つ入っています。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong>{t("して印刷してください。設定は ")}<span style={{ fontFamily: mono }}>harigata_config.json</span>{t(" として同梱されます(バックアップ用)。")}
+              <br />{t("和紙の型紙 ")}<span style={{ fontFamily: mono }}>harigata_washi_a4.pdf</span>{t(" も同梱されます(そのまま原寸で印刷)。")}
+            </Note>
+          </>
         )}
       </div>
     </aside>
   );
 
   return (
-    <div style={{
-      display: "flex", flexDirection: narrow ? "column" : "row",
-      height: "100%", overflow: "hidden",
-      background: "#f2ecdf", color: UI.text, fontFamily: sans,
-    }}>
-      {viewport}
-      {inspector}
-      {welcome && <Welcome onClose={closeWelcome} accent={accent} ui={UI} sans={sans} t={t} />}
-    </div>
+    <TContext.Provider value={t}>
+      <div style={{
+        display: "flex", flexDirection: narrow ? "column" : "row",
+        height: "100%", overflow: "hidden",
+        background: "#f2ecdf", color: UI.text, fontFamily: sans,
+      }}>
+        {viewport}
+        {inspector}
+        {welcome && <Welcome onClose={closeWelcome} />}
+      </div>
+    </TContext.Provider>
   );
 }
