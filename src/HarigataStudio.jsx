@@ -23,7 +23,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   maxRadius, outerR, standBoardLength, maxBoards,
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts, ringGeometry,
+  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
 import { exportZip, openHTML, downloadFile } from "./stl.js";
@@ -69,8 +69,6 @@ export default function HarigataStudio() {
   const [sel, setSel] = useState(null);             // selected control point in the section editor (transient)
   const [editMode, setEditMode] = useState("move"); // section editor: "move" points / "curve" tangent handles
   const [glError, setGlError] = useState(null);
-  // Split-rib mode (experimental) — no UI; its tabs don't match the koma yet (see CLAUDE.md future work).
-  const splitRibs = false;
 
   const narrow = useNarrow(860);
   const { lang, toggleLang, t } = useLang();
@@ -100,8 +98,8 @@ export default function HarigataStudio() {
   useEffect(() => {
     const viewChanged = prevView.current !== view;
     prevView.current = view;
-    buildScene(three.current, { p, view, viewChanged, printRibs, splitRibs, bedW, bedD });
-  }, [p, view, printRibs, bedW, bedD, splitRibs, three]);
+    buildScene(three.current, { p, view, viewChanged, printRibs, bedW, bedD });
+  }, [p, view, printRibs, bedW, bedD, three]);
 
   // Ribs to print (1..boards). With spiral winding every rib is a different shape, so all of them
   // are exported — duplicating one would not make a spiral.
@@ -109,25 +107,11 @@ export default function HarigataStudio() {
 
   // ---- Exports ----
   const downloadKit = () => {
-    const spread = (geos, gap) => {   // lay parts out along X so they don't overlap in one file
-      let x = 0;
-      for (const g of geos) {
-        g.computeBoundingBox();
-        const bb = g.boundingBox;
-        g.translate(x - bb.min.x, 0, 0);
-        x += (bb.max.x - bb.min.x) + gap;
-      }
-      return geos;
-    };
     // Rib file layout. Spiral winding makes every rib different, so it is one rib per file
     // (harigata_rib_01.stl …) and they can be placed individually in the slicer. Otherwise the ribs
     // are identical and they go in one file (print one, duplicate it).
     let ribEntries;
-    if (splitRibs) {
-      const parts = [];
-      for (let k = 0; k < nRibs; k++) { const sp = ribSplitParts(p, k); parts.push(sp.bottom, sp.top, sp.splice); }
-      ribEntries = [{ name: `harigata_ribs_x${nRibs}.stl`, geos: spread(parts, 15) }];
-    } else if (p.spiral) {
+    if (p.spiral) {
       ribEntries = [];
       for (let k = 0; k < nRibs; k++) {
         const g = ribGeometry(p, k);
@@ -512,7 +496,7 @@ export default function HarigataStudio() {
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>⌀{maxDia} mm</span>
           <span style={{ color: UI.faint }}>{t("羽根板の全長")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: ribFits ? UI.text : UI.warn }}>
-            {ribLen} mm{splitRibs ? t(" (2分割)") : ""}
+            {ribLen} mm
           </span>
           <span style={{ color: UI.faint }}>{t("上下の開口(半径)")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>{topOpen} / {botOpen} mm</span>

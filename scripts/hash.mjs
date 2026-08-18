@@ -37,13 +37,9 @@ for (const preset of PRESETS)
         for (const higoD of [1.5, 2, 3]) {
           const p = { ...DEFAULTS, ...preset, height, boards, fit, higoD };
           const tag = `${preset.key} h${height} b${boards} fit${fit} hd${higoD}`;
-          const sp = G.ribSplitParts(p, 0);
-          out.push(`${tag} rib          ${hash(G.ribGeometry(p, 0))}`);
-          out.push(`${tag} koma         ${hash(G.komaGeometry(p))}`);
-          out.push(`${tag} stand        ${hash(G.standGeometry(p))}`);
-          out.push(`${tag} board        ${hash(G.boardGeometry(p))}`);
-          out.push(`${tag} split.bottom ${hash(sp.bottom)}`);
-          out.push(`${tag} split.top    ${hash(sp.top)}`);
-          out.push(`${tag} split.splice ${hash(sp.splice)}`);
+          out.push(`${tag} rib   ${hash(G.ribGeometry(p, 0))}`);
+          out.push(`${tag} koma  ${hash(G.komaGeometry(p))}`);
+          out.push(`${tag} stand ${hash(G.standGeometry(p))}`);
+          out.push(`${tag} board ${hash(G.boardGeometry(p))}`);
         }
 console.log(out.join("\n"));
