@@ -9,6 +9,12 @@
  * They are TEMPLATES, not modes: picking one replaces the control points and you then edit the
  * curve freely in the section view. The subheading says so, because three chips on their own read
  * as "the shape is one of these three".
+ *
+ * Which chip is lit follows from that: it is DERIVED from the current control points (matchPreset),
+ * not remembered from the click. Once the curve has been edited the chip goes dark, because a lit
+ * chip on a shape that no longer resembles it is the "one of these three" misreading again. Deriving
+ * it also means undo/redo, importing a design and restoring from localStorage are all right for
+ * free -- there is no flag for an edit path to forget to clear (and every edit path would have to).
  * ============================================================================
  */
 import React from "react";
@@ -32,8 +38,23 @@ function miniPath(pr) {
   return d + " Z";
 }
 
-export default function PresetChips({ active, onPick }) {
+// Compare on pts alone: they are the silhouette. rTop/rBot are only a fallback for an empty pts
+// (see config.js) and are never edited, so a design whose curve matches a preset should light its
+// chip regardless of what they hold. Handles are compared as plain pairs -- a design that has been
+// through JSON has its {dt,dr} rebuilt, and key order must not decide this.
+const ptKey = (q) =>
+  JSON.stringify([q.t, q.r, !!q.sharp, q.ho ? [q.ho.dt, q.ho.dr] : 0, q.hi ? [q.hi.dt, q.hi.dr] : 0]);
+const ptsKey = (pts) => (pts || []).map(ptKey).join("|");
+
+// Key of the preset whose control points the design still matches exactly, or null once edited.
+export function matchPreset(p) {
+  const key = ptsKey(p.pts);
+  return PRESETS.find((pr) => ptsKey(pr.pts) === key)?.key ?? null;
+}
+
+export default function PresetChips({ p, onPick }) {
   const t = useT();
+  const active = matchPreset(p);
   return (
     <div style={{ marginBottom: 20 }}>
       <SectionLabel title="形" hint="ひな形 · 選んでから断面で調整" />
