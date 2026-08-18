@@ -49,7 +49,7 @@ No test runner. **Correctness is verified by "the build passes" + "the STL is wa
 
 ## Tech stack
 
-Vite 8 + React 19 + three.js r185 (all plain JS/JSX, no TypeScript). Minimal dependencies — three runtime deps, two dev.
+Vite 8 + React 19 + three.js r185 + fflate (all plain JS/JSX, no TypeScript). Minimal dependencies — four runtime deps, two dev.
 
 ## Architecture
 
@@ -64,7 +64,7 @@ Vite 8 + React 19 + three.js r185 (all plain JS/JSX, no TypeScript). Minimal dep
 - **`src/ui/`** — `theme.js` (the palette + the `t` context — see below), `controls.jsx` (ScrubRow / Stepper / NumInput / Checkbox / SegButton / CTA / Note), and the panel's larger pieces: `PresetChips.jsx`, `PointCard.jsx`, `Toolbar.jsx`.
 - **`src/Welcome.jsx`** — the **first-run onboarding card** (see "Onboarding" below). Presentational only: no app state, no geometry.
 - **`src/pdf.js`** — minimal, dependency-free **PDF writer** (vector only, base-14 Helvetica). Consumes the same drawing ops as the SVG renderer, so the printed PDF and the printed HTML are the same drawing. Used for the washi template bundled in the kit ZIP.
-- **`src/stl.js`** — STL export (+ `openHTML`, which opens the papercraft HTML in a tab).
+- **`src/stl.js`** — STL / ZIP export (+ `openHTML`, which opens the papercraft HTML in a tab, and `downloadFile`, the one place a Blob becomes a download). Both formats are written by libraries rather than by hand: three's **`STLExporter`** (its face-normal maths is identical to the writer this file used to carry — verified byte-for-byte across four designs) and **`fflate`**'s `zipSync`. The old ZIP could only STORE; DEFLATE takes a default kit from ~1.0 MB to ~0.19 MB. `zipSync` tree-shakes to 9.5 kB raw / 4.8 kB gzip, the only reason a dependency was worth it here — contrast `pdf.js`, where the equivalent library costs hundreds of kB for a handful of vector ops.
 - **`src/papercraft.js`** — **papercraft** (A4 full-scale 1:1 print pages for building the mold from cardboard/thick paper) and the **washi template** (`washiParts` / `washiPDF`, the paper skin's own flat pattern). A pure module that derives the drawing from `geometry.js`'s 2D functions (see "Papercraft" / "Washi template" below). Everything goes through one page pipeline — `pageOps()` (clip band, glue tab, ruler, registration marks) rendered as SVG by `pagesHTML()` or as PDF by `pagesPDF()` — so the print rules can't drift apart between templates or between the two encodings.
 - `main.jsx` — entry point (+ the error boundary that keeps a render error from blacking out the screen).
 - **`src/index.css`** — reset, range-slider skin, focus ring, and the inspector's **component classes** (`.btn`, `.seg`, `.cta`, `.chip`, `.scrub-row`, …). Two rules for working here: the **palette is defined in `ui/theme.js`**, which publishes it as custom properties at startup (it has to live in JS because SVG presentation attributes need a real colour, not a `var()`); and anything that depends on **state a style attribute cannot express** — `:hover`, `:disabled`, `[aria-pressed="true"]` — belongs here rather than as a ternary in JSX.

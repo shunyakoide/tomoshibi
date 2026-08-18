@@ -18,6 +18,7 @@
  */
 import { DEFAULTS } from "./config.js";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.js";
+import { clamp } from "./util.js";
 
 export const STORAGE_KEY = "harigata.studio";
 export const SCHEMA_VERSION = 1;
@@ -64,7 +65,7 @@ function validatePts(pts) {
   }
   return pts
     .map((q) => {
-      const out = { t: Math.min(1, Math.max(0, q.t)), r: Math.min(140, Math.max(8, q.r)) };
+      const out = { t: clamp(0, 1, q.t), r: clamp(8, 140, q.r) };
       if (q.sharp) out.sharp = true;
       const ho = validHandle(q.ho), hi = validHandle(q.hi);
       if (ho) out.ho = ho;
@@ -80,7 +81,7 @@ function coerceNums(p) {
   for (const k of NUM_KEYS) {
     const [lo, hi] = BOUNDS[k];
     const v = Number(p[k]);
-    p[k] = Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : DEFAULTS[k];
+    p[k] = Number.isFinite(v) ? clamp(lo, hi, v) : DEFAULTS[k];
   }
   return p;
 }
@@ -116,7 +117,7 @@ const INCOMPATIBLE_VERSIONS = new Set(); // e.g. on a breaking change, add the a
 export function sanitizeSaved(saved) {
   if (!saved || typeof saved !== "object") return null;
   if (INCOMPATIBLE_VERSIONS.has(saved.schemaVersion)) return null;
-  const clampNum = (v, lo, hi, def) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
+  const clampNum = (v, lo, hi, def) => { const n = Number(v); return Number.isFinite(n) ? clamp(lo, hi, n) : def; };
   const bedW = clampNum(saved.bedW, 100, 420, 256);   // UI numInput allowed range
   const bedD = clampNum(saved.bedD, 100, 420, 256);
   const printRibs = Math.round(clampNum(saved.printRibs, 1, 16, 1)); // 1..boards; upper bound further clamped on the boards side

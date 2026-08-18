@@ -2,7 +2,7 @@
  * ============================================================================
  * SHARED UTILITIES (UTIL)
  * ============================================================================
- * Small pure functions shared on the UI side (HarigataStudio / SectionEditor).
+ * Small pure functions shared across the app (UI, persistence, viewport input).
  * ============================================================================
  */
 
