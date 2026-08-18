@@ -195,3 +195,14 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .tool-group > div { display: flex; gap: 6px; }
 .note { font-size: 10.5px; line-height: 1.6; color: var(--faint); }
 .hint { font-size: 11px; line-height: 1.5; color: var(--faint); padding: 2px 0 4px; }
+
+/* ---- crash screen (main.jsx error boundary) ---- */
+/* Its own dark palette rather than the panel tokens: whatever went wrong may well be in the theme,
+   so this screen must not depend on anything the app sets up at startup. */
+.crash {
+  position: fixed; inset: 0; padding: 20px; overflow: auto;
+  background: #0c0c0d; color: #e8e8ec; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  -webkit-user-select: text; user-select: text;
+}
+.crash > b { display: block; margin-bottom: 8px; color: #e0a060; font-weight: 600; }
+.crash > pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
