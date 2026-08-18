@@ -200,6 +200,12 @@ const EN = {
   "火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。": "Body height {height}mm / {boards} ribs / bamboo pitch {pitch}mm — this band is on-screen only and is not printed.",
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
+  "羽根板の間 1面分": "one rib-to-rib panel",
+  "のりしろ(左右)": "Overlap (sides)",
+  "被せ代(上下)": "Cover (ends)",
+  "1面のサイズ": "Panel size",
+  "貼る前に和紙を切るための原寸型紙です。STL の ZIP と段ボールの型紙に同梱されます。":
+    "A full-scale template for cutting the washi before you paste it. It ships inside the STL kit ZIP and with the cardboard template.",
   "張型スタジオ 和紙型紙 {name} 原寸": "Harigata Studio washi template {name} (full scale)",
   "張型スタジオ — 和紙の型紙({name} 原寸 / 全 {pages} ページ)": "Harigata Studio — washi template ({name} full scale / {pages} pages)",
   "⚠ 1面の幅 {w}mm が用紙({name} 幅 {cw}mm)に収まりません。<b>羽根板の枚数を増やす</b>と1面が細くなります。":
