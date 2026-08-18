@@ -91,24 +91,31 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
   for (const hole of lightenHoles2D(p).holes) ribD += " " + poly2d(hole); // punch out the windows via evenodd
 
   // ---- Handles (lamp body height / top radius / bottom radius) ----
+  // Every drag gesture below (height handle, control point, tangent handle) needs the same three
+  // things: listen on the WINDOW so the pointer may leave the small hit target, mark this key as the
+  // active drag so the row/handle highlights, and tear both down on release. Written out three times
+  // over, it was the bulk of this section.
+  const startDrag = (key, onMove) => {
+    const up = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", up);
+      setDrag(null);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", up);
+    setDrag(key);
+  };
+
   const beginDrag = (e, cfg) => {
     e.preventDefault();
     e.stopPropagation();
     const start = p[cfg.key];
     const s0 = toSvg(e.clientX, e.clientY);
-    const move = (ev) => {
+    startDrag(cfg.key, (ev) => {
       const c = toSvg(ev.clientX, ev.clientY);
       const dSvg = cfg.axis === "y" ? s0.y - c.y : c.x - s0.x; // up/right direction is positive
       setP((o) => ({ ...o, [cfg.key]: clamp(cfg.min, cfg.max, Math.round(start + dSvg / s)) }));
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      setDrag(null);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    setDrag(cfg.key);
+    });
   };
 
   const handles = [
@@ -130,7 +137,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
     const sx = e.clientX, sy = e.clientY;
     const s0 = toSvg(sx, sy);
     let moved = false;
-    const move = (ev) => {
+    startDrag("pt" + i, (ev) => {
       if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) moved = true;
       if (!moved) return;
       if (editMode === "curve") return;   // in curve-adjust mode the point doesn't move (only the handles do)
@@ -144,16 +151,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
         pts[i].t = clamp(lo, hi, start.t + (s0.y - c.y) / (H * s));
         return { ...o, pts };
       });
-      setDrag("pt" + i);
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      setDrag(null);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    setDrag("pt" + i);
+    });
   };
 
   // The "+" ghost on the curve = midpoint between adjacent control points (radius from geometry's outerR = actual shape).
@@ -174,7 +172,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
   const beginDragHandle = (e, i, which) => {
     e.preventDefault();
     e.stopPropagation();
-    const move = (ev) => {
+    startDrag("h" + i + which, (ev) => {
       const m = toModel(ev.clientX, ev.clientY);
       setP((o) => {
         const pts = o.pts.map((q) => ({ ...q, ho: q.ho ? { ...q.ho } : undefined, hi: q.hi ? { ...q.hi } : undefined }));
@@ -184,16 +182,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
         else { a.hi = { dt, dr }; if (mirror) a.ho = { dt: -dt, dr: -dr }; }
         return { ...o, pts };
       });
-      setDrag("h" + i + which);
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      setDrag(null);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    setDrag("h" + i + which);
+    });
   };
 
   const cps = p.pts.map((pt, i) => {

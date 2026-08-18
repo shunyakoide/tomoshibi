@@ -14,7 +14,7 @@
 import React from "react";
 import { outerR } from "../geometry.js";
 import { PRESETS } from "../config.js";
-import { UI, accent, sans, useT } from "./theme.js";
+import { useT } from "./theme.js";
 import { SectionLabel } from "./controls.jsx";
 
 // Miniature of a preset's profile: sample the radius, then trace down the right side and back up
@@ -41,13 +41,7 @@ export default function PresetChips({ active, onPick }) {
         {PRESETS.map((pr) => {
           const on = active === pr.key;
           return (
-            <button key={pr.key} onClick={() => onPick(pr)} aria-pressed={on} style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-              padding: "8px 4px 7px", borderRadius: 10, cursor: "pointer", fontFamily: sans,
-              background: on ? accent : UI.card, color: on ? "#fff" : UI.text,
-              border: "1px solid " + (on ? accent : UI.cardEdge),
-              boxShadow: on ? "0 3px 8px rgba(217,91,24,0.25)" : "none",
-            }}>
+            <button key={pr.key} className="chip" aria-pressed={on} onClick={() => onPick(pr)}>
               <svg viewBox="0 0 60 46" style={{ width: 40, height: 32, display: "block" }} aria-hidden="true">
                 <path d={miniPath(pr)} fill={on ? "rgba(255,255,255,0.25)" : "rgba(59,52,43,0.05)"}
                   stroke={on ? "#fff" : "#8a7c66"} strokeWidth="2" />

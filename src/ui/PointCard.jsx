@@ -13,7 +13,7 @@
 import React from "react";
 import { bakeBezierHandles } from "../geometry.js";
 import { clamp } from "../util.js";
-import { UI, sans, useT } from "./theme.js";
+import { UI, useT } from "./theme.js";
 import { SectionLabel, NumInput, SegButton } from "./controls.jsx";
 
 export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode }) {
@@ -64,13 +64,7 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode 
             <SegButton label="◇ なめらか" active={!pt.sharp} onClick={() => patch({ sharp: false })} />
             <SegButton label="■ 角" active={!!pt.sharp} onClick={() => patch({ sharp: true })} />
           </div>
-          <button onClick={del} disabled={!canDelete} style={{
-            width: "100%", padding: 9, fontFamily: sans, fontSize: 12, fontWeight: 600,
-            borderRadius: 8, cursor: canDelete ? "pointer" : "not-allowed",
-            background: "transparent", color: canDelete ? UI.warn : UI.faintest,
-            border: `1px solid ${canDelete ? "rgba(194,60,18,0.4)" : UI.cardEdge}`,
-            opacity: canDelete ? 1 : 0.6,
-          }}>{t("この点を削除")}</button>
+          <button className="block-btn" onClick={del} disabled={!canDelete}>{t("この点を削除")}</button>
         </div>
       ) : (
         <div style={{

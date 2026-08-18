@@ -40,7 +40,7 @@ import SectionEditor from "./SectionEditor.jsx";
 import Welcome from "./Welcome.jsx";
 import { DEFAULTS, SIL_ROWS } from "./config.js";
 import { makeT } from "./i18n.js";
-import { UI, accent, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.js";
+import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.js";
 import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, SegButton, CTA, Note } from "./ui/controls.jsx";
 import PresetChips from "./ui/PresetChips.jsx";
 import PointCard from "./ui/PointCard.jsx";
@@ -280,13 +280,7 @@ export default function HarigataStudio() {
         border: `1px solid ${chip.edge}`, boxShadow: "0 2px 10px rgba(59,52,43,0.07)",
       }}>
         {VIEWS.map(([k, l]) => (
-          <button key={k} onClick={() => setView(k)} aria-pressed={view === k} style={{
-            padding: "7px 14px", fontSize: 12.5, cursor: "pointer",
-            borderRadius: 7, border: "none", fontFamily: sans,
-            fontWeight: view === k ? 700 : 500,
-            background: view === k ? accent : "transparent",
-            color: view === k ? "#fff" : "#6f6350", transition: "all 0.15s",
-          }}>{t(l)}</button>
+          <button key={k} className="tab" aria-pressed={view === k} onClick={() => setView(k)}>{t(l)}</button>
         ))}
       </div>
 
@@ -303,7 +297,7 @@ export default function HarigataStudio() {
       {!isLit && overParts.length > 0 && !(view === "print" && printMode !== "stl") && (
         <div style={{
           position: "absolute", bottom: 20, left: 20, display: "flex", alignItems: "center", gap: 10,
-          padding: "10px 14px", background: "#fff", border: "1px solid rgba(217,91,24,0.4)",
+          padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
           borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
           fontSize: 12.5, color: UI.text, textAlign: "left", maxWidth: "60%",
         }}>
@@ -347,17 +341,8 @@ export default function HarigataStudio() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* Reopens the onboarding card. Once dismissed it never auto-opens again, so this is the
               only way back to "what is this app" — keep it next to the language toggle. */}
-          <button onClick={() => setWelcome(true)} title={t("はじめかた")} aria-label={t("はじめかた")} style={{
-            width: 22, height: 22, borderRadius: "50%", cursor: "pointer", padding: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            border: `1px solid ${UI.cardEdge}`, background: UI.card, color: UI.sub,
-            fontFamily: mono, fontSize: 12, fontWeight: 700, lineHeight: 1,
-          }}>?</button>
-          <button onClick={toggleLang} title="Language / 言語" style={{
-            fontFamily: mono, fontSize: 10.5, letterSpacing: "0.08em", cursor: "pointer",
-            padding: "3px 8px", borderRadius: 6, border: `1px solid ${UI.cardEdge}`,
-            background: UI.card, color: UI.sub, fontWeight: 700,
-          }}>{lang === "ja" ? "EN" : "日本語"}</button>
+          <button className="icon-btn" onClick={() => setWelcome(true)} title={t("はじめかた")} aria-label={t("はじめかた")}>?</button>
+          <button className="lang-btn" onClick={toggleLang} title="Language / 言語">{lang === "ja" ? "EN" : "日本語"}</button>
           <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.12em", color: UI.faintest }}>LAMP KIT</div>
         </div>
       </div>
@@ -393,7 +378,7 @@ export default function HarigataStudio() {
             {p.boards}<span style={{ color: UI.faintest, fontWeight: 400 }}>{t(" 枚")}</span>
           </Stepper>
           {boardsMax < 16 && p.boards >= boardsMax && (
-            <div style={{ fontSize: 11, color: UI.faint, lineHeight: 1.5, padding: "2px 0 4px" }}>
+            <div className="hint">
               {t("この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます", { n: Math.min(16, boardsMax) })}
             </div>
           )}
@@ -405,7 +390,7 @@ export default function HarigataStudio() {
             key: "tabLen", label: "爪の長さ", value: p.tabLen,
             min: 5, max: 40, round: 1, unit: "mm", onChange: (v) => setP((o) => ({ ...o, tabLen: v })),
           }} />
-          <div style={{ fontSize: 11, color: UI.faint, lineHeight: 1.5, padding: "2px 0 4px" }}>
+          <div className="hint">
             {t("首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ")}
           </div>
         </div>
@@ -438,9 +423,9 @@ export default function HarigataStudio() {
           <Stepper label="被せ代(上下)" value={washiEnd} min={0} max={15} step={1} onChange={setWashiEnd}>
             {washiEnd} mm
           </Stepper>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
-            <span style={{ fontSize: 12.5, color: UI.text }}>{t("1面のサイズ")}</span>
-            <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>
+          <div className="row">
+            <span className="row-label">{t("1面のサイズ")}</span>
+            <span className="row-value">
               {Math.round(2 * washiG.wMax)} × {Math.round(washiG.sTot + 2 * washiEnd)} mm × {p.boards}
             </span>
           </div>
@@ -460,8 +445,7 @@ export default function HarigataStudio() {
             <SectionLabel title="印刷・書き出し" hint="型のつくり方" />
             <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
               {[["stl", "3Dプリント"], ["paper", "段ボール"]].map(([k, l]) => (
-                <SegButton key={k} label={l} active={printMode === k} onClick={() => setPrintMode(k)}
-                  style={{ padding: "8px 4px", fontSize: 12.5 }} />
+                <SegButton key={k} label={l} active={printMode === k} onClick={() => setPrintMode(k)} large />
               ))}
             </div>
 
@@ -470,8 +454,8 @@ export default function HarigataStudio() {
                 <SectionLabel title="プリントベッド" />
                 {/* Common (square) bed presets as a dropdown rather than a wrapping chip row (saves a
                     row of height). It sets width = depth; 幅/奥行き below stay for rectangular beds. */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                  <span style={{ fontSize: 12.5, color: UI.text }}>{t("定番サイズ")}</span>
+                <div className="field-row" style={{ marginBottom: 12 }}>
+                  <span className="row-label">{t("定番サイズ")}</span>
                   <select value={bedW === bedD && BED_PRESETS.includes(bedW) ? String(bedW) : "custom"}
                     aria-label={t("定番サイズ")}
                     onChange={(e) => { const v = +e.target.value; if (v) { setBedW(v); setBedD(v); } }}
@@ -491,11 +475,9 @@ export default function HarigataStudio() {
                 <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 14, marginTop: 14 }}>
                   <SectionLabel title="配置" />
                   {p.spiral ? (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0" }}>
-                      <span style={{ fontSize: 12.5, color: UI.text }}>{t("印刷する羽根板")}</span>
-                      <span style={{ fontFamily: mono, fontSize: 11, color: UI.faint }}>
-                        {t("螺旋: 全")}{p.boards}{t("枚(各1枚)")}
-                      </span>
+                    <div className="row">
+                      <span className="row-label">{t("印刷する羽根板")}</span>
+                      <span className="row-value">{t("螺旋: 全")}{p.boards}{t("枚(各1枚)")}</span>
                     </div>
                   ) : (
                     <Stepper label="印刷する羽根板" value={nRibs} min={1} max={p.boards} step={1} onChange={setPrintRibs}>
@@ -532,7 +514,7 @@ export default function HarigataStudio() {
         </div>
 
         {view !== "print" ? (
-          <CTA label="印刷・書き出しへ進む →" variant="outline" onClick={() => setView("print")} />
+          <CTA label="印刷・書き出しへ進む →" outline onClick={() => setView("print")} />
         ) : printMode === "paper" ? (
           <>
             <CTA label="型紙を開く (A4 原寸)"
