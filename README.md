@@ -31,7 +31,7 @@ opening**. This app generates that mold as 3D-printable split parts.
 - **Direct-manipulation section editor** — drag control points to sculpt the silhouette; 3D preview and STL stay in exact agreement.
 - **Bamboo-rib grooves** — evenly spaced V-notches with barbs so the bamboo seats and won't slip.
 - **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
-- **Cardboard papercraft mode** — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the parts from cardboard, plus a fold-together cross stand.
+- **Cardboard papercraft mode** — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the ribs and koma hubs from cardboard. Notch widths follow the thickness you measured, so the parts still mesh.
 - **Washi template (和紙の型紙)** — the paper skin itself, developed flat: one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. Includes the side overlap, the cover allowance past the openings, and dashed guides for the rib lines and bamboo positions. It ships with whichever output you choose — a PDF in the STL kit ZIP, or one more sheet in the cardboard template.
 - **English / Japanese UI** — toggle in the top bar.
 - **Watertight by construction** — every exported part is a closed manifold, verified by an automated sweep (see [CONTRIBUTING](CONTRIBUTING.md)).
@@ -72,9 +72,14 @@ Requires Node.js 18+.
 
 ### No 3D printer? Use cardboard
 
-The Print view's **"Open papercraft"** button opens full-scale A4 pages. Cut the ribs,
-hubs and a fold-together cross stand from cardboard — no glue or hardware needed. Every
-page includes a 50 mm scale bar; make sure your printer prints at 100% (not "fit to page").
+The Print view's **"Open papercraft"** button opens full-scale A4 pages. Measure your
+cardboard and enter its thickness — the koma notches are cut to it, so the ribs push in
+and hold with no glue or hardware. It prints the mold itself (ribs + koma); stand it on
+whatever is to hand. Grooves are not cut — you can't carve a 0.5 mm V-notch into
+cardboard — so the outer edge is a smooth curve with dashed ticks marking where each
+bamboo rib goes. A part too wide for one page is split across two with a 10 mm glue tab.
+Every page includes a 50 mm scale bar; make sure your printer prints at 100% (not "fit to
+page").
 
 ### Cutting the washi first
 
