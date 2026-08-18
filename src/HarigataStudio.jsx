@@ -349,11 +349,11 @@ export default function HarigataStudio() {
           onReset={resetAll} onExport={exportDesign} onImport={importDesign} />
 
         {/* The lit chip is derived from p.pts inside PresetChips, so it goes dark as soon as the
-            curve is edited. p.shape is still written: it rides along in the exported design as a
-            note of which template it grew from, but nothing reads it back. */}
+            curve is edited — picking a preset stores no "which one was clicked" flag. rTop/rBot go
+            along because geometry.js falls back to them when pts is empty. */}
         <PresetChips p={p} onPick={(pr) => {
           setSel(null);
-          setP((o) => ({ ...o, shape: pr.key, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })) }));
+          setP((o) => ({ ...o, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })) }));
         }} />
 
         {view === "2d" && (

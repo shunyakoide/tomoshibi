@@ -26,7 +26,7 @@ export const PRESETS = [
 // (fit) stay at their defaults (not exposed in the UI, used internally).
 // rTop/rBot are a fallback for when pts is empty (not read on the normal path).
 export const DEFAULTS = {
-  shape: "egg", height: 205, rTop: 19, rBot: 74,
+  height: 205, rTop: 19, rBot: 74,
   pts: [{ t: 0.05, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.95, r: 19 }],
   neckBot: true, neckTop: true, // choose neck (a vertical rectangle) presence independently top/bottom (outside the outermost control point).
   boards: 8, boardWidth: 35, boardT: 2, higoD: 2, pitch: 9, // bamboo rib spacing (larger = fewer ribs)
