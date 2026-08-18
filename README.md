@@ -24,7 +24,7 @@ opening**. This app generates that mold as 3D-printable split parts.
 | **Rib (羽根板)** | The radial boards that form the mold surface (N of them, like orange segments). The outer edge carries the lamp-body curve and V-notch grooves for the bamboo ribs; both ends have tabs. |
 | **Koma / hub (コマ)** | Two identical gear-like hubs (top & bottom). Notches around the rim hold the rib tabs; the stand cradles them. |
 | **Stand (土台)** | A base that holds the assembled mold off the table with two U-shaped saddles, so it can be rotated while you work. |
-| **Opening rings (口輪)** | Thin flat hoops for the finished lantern's openings, which have no koma left in them. The top one keeps its opening round. The bottom one is the same hoop with three inward pads bored for ⌀6 legs, so it doubles as the base the finished lamp stands on. |
+| **Opening rings (口輪)** | Thin flat hoops for the finished lantern's openings, which have no koma left in them, so the openings keep their shape. The bottom one has a small bump on its inner rim to tell the two apart once printed. |
 
 ### Features
 
@@ -66,11 +66,11 @@ Requires Node.js 18+.
 2. Set the assembly on the stand.
 3. Wind bamboo ribs into the outer-edge grooves; paste washi paper over them.
 4. Let it dry, then pull the koma out (toward the tab side) and slip the ribs out through the openings.
-5. Glue the opening rings into the top & bottom openings. Push three ⌀6 legs of your own into the bottom ring's
-   sockets to stand it, then fit your own light.
+5. Glue the opening rings into the top & bottom openings — the one with the bump on its inner edge is the bottom.
+   Then fit your own light.
 
 > **制作フロー**: 印刷 → コマ2枚のノッチに羽根板を差し込む → 溝に竹ひごを巻く → 糊＋和紙を
-> 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を貼る → 下の口輪に脚を挿して照明化。
+> 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を貼る → 照明化。
 
 ### No 3D printer? Use cardboard (beta)
 
@@ -130,8 +130,8 @@ dev setup, the verification gates (`npm run check:manifold` / `check:hash` / `ch
 - **羽根板** — 型の面を作る放射状の板（N枚）。外縁に竹ひご用の V 溝、両端に爪。
 - **コマ** — 爪を束ねる歯車状のハブ（上下2個）。
 - **土台** — コマを U 字サドルで受けて型を宙に浮かせ、回しながら作業できる台。
-- **口輪** — 完成した提灯の開口に貼る薄い平リング（完成品にコマは残らないため）。上は開口の真円を保つ輪、
-  下は同じ輪に⌀6の脚穴を持つ座を3つ内向きに付けたもので、そのまま完成品を立てる台になる。
+- **口輪** — 完成した提灯の開口に貼る薄い平リング（完成品にコマは残らないため）。開口の形を保つ。
+  上下で同じ形なので、下側は内側のふちに小さな出っ張りを1つ付けて刷り分けられるようにしてある。
 
 **特長**: 断面の直接編集 / 竹ひご溝（螺旋巻きにも対応・羽根に通し番号を刻印）/
 3Dプリンタが無くても作れる段ボール型紙（原寸 A4・**開発中/beta**）/ 貼る前に切るための和紙の型紙（原寸 A4）/ 英日 UI 切替 /
