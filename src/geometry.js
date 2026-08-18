@@ -273,41 +273,10 @@ export function equatorY(p) {
   for (let i = 0; i <= 120; i++) { const t = i / 120, r = outerR(p, t); if (r > bestR) { bestR = r; bestT = t; } }
   return bestT * h;
 }
-export function grooveOuterX(p, grooves, gR) {
-  const h = p.height, mid = equatorY(p);
-  const DEEP = 2.1; // Deeper groove = steeper flank = sharp claw-like tooth. The bamboo rib sinks deep and bites (a larger groove).
-  // Each groove: depth + asymmetry (barb). Make "the center (equator) side flank gentle and the
-  // opening side steep" so the tooth tip tilts toward the center (a claw-like barb) → catches the
-  // bamboo rib trying to slide toward the opening. Steeper slope = stronger barb. But even at low
-  // slope (cylinder/barrel etc.), always keep a minimum barb (floor) (= prevents the barb from
-  // vanishing at zero slope).
-  const info = grooves.map((g) => {
-    const sl = (outerR(p, Math.min(1, (g + 0.6) / h)) - outerR(p, Math.max(0, (g - 0.6) / h))) / 1.2; // dR/dy
-    // Depth is capped at 1.5× the bamboo rib diameter (larger, but over-digging reversal /
-    // self-intersection is guarded by the split-band MIN_BAND=6 below and the manifold sweep).
-    // Steep slope is multiplied by 1/cosθ (capped at 2.2) to secure effective depth.
-    const depth = Math.min(p.higoD * 1.5, gR * DEEP * Math.min(2.2, Math.hypot(1, sl)));
-    // Barb = floor 0.24 (always catches even when flat) + proportional to slope. Cap 0.62 (makes the opening-side flank nearly a wall).
-    const skew = Math.min(0.62, 0.24 + Math.abs(sl) * 0.32);
-    const centerDir = g < mid ? 1 : -1;             // direction toward the center (equator) (in y)
-    return { g, depth, skew, centerDir };
-  });
-  return (y) => {
-    let dip = 0;
-    for (const { g, depth, skew, centerDir } of info) {
-      const delta = y - g;
-      // Center side gentle (wide), opening side steep (narrow) → a barb whose tooth tip tilts toward the center.
-      const w = gR * (delta * centerDir > 0 ? 1 + skew : 1 - skew);
-      const ad = Math.abs(delta);
-      if (ad < w) { const d = depth * (1 - ad / w); if (d > dip) dip = d; }
-    }
-    return outerR(p, Math.min(Math.max(y, 0), h) / h) - dip;
-  };
-}
 // Outer-edge point list with the bamboo-rib grooves cut ALONG THE SURFACE NORMAL (not purely
-// radially). A radial notch (grooveOuterX, a function of y) loses its effective depth and its
-// catching wall where the profile turns steeply diagonal — a single-valued-in-y outline literally
-// cannot form the undercut that stops the bamboo from sliding. This builds the notch as a V of
+// radially). A purely radial notch (a depth subtracted from R at each y) loses its effective depth
+// and its catching wall where the profile turns steeply diagonal — a single-valued-in-y outline
+// literally cannot form the undercut that stops the bamboo from sliding. This builds the notch as a V of
 // constant *perpendicular* depth, offset inward along the fixed local normal at each groove center,
 // so the depth and the wall stay effective at any face angle. Returns [[x,y],...] from y=0 to y=h
 // (endpoints exact = the smooth opening radius). With grooves=[] it returns the plain smooth edge.
@@ -354,7 +323,7 @@ export function grooveOuterPts(p, grooves, gR) {
 // right next to the neck (opening). It gives a half-pitch buffer (= opening/neck-side clearance) at
 // the top and bottom ends and arranges the grooves evenly from the inside.
 // Groove half-width (mm) = bamboo rib radius + relief. Aggregated here in one place so the
-// groove-making side (ribOutline2D / ribEdges) and the drawing side (SectionEditor) always use the
+// groove-making side (ribOutline2D) and the drawing side (SectionEditor) always use the
 // same value (prevents cross-section/STL mismatch).
 const GROOVE_CLEAR = 0.25;
 export function grooveR(p) { return p.higoD / 2 + GROOVE_CLEAR; }
@@ -527,7 +496,7 @@ export function ribOutline2D(p, k = 0, opts = {}) {
   const h = p.height, tl = p.tabLen, gR = grooveR(p);
   // Bamboo rib grooves are made over the whole lamp body (between the outermost control points).
   // The curve always gets grooves, and grooves are placed at the top/bottom ends too.
-  // With spiral winding, the groove positions shift by rib index k (ribEdges aligns with the same grooveList(p,gR,k)).
+  // With spiral winding, the groove positions shift by rib index k.
   const grooves = grooveList(p, gR, k);
   // Outer edge: grooves cut along the surface normal (opts.smooth = no grooves, for the paper template).
   const outerEdge = grooveOuterPts(p, opts.smooth ? [] : grooves, gR);
@@ -645,27 +614,6 @@ function shapeFromPts(pts, holes = []) {
 }
 
 // ============ Rib ============
-// The rib's inner/outer edge functions (shared by normal/split)
-export function ribEdges(p, k) {
-  const { height } = p;
-  const boardWidth = effBoardWidth(p); // limited to a pull-out-able width
-  const oB = outerR(p, 0), oT = outerR(p, 1);
-  const tw = tabDepth(p); // tab depth (uniform top and bottom)
-  const gR = grooveR(p);
-  // Grooves span the whole lamp body. Aligned by the same rule (grooveR/grooveList) as ribOutline2D (spiral shifts by k).
-  const grooves = grooveList(p, gR, k);
-  const outerX = grooveOuterX(p, grooves, gR);
-  // Inner-edge lower limit. A width-dependent lower limit prevents a pointed spike at the bottom end.
-  // But at a waist (narrow center) the lower limit can exceed the outer edge and the band can invert
-  // (self-intersect), so the upper side is also clamped to always keep at least MIN_BAND from the
-  // outer edge, guaranteeing the band width (prevents non-manifold split parts).
-  const mInner = Math.max(8, boardWidth * 0.4), MIN_BAND = 6;
-  const innerX = (y) => {
-    const oR = outerR(p, y / height);
-    return Math.min(Math.max(mInner, oR - boardWidth), oR - MIN_BAND);
-  };
-  return { oB, oT, tw, outerX, innerX };
-}
 // [For spiral winding] Engrave a serial number (k+1) on the rib = a mark of the arrangement order
 // around the circumference. In a spiral, the groove positions differ per rib, and unless they are
 // arranged in the correct order the bamboo rib does not form a continuous spiral, yet the printed
@@ -731,81 +679,6 @@ export const ribGeometry = (p, k) => {
   g.translate(0, 0, -p.boardT / 2);
   return g;
 };
-
-// ---- Rib top/bottom split into two (for large lamps) ----
-// Butt them at the split face and join them with a "splice plate + integral studs" inserted on the
-// inner face. Being a thin plate, the splice plate supports out-of-plane bending. The locating holes
-// double as the studs.
-const SPLICE_T = 3, SPLICE_HALF = 22, PIN_D = 3, PIN_FIT = 0.5;
-function ribBandShape(p, k, y0, y1, pins) {
-  const { height, tabLen } = p;
-  const { oB, oT, tw, outerX, innerX } = ribEdges(p, k);
-  const STEP = 0.4;
-  const pts = [];
-  pts.push([innerX(y0), y0]);
-  if (y0 <= 0.001) { // the actual bottom end: base edge + tab
-    pts.push([oB - tw, 0], [oB - tw, -tabLen], [oB, -tabLen], [oB, 0]);
-  } else {
-    pts.push([outerX(y0), y0]); // cross straight at the split face
-  }
-  for (let y = y0 + STEP; y < y1; y += STEP) pts.push([outerX(y), y]);
-  if (y1 >= height - 0.001) { // the actual top end: tab
-    pts.push([oT, height], [oT, height + tabLen], [oT - tw, height + tabLen], [oT - tw, height], [innerX(height), height]);
-  } else {
-    pts.push([outerX(y1), y1], [innerX(y1), y1]);
-  }
-  for (let y = y1 - STEP; y > y0; y -= STEP) pts.push([innerX(y), y]);
-  // Run the outline through cleanPoly (remove duplicate/collinear points). Duplicate vertices appear
-  // where the inner edge stays constant at its lower limit joins the tab end, and collinear points
-  // appear on the outer edge's flat stretches. Left in, earcut makes degenerate triangles and the
-  // cap/side-wall boundaries diverge into non-manifold. The stud holes are arcs, so they are added after this.
-  const s = shapeFromPts(pts);
-  if (pins) for (const [hx, hy] of pins) { const h = new THREE.Path(); h.absarc(hx, hy, (PIN_D + PIN_FIT) / 2, 0, Math.PI * 2, true); s.holes.push(h); }
-  return s;
-}
-export function ribSplitParts(p, k) {
-  const { height, boardT } = p;
-  const splitY = height / 2;
-  const { outerX, innerX } = ribEdges(p, k);
-  const wLo = innerX(splitY), wHi = outerX(splitY);
-  // Place the stud holes where they have at least (hole radius + margin) of clearance inside the band
-  // across "that hole's y position (splitY±10) and the split face." If the band narrows at a waist the
-  // hole punches through the edge into non-manifold, so keep them within a safe x range [lo, hi] (if
-  // narrow, one hole at the center; if extremely narrow, splice plate only).
-  const pinR = (PIN_D + PIN_FIT) / 2, M = 2.5;
-  const yB = splitY - 10, yT = splitY + 10;
-  // A hole spans ±pinR in y, so secure a safe zone from the edge not only at the center y but across
-  // the hole's entire y range (prevents the hole from punching through the curved-surface edge into
-  // non-manifold near a waist). Place the pin at the intersection of the safe x ranges of both the top
-  // and bottom bands. If narrow, one at the center; if extremely narrow, splice plate only.
-  const span = (py) => {
-    let lo = -Infinity, hi = Infinity;
-    for (let y = py - pinR - 1; y <= py + pinR + 1; y += 0.5) { lo = Math.max(lo, innerX(y)); hi = Math.min(hi, outerX(y)); }
-    return [lo + pinR + M, hi - pinR - M];
-  };
-  const [aLo, aHi] = span(yB), [bLo, bHi] = span(yT);
-  const lo = Math.max(aLo, bLo), hi = Math.min(aHi, bHi);
-  const pxs = hi - lo >= 2 * pinR + 6 ? [lo, hi] : hi > lo ? [(lo + hi) / 2] : [];
-  const pinsB = pxs.map((px) => [px, yB]);
-  const pinsT = pxs.map((px) => [px, yT]);
-  const bottom = new THREE.ExtrudeGeometry(ribBandShape(p, k, 0, splitY, pinsB), { depth: boardT, bevelEnabled: false });
-  const top = new THREE.ExtrudeGeometry(ribBandShape(p, k, splitY, height, pinsT), { depth: boardT, bevelEnabled: false });
-  const sh = new THREE.Shape(); // splice plate
-  const sm = Math.min(3, (wHi - wLo) / 3);   // when the band is narrow, shrink the splice-plate margin too, to prevent inversion
-  const sx0 = wLo + sm, sx1 = wHi - sm;
-  sh.moveTo(sx0, splitY - SPLICE_HALF); sh.lineTo(sx1, splitY - SPLICE_HALF);
-  sh.lineTo(sx1, splitY + SPLICE_HALF); sh.lineTo(sx0, splitY + SPLICE_HALF); sh.closePath();
-  const parts = [new THREE.ExtrudeGeometry(sh, { depth: SPLICE_T, bevelEnabled: false })];
-  for (const [hx, hy] of [...pinsB, ...pinsT]) { // integral stud
-    const stud = new THREE.CylinderGeometry(PIN_D / 2 - 0.1, PIN_D / 2 - 0.1, boardT, 16);
-    stud.rotateX(Math.PI / 2);
-    stud.translate(hx, hy, SPLICE_T + boardT / 2);
-    parts.push(stud);
-  }
-  // ExtrudeGeometry (non-indexed) and CylinderGeometry (indexed) are mixed, so unify them
-  const splice = mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)), false);
-  return { bottom, top, splice };
-}
 
 // ============ Koma (the small gear hub that bundles the tabs) ============
 // Like the main one, a small gear with edge-open notches (parallel walls). The tab (inner end

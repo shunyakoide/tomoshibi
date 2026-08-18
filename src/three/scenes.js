@@ -17,7 +17,7 @@
 import * as THREE from "three";
 import {
   maxRadius, outerR, cutT, standBoardLength, grooveR, grooveList, higoSpiralPath,
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ribSplitParts,
+  ribGeometry, komaGeometry, standGeometry, boardGeometry,
   standCollarTop, standSaddleH, standSlotSep, ringGeometry,
 } from "../geometry.js";
 import { fitOnBed } from "../bed.js";
@@ -207,19 +207,12 @@ function packPlates(items, plateIdx, placed, bedW, bedD) {
 }
 
 // ---- print: every part laid flat on plates ----
-function buildPrint(s, p, { printRibs, splitRibs, bedW, bedD }) {
+function buildPrint(s, p, { printRibs, bedW, bedD }) {
   // With spiral winding every rib has different groove positions, so all of them must be printed.
   // Otherwise the ribs are identical and the user prints one and duplicates it.
   const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
   const ribs = [];
-  for (let k = 0; k < nRibs; k++) {
-    if (splitRibs) {
-      const sp = ribSplitParts(p, k);
-      ribs.push({ geo: sp.bottom, mat: s.ribMat }, { geo: sp.top, mat: s.ribMat }, { geo: sp.splice, mat: s.komaMat });
-    } else {
-      ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
-    }
-  }
+  for (let k = 0; k < nRibs; k++) ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
   // Koma and posts are identical top/bottom, so one of each is enough (duplicated in the slicer).
   // The base plate's length follows the body height, so it gets its own plate — that keeps the post
   // placement fixed. Each group is packed separately, matching how the STLs are exported.
@@ -271,7 +264,7 @@ function buildPrint(s, p, { printRibs, splitRibs, bedW, bedD }) {
  * Rebuild the viewport contents for the current design and view.
  * `s` is the handle from createViewport(); a no-op if WebGL failed to initialize.
  */
-export function buildScene(s, { p, view, viewChanged, printRibs, splitRibs, bedW, bedD }) {
+export function buildScene(s, { p, view, viewChanged, printRibs, bedW, bedD }) {
   if (!s.group) return;
   while (s.group.children.length) {
     const m = s.group.children[0];
@@ -301,5 +294,5 @@ export function buildScene(s, { p, view, viewChanged, printRibs, splitRibs, bedW
 
   if (view === "lit") buildLit(s, p, viewChanged);
   else if (view === "mold") buildMold(s, p, viewChanged);
-  else buildPrint(s, p, { printRibs, splitRibs, bedW, bedD });
+  else buildPrint(s, p, { printRibs, bedW, bedD });
 }

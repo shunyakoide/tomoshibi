@@ -84,10 +84,6 @@ const EN = {
   "上の首": "Top neck",
   "首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ":
     "Drag the outermost ◇ in the section view (up/down = neck height, left/right = flare).",
-  "羽根板を上下2分割": "Split rib top & bottom",
-  "(大型用)": "(for large)",
-  "⚠ 試験中: 分割部品の爪が現行のコマに嵌まりません(要修正)":
-    "⚠ Experimental: split-part tabs don't fit the current koma (needs fixing).",
   "この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます":
     "Up to {n} ribs at this opening/thickness (koma notches would overlap). Thinner boards allow more.",
   // ---- Paper template (cardboard) ----
@@ -103,7 +99,6 @@ const EN = {
   // ---- Summary ----
   "最大径": "Max diameter",
   "羽根板の全長": "Rib length",
-  " (2分割)": " (split)",
   "上下の開口(半径)": "Openings (radius)",
   // ---- CTA / export ----
   "STL 書き出し": "Export STL",
