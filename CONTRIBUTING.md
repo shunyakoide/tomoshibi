@@ -9,7 +9,7 @@ exists to protect that.
 
 ```bash
 npm install
-npm run dev        # Vite dev server with HMR (--host), default http://localhost:5173
+npm run dev        # Vite dev server with HMR (--host), http://localhost:8173 (strictPort)
 npm run build      # production build; must pass before merging
 ```
 
