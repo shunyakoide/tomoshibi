@@ -733,16 +733,13 @@ const RING_H = 2;      // hoop height (= Z extrusion, mm). A thin flat ring (wir
 // (diameter 0.6mm) was loose, so changed to 0.15 (diameter 0.3mm). It is fixed by the bamboo rib and
 // washi, so slightly tight is better.
 const RING_FIT = 0.15;
-// ---- Leg sockets on the bottom opening ring ----
-// The bottom ring also serves as the base of a 3-leg stand for the finished lantern. Inside the hoop,
-// three "onigiri" pads (rounded triangles) sit at 120°, each pointing its vertex toward the center,
-// and a leg rod is inserted into the bore at each pad's middle. The pad's outer (rounded) edge overlaps
-// the hoop's inner rim so the whole thing prints as one piece. Dimensions provisional.
-const LEG_N = 3;         // number of leg sockets (evenly spaced)
-const LEG_D = 6;         // leg rod diameter (mm)
-const TRI_R = 10;        // onigiri circumradius (corner distance from pad center, mm)
-const TRI_ROUND = 0.4;   // corner rounding as a fraction of the edge (0 = sharp, ~0.5 = very round)
-const LEG_OVERLAP = 0.6; // how far the pad's outer edge overlaps into the hoop rim (mm), for a joined look
+// Bottom-ring marker. The two rings are the same flat hoop in different sizes, and on a shape whose
+// openings are close (the sphere preset is ⌀60 vs ⌀56) they are easy to mix up once printed. One
+// small bump on the inner rim tells them apart at a glance, and only the bottom one carries it.
+// It reaches past the nominal opening by MARK_D - RING_FIT; that is intended, the bump sits in the
+// pasted layers at the rim. Don't "fix" it by moving the bump outward.
+const MARK_D = 1.5;                  // how far the bump reaches in from the inner rim (mm)
+const MARK_SPAN = (22 * Math.PI) / 180;  // angular width of the bump (rad)
 // The opening (= opening ring) radius. top=true for the top end, false for the bottom end. Uses
 // outerR's end value regardless of whether a neck exists.
 export function openingR(p, top) { return outerR(p, top ? 1 : 0); }
@@ -755,60 +752,30 @@ function circlePts(r, N, cx = 0, cy = 0) {
   return pts;
 }
 // A flat annulus (ring) extruded along Z, centered at (cx, cy). Independently watertight.
-function annulusGeo(rOuter, rInner, N, cx = 0, cy = 0, depth = RING_H) {
+// `mark` > 0 raises one bump of that depth on the INNER rim (a marker, not a feature — see MARK_D).
+function annulusGeo(rOuter, rInner, N, cx = 0, cy = 0, depth = RING_H, mark = 0) {
   const shape = new THREE.Shape(circlePts(rOuter, N, cx, cy));
-  shape.holes.push(new THREE.Path(circlePts(rInner, N, cx, cy).reverse())); // the hole is wound in reverse
-  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 1 });
-}
-// An "onigiri" pad: an equilateral triangle centered at (cx, cy), circumradius R, rotated by `rot`,
-// with a circular bore of radius `boreR` at the center. Extruded along Z. `t` is the corner rounding
-// as a fraction of the edge — a single number for all corners, or a per-corner [t0,t1,t2]; a corner
-// with t=0 stays sharp (used where the pad meets the ring). Independently watertight.
-function onigiriGeo(cx, cy, R, t, rot, boreR, depth) {
-  const tv = Array.isArray(t) ? t : [t, t, t];
-  const V = [0, 1, 2].map((k) => {
-    const a = rot + (k * 2 * Math.PI) / 3;
-    return new THREE.Vector2(cx + R * Math.cos(a), cy + R * Math.sin(a));
-  });
-  const lerp = (p, q, s) => new THREE.Vector2(p.x + (q.x - p.x) * s, p.y + (q.y - p.y) * s);
-  const shape = new THREE.Shape();
-  for (let i = 0; i < 3; i++) {
-    const cur = V[i], prev = V[(i + 2) % 3], next = V[(i + 1) % 3], ti = tv[i];
-    if (ti <= 0) {                     // sharp corner: go straight to the vertex
-      if (i === 0) shape.moveTo(cur.x, cur.y); else shape.lineTo(cur.x, cur.y);
-      continue;
-    }
-    const pIn = lerp(cur, prev, ti);   // arriving at the corner along the prev edge
-    const pOut = lerp(cur, next, ti);  // leaving the corner along the next edge
-    if (i === 0) shape.moveTo(pIn.x, pIn.y); else shape.lineTo(pIn.x, pIn.y);
-    shape.quadraticCurveTo(cur.x, cur.y, pOut.x, pOut.y); // round the corner (corner = control point)
+  // The bump is a dip in the hole's radius, so material grows inward. Shaped by a raised cosine so
+  // it leaves the rim tangentially: a step would put two near-coincident radii on the same scanline,
+  // which is the degeneracy that opens an edge (see cleanPoly / Y_STAGGER). It also prints without a
+  // sharp corner to peel. Sampled on the same N as the rim, so no point lands on top of another.
+  const hole = [];
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    const da = Math.abs(((a + Math.PI) % (Math.PI * 2)) - Math.PI);   // angular distance from a = 0
+    const r = rInner - (mark > 0 && da < MARK_SPAN ? mark * 0.5 * (1 + Math.cos((Math.PI * da) / MARK_SPAN)) : 0);
+    hole.push(new THREE.Vector2(cx + r * Math.cos(a), cy + r * Math.sin(a)));
   }
-  shape.closePath();
-  shape.holes.push(new THREE.Path(circlePts(boreR, 48, cx, cy).reverse())); // leg bore (reverse-wound)
-  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 4 });
+  shape.holes.push(new THREE.Path(hole.reverse()));   // the hole is wound in reverse
+  return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 1 });
 }
 export function ringGeometry(p, top) {
   const R = openingR(p, top);          // the opening's outer diameter = the rib's outer side (lamp body face)
   const inner = R + RING_FIT;          // inner diameter = opening outer diameter + clearance (the ring fits smoothly onto the outside of the opening)
   const outer = inner + RING_WALL;     // outward by the wall thickness. The bamboo rib winds around this outer edge
   const N = 96;
-  const hoop = annulusGeo(outer, inner, N);
-  if (top) return hoop;                // the top ring is a plain hoop
-  // Bottom ring = base of the 3-leg stand. Inside the hoop, three onigiri pads point their vertex
-  // toward the center; the opposite (rounded) edge overlaps the inner rim so it all prints as one piece.
-  const bore = LEG_D / 2 + RING_FIT;        // leg bore = leg rod + fit clearance
-  // Pad center: with the vertex pointing inward, the outward-facing edge's midpoint sits at Rc + R/2.
-  // Place it just inside the rim so that midpoint overlaps the hoop band by LEG_OVERLAP.
-  const Rc = inner + LEG_OVERLAP - TRI_R / 2;
-  const geos = [hoop];
-  for (let i = 0; i < LEG_N; i++) {
-    const a = (i / LEG_N) * Math.PI * 2;
-    const rot = a + Math.PI;                 // V[0] vertex points inward (toward the center)
-    // Round only the inner vertex; keep the two outer corners sharp where the pad meets the ring.
-    // Flat pad, same height as the hoop (RING_H).
-    geos.push(onigiriGeo(Rc * Math.cos(a), Rc * Math.sin(a), TRI_R, [TRI_ROUND, 0, 0], rot, bore, RING_H));
-  }
-  return mergeGeometries(geos.map((g) => (g.index ? g.toNonIndexed() : g)), false);
+  // Both rings are the same flat hoop; only the bottom one gets the marker bump (see MARK_D).
+  return annulusGeo(outer, inner, N, 0, 0, RING_H, top ? 0 : MARK_D);
 }
 
 // ============ Stand (simple insertion type) ============
