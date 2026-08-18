@@ -42,10 +42,10 @@ opening**. This app generates that mold as 3D-printable split parts.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173  (served with --host, so a phone on the
-                   # same Wi-Fi can open http://<your-computer-ip>:5173 )
+npm run dev        # http://localhost:8173  (served with --host, so a phone on the
+                   # same Wi-Fi can open http://<your-computer-ip>:8173 )
 npm run build      # production build into dist/
-npm run preview    # preview the built output locally
+npm run preview    # preview the built output on http://localhost:8174
 ```
 
 Requires Node.js 18+.
@@ -58,6 +58,7 @@ Requires Node.js 18+.
 - **Right panel** — pick a preset, then drag the section's control points to reshape; open the accordions (Frame, Bamboo, Print bed…) for finer settings.
 - **Preview** — drag to orbit, wheel / pinch to zoom.
 - **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `config.json` backup of your design. (STL compresses well: a default kit is about 190 KB zipped.)
+- **If you're lost** — a card on your first visit says what the object on screen actually is (the mold, not the lantern); the **?** in the panel header reopens it any time. The legend at the bottom-left of the section view redraws the ◇ marks themselves, and follows the edit mode you are in.
 
 ### From print to lantern
 
@@ -135,5 +136,6 @@ dev setup, the verification gates (`npm run check:manifold` / `check:hash` / `ch
 全パーツ水密（自動スイープで検証）。
 
 **使い方**: 上部タブで **断面/組立/印刷/点灯** を切替、右パネルで断面の制御点をドラッグして
-形を調整、印刷ビューから全パーツの STL（ZIP）を書き出し。作り方は上記「From print to
-lantern」を参照。ライセンスは [MIT](LICENSE)。
+形を調整、印刷ビューから全パーツの STL（ZIP）を書き出し。初回に出る案内カードは
+パネル右上の **?** でいつでも開き直せます。作り方は上記「From print to lantern」を参照。
+ライセンスは [MIT](LICENSE)。
