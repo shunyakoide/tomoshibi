@@ -62,7 +62,9 @@ const STEPS = [
 
 const POINTS = [
   "画面に映っているのは提灯そのものではなく、その上で組み立てる「型」です",
-  "3Dプリンタが無くても、段ボール用の原寸型紙を出せます",
+  // The cardboard route is marked beta wherever it is offered, and this card is where someone
+  // decides to take it — leaving it out here would sell the route without the caveat.
+  "3Dプリンタが無くても、段ボール用の原寸型紙を出せます(beta)",
   "和紙の型紙(先に切っておく用)は、どちらの出力にも付いてきます",
 ];
 
