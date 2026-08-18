@@ -348,7 +348,10 @@ export default function HarigataStudio() {
         <Toolbar undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo}
           onReset={resetAll} onExport={exportDesign} onImport={importDesign} />
 
-        <PresetChips active={p.shape} onPick={(pr) => {
+        {/* The lit chip is derived from p.pts inside PresetChips, so it goes dark as soon as the
+            curve is edited. p.shape is still written: it rides along in the exported design as a
+            note of which template it grew from, but nothing reads it back. */}
+        <PresetChips p={p} onPick={(pr) => {
           setSel(null);
           setP((o) => ({ ...o, shape: pr.key, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })) }));
         }} />
