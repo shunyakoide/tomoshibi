@@ -89,6 +89,14 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .seg:hover { border-color: var(--accent-45); }
 .seg[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
 .seg--lg { padding: 8px 4px; font-size: 12.5px; }   /* the print-mode toggle sits a little larger */
+/* Status marker on an option ("beta"). Outlined rather than filled so it reads as a note about the
+   option and not as a second thing to press, and it inherits currentColor so the pressed (filled
+   orange) state needs no separate rule. */
+.seg .badge {
+  margin-left: 5px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px;
+  font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; opacity: 0.72; vertical-align: 1px;
+}
 
 .cta {   /* full-width call to action at the foot of the panel */
   width: 100%; padding: 12px; border: none; border-radius: 10px; cursor: pointer;
