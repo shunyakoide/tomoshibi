@@ -57,7 +57,7 @@ Requires Node.js 18+.
 - **Top tabs** — switch between **Section / Assembly / Print / Lit** views.
 - **Right panel** — pick a preset, then drag the section's control points to reshape; open the accordions (Frame, Bamboo, Print bed…) for finer settings.
 - **Preview** — drag to orbit, wheel / pinch to zoom.
-- **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `config.json` backup of your design.
+- **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `config.json` backup of your design. (STL compresses well: a default kit is about 190 KB zipped.)
 
 ### From print to lantern
 
@@ -94,9 +94,10 @@ labels are English, since a self-contained PDF can't carry a Japanese font.
 
 ## Tech stack
 
-Minimal by design — Vite + React 18 + three.js (plain JS/JSX, no TypeScript). The
-geometry is pure functions returning three.js `Shape`/`ExtrudeGeometry`, shared by both
-the 2D section drawing and the STL export, so what you see is exactly what you print.
+Minimal by design — Vite + React 19 + three.js, plus fflate for the export ZIP (plain
+JS/JSX, no TypeScript). The geometry is pure functions returning three.js
+`Shape`/`ExtrudeGeometry`, shared by both the 2D section drawing and the STL export, so
+what you see is exactly what you print.
 
 ## Contributing
 
