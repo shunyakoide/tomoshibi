@@ -16,10 +16,12 @@
  * ============================================================================
  */
 import React, { useEffect, useRef } from "react";
+import { UI as ui, accent, sans, useT } from "./ui/theme.js";
 
 // The three steps, drawn rather than described: a section with a ◇ handle, the output sheet/part,
 // and the finished lantern. Same accent as the app so the icons read as "this app's" marks.
-function StepIcon({ kind, accent, faint }) {
+function StepIcon({ kind }) {
+  const faint = ui.faint;
   return (
     <svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true" style={{ display: "block" }}>
       {kind === "section" && (
@@ -64,7 +66,8 @@ const POINTS = [
   "和紙の型紙(先に切っておく用)は、どちらの出力にも付いてきます",
 ];
 
-export default function Welcome({ onClose, accent, ui, sans, t }) {
+export default function Welcome({ onClose }) {
+  const t = useT();
   const btnRef = useRef(null);
 
   // Esc closes, and focus starts on the (only) button so the keyboard isn't stranded behind the scrim.
@@ -104,7 +107,7 @@ export default function Welcome({ onClose, accent, ui, sans, t }) {
                 textAlign: "center", background: ui.card, border: `1px solid ${ui.cardEdge}`,
                 borderRadius: 12, padding: "13px 8px 12px",
               }}>
-                <StepIcon kind={kind} accent={accent} faint={ui.faint} />
+                <StepIcon kind={kind} />
                 <div style={{ fontSize: 12.5, fontWeight: 700 }}>{t(title)}</div>
                 <div style={{ fontSize: 10.5, color: ui.sub, lineHeight: 1.45 }}>{t(caption)}</div>
               </div>
