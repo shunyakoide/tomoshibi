@@ -26,8 +26,8 @@ body {
 
 /* ---- range slider ----
    --pct is set inline per row (how far along the value sits); the colours come from the palette.
-   The thumb keeps its own #e8590c: it has always been a slightly different orange from the filled
-   track, and matching them would be a visual change rather than a refactor. */
+   Thumb and filled track are both --accent, so changing the accent moves the whole control at once
+   (the thumb used to carry a hardcoded, slightly brighter orange of its own). */
 input[type="range"] {
   -webkit-appearance: none; appearance: none; height: 24px; background: transparent;
   touch-action: pan-x;   /* let the browser drive horizontal thumb drags despite touch-action:none on body */
@@ -38,13 +38,13 @@ input[type="range"]::-webkit-slider-runnable-track {
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin-top: -7px;
-  border-radius: 50%; background: #e8590c; border: 2px solid #fff;
+  border-radius: 50%; background: var(--accent); border: 2px solid #fff;
   box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4); cursor: pointer;
 }
 input[type="range"]::-moz-range-track { height: 5px; border-radius: 3px; background: #ccd2da; }
 input[type="range"]::-moz-range-progress { height: 5px; border-radius: 3px; background: var(--accent); }
 input[type="range"]::-moz-range-thumb {
-  width: 18px; height: 18px; border-radius: 50%; background: #e8590c; border: 2px solid #fff;
+  width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 2px solid #fff;
   box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4); cursor: pointer;
 }
 
