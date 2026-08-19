@@ -5,7 +5,7 @@
  * This project has no test runner. Correctness is guaranteed by "the build
  * passes" + "the STL is watertight (a closed manifold)". This script sweeps a
  * representative parameter range and checks that the geometry of every part
- * (rib / koma / stand / base board / 2-way split) is watertight.
+ * (rib / koma / stand / base board / opening rings) is watertight.
  *
  * Criteria (per CLAUDE.md "STL watertightness"):
  *   - Undirected edge share count = 2 is closed (OK). 1 = open edge,
@@ -83,7 +83,7 @@ for (const preset of PRESETS)
               const boards = Math.min(reqBoards, G.maxBoards(base));
               if (boards < reqBoards) clamped++;
               const p = { ...base, boards };
-              if (G.komaStop2D(p)) stopOn++; else stopOff++;
+              if (G.tabDented(p)) stopOn++; else stopOff++;   // the koma stop = the tab-tip dent
               for (const r of checkParts(p)) {
                 total++;
                 if (!r.ok) {
@@ -94,7 +94,7 @@ for (const preset of PRESETS)
             }
 
 console.log(`\n=== ${total} checks, ${fail} FAIL ===`);
-console.log(`komaStop2D: generated ${stopOn} / skipped (no room) ${stopOff}`);
+console.log(`tab-tip dent (koma stop): cut ${stopOn} / plain tab, no room ${stopOff}`);
 console.log(`combos where maxBoards clamped the count: ${clamped} (= invalid counts the UI cannot make)`);
 
 // ============ Bézier tangent handle watertightness sweep ============
