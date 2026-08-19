@@ -45,6 +45,7 @@ import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, SegButton, CTA, No
 import PresetChips from "./ui/PresetChips.jsx";
 import PointCard from "./ui/PointCard.jsx";
 import Toolbar from "./ui/Toolbar.jsx";
+import Logo from "./ui/Logo.jsx";
 
 const PANEL = 336;          // inspector width (px)
 const BED_PRESETS = [180, 220, 250, 256, 300, 350];
@@ -314,16 +315,15 @@ export default function HarigataStudio() {
       borderTop: narrow ? `1px solid ${UI.edge}` : "none",
     }}>
       {/* Header */}
-      <div style={{ padding: "20px 20px 14px", display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-        <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "0.04em", color: UI.head }}>
-          {t("張型")} <span style={{ fontSize: 11.5, fontWeight: 400, color: UI.faint }}>{t("スタジオ")}</span>
-        </div>
+      {/* alignItems is center, not baseline: the wordmark is an outline, and an SVG's baseline is
+          its bottom edge, which would hang the buttons off the tagline instead of the letters. */}
+      <div style={{ padding: "20px 20px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Logo variant="full" height={44} style={{ color: UI.head }} />
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* Reopens the onboarding card. Once dismissed it never auto-opens again, so this is the
               only way back to "what is this app" — keep it next to the language toggle. */}
           <button className="icon-btn" onClick={() => setWelcome(true)} title={t("はじめかた")} aria-label={t("はじめかた")}>?</button>
           <button className="lang-btn" onClick={toggleLang} title="Language / 言語">{lang === "ja" ? "EN" : "日本語"}</button>
-          <div style={{ fontFamily: mono, fontSize: 10.5, letterSpacing: "0.12em", color: UI.faintest }}>LAMP KIT</div>
         </div>
       </div>
 
