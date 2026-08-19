@@ -395,46 +395,10 @@ export function tabDented(p) { return !p.noTabDent && p.tabLen > TAB_DENT_H + 1 
 function tabTipRi(p) { return innerRi(p) + (tabDented(p) ? TAB_DENT_W : 0); }
 // The radius of the koma's notch bottom (= inside this is the koma's solid part). Relieved by 0.5
 // from the tab tip inner radius (tabTipRi). With a dent, the notch is shallower and its bottom sits
-// at the dent radius; the tab base (at innerRi, further in) then catches the koma hub. Shared by
-// komaShape (which cuts the notch) and komaStop2D.
+// at the dent radius; the tab base (at innerRi, further in) then catches the koma hub. This IS the
+// koma stop: ribOutline2D cuts the dent and komaShape cuts the notch, both from tabTipRi, so the
+// catch cannot drift between the two parts.
 export function notchR(p) { return Math.max(1, tabTipRi(p) - 0.5); }
-
-// [Upper koma inner stopper] A shelf on the tab's inner edge that stops the upper koma from
-// entering toward the lamp body (inward) side.
-// ・The koma is pulled out "outward (toward the tab tip)" after the work, so the shelf sits only on
-//   the koma's inner side and does not clamp it top and bottom → no need to ride over it; insertion
-//   and removal stay free, and only inward slippage is stopped.
-// ・Shelf height yShelf = height + tabLen - komaT = the position of the "koma inner face" when the
-//   koma is seated to the tab tip. This matches the position assumed by
-//   standSlotSep = height + 2*tabLen - komaT, so it merely guarantees by shape a position that was
-//   previously left to operation ("push it in to the tip") ⇒ the stand does not move.
-// ・The shelf projects inward past notchR to support the underside of the koma's solid part. But
-//   if it projects too far, the shelves of adjacent ribs interfere near the center, so a minimum
-//   radius is applied from the circumferential clearance.
-// ・When there is no room (short tab / crowded center with many teeth), returns null = no shelf as before.
-const KOMA_STOP_W = 3;     // shelf projection target (mm)
-const KOMA_STOP_MIN = 0.8; // do not create if the projection is under this
-// opts is a hook to avoid changing the 3D-print defaults (when omitted, completely identical to
-// before). Only the paper template (cardboard) relaxes this. With thick material the tab tip is
-// pushed back out to ribCoreFloor and nearly coincides with the shelf's interference limit rMin
-// (the difference is determined by "MIN_WALL 1.6 − shelf clearance gap" and does not depend on
-// material thickness), so with the default values, at ≥3mm thickness there is always "no room" =
-// the shelf vanishes. Cardboard is hand-cut and there is no real harm if adjacent shelves touch,
-// so the shelf-to-shelf clearance gap and adoption lower limit min are reduced to push the shelf
-// out to the full room at the center.
-//   w   = shelf projection target (mm)
-//   gap = circumferential clearance (mm) from the adjacent rib's shelf. Determines rMin.
-//   min = do not create a shelf if the projection is under this
-export function komaStop2D(p, opts = {}) {
-  const { w = KOMA_STOP_W, gap = 1.0, min = KOMA_STOP_MIN } = opts;
-  const yShelf = p.height + p.tabLen - p.komaT;
-  if (yShelf - p.height < 1) return null;                     // tab too short, no room for a shelf
-  const nR = notchR(p);
-  const rMin = ((p.boardT + gap) * p.boards) / (2 * Math.PI); // minimum radius that doesn't interfere with the adjacent rib
-  const Rd = Math.max(rMin, nR - w);
-  if (nR - Rd < min) return null;                             // cannot achieve the projection
-  return { yShelf, Rd };
-}
 
 // [Rib inner-edge curve = banana (crescent) shape] To make the rib easier to pull out from the
 // opening after drying, the inner edge is also curved along the outer edge, narrowing at the

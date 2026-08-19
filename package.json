@@ -28,7 +28,8 @@
     "check:manifold": "node scripts/manifold.mjs",
     "check:hash": "node scripts/hash.mjs",
     "check:persist": "node scripts/persist.test.mjs",
-    "check:paper": "node scripts/paper.test.mjs"
+    "check:paper": "node scripts/paper.test.mjs",
+    "check:i18n": "node scripts/i18n.test.mjs"
   },
   "dependencies": {
     "fflate": "^0.8.3",
