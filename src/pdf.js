@@ -114,7 +114,7 @@ export function buildPDF(pages, page, style, title = "") {
   }
   objs[catalog - 1] = `<</Type/Catalog/Pages ${pagesObj} 0 R>>`;
   objs[pagesObj - 1] = `<</Type/Pages/Kids[${kids.map((k) => `${k} 0 R`).join(" ")}]/Count ${kids.length}>>`;
-  const info = add(`<</Producer(Harigata Studio)/Title(${esc(winAnsi(title))})>>`);
+  const info = add(`<</Producer(Tomoshibi)/Title(${esc(winAnsi(title))})>>`);
 
   const chunks = [];
   let len = 0;

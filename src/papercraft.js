@@ -389,10 +389,10 @@ function saveHtml() {
 export function paperHTML(p, matT, page = A4, t = tid, washiOpts = {}) {
   const { parts, pk, clamped, nMax, wall } = paperParts(p, matT, t, washiOpts);
   return pagesHTML(parts, page, t, {
-    title: t("張型スタジオ 型紙 {name} 原寸", { name: page.name }),
+    title: t("灯 TOMOSHIBI 型紙 {name} 原寸", { name: page.name }),
     file: "harigata_katagami",
     head: (pages) => ({
-      h1: t("張型スタジオ — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)", { name: page.name, pages }),
+      h1: t("灯 TOMOSHIBI — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)", { name: page.name, pages }),
       // Screen-only (the .head block is display:none when printing), so saying it here costs the
       // printed sheet nothing while still reaching the person about to cut a sheet of cardboard.
       body: `<p class="beta">${t("<b>段ボール版は開発中(beta)です。</b> 寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。切る前に 50mm スケールと材料の実測厚を確認してください。")}</p>`
@@ -441,5 +441,5 @@ export function washiParts(p, opts = {}, t = tid) {
  */
 export function washiPDF(p, opts = {}, page = A4, t = tid) {
   const { parts } = washiParts(p, opts, t);
-  return pagesPDF(parts, page, t, t("張型スタジオ 和紙型紙 {name} 原寸", { name: page.name }));
+  return pagesPDF(parts, page, t, t("TOMOSHIBI 和紙型紙 {name} 原寸", { name: page.name }));
 }

@@ -17,6 +17,7 @@
  */
 import React, { useEffect, useRef } from "react";
 import { UI as ui, accent, accentA, useT } from "./ui/theme.js";
+import Logo from "./ui/Logo.jsx";
 
 // The three steps, drawn rather than described: a section with a ◇ handle, the output sheet/part,
 // and the finished lantern. Same accent as the app so the icons read as "this app's" marks.
@@ -94,10 +95,8 @@ export default function Welcome({ onClose }) {
           borderRadius: 16, padding: "26px 26px 22px", boxShadow: "0 18px 50px rgba(43,36,26,0.3)",
           border: `1px solid ${ui.edge}`,
         }}>
-        <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "0.04em", color: ui.head }}>
-          {t("張型")} <span style={{ fontSize: 12, fontWeight: 400, color: ui.faint }}>{t("スタジオ")}</span>
-        </div>
-        <div style={{ fontSize: 13, color: ui.sub, marginTop: 5 }}>{t("和紙提灯の「張型」をつくる")}</div>
+        <Logo variant="full" height={62} style={{ color: ui.head }} />
+        <div style={{ fontSize: 13, color: ui.sub, marginTop: 8 }}>{t("和紙提灯の「張型」をつくる")}</div>
 
         {/* The three steps, with arrows between them: design → output → build by hand */}
         <div style={{ display: "flex", alignItems: "stretch", gap: 4, margin: "20px 0 18px" }}>
