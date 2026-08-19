@@ -1,0 +1,53 @@
+# Brand assets — 灯 TOMOSHIBI
+
+The mark is the single kanji **灯** ("a light / a lamp") — the same character that sits inside
+提灯 (chōchin). The romaji name is **Tomoshibi**; the tagline is **WASHI LANTERN MOLDS**.
+
+## Files (`public/`)
+
+| File | Use |
+| --- | --- |
+| `logo-tomoshibi.svg` | **Primary lockup** — ink mark and wordmark, accent tagline. Light grounds. |
+| `logo-tomoshibi-inverse.svg` | Same, for dark grounds (the tagline orange is lightened to `#E8834A`; the base accent sits too close to the ink brown to read on it). |
+| `logo-tomoshibi-mono.svg` / `-mono-inverse.svg` | Single-colour lockup — print, embroidery, anywhere the accent cannot be reproduced. |
+| `logo-tomoshibi-compact.svg` / `-compact-inverse.svg` | Mark + wordmark, no tagline. For headers and narrow bars. |
+| `logo-tomoshibi-mark.svg` | Mark alone, 64×64, transparent. |
+| `favicon.svg` | **Primary favicon** — ink 灯 on a washi square. |
+| `favicon-transparent.svg` / `-dark.svg` / `-accent.svg` | Alternates. The dark and accent versions carry further at 16 px if the washi square ever proves too quiet in a tab. |
+| `favicon-32.png`, `favicon-64.png`, `favicon-180-apple-touch.png`, `icon-512.png` | Raster fallbacks and app icons. |
+| `mark-512-transparent.png` | Mark alone, transparent, for slide decks and README headers. |
+
+## Colours
+
+Taken from `src/ui/theme.js`, not invented here — the logo and the app share one palette.
+
+| Token | Hex | Role |
+| --- | --- | --- |
+| ink | `#3b342b` | Mark and wordmark |
+| washi | `#fbf8f1` | Primary ground |
+| accent | `#D95B18` | Tagline (`accent` in `theme.js` — "the orange of washi lamplight") |
+| accent (dark ground) | `#E8834A` | Tagline on ink |
+| muted | `#8a7c66` | Tagline in the mono lockup |
+
+## Typography — and why every glyph is an outline
+
+Nothing in these files is live `<text>`. Every glyph is a converted path, so the marks render
+identically on a machine that has none of the fonts installed. That matters more than usual here:
+the kanji is set in a webfont that ships on no operating system, so a `<text>` version would
+silently fall back to whatever mincho the viewer happens to have.
+
+| Element | Source | Licence |
+| --- | --- | --- |
+| 灯 | Shippori Mincho 700 | SIL OFL 1.1 |
+| `TOMOSHIBI` | IBM Plex Mono 500 | SIL OFL 1.1 |
+| tagline | IBM Plex Mono 400 | SIL OFL 1.1 |
+
+Both families are OFL, which permits deriving artwork from their outlines. IBM Plex is already the
+app's typeface (`src/ui/theme.js`), so the wordmark and the UI are the same voice.
+
+## Regenerating
+
+The marks are generated, not hand-drawn: glyph outlines are pulled from the OFL fonts with
+`fontTools` and laid out by script. Re-run that script rather than editing the SVG paths — the
+letterspacing and the optical centring of the wordmark against the kanji's ink box are computed,
+and hand-nudging one file puts it out of step with the other eleven.
