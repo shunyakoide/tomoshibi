@@ -51,7 +51,6 @@ const EN = {
   "形": "Shape",
   "ひな形 · 選んでから断面で調整": "Templates · pick one, then edit in the section view",
   "シルエット": "Silhouette",
-  "左右にドラッグで調整": "Drag left/right to adjust",
   "ドラッグ / 値クリックで入力": "Drag or click the value to type",
   "骨組み": "Frame",
   "印刷・書き出し": "Print / export",
@@ -80,8 +79,6 @@ const EN = {
   "印刷する羽根板": "Ribs to print",
   " 枚": " pcs",
   // ---- Checkboxes / neck ----
-  "下の首": "Bottom neck",
-  "上の首": "Top neck",
   "首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ":
     "Drag the outermost ◇ in the section view (up/down = neck height, left/right = flare).",
   "この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます":
@@ -91,7 +88,6 @@ const EN = {
   "A4 原寸 · beta": "A4 1:1 · beta",
   "この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。":
     "This output is still in development. Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Measure your material's real thickness, and check the printed 50 mm scale bar with a ruler.",
-  "A4 原寸": "A4 · 1:1",
   "材料の厚み": "Material thickness",
   "型紙を開く (A4 原寸)": "Open template (A4, 1:1)",
   "新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。和紙の型紙も一緒に出ます。":
@@ -114,8 +110,6 @@ const EN = {
   "⚠ 3Dプレビューを初期化できませんでした": "⚠ Could not initialize the 3D preview",
   "お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。":
     "WebGL may be disabled in your browser. STL generation and download still work.",
-  "羽根板 {n}mm": "Rib {n}mm",
-  "連結板 {n}mm": "Connector {n}mm",
   "{name} {n}mm": "{name} {n}mm",
   "柱": "Post",
   "連結板": "Connector",
@@ -166,16 +160,12 @@ const EN = {
   "枚(各1枚)": " (one file each)",
   // ---- Papercraft (cardboard) ----
   "コマ": "Koma",
-  "スタンド帯": "Stand strip",
-  "下スロット": "bottom slot",
-  "上スロット": "top slot",
   "▼ここから下は次のページと重なります(のりしろ)": "▼ From here down overlaps the next page (glue tab)",
   // Kept short: it shares the bottom band with the right-aligned footer, and the PDF draws the
   // English text at the same size (a longer line collides with the footer).
   "50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)": "50mm ← check with a ruler (print at 100%)",
   "張型スタジオ 型紙 {name} 原寸": "Harigata Studio papercraft {name} (full scale)",
   "⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。": "⚠ The koma has <b>only {wall}mm of wall between grooves</b> (groove width matches the material at {matT}mm). That's thin enough to tear when hand-cut. To thicken it: <b>reduce the number of ribs</b>, <b>use thinner material</b>, or in the section view <b>widen the opening to make the koma larger</b>.",
-  "⚠ 爪の長さ({tabLen}mm)が材料厚({matT}mm)に対して短いため、<b>上端の爪のストッパ(段)が作れませんでした</b>。コマが内側へずれ落ちるのを形で止められません。「爪の長さ」を材料厚の 2倍以上({min}mm 程度)にすると段が付きます。": "⚠ The tab length ({tabLen}mm) is short for the material thickness ({matT}mm), so <b>the stopper (shelf) on the top tab could not be made</b>. Nothing in the shape stops the koma from sliding inward. Set \"Tab length\" to at least twice the material thickness (around {min}mm) and the shelf appears.",
   "⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。": "⚠ At {matT}mm material thickness, at most {nMax} ribs fit (the grooves widen and overlap at the koma's center). Exported with {boards} reduced to <b>{nMax} ribs</b>. To keep the count, use thinner material.",
   "<b>段ボール版は開発中(beta)です。</b> 寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。切る前に 50mm スケールと材料の実測厚を確認してください。":
     "<b>The cardboard route is still in development (beta).</b> Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Before you cut, check the 50 mm scale bar and your material's real thickness.",
@@ -189,9 +179,15 @@ const EN = {
   "紙を段ボールに貼り、<b>実線だけ</b>を切り抜きます。<b>破線の目盛は切りません</b> — 竹ひごを巻く位置の印です。": "Glue the paper to cardboard and cut out <b>only the solid lines</b>. <b>Do not cut the dashed ticks</b> — they mark where the bamboo ribs wind.",
   "段ボールの<b>波の向き(目)は羽根板の長手方向</b>に合わせると折れにくくなります。": "Aligning the cardboard's <b>flute direction with the rib's long axis</b> makes it less likely to fold.",
   "材料厚 <code>{matT}mm</code> 前提でコマの溝の幅を決めています。実測厚と違うと嵌まりません(緩い/入らない)。": "The koma notch width assumes a material thickness of <code>{matT}mm</code>. If your measured thickness differs, it won't fit (too loose / won't go in).",
+  "羽根板は各枚で竹ひごの巻き位置が異なるため<b>全{boards}枚</b>を掲載しています(番号順に使用)。":
+    "Each rib winds its bamboo at a different height, so <b>all {boards} of them</b> are laid out here (use them in numbered order).",
+  "羽根板は全て<b>同一形状</b>のため型紙は1枚だけ掲載。同じものを<b>{boards}枚</b>切り出してください。":
+    "The ribs are <b>all the same shape</b>, so only one is laid out. Cut <b>{boards} copies</b> of it.",
+  "最後の<b>「和紙」の型紙</b>は段ボールではなく<b>和紙を切る</b>ためのものです。羽根板の間1面分なので、同じものを<b>{boards}枚</b>。和紙は薄いので<b>下に敷いて写して</b>から切ります(貼り付けない)。":
+    "The last sheet, the <b>washi template</b>, is not for cardboard — it is for <b>cutting the paper skin</b>. It covers one rib-to-rib panel, so cut <b>{boards} copies</b>. Washi is translucent, so <b>slip it underneath and trace it</b> (do not glue it on).",
+  "組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます(段ボール版は強度優先で爪先の凹みなし=まっすぐな爪)。差し込みが緩ければ接着してください。":
+    "Assembly: push the rib tabs radially into the two koma (the cardboard version leaves the tab tip plain — no dent — to keep it strong). Glue them if they seat loosely.",
   "コマ2枚は<b>同一形状</b>です(上下で同じものを使います)。": "The two koma are <b>identical</b> (use the same one top and bottom).",
-  "組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます。上端の爪の内側にある<b>段(ストッパ)</b>が、上のコマが内側へ入り込むのを止めます。差し込みが緩ければ接着してください。": "Assembly: plug the rib tabs radially into the two koma. The <b>shelf (stopper)</b> on the inner side of the top tab stops the top koma from sliding inward. If the fit is loose, glue it.",
-  "<b>スタンド(帯2枚)</b>: 中央のスロットを噛み合わせて<b>X字に立て</b>ます(一方は上から、一方は下からスロットを切ってあるので直交して組めます)。上辺のV字に<b>下のコマの縁を載せる</b>と、型が立って腹(最大径)が宙に浮き、竹ひごや和紙の作業が全周からできます。ぐらつく場合は接着してください。": "<b>Stand (two strips)</b>: interlock the central slots to <b>stand them in an X</b> (one slot is cut from the top, the other from the bottom, so they cross). Rest the <b>bottom koma's rim</b> in the V-notches on the top edges; the mold then stands with its belly (max diameter) floating free, so you can work the bamboo and washi all the way around. If it wobbles, glue it.",
   "火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。": "Body height {height}mm / {boards} ribs / bamboo pitch {pitch}mm — this band is on-screen only and is not printed.",
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
@@ -202,24 +198,6 @@ const EN = {
   "貼る前に和紙を切るための原寸型紙です。STL の ZIP と段ボールの型紙に同梱されます。":
     "A full-scale template for cutting the washi before you paste it. It ships inside the STL kit ZIP and with the cardboard template.",
   "張型スタジオ 和紙型紙 {name} 原寸": "Harigata Studio washi template {name} (full scale)",
-  "張型スタジオ — 和紙の型紙({name} 原寸 / 全 {pages} ページ)": "Harigata Studio — washi template ({name} full scale / {pages} pages)",
-  "⚠ 1面の幅 {w}mm が用紙({name} 幅 {cw}mm)に収まりません。<b>羽根板の枚数を増やす</b>と1面が細くなります。":
-    "⚠ A panel is {w}mm wide and does not fit the paper ({name} is {cw}mm wide). <b>Increasing the rib count</b> makes each panel narrower.",
-  "和紙は薄いので、<b>この型紙を和紙の下に敷いて写して</b>から切ります(貼り付けないでください)。<b>実線だけ</b>が切り線です。":
-    "Washi is translucent, so <b>slip this template under the washi and trace it</b> before cutting (do not glue it on). <b>Only the solid lines</b> are cut lines.",
-  "<b>1面 = 羽根板と羽根板の間</b>の1枚です。同じものを<b>{sheets}枚</b>切り出してください(全ての面で同じ形です)。":
-    "<b>One panel = the bay between two ribs.</b> Cut <b>{sheets}</b> identical sheets (every bay is the same shape).",
-  "縦の破線が<b>羽根板の位置</b>です。左右にはみ出した <b>{side}mm がのりしろ</b>で、隣の面と重ねて貼ります。":
-    "The vertical dashed lines are <b>where the ribs sit</b>. The <b>{side}mm outside them is overlap</b> — lap it over the neighbouring panel.",
-  "上下の横破線が<b>開口の線</b>です。その外側の <b>{end}mm は被せ代</b>で、口輪に巻き込んで留めます。":
-    "The horizontal dashed lines are <b>the openings</b>. The <b>{end}mm beyond them is cover</b> — wrap it over the opening ring.",
-  "上下の端が<b>開口の線</b>です(被せ代なし)。": "The top and bottom edges are <b>the openings</b> (no cover allowance).",
-  "横向きの短い破線は<b>竹ひごの位置</b>です(切りません)。貼るときの高さ合わせに使えます。":
-    "The short horizontal dashes mark <b>the bamboo ribs</b> (do not cut). Use them to line the panel up vertically.",
-  "紙の縦は火袋の高さ({height}mm)ではなく<b>曲面に沿った長さ {arc}mm</b> です。まっすぐ測った長さで切ると足りません。":
-    "The sheet's length is <b>{arc}mm measured along the curve</b>, not the body height ({height}mm). Cut it to the straight height and it comes up short.",
-  "1面 {w}×{hgt}mm / 全{sheets}枚 — 曲面を平面に開くため、傾斜の急な所で最大 {pct}% ほど紙が余ります(湿らせて貼れば馴染みます。枚数を増やすと小さくなります)。この帯は画面表示だけで、印刷はされません。":
-    "Panel {w}×{hgt}mm / {sheets} sheets — flattening a curved surface leaves up to about {pct}% slack where the profile is steepest (damp washi takes it up; more ribs reduce it). This band is on-screen only and is not printed.",
 };
 
 // Return the translation function for language `lang`. t(key, params?): for English, look up EN
