@@ -29,7 +29,8 @@
     "check:hash": "node scripts/hash.mjs",
     "check:persist": "node scripts/persist.test.mjs",
     "check:paper": "node scripts/paper.test.mjs",
-    "check:i18n": "node scripts/i18n.test.mjs"
+    "check:i18n": "node scripts/i18n.test.mjs",
+    "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
     "fflate": "^0.8.3",
@@ -39,6 +40,8 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.5",
+    "eslint": "^10.8.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "vite": "^8.2.1"
   }
 }
