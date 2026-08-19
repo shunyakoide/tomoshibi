@@ -48,7 +48,8 @@ npm run build      # production build into dist/
 npm run preview    # preview the built output on http://localhost:8174
 ```
 
-Requires Node.js 18+.
+Requires **Node.js 20.19+** (or 22.13+, or 24+). Vite 8 and ESLint 10 both refuse
+anything older, so on Node 18 the install fails rather than degrading.
 
 ---
 
