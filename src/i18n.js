@@ -22,8 +22,6 @@ const EN = {
   "印刷": "Print",
   "点灯": "Lit",
   // ---- Header ----
-  "張型": "Harigata",
-  "スタジオ": "Studio",
   // ---- Welcome / onboarding (first run, reopened from the "?" in the header) ----
   "はじめかた": "Getting started",
   "和紙提灯の「張型」をつくる": "Design the forming mold for a washi paper lantern",
@@ -164,12 +162,12 @@ const EN = {
   // Kept short: it shares the bottom band with the right-aligned footer, and the PDF draws the
   // English text at the same size (a longer line collides with the footer).
   "50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)": "50mm ← check with a ruler (print at 100%)",
-  "張型スタジオ 型紙 {name} 原寸": "Harigata Studio papercraft {name} (full scale)",
+  "灯 TOMOSHIBI 型紙 {name} 原寸": "TOMOSHIBI papercraft {name} (full scale)",
   "⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。": "⚠ The koma has <b>only {wall}mm of wall between grooves</b> (groove width matches the material at {matT}mm). That's thin enough to tear when hand-cut. To thicken it: <b>reduce the number of ribs</b>, <b>use thinner material</b>, or in the section view <b>widen the opening to make the koma larger</b>.",
   "⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。": "⚠ At {matT}mm material thickness, at most {nMax} ribs fit (the grooves widen and overlap at the koma's center). Exported with {boards} reduced to <b>{nMax} ribs</b>. To keep the count, use thinner material.",
   "<b>段ボール版は開発中(beta)です。</b> 寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。切る前に 50mm スケールと材料の実測厚を確認してください。":
     "<b>The cardboard route is still in development (beta).</b> Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Before you cut, check the 50 mm scale bar and your material's real thickness.",
-  "張型スタジオ — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)": "Harigata Studio — cardboard papercraft ({name} full scale / {pages} pages)",
+  "灯 TOMOSHIBI — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)": "TOMOSHIBI — cardboard papercraft ({name} full scale / {pages} pages)",
   "印刷 / PDFで保存": "Print / Save as PDF",
   "HTMLで保存": "Save as HTML",
   "PDF が欲しいときは、印刷ダイアログの<b>「送信先」を「PDFに保存」</b>にしてください。": "For a PDF, set the print dialog's <b>Destination to \"Save as PDF\"</b>.",
@@ -197,7 +195,7 @@ const EN = {
   "1面のサイズ": "Panel size",
   "貼る前に和紙を切るための原寸型紙です。STL の ZIP と段ボールの型紙に同梱されます。":
     "A full-scale template for cutting the washi before you paste it. It ships inside the STL kit ZIP and with the cardboard template.",
-  "張型スタジオ 和紙型紙 {name} 原寸": "Harigata Studio washi template {name} (full scale)",
+  "TOMOSHIBI 和紙型紙 {name} 原寸": "TOMOSHIBI washi template {name} (full scale)",
 };
 
 // Return the translation function for language `lang`. t(key, params?): for English, look up EN

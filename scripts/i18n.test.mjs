@@ -45,6 +45,7 @@ const JP = /[぀-ヿ㐀-鿿]/;   // kana + CJK ideographs
 const ALLOW = new Set([
   "Language / 言語",   // the language toggle's tooltip: shown in both languages at once, by design
   "日本語",             // the toggle's own label — it names the language it switches TO
+  "灯 Tomoshibi",      // the logo's aria-label: a proper noun, so it is the same in both languages
 ]);
 
 // ---- Source scanning ----------------------------------------------------------------------
