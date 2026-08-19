@@ -48,7 +48,8 @@ npm run build      # production build into dist/
 npm run preview    # preview the built output on http://localhost:8174
 ```
 
-Requires Node.js 18+.
+Requires **Node.js 20.19+** (or 22.13+, or 24+). Vite 8 and ESLint 10 both refuse
+anything older, so on Node 18 the install fails rather than degrading.
 
 ---
 
@@ -113,8 +114,9 @@ what you see is exactly what you print.
 ## Contributing
 
 Geometry changes must stay **watertight**. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
-dev setup, the verification gates (`npm run check:manifold` / `check:hash` / `check:persist`
-/ `check:paper`), and the design invariants to preserve.
+dev setup, the verification gates (`npm run lint` / `check:manifold` / `check:hash` /
+`check:persist` / `check:paper` / `check:i18n`), and the design invariants to preserve.
+CI runs them on every push and pull request.
 
 ## License
 
