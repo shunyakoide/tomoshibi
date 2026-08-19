@@ -13,9 +13,15 @@ npm run dev        # Vite dev server with HMR (--host), http://localhost:8173 (s
 npm run build      # production build; must pass before merging
 ```
 
-Node.js 18+ is required. Stack: Vite 7 + React 18 + three.js 0.169 (plain JS/JSX, no
-TypeScript). Dependencies are intentionally minimal — please don't add new ones without
-a strong reason.
+**Node.js 20.19+** is required (or 22.13+, or 24+) — Vite 8 and ESLint 10 both refuse
+anything older, so an outdated Node fails at `npm install` rather than at build time.
+`package.json`'s `engines` field states the same range.
+
+Stack: Vite 8 + React 19 + three.js r185, plus fflate for the export ZIP (plain JS/JSX,
+no TypeScript). Four runtime dependencies and three dev ones — that is deliberate, so
+please don't add another without a strong reason. The bar it has to clear: `pdf.js` is
+hand-written because a PDF library costs hundreds of kB for a handful of vector ops,
+while `fflate` was worth it at 9.5 kB raw for DEFLATE (a kit ZIP goes 1.0 MB → 0.19 MB).
 
 ## Verification gates
 

@@ -5,6 +5,9 @@
   "type": "module",
   "description": "Browser generator for the 3D-printable forming mold used to build washi paper lanterns (paper lamps).",
   "license": "MIT",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24"
+  },
   "author": "Shunya Koide",
   "keywords": [
     "3d-printing",
