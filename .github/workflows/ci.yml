@@ -1,0 +1,58 @@
+# Correctness in this project is not "the tests pass" — it is "every exported part is a closed
+# manifold" and "the printed page is 1:1". Those gates already existed as npm scripts; CI is what
+# makes them binding rather than a request in CONTRIBUTING.md.
+#
+# Two jobs, not one, so the 2-minute geometry sweep runs in parallel with the ~1-minute checks
+# instead of after them: a red build shows up in about the time the slowest gate takes either way.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Nothing here needs write access to the repo.
+permissions:
+  contents: read
+
+# A new push supersedes the run in flight for the same ref (but never cancels main's).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  checks:
+    name: build · lint · paper · persist · i18n (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The two ends of the range package.json's `engines` claims. The floor is the one that
+        # actually breaks: Vite 8 and ESLint 10 both refuse anything below 20.19.
+        node: ['20.19', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run check:i18n
+      - run: npm run check:persist
+      - run: npm run check:paper
+
+  manifold:
+    name: watertightness sweep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      # Sweeps 3 presets x height/higo/pitch/thickness/tolerance/rib-count and inspects every part.
+      # The script exits non-zero on the first failure count, so "0 FAIL" is enforced, not just printed.
+      - run: npm run check:manifold

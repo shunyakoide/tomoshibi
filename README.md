@@ -114,8 +114,9 @@ what you see is exactly what you print.
 ## Contributing
 
 Geometry changes must stay **watertight**. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
-dev setup, the verification gates (`npm run check:manifold` / `check:hash` / `check:persist`
-/ `check:paper`), and the design invariants to preserve.
+dev setup, the verification gates (`npm run lint` / `check:manifold` / `check:hash` /
+`check:persist` / `check:paper` / `check:i18n`), and the design invariants to preserve.
+CI runs them on every push and pull request.
 
 ## License
 
