@@ -7,7 +7,7 @@
  * the requestAnimationFrame loop. What gets *drawn* is not here — scenes.js rebuilds the contents
  * of `state.group` whenever the design or the view changes.
  *
- * Split out of HarigataStudio so the React component holds state and composition only. There is no
+ * Split out of TomoshibiStudio so the React component holds state and composition only. There is no
  * React in this file apart from the thin `useViewport` hook at the bottom, and no geometry: the
  * mold's shape comes from geometry.js by way of scenes.js.
  *

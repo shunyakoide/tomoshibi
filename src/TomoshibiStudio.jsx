@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * HARIGATA STUDIO (FORMING MOLD STUDIO) — app shell
+ * 灯 TOMOSHIBI — app shell
  * ============================================================================
  * A generator for 3D-printable forming molds (harigata = the mold you wind bamboo ribs onto and
  * paste washi over) for making your own paper lanterns. Edit the profile curve and out come the
@@ -54,7 +54,7 @@ const VIEWS = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit"
 // Restore from localStorage once at startup (module top level, so a lazy initializer can't parse twice).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 
-export default function HarigataStudio() {
+export default function TomoshibiStudio() {
   const [p, setP] = useState(SAVED?.p ?? DEFAULTS);
   const [view, setView] = useState("2d");           // section view first: easiest place to read the shape. Transient
   const [printMode, setPrintMode] = useState("stl"); // print view output: "stl" (3D print) / "paper" (cardboard). Transient
@@ -109,7 +109,7 @@ export default function HarigataStudio() {
   // ---- Exports ----
   const downloadKit = () => {
     // Rib file layout. Spiral winding makes every rib different, so it is one rib per file
-    // (harigata_rib_01.stl …) and they can be placed individually in the slicer. Otherwise the ribs
+    // (tomoshibi_rib_01.stl …) and they can be placed individually in the slicer. Otherwise the ribs
     // are identical and they go in one file (print one, duplicate it).
     let ribEntries;
     if (p.spiral) {
@@ -117,7 +117,7 @@ export default function HarigataStudio() {
       for (let k = 0; k < nRibs; k++) {
         const g = ribGeometry(p, k);
         g.translate(0, p.tabLen, p.boardT / 2);
-        ribEntries.push({ name: `harigata_rib_${String(k + 1).padStart(2, "0")}.stl`, geos: [g] });
+        ribEntries.push({ name: `tomoshibi_rib_${String(k + 1).padStart(2, "0")}.stl`, geos: [g] });
       }
     } else {
       const w = maxRadius(p) + 12, ribs = [];
@@ -126,7 +126,7 @@ export default function HarigataStudio() {
         g.translate(k * w, p.tabLen, p.boardT / 2);
         ribs.push(g);
       }
-      ribEntries = [{ name: `harigata_ribs_x${nRibs}.stl`, geos: ribs }];
+      ribEntries = [{ name: `tomoshibi_ribs_x${nRibs}.stl`, geos: ribs }];
     }
     // The config JSON rides along so the printed kit's ZIP is itself a design backup, restorable
     // even if localStorage is gone. Same schema as persist.js, so it loads back as-is.
@@ -138,15 +138,15 @@ export default function HarigataStudio() {
     exportZip([
       ...ribEntries,
       // Koma and posts are identical top and bottom, so one of each (duplicated in the slicer).
-      { name: "harigata_koma_print2.stl", geos: [komaGeometry(p)] },
-      { name: "harigata_stand_column_print2.stl", geos: [standGeometry(p)] },
-      { name: "harigata_stand_base.stl", geos: [boardGeometry(p)] },
+      { name: "tomoshibi_koma_print2.stl", geos: [komaGeometry(p)] },
+      { name: "tomoshibi_stand_column_print2.stl", geos: [standGeometry(p)] },
+      { name: "tomoshibi_stand_base.stl", geos: [boardGeometry(p)] },
       // Opening rings: set into the finished lantern's openings to hold the bamboo and washi.
-      { name: "harigata_ring_bottom.stl", geos: [ringGeometry(p, false)] },
-      { name: "harigata_ring_top.stl", geos: [ringGeometry(p, true)] },
-    ], "harigata_kit.zip", [
-      { name: "harigata_config.json", bytes: new TextEncoder().encode(cfg) },
-      { name: "harigata_washi_a4.pdf", bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, makeT("en")) },
+      { name: "tomoshibi_ring_bottom.stl", geos: [ringGeometry(p, false)] },
+      { name: "tomoshibi_ring_top.stl", geos: [ringGeometry(p, true)] },
+    ], "tomoshibi_kit.zip", [
+      { name: "tomoshibi_config.json", bytes: new TextEncoder().encode(cfg) },
+      { name: "tomoshibi_washi_a4.pdf", bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, makeT("en")) },
     ]);
   };
 
@@ -154,7 +154,7 @@ export default function HarigataStudio() {
   // rely on. Same schema as the config.json inside the ZIP.
   const exportDesign = () => downloadFile(
     serializeState({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd }),
-    "harigata_design.json", "application/json",
+    "tomoshibi_design.json", "application/json",
   );
 
   // Load a design JSON (the standalone export, or the config.json out of the ZIP). parseImport
@@ -507,15 +507,15 @@ export default function HarigataStudio() {
         ) : printMode === "paper" ? (
           <>
             <CTA label="型紙を開く (A4 原寸)"
-              onClick={() => openHTML(paperHTML(p, matT, undefined, t, { side: washiSide, end: washiEnd }), "harigata_katagami_a4.html")} />
+              onClick={() => openHTML(paperHTML(p, matT, undefined, t, { side: washiSide, end: washiEnd }), "tomoshibi_katagami_a4.html")} />
             <Note>{t("新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。和紙の型紙も一緒に出ます。")}</Note>
           </>
         ) : (
           <>
             <CTA label="STL 書き出し" onClick={downloadKit} />
             <Note>
-              {t("コマ・柱は上下同一のため各1つ入っています。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong>{t("して印刷してください。設定は ")}<span style={{ fontFamily: mono }}>harigata_config.json</span>{t(" として同梱されます(バックアップ用)。")}
-              <br />{t("和紙の型紙 ")}<span style={{ fontFamily: mono }}>harigata_washi_a4.pdf</span>{t(" も同梱されます(そのまま原寸で印刷)。")}
+              {t("コマ・柱は上下同一のため各1つ入っています。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong>{t("して印刷してください。設定は ")}<span style={{ fontFamily: mono }}>tomoshibi_config.json</span>{t(" として同梱されます(バックアップ用)。")}
+              <br />{t("和紙の型紙 ")}<span style={{ fontFamily: mono }}>tomoshibi_washi_a4.pdf</span>{t(" も同梱されます(そのまま原寸で印刷)。")}
             </Note>
           </>
         )}

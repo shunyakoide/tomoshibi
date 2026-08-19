@@ -1,0 +1,15 @@
+{
+  "name": "灯 Tomoshibi — washi lantern molds",
+  "short_name": "Tomoshibi",
+  "description": "Design the forming mold for a washi paper lantern in your browser and export print-ready STL parts.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c0c0d",
+  "theme_color": "#0c0c0d",
+  "icons": [
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "./favicon-180-apple-touch.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

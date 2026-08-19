@@ -20,13 +20,13 @@ import { DEFAULTS } from "./config.js";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.js";
 import { clamp } from "./util.js";
 
-export const STORAGE_KEY = "harigata.studio";
+export const STORAGE_KEY = "tomoshibi.studio";
 export const SCHEMA_VERSION = 1;
 
 // First-run onboarding card: a separate key from the design state, because it is not part of the
 // design (exporting / importing a design must not carry "has this person seen the intro" with it,
 // and clearing the flag must not touch the shape). Same shape as i18n's language key.
-export const WELCOME_KEY = "harigata.welcome";
+export const WELCOME_KEY = "tomoshibi.welcome";
 export function loadWelcomeSeen() {
   try { return localStorage.getItem(WELCOME_KEY) === "1"; }
   catch { return true; }   // storage blocked → don't nag on every load
@@ -87,7 +87,7 @@ function coerceNums(p) {
 }
 
 // Sanitize a shape p: shallow-merge to fill missing fields from DEFAULTS, then validate pts,
-// coerce numbers, and clamp boards. The boards clamp brings HarigataStudio's self-healing
+// coerce numbers, and clamp boards. The boards clamp brings TomoshibiStudio's self-healing
 // effect forward (so the first render doesn't produce a non-watertight koma).
 function sanitizeP(rawP) {
   const p = { ...DEFAULTS, ...rawP };   // missing fields are filled from the single source of truth, DEFAULTS

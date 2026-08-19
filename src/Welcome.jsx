@@ -9,7 +9,7 @@
  *
  * That is a single explanation, so it is a single card — deliberately NOT a step-through tour with
  * spotlights: the app is one screen, and a spotlight would have to track a viewport that stretches
- * (the section view is a preserveAspectRatio SVG). Shown once (`harigata.welcome`), reopenable from
+ * (the section view is a preserveAspectRatio SVG). Shown once (`tomoshibi.welcome`), reopenable from
  * the "?" in the inspector header, and never blocking: Esc / backdrop / button all close it.
  *
  * Presentational only — it owns no app state and imports no geometry.

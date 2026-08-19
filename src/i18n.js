@@ -11,7 +11,7 @@
  * setting). It targets UI strings only; in-code comments are in English (CLAUDE.md convention).
  * ============================================================================
  */
-export const LANG_KEY = "harigata.lang";
+export const LANG_KEY = "tomoshibi.lang";
 
 // Japanese→English. Keys are the Japanese as it appears in the UI (interpolation via {name}).
 // Keys not present here are shown in Japanese as-is.

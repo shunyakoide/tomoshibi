@@ -3,7 +3,7 @@
  * APP HOOKS
  * ============================================================================
  * The stateful behaviours that are not about drawing anything: undo/redo history, the autosave,
- * the responsive-layout flag, and the UI language. Each was inline in HarigataStudio, where they
+ * the responsive-layout flag, and the UI language. Each was inline in TomoshibiStudio, where they
  * pushed the interesting code — what the app actually renders — a hundred lines further down.
  *
  * No geometry and no three.js here; these only touch React, localStorage, and window events.
