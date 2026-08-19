@@ -23,11 +23,15 @@ export function buildSTL(geometries) {
   const out = new STLExporter().parse(group, { binary: true });   // DataView
   return out.buffer;
 }
+// The revoke is deferred, not synchronous. `a.click()` only *starts* the fetch of the blob URL;
+// revoking in the same tick is a race the browser is free to lose, and when it does the download
+// fails silently — no error, no file, and the bigger the kit the likelier it is. openHTML below
+// already defers for the same reason.
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 // Open the generated HTML (paper template) in a new tab. Print with Ctrl/⌘+P in that tab.
