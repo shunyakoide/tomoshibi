@@ -67,7 +67,7 @@ also eyeball the render.
 - **`src/SectionEditor.jsx`** — the direct-manipulation section editor (SVG). It must draw
   using `geometry.js` functions (including the dimension constants), never re-implement
   them, or the drawing and the STL will drift apart.
-- **`src/HarigataStudio.jsx`** — the app shell: state and composition only. The 3D lives in
+- **`src/TomoshibiStudio.jsx`** — the app shell: state and composition only. The 3D lives in
   **`src/three/`** (`viewport.js` = renderer/lights/controls, `scenes.js` = what each view
   draws) and the panel's controls in **`src/ui/`**.
 - **`src/stl.js`** — STL export and ZIP packaging.

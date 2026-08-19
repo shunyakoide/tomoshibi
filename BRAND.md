@@ -16,6 +16,7 @@ The mark is the single kanji **灯** ("a light / a lamp") — the same character
 | `favicon-transparent.svg` / `-dark.svg` / `-accent.svg` | Alternates. The dark and accent versions carry further at 16 px if the washi square ever proves too quiet in a tab. |
 | `favicon-32.png`, `favicon-64.png`, `favicon-180-apple-touch.png`, `icon-512.png` | Raster fallbacks and app icons. |
 | `mark-512-transparent.png` | Mark alone, transparent, for slide decks and README headers. |
+| `manifest.webmanifest` | Web app manifest — the name and icons an Android home-screen install uses. iOS reads the `apple-*` tags in `index.html` instead, so both are needed. |
 
 ## Colours
 

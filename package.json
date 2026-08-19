@@ -1,9 +1,9 @@
 {
-  "name": "lamp-kit-generator",
+  "name": "tomoshibi",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Browser generator for the 3D-printable forming mold used to build washi paper lanterns (paper lamps).",
+  "description": "灯 Tomoshibi — browser generator for the 3D-printable forming mold used to build washi paper lanterns (paper lamps).",
   "license": "MIT",
   "engines": {
     "node": "^20.19.0 || ^22.13.0 || >=24"
@@ -22,7 +22,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/shunyakoide/lamp-kit-generator"
+    "url": "https://github.com/shunyakoide/Lamp-Kit-Generator"
   },
   "scripts": {
     "dev": "vite --host",

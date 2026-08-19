@@ -1,4 +1,8 @@
-# Lamp Kit Generator — 張型スタジオ (Harigata Studio)
+<p align="center">
+  <img src="public/mark-512-transparent.png" alt="" width="88" />
+</p>
+
+# 灯 Tomoshibi — washi lantern molds
 
 A browser-based generator for the **3D-printable forming mold ("harigata")** used to
 build **washi paper lanterns** (paper lamps).
@@ -7,7 +11,7 @@ Shape the lantern's silhouette parametrically in your browser, then export
 print-ready STL parts. No backend — everything runs client-side, and the build
 output is static files.
 
-> **張型スタジオ** — 和紙提灯（紙のランプ）を自作するための
+> **灯 Tomoshibi** — 和紙提灯（紙のランプ）を自作するための
 > **3Dプリント用「張型（はりがた）」ジェネレーター**。ブラウザ上で断面を直接編集し、
 > 印刷用の STL を書き出せます。
 
@@ -98,7 +102,7 @@ not the body height, so it reaches the openings exactly.
 
 It is not a separate download: the panel's allowances live in the **Washi** section of the
 side panel, and the template itself comes with whichever output you pick — a print-ready
-`harigata_washi_a4.pdf` inside the STL kit ZIP, or one more sheet among the cardboard
+`tomoshibi_washi_a4.pdf` inside the STL kit ZIP, or one more sheet among the cardboard
 template's pages. The PDF is written directly by the app — no dependencies — and its
 labels are English, since a self-contained PDF can't carry a Japanese font.
 

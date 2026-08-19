@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import HarigataStudio from "./HarigataStudio.jsx";
+import TomoshibiStudio from "./TomoshibiStudio.jsx";
 import "./index.css";
 
 // Prevent a render-time exception from turning the whole screen black, and show the cause
@@ -22,7 +22,7 @@ class ErrorBoundary extends React.Component {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <HarigataStudio />
+      <TomoshibiStudio />
     </ErrorBoundary>
   </React.StrictMode>
 );

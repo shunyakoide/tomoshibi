@@ -390,7 +390,7 @@ export function paperHTML(p, matT, page = A4, t = tid, washiOpts = {}) {
   const { parts, pk, clamped, nMax, wall } = paperParts(p, matT, t, washiOpts);
   return pagesHTML(parts, page, t, {
     title: t("灯 TOMOSHIBI 型紙 {name} 原寸", { name: page.name }),
-    file: "harigata_katagami",
+    file: "tomoshibi_katagami",
     head: (pages) => ({
       h1: t("灯 TOMOSHIBI — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)", { name: page.name, pages }),
       // Screen-only (the .head block is display:none when printing), so saying it here costs the

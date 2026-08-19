@@ -2,7 +2,7 @@
  * ============================================================================
  * THEME + TRANSLATION CONTEXT
  * ============================================================================
- * The palette and type stack were locals inside HarigataStudio, so every control it rendered had to
+ * The palette and type stack were locals inside TomoshibiStudio, so every control it rendered had to
  * be handed `ui`, `accent`, `mono` and `sans` as props. None of them are state — they are constants
  * — so they live here and are imported directly by whoever draws something.
  *

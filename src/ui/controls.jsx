@@ -3,7 +3,7 @@
  * INSPECTOR CONTROLS
  * ============================================================================
  * The small labelled controls the right-hand panel is built from. They used to be closures defined
- * inside HarigataStudio's render, rebuilt on every keystroke, each carrying an inline style object
+ * inside TomoshibiStudio's render, rebuilt on every keystroke, each carrying an inline style object
  * with a ternary per property for its active state.
  *
  * The looks now live in index.css (.btn, .seg, .scrub-row …), which is what makes :hover, :active
