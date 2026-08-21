@@ -132,15 +132,12 @@ export function Checkbox({ checked, onToggle, label }) {
   );
 }
 
-/** One option of a segmented control (edit mode, smooth/corner, output method). */
-export function SegButton({ label, active, onClick, large, badge }) {
+/** One option of a segmented control (edit mode, smooth/corner). */
+export function SegButton({ label, active, onClick }) {
   const t = useT();
   return (
-    <button className={large ? "seg seg--lg" : "seg"} aria-pressed={active} onClick={onClick}>
+    <button className="seg" aria-pressed={active} onClick={onClick}>
       {typeof label === "string" ? t(label) : label}
-      {/* Status marker (e.g. "beta") rather than part of the name, so it reads as a caveat on the
-          option and stays legible against both the resting and the pressed background. */}
-      {badge && <em className="badge">{badge}</em>}
     </button>
   );
 }

@@ -37,11 +37,12 @@ import {
   loadWelcomeSeen, saveWelcomeSeen,
 } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
+import PagePreview from "./PagePreview.jsx";
 import Welcome from "./Welcome.jsx";
 import { DEFAULTS, SIL_ROWS } from "./config.js";
 import { makeT } from "./i18n.js";
 import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.js";
-import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, SegButton, CTA, Note } from "./ui/controls.jsx";
+import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note } from "./ui/controls.jsx";
 import PresetChips from "./ui/PresetChips.jsx";
 import PointCard from "./ui/PointCard.jsx";
 import Toolbar from "./ui/Toolbar.jsx";
@@ -50,6 +51,10 @@ import Logo from "./ui/Logo.jsx";
 const PANEL = 336;          // inspector width (px)
 const BED_PRESETS = [180, 220, 250, 256, 300, 350];
 const VIEWS = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]];
+// How the mold gets made. Cardboard is marked beta: its dimensions come from the same geometry.js
+// functions as the printed parts and are covered by check:paper, but the route has had far less
+// real-world building behind it than the STL one.
+const ROUTES = [["stl", "3Dプリント", null], ["paper", "段ボール", "beta"]];
 
 // Restore from localStorage once at startup (module top level, so a lazy initializer can't parse twice).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
@@ -103,8 +108,8 @@ export default function TomoshibiStudio() {
   useEffect(() => {
     const viewChanged = prevView.current !== view;
     prevView.current = view;
-    buildScene(three.current, { p, view, viewChanged, printRibs, bedW, bedD, route, matT });
-  }, [p, view, printRibs, bedW, bedD, route, matT, three]);
+    buildScene(three.current, { p, view, viewChanged, printRibs, bedW, bedD, route });
+  }, [p, view, printRibs, bedW, bedD, route, three]);
 
   // Ribs to print (1..boards). With spiral winding every rib is a different shape, so all of them
   // are exported — duplicating one would not make a spiral.
@@ -228,6 +233,11 @@ export default function TomoshibiStudio() {
 
   const isLit = view === "lit";   // lit = a viewing mode: panel hidden, dark background
   const bedRules = route === "stl";   // does a print bed constrain this design at all? (cardboard: never)
+  // The cardboard route's print view is a document, not a scene: PagePreview draws the template's
+  // pages over the (idle) canvas, exactly as the section editor does.
+  const paperPreview = view === "print" && route === "paper" && !isLit;
+  // Stable identity, so the preview's memo isn't invalidated by every unrelated render.
+  const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
   const chip = chipStyle(isLit);
 
   // ============ Left: viewport ============
@@ -243,6 +253,10 @@ export default function TomoshibiStudio() {
         <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag}
           sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode} t={t} />
       )}
+
+      {/* Print view, cardboard route: the output is a document, so the preview is one — the
+          template's own pages, over the same (empty) canvas the section editor uses. */}
+      {paperPreview && <PagePreview p={p} matT={matT} washi={washiOpts} lang={lang} />}
 
       {glError && (
         <div style={{
@@ -269,6 +283,24 @@ export default function TomoshibiStudio() {
           <button key={k} className="tab" aria-pressed={view === k} onClick={() => setView(k)}>{t(l)}</button>
         ))}
       </div>
+
+      {/* The route switch lives here, on the viewport, and not in the panel: it changes what this
+          whole view IS (print plates vs template pages), and buried at the bottom of the inspector's
+          scroll it was several seconds of hunting for the one control most likely to be wrong. */}
+      {view === "print" && !isLit && (
+        <div style={{
+          position: "absolute", top: 62, left: 16, display: "flex", gap: 2, padding: 4,
+          borderRadius: 10, background: chip.bg,
+          backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+          border: `1px solid ${chip.edge}`, boxShadow: "0 2px 10px rgba(59,52,43,0.07)",
+        }}>
+          {ROUTES.map(([k, l, badge]) => (
+            <button key={k} className="tab" aria-pressed={route === k} onClick={() => setRoute(k)}>
+              {t(l)}{badge && <em className="badge">{badge}</em>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Dimension chip (always live) */}
       <div style={{
@@ -424,23 +456,16 @@ export default function TomoshibiStudio() {
           </Note>
         </div>
 
-        {/* Print view: two mutually-exclusive output methods (3D print vs cardboard). The segmented
-            toggle picks one and shows only its settings; the footer CTA switches to match. The washi
-            template is deliberately NOT a third option: it is not another way to make the mold, it is
-            the paper skin you need on top of whichever mold you built. */}
+        {/* Print view: the settings for whichever route is selected — the switch itself sits on the
+            viewport, next to the mode tabs. The washi template is deliberately NOT a third route: it
+            is not another way to make the mold, it is the paper skin you need on top of whichever
+            mold you built, so it lives above with the design settings. */}
         {view === "print" && (
           <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 16, marginTop: 4 }}>
-            {/* Titled, because the panel is one long scroll: without it the toggle reads as another
-                shape setting rather than "this is the print/export section". */}
-            <SectionLabel title="印刷・書き出し" hint="型のつくり方" />
-            <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-              {/* Cardboard is marked beta: its dimensions come from the same geometry.js functions
-                  as the printed parts and are covered by check:paper, but the route has had far
-                  less real-world building behind it than the STL one. */}
-              {[["stl", "3Dプリント", null], ["paper", "段ボール", "beta"]].map(([k, l, badge]) => (
-                <SegButton key={k} label={l} badge={badge} active={route === k} onClick={() => setRoute(k)} large />
-              ))}
-            </div>
+            {/* Titled, because the panel is one long scroll: without it the first control reads as
+                another shape setting rather than "this is the print/export section". The hint names
+                the route, so the panel says which of the two these settings belong to. */}
+            <SectionLabel title="印刷・書き出し" hint={route === "stl" ? "3Dプリント" : "段ボール"} />
 
             {route === "stl" ? (
               <>

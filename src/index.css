@@ -88,11 +88,11 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 }
 .seg:hover { border-color: var(--accent-45); }
 .seg[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
-.seg--lg { padding: 8px 4px; font-size: 12.5px; }   /* the print-mode toggle sits a little larger */
 /* Status marker on an option ("beta"). Outlined rather than filled so it reads as a note about the
-   option and not as a second thing to press, and it inherits currentColor so the pressed (filled
-   orange) state needs no separate rule. */
-.seg .badge {
+   option and not as a second thing to press, and it inherits currentColor so every host — a
+   segmented option, the welcome card's route button, the viewport chip — needs no rule of its own,
+   pressed (filled orange) state included. */
+.badge {
   margin-left: 5px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px;
   font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: 0.04em;
   text-transform: uppercase; opacity: 0.72; vertical-align: 1px;
@@ -112,13 +112,6 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
    rather than the filled orange of .seg, for the same reason. */
 .route-btn[aria-current="true"] { background: var(--accent-06); border-color: var(--accent); }
 .route-btn[aria-current="true"] > b { color: var(--accent); }
-/* Same outlined "beta" marker as a segmented option's, on a button whose text colour differs. */
-.route-btn .badge {
-  margin-left: 5px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px;
-  font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase; opacity: 0.72; vertical-align: 1px;
-}
-
 .cta {   /* full-width call to action at the foot of the panel */
   width: 100%; padding: 12px; border: none; border-radius: 10px; cursor: pointer;
   background: var(--accent); color: #fff; box-shadow: 0 3px 10px var(--accent-3);
@@ -228,6 +221,28 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 /* ---- crash screen (main.jsx error boundary) ---- */
 /* Its own dark palette rather than the panel tokens: whatever went wrong may well be in the theme,
    so this screen must not depend on anything the app sets up at startup. */
+/* ---- page preview (cardboard route's print view) ---- */
+/* A document viewer over the (empty) 3D canvas: pages flow like a PDF's thumbnails and the whole
+   thing scrolls. The sheets are the template's own SVG, so only their size on screen is set here. */
+.pages {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: center;
+  gap: 14px;
+  /* The top pad clears the floating mode tabs and the route switch, which are drawn over this
+     canvas — without it the first page starts underneath them. */
+  padding: 104px 20px 14px;
+}
+.pages .pg {
+  width: clamp(180px, 26vw, 300px); height: auto; flex: none; background: #fff;
+  border: 1px solid rgba(59,52,43,0.14); box-shadow: 0 3px 12px rgba(59,52,43,0.16);
+}
+.pages-note {
+  flex: none; padding: 8px 20px 12px; font-size: 11px; line-height: 1.5;
+  color: var(--sub); background: rgba(255,255,255,0.72); border-top: 1px solid var(--edge);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
+.pages-note > span { color: var(--faint); }
+
 .crash {
   position: fixed; inset: 0; padding: 20px; overflow: auto;
   background: #0c0c0d; color: #e8e8ec; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;

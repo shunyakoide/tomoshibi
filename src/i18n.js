@@ -56,7 +56,6 @@ const EN = {
   "ドラッグ / 値クリックで入力": "Drag or click the value to type",
   "骨組み": "Frame",
   "印刷・書き出し": "Print / export",
-  "型のつくり方": "How to make the mold",
   "プリントベッド": "Print bed",
   "3Dプリント": "3D print",
   "段ボール": "Cardboard",
@@ -88,6 +87,9 @@ const EN = {
   "この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます":
     "Up to {n} ribs at this opening/thickness (koma notches would overlap). Thinner boards allow more.",
   // ---- Paper template (cardboard) ----
+  "型紙プレビュー · 全 {n} ページ": "Template preview · {n} pages",
+  "画面上は原寸ではありません。「型紙を開く」から原寸で印刷してください。":
+    "Not to scale on screen — print it full size from \"Open template\".",
   "型紙(段ボール)": "Paper template",
   "A4 原寸 · beta": "A4 1:1 · beta",
   "この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。":
