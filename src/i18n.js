@@ -33,13 +33,17 @@ const EN = {
   "竹ひごを巻いて和紙を貼る": "Wind bamboo, paste the washi",
   "画面に映っているのは提灯そのものではなく、その上で組み立てる「型」です":
     "What you see is not the lantern itself — it is the mold the lantern is built on",
-  "3Dプリンタが無くても、段ボール用の原寸型紙を出せます(beta)":
-    "No 3D printer needed: it also prints a full-scale template for cardboard (beta)",
   "和紙の型紙(先に切っておく用)は、どちらの出力にも付いてきます":
     "The washi template — for cutting the paper before pasting — comes with either output",
   "上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。":
     "The tabs above also show the assembly and the lantern lit. Reopen this with the \"?\" at the top right.",
-  "さわってみる": "Start",
+  // ---- Welcome / the route choice (3D print vs cardboard) ----
+  "どちらでつくりますか?": "How will you make it?",
+  "後から「印刷」タブで変更できます": "Changeable later in the Print tab",
+  "3Dプリンタ": "3D printer",
+  "STL 一式をダウンロード": "Download the STL set",
+  "A4 原寸の型紙を印刷 · 大きさの制限なし": "Print the A4 1:1 template · no size limit",
+  "とりあえず見る": "Just look around",
   // ---- Toolbar ----
   "元に戻す": "Undo",
   "やり直し": "Redo",
@@ -56,6 +60,8 @@ const EN = {
   "プリントベッド": "Print bed",
   "3Dプリント": "3D print",
   "段ボール": "Cardboard",
+  "大きさの制限はありません。A4 に収まらない部品は、のりしろ付きで次のページに続きます(トンボを合わせて貼り合わせ)。":
+    "There is no size limit: a part too big for A4 simply continues on the next page with a glue tab (line the trim marks up and paste).",
   "定番サイズ": "Common size",
   "カスタム": "Custom",
   "配置": "Layout",

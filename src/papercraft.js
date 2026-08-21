@@ -110,19 +110,31 @@ function komaPart(pk, name) {
 }
 
 /**
+ * The design as the CARDBOARD route builds it: measured material thickness in place of the printed
+ * board thickness, and the rib count clamped to what that thickness still allows. Exported because
+ * the print view's cardboard preview has to show this mold and not the 3D-print one — deriving it
+ * there by hand is how the preview and the template would start cutting different koma.
+ *
+ * fit=0: add no print tolerance (nominal = exactly the material thickness). Cardboard crushes its fibers going in, so
+ * adding the 3D-print fit (0.3mm default) would instead make it wobble and the tab couldn't hold the koma.
+ * noTabDent: cardboard skips the tab-tip dent (the koma stop) — cardboard favors keeping the tab strong (the
+ * dent removes tab material) over the inward stop; the koma notch then stays full-depth so the plain tab fits.
+ */
+export function paperP(p, matT) {
+  const pk = { ...p, boardT: matT, komaT: matT, fit: 0, noTabDent: true };
+  pk.boards = Math.min(pk.boards, maxBoards(pk));
+  return pk;
+}
+
+/**
  * Build all parts to lay out on the papercraft. The returned p is "the papercraft p with material thickness applied".
  * Depending on material thickness, boards may exceed maxBoards (the notches overlap at the center), so always clamp it,
  * and return whether it was clamped in `clamped` so the UI/page can warn.
  */
 export function paperParts(p, matT, t = tid, washiOpts = {}) {
-  // fit=0: add no print tolerance (nominal = exactly the material thickness). Cardboard crushes its fibers going in, so
-  // adding the 3D-print fit (0.3mm default) would instead make it wobble and the tab couldn't hold the koma.
-  // noTabDent: cardboard skips the tab-tip dent (the koma stop) — cardboard favors keeping the tab strong (the
-  // dent removes tab material) over the inward stop; the koma notch then stays full-depth so the plain tab fits.
-  const pk = { ...p, boardT: matT, komaT: matT, fit: 0, noTabDent: true };
-  const nMax = maxBoards(pk);
-  const clamped = pk.boards > nMax;
-  if (clamped) pk.boards = nMax;
+  const pk = paperP(p, matT);            // = the mold this template actually cuts (thickness applied, count clamped)
+  const nMax = maxBoards(pk);            // maxBoards reads thickness/tolerance, never boards, so the clamp doesn't move it
+  const clamped = p.boards > nMax;
 
   // All ribs are identical unless spiral winding shifts the groove (tick) positions per rib. When they
   // are identical, emit a single rib labeled "×N" (cut N copies) instead of N duplicate sheets.

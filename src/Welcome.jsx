@@ -7,7 +7,13 @@
  * this thing is**: the object on screen is not the lantern, it is the *mold* the lantern is built
  * on, and what comes out is an STL or a full-scale paper template.
  *
- * That is a single explanation, so it is a single card — deliberately NOT a step-through tour with
+ * It also carries the one setup question the rest of the app branches on: **3D printer or cardboard**.
+ * That belongs here rather than buried in the print view, because it is not a per-export toggle — it
+ * decides whether a print bed constrains the design at all, and the bed's overflow warning starts
+ * nagging long before anyone opens the print view. Picking either one closes the card; skipping keeps
+ * whatever was saved (3D print by default), and the print view's toggle still switches it any time.
+ *
+ * The explanation itself is a single card — deliberately NOT a step-through tour with
  * spotlights: the app is one screen, and a spotlight would have to track a viewport that stretches
  * (the section view is a preserveAspectRatio SVG). Shown once (`tomoshibi.welcome`), reopenable from
  * the "?" in the inspector header, and never blocking: Esc / backdrop / button all close it.
@@ -63,13 +69,18 @@ const STEPS = [
 
 const POINTS = [
   "画面に映っているのは提灯そのものではなく、その上で組み立てる「型」です",
-  // The cardboard route is marked beta wherever it is offered, and this card is where someone
-  // decides to take it — leaving it out here would sell the route without the caveat.
-  "3Dプリンタが無くても、段ボール用の原寸型紙を出せます(beta)",
   "和紙の型紙(先に切っておく用)は、どちらの出力にも付いてきます",
 ];
 
-export default function Welcome({ onClose }) {
+// The two ways to make the mold. Sub-line = what you actually receive, because "3D print / cardboard"
+// names the equipment and not the output. The cardboard route keeps its beta badge here: this card is
+// where someone chooses it, and offering it without the caveat would sell a route it hasn't earned yet.
+const ROUTES = [
+  ["stl", "3Dプリンタ", "STL 一式をダウンロード", null],
+  ["paper", "段ボール", "A4 原寸の型紙を印刷 · 大きさの制限なし", "beta"],
+];
+
+export default function Welcome({ route, onPick, onClose }) {
   const t = useT();
   const btnRef = useRef(null);
 
@@ -127,11 +138,34 @@ export default function Welcome({ onClose }) {
           ))}
         </ul>
 
-        <div style={{ fontSize: 11, color: ui.faint, marginTop: 14 }}>
-          {t("上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。")}
+        {/* The setup question. Two buttons rather than a segmented toggle: each one is also the
+            "start" action, so nobody has to choose and then confirm. */}
+        <div style={{ marginTop: 18 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ fontSize: 11.5, color: ui.sub }}>{t("どちらでつくりますか?")}</span>
+            <span style={{ fontSize: 10.5, color: ui.faintest }}>{t("後から「印刷」タブで変更できます")}</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {ROUTES.map(([key, title, caption, badge], i) => (
+              <button key={key} ref={i === 0 ? btnRef : null} className="route-btn"
+                aria-current={route === key ? "true" : undefined} onClick={() => onPick(key)}>
+                <b>
+                  {t(title)}
+                  {badge && <em className="badge">{badge}</em>}
+                </b>
+                <i>{t(caption)}</i>
+              </button>
+            ))}
+          </div>
         </div>
 
-        <button ref={btnRef} className="cta" onClick={onClose} style={{ marginTop: 18 }}>{t("さわってみる")}</button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 14 }}>
+          <div style={{ fontSize: 11, color: ui.faint, lineHeight: 1.6 }}>
+            {t("上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。")}
+          </div>
+          {/* Neither route chosen: close and keep whatever was saved (3D print on a first visit). */}
+          <button className="btn btn--ghost" onClick={onClose} style={{ flex: "none" }}>{t("とりあえず見る")}</button>
+        </div>
       </div>
     </div>
   );

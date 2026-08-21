@@ -98,6 +98,27 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   text-transform: uppercase; opacity: 0.72; vertical-align: 1px;
 }
 
+.route-btn {   /* welcome card: pick how you'll make the mold (3D print / cardboard) */
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: left;
+  padding: 12px 13px; border-radius: 11px; cursor: pointer;
+  background: var(--card); color: var(--text); border: 1px solid var(--card-edge);
+  font-family: var(--sans); transition: background 0.13s, border-color 0.13s;
+}
+.route-btn > b { font-size: 13px; font-weight: 700; }
+.route-btn > i { font-size: 10.5px; font-style: normal; line-height: 1.45; color: var(--sub); }
+.route-btn:hover { background: #fffaf5; border-color: var(--accent-55); }
+/* The saved route, when the card is reopened from the "?" — aria-current rather than aria-pressed,
+   because these are live actions that happen to mark the current setting, not a toggle; and a tint
+   rather than the filled orange of .seg, for the same reason. */
+.route-btn[aria-current="true"] { background: var(--accent-06); border-color: var(--accent); }
+.route-btn[aria-current="true"] > b { color: var(--accent); }
+/* Same outlined "beta" marker as a segmented option's, on a button whose text colour differs. */
+.route-btn .badge {
+  margin-left: 5px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px;
+  font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; opacity: 0.72; vertical-align: 1px;
+}
+
 .cta {   /* full-width call to action at the foot of the panel */
   width: 100%; padding: 12px; border: none; border-radius: 10px; cursor: pointer;
   background: var(--accent); color: #fff; box-shadow: 0 3px 10px var(--accent-3);
