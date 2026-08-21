@@ -104,13 +104,13 @@ export function saveState(state) {
   } catch { /* the app works even if saving fails (next launch simply starts from DEFAULTS) */ }
 }
 
-// Restore: either a merged / validated / clamped {p, bedW, bedD, printRibs, matT, washi*}, or null if
+// Restore: either a merged / validated / clamped {p, bedW, bedD, printRibs, matT, washi*, route}, or null if
 // invalid. Read saved.p even when the version is unknown (shallow merge is forward-compatible,
 // so we don't throw away machine invariants). Only add a version to the discard list when a
 // truly incompatible breaking change was made.
 const INCOMPATIBLE_VERSIONS = new Set(); // e.g. on a breaking change, add the affected version here
 
-// Parsed object → sanitized {p, bedW, bedD, printRibs, matT, washiSide, washiEnd} (null if invalid).
+// Parsed object → sanitized {p, bedW, bedD, printRibs, matT, washiSide, washiEnd, route} (null if invalid).
 // Every "single externally-sourced object" — localStorage restore, file load, ZIP-embedded
 // config, etc. — passes through here. Making corrupt values safe (sanitizeP / clamp) is
 // consolidated into one path instead of being written per route.
@@ -122,11 +122,15 @@ export function sanitizeSaved(saved) {
   const bedD = clampNum(saved.bedD, 100, 420, 256);
   const printRibs = Math.round(clampNum(saved.printRibs, 1, 16, 1)); // 1..boards; upper bound further clamped on the boards side
   const matT = clampNum(saved.matT, 1, 10, 5);        // paper-template material thickness (mm). UI stepper allowed range
+  // How this person builds the mold: "stl" (3D print) or "paper" (cardboard). A setup fact about the
+  // maker, not about the design — but it decides whether the print bed constrains anything at all, so
+  // it is restored alongside the bed like any other machine setting. Anything else falls back to "stl".
+  const route = saved.route === "paper" ? "paper" : "stl";
   // Washi-template allowances (mm). Purely a paper margin — nothing in the mold depends on them,
   // so any out-of-range value just clamps back into the UI stepper's range.
   const washiSide = clampNum(saved.washiSide, 0, 15, WASHI_SIDE);
   const washiEnd = clampNum(saved.washiEnd, 0, 15, WASHI_END);
-  return { p: sanitizeP(saved.p), bedW, bedD, printRibs, matT, washiSide, washiEnd };
+  return { p: sanitizeP(saved.p), bedW, bedD, printRibs, matT, washiSide, washiEnd, route };
 }
 
 export function loadSaved() {
