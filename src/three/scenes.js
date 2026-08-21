@@ -5,10 +5,11 @@
  * `buildScene(state, opts)` empties the viewport's group and refills it for the current view. One
  * builder per view:
  *   mold  … the assembled mold lying in its stand, CAD-style, on a ground grid
- *   print … the parts laid flat: on print plates for the 3D route, on a field of A4 sheets for the
- *           cardboard one (which has no machine size — oversized parts just span pages)
+ *   print … the parts laid flat on print plates, arranged as the slicer would see them
+ * ("2d" draws no 3D: the section view is an SVG editor rendered over this canvas. Neither does the
+ *  print view on the cardboard route — its output is a document, so PagePreview draws the template's
+ *  own pages over this canvas the same way.)
  *   lit   … the finished lantern glowing in a dark room (no mold at all)
- * ("2d" draws no 3D: the section view is an SVG editor rendered over this canvas.)
  *
  * Every shape comes from geometry.js — nothing here computes a dimension of its own, or the preview
  * and the STL would drift apart. The print layout is the one thing that touches geometry: it
@@ -22,7 +23,6 @@ import {
   standCollarTop, standSaddleH, standSlotSep, ringGeometry,
 } from "../geometry.js";
 import { fitOnBed } from "../bed.js";
-import { A4, paperP } from "../papercraft.js";
 
 // Dark-room background for the lit view. Painted as a real scene background rather than left to the
 // mount's CSS gradient: since three r170 the alpha channel survives UnrealBloomPass, and bloom runs
@@ -33,11 +33,6 @@ const LIT_BG = new THREE.Color(0x070a11);
 
 const GAP = 8;   // spacing between parts on a print plate (mm)
 
-// Ground for the cardboard route's layout: a sheet of paper, drawn one A4 at a time. Module level
-// because buildScene rebuilds on every edit and a per-rebuild material would pile up.
-const PAPER_MAT = new THREE.MeshStandardMaterial({ color: 0xb0b4b9, roughness: 0.95 });
-const PAGE_LINE = new THREE.LineBasicMaterial({ color: 0x6f7278 });   // page outline, so the A4 grid reads
-const SEAM = 1.2;   // gap left between neighbouring sheets, so the page grid stays readable (mm)
 
 // Frame the camera so a cylinder of the given height/radius fills the view, and look at its centre.
 function frame(s, contentH, contentR, centerY) {
@@ -270,91 +265,20 @@ function buildPrint(s, p, { printRibs, bedW, bedD }) {
   frame(s, span * 0.95, span / 2, 0);
 }
 
-// ---- print, cardboard route: the parts you cut, on a field of A4 sheets ----
-// Deliberately NOT the bed layout with a paper-coloured plate: on this route there is no machine
-// size, so nothing here may imply one. A part longer than a sheet simply runs onto the next page and
-// is glued back at the trim marks, which is exactly what a tiled field of A4 draws.
-//
-// Only the parts the template actually gives you: ribs and the two koma. The stand and the opening
-// rings stay 3D-print-only, and showing them here would promise cardboard parts that never print.
-// Built from paperP() so this is the same mold the template cuts — the measured material thickness
-// sets the notch width, and a thick material can clamp the rib count.
-function buildSheets(s, p, matT) {
-  const pk = paperP(p, matT);
-  const ribs = [];
-  for (let k = 0; k < pk.boards; k++) ribs.push({ geo: ribGeometry(pk, k), mat: s.ribMat });
-  // Two koma (top and bottom). Separate geometries rather than one shared twice: each mesh carries
-  // its own bounding box here, and the disposal loop above would free a shared one twice.
-  const komas = [0, 1].map(() => ({ geo: komaGeometry(pk), mat: s.komaMat }));
-  const all = [...ribs, ...komas];
-  for (const it of all) { it.geo.computeBoundingBox(); it.bb = it.geo.boundingBox; }
-  const w = (it) => it.bb.max.x - it.bb.min.x, d = (it) => it.bb.max.y - it.bb.min.y;
-
-  // Ribs on an equal-cell grid, koma in a row underneath. The column count is picked to make the
-  // whole field roughly square: a rib is ~2.5× as long as it is wide, so a plain sqrt(n) grid would
-  // tower and the top-down camera would have to pull far back to fit it.
-  const cellW = Math.max(...ribs.map(w)) + GAP, cellD = Math.max(...ribs.map(d)) + GAP;
-  const cols = Math.min(ribs.length, Math.max(1, Math.round(Math.sqrt((ribs.length * cellD) / cellW))));
-  const rows = Math.ceil(ribs.length / cols);
-  const komaW = Math.max(...komas.map(w)) + GAP;
-  const fieldW = Math.max(cols * cellW, komas.length * komaW) - GAP;
-  const fieldD = rows * cellD + Math.max(...komas.map(d));
-
-  // Place the parts first (field coordinates), so the sheets can be laid only where a part actually
-  // lands: an empty page in the preview would be a page nobody prints.
-  const spots = [];
-  ribs.forEach((it, i) => spots.push({ it,
-    x: ((i % cols) + 0.5) * cellW - GAP / 2 - w(it) / 2,
-    z: Math.floor(i / cols) * cellD }));
-  komas.forEach((it, i) => spots.push({ it, x: (i + 0.5) * komaW - GAP / 2 - w(it) / 2, z: rows * cellD }));
-
-  // Enough whole sheets to cover the field, with the parts centred across them.
-  const nx = Math.max(1, Math.ceil(fieldW / A4.w)), nz = Math.max(1, Math.ceil(fieldD / A4.h));
-  const totalW = nx * A4.w, totalD = nz * A4.h;
-  const ox = (totalW - fieldW) / 2 - totalW / 2, oz = (totalD - fieldD) / 2 - totalD / 2;
-  for (let ix = 0; ix < nx; ix++) {
-    for (let iz = 0; iz < nz; iz++) {
-      const x0 = ix * A4.w - totalW / 2, z0 = iz * A4.h - totalD / 2;
-      const used = spots.some((q) => ox + q.x < x0 + A4.w && ox + q.x + w(q.it) > x0
-        && oz + q.z < z0 + A4.h && oz + q.z + d(q.it) > z0);
-      if (!used) continue;
-      const box = new THREE.BoxGeometry(A4.w - SEAM, 2, A4.h - SEAM);
-      const sheet = new THREE.Mesh(box, PAPER_MAT);
-      sheet.position.set(x0 + A4.w / 2, -1, z0 + A4.h / 2);
-      // Outlined as well as tinted: the parts are near-white too, and the sheets sit on a pale
-      // background, so without an edge the page grid washes out into it from straight above.
-      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(box), PAGE_LINE);
-      edge.position.copy(sheet.position);
-      s.group.add(sheet, edge);
-    }
-  }
-
-  // Same flat-laying convention as the print plates: rotation.x = -90° turns the extruded XY part
-  // face-up, so local +y runs back along world −z and local z becomes the (paper-thin) height.
-  for (const { it, x, z } of spots) {
-    const m = new THREE.Mesh(it.geo, it.mat);
-    m.rotation.x = -Math.PI / 2;
-    m.position.set(ox + x - it.bb.min.x, 0.6 - it.bb.min.z, oz + z + it.bb.max.y);
-    s.group.add(m);
-  }
-
-  const span = Math.max(totalW, totalD) + 50;
-  s.setOrbit({ pitch: -1.35, yaw: 0 });                  // straight down at the sheets
-  frame(s, span * 0.95, span / 2, 0);
-}
-
 /**
  * Rebuild the viewport contents for the current design and view.
  * `s` is the handle from createViewport(); a no-op if WebGL failed to initialize.
  */
-export function buildScene(s, { p, view, viewChanged, printRibs, bedW, bedD, route, matT }) {
+export function buildScene(s, { p, view, viewChanged, printRibs, bedW, bedD, route }) {
   if (!s.group) return;
   while (s.group.children.length) {
     const m = s.group.children[0];
     s.group.remove(m);
     m.traverse((o) => o.geometry && o.geometry.dispose());
   }
-  if (view === "2d") return;   // the section view is an SVG editor drawn over this canvas
+  // Two views draw no 3D at all, and both are documents drawn over this canvas: the section editor,
+  // and the cardboard route's print view (PagePreview shows the template's own A4 pages).
+  if (view === "2d" || (view === "print" && route === "paper")) return;
 
   const R = maxRadius(p);
   const lightVP = view !== "lit";   // assembly/print are CAD-style bright; only lit is dark
@@ -377,6 +301,5 @@ export function buildScene(s, { p, view, viewChanged, printRibs, bedW, bedD, rou
 
   if (view === "lit") buildLit(s, p, viewChanged);
   else if (view === "mold") buildMold(s, p, viewChanged);
-  else if (route === "paper") buildSheets(s, p, matT);
   else buildPrint(s, p, { printRibs, bedW, bedD });
 }

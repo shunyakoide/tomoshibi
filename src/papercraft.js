@@ -111,16 +111,14 @@ function komaPart(pk, name) {
 
 /**
  * The design as the CARDBOARD route builds it: measured material thickness in place of the printed
- * board thickness, and the rib count clamped to what that thickness still allows. Exported because
- * the print view's cardboard preview has to show this mold and not the 3D-print one — deriving it
- * there by hand is how the preview and the template would start cutting different koma.
+ * board thickness, and the rib count clamped to what that thickness still allows.
  *
  * fit=0: add no print tolerance (nominal = exactly the material thickness). Cardboard crushes its fibers going in, so
  * adding the 3D-print fit (0.3mm default) would instead make it wobble and the tab couldn't hold the koma.
  * noTabDent: cardboard skips the tab-tip dent (the koma stop) — cardboard favors keeping the tab strong (the
  * dent removes tab material) over the inward stop; the koma notch then stays full-depth so the plain tab fits.
  */
-export function paperP(p, matT) {
+function paperP(p, matT) {
   const pk = { ...p, boardT: matT, komaT: matT, fit: 0, noTabDent: true };
   pk.boards = Math.min(pk.boards, maxBoards(pk));
   return pk;
@@ -225,7 +223,7 @@ function layout(parts, page) {
 //
 // Line/text styles live here too (not in the stylesheet) for the same reason: the CSS block is
 // generated from this table, and the PDF reads the same numbers.
-const STYLE = {
+export const STYLE = {
   cut: { stroke: "#000", w: 0.25 },                              // cut line
   tick: { stroke: "#000", w: 0.25, dash: [1.2, 1] },             // bamboo-rib ticks (do not cut)
   guide: { stroke: "#777", w: 0.25, dash: [4, 2.5] },            // alignment guides (do not cut)
@@ -235,9 +233,12 @@ const STYLE = {
   note: { fill: "#888", size: 2.6, anchor: "start" },
   foot: { fill: "#666", size: 2.8, anchor: "end" },
 };
-const styleCSS = () => Object.entries(STYLE).map(([k, s]) => (s.size
-  ? `.${k} { font-size: ${s.size}px; fill: ${s.fill}; text-anchor: ${s.anchor}; font-family: sans-serif }`
-  : `.${k} { fill: none; stroke: ${s.stroke}; stroke-width: ${s.w}${s.dash ? `; stroke-dasharray: ${s.dash.join(" ")}` : ""} }`)).join("\n  ");
+// `scope` prefixes every selector. The printable page is a document of its own and needs none, but
+// the in-app preview injects these rules into the app's own stylesheet, where bare `.note` would
+// hit the inspector's notes and shrink them to 2.6px.
+const styleCSS = (scope = "") => Object.entries(STYLE).map(([k, s]) => (s.size
+  ? `${scope}.${k} { font-size: ${s.size}px; fill: ${s.fill}; text-anchor: ${s.anchor}; font-family: sans-serif }`
+  : `${scope}.${k} { fill: none; stroke: ${s.stroke}; stroke-width: ${s.w}${s.dash ? `; stroke-dasharray: ${s.dash.join(" ")}` : ""} }`)).join("\n  ");
 
 /** Ops for page i. The [top, top+CH] band of content coordinates lands inside the clip rectangle. */
 function pageOps(lay, i, page, info, t) {
@@ -289,15 +290,34 @@ function pageOps(lay, i, page, info, t) {
   return ops;
 }
 
+/**
+ * The template's pages as SVG, for the print view's in-app preview: the same pages, from the same
+ * ops, through the same renderer as the printable HTML — so what is on screen is the sheet that
+ * comes out of the printer, page count included. The preview never lays parts out itself; a second
+ * opinion about the layout is exactly how a preview starts lying about how many pages there are.
+ *
+ * Returns the pages' markup plus the stylesheet it needs (the styles live in STYLE, and the printable
+ * HTML generates its CSS from the same table). Pure, like the rest of this module: it builds strings,
+ * and the caller decides where they go.
+ */
+export function paperPagesSVG(p, matT, t = tid, washiOpts = {}, page = A4) {
+  const { parts, pk, clamped, nMax } = paperParts(p, matT, t, washiOpts);
+  const lay = layout(parts, page);
+  const info = { pages: lay.pages.length, title: t("灯 TOMOSHIBI 型紙 {name} 原寸", { name: page.name }) };
+  const svgs = [];
+  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, info, t), i, page));
+  return { svg: svgs.join(""), css: styleCSS(".pages "), pages: lay.pages.length, pk, clamped, nMax };
+}
+
 // ============ SVG / HTML generation ============
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const n2 = (v) => (Math.round(v * 100) / 100).toString();
 
 /** Ops → one page's SVG. The clip is an SVG clipPath; ops already carry absolute page coordinates. */
-function pageSVG(lay, i, page, info, t) {
+function pageSVG(ops, i, page) {
   const body = [];
   let clipped = null;
-  for (const op of pageOps(lay, i, page, info, t)) {
+  for (const op of ops) {
     if (op.k === "clip") {
       body.push(`<defs><clipPath id="clip${i}"><rect x="${n2(op.x)}" y="${n2(op.y)}" width="${n2(op.w)}" height="${n2(op.h)}"/></clipPath></defs>`
         + `<g clip-path="url(#clip${i})">`);
@@ -339,7 +359,7 @@ function pagesHTML(parts, page, t, { title, head, file }) {
   const lay = layout(parts, page);
   const info = { pages: lay.pages.length, title };
   const svgs = [];
-  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(lay, i, page, info, t));
+  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, info, t), i, page));
   const H = head(lay.pages.length);
 
   return `<meta charset="utf-8"><title>${esc(title)}</title>
