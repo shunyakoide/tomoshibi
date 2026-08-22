@@ -6,8 +6,10 @@
  * builder per view:
  *   mold  … the assembled mold lying in its stand, CAD-style, on a ground grid
  *   print … the parts laid flat on print plates, arranged as the slicer would see them
+ * ("2d" draws no 3D: the section view is an SVG editor rendered over this canvas. Neither does the
+ *  print view on the cardboard route — its output is a document, so PagePreview draws the template's
+ *  own pages over this canvas the same way.)
  *   lit   … the finished lantern glowing in a dark room (no mold at all)
- * ("2d" draws no 3D: the section view is an SVG editor rendered over this canvas.)
  *
  * Every shape comes from geometry.js — nothing here computes a dimension of its own, or the preview
  * and the STL would drift apart. The print layout is the one thing that touches geometry: it
@@ -30,6 +32,7 @@ import { fitOnBed } from "../bed.js";
 const LIT_BG = new THREE.Color(0x070a11);
 
 const GAP = 8;   // spacing between parts on a print plate (mm)
+
 
 // Frame the camera so a cylinder of the given height/radius fills the view, and look at its centre.
 function frame(s, contentH, contentR, centerY) {
@@ -266,14 +269,29 @@ function buildPrint(s, p, { printRibs, bedW, bedD }) {
  * Rebuild the viewport contents for the current design and view.
  * `s` is the handle from createViewport(); a no-op if WebGL failed to initialize.
  */
-export function buildScene(s, { p, view, viewChanged, printRibs, bedW, bedD }) {
+export function buildScene(s, { p, view, viewChanged, printRibs, bedW, bedD, route }) {
   if (!s.group) return;
   while (s.group.children.length) {
     const m = s.group.children[0];
     s.group.remove(m);
     m.traverse((o) => o.geometry && o.geometry.dispose());
   }
-  if (view === "2d") return;   // the section view is an SVG editor drawn over this canvas
+  // Two views draw no 3D at all, and both are documents drawn over this canvas: the section editor,
+  // and the cardboard route's print view (PagePreview shows the template's own A4 pages).
+  if (view === "2d" || (view === "print" && route === "paper")) {
+    // Hand the canvas back BLANK before leaving. Emptying s.group is not enough: everything that
+    // makes a view look like itself is state on objects that outlive the group — the dark-room sky,
+    // the bloom pass, and the grid and contact shadow, which are children of the scene rather than
+    // the group and so are never swept by the loop above. Returning early without undoing them left
+    // the previous view showing through the document: 点灯 → 印刷(段ボール) put the A4 pages on a
+    // black field, and 組立 → 断面 left the ground grid under the section editor.
+    s.scene.background = null;
+    s.scene.fog = null;
+    s.bloomPass.enabled = false;
+    s.groundGrid.visible = false;
+    s.shadow.visible = false;
+    return;
+  }
 
   const R = maxRadius(p);
   const lightVP = view !== "lit";   // assembly/print are CAD-style bright; only lit is dark

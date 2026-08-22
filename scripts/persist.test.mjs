@@ -144,6 +144,14 @@ const fromZipCfg = P.parseImport(JSON.stringify({ schemaVersion: 1, p: { ...DEFA
 t("ZIP config load: missing printRibs/matT filled with defaults", fromZipCfg && fromZipCfg.printRibs === 1 && fromZipCfg.matT === 5);
 t("ZIP config load: watertight", manifoldOK(fromZipCfg.p) === true);
 
+// ---- build route (3D print / cardboard) ----
+// It is not a design value but it decides whether the print bed constrains anything, so a corrupt or
+// missing one must land on the safe side: "stl", where the bed warning still runs.
+const rt = (v) => P.parseImport(JSON.stringify({ schemaVersion: 1, p: { ...DEFAULTS }, route: v }));
+t("route round-trip: paper preserved", rt("paper").route === "paper");
+t("route missing → stl", rt(undefined).route === "stl");
+t("route garbage → stl", rt("cardboard").route === "stl" && rt(7).route === "stl" && rt(null).route === "stl");
+
 // Broken input → null (the app shows an alert → keeps current state). Does not crash.
 t("broken JSON → null", P.parseImport("{ not json") === null);
 t("empty string → null", P.parseImport("") === null);
