@@ -26,7 +26,7 @@
  * Run this after touching the 2D side of papercraft.js / geometry.js.
  * ============================================================================
  */
-import { paperHTML, paperParts, paperFit, washiParts, washiPDF, A4 } from "../src/papercraft.js";
+import { paperPagesSVG, paperPDF, paperParts, paperFit, washiParts, washiPDF, A4, MARGIN, TOPBAR, OVERLAP } from "../src/papercraft.js";
 import { winAnsi } from "../src/pdf.js";
 import { makeT } from "../src/i18n.js";
 import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR } from "../src/geometry.js";
@@ -98,27 +98,65 @@ for (const preset of PRESETS)
             for (const [x, y] of pts) if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
             for (const m of q.marks || []) for (const v of m) if (!Number.isFinite(v)) bad(`${tag}: ${q.name} has NaN in marks`);
           }
-          const html = paperHTML(p, matT, A4);
-          if (/NaN|Infinity|undefined/.test(html)) bad(`${tag}: NaN/undefined in HTML`);
-          const pages = (html.match(/class="pg"/g) || []).length;
+          // The template ships as a PDF, but its pages are built from the same pageOps; paperPagesSVG
+          // renders them as the markup the in-app preview shows, which is what these assertions read.
+          // (The PDF's own structural checks are section 5.)
+          const { svg, pages } = paperPagesSVG(p, matT, undefined, {}, A4);
+          if (/NaN|Infinity|undefined/.test(svg)) bad(`${tag}: NaN/undefined in the pages`);
           if (pages < 1 || pages > 60) bad(`${tag}: page count ${pages}`);
-          // Every page must show the full-scale check ruler (if even one is missing, a scaling accident goes unnoticed)
-          if ((html.match(/50mm ←/g) || []).length !== pages) bad(`${tag}: scale missing`);
-          for (const q of parts) if (!html.includes(q.name)) bad(`${tag}: ${q.name} not on paper`);
-          // Glue tabs are emitted only when there's a "part that doesn't fit on one page (content height CH)".
-          // A4: CH = 297 - 2*8 (margins) - 14 (bottom band) = 267mm.
-          const CH = 297 - 2 * 8 - 14;
+          if ((svg.match(/class="pg"/g) || []).length !== pages) bad(`${tag}: page count disagrees with the markup`);
+          // The check bar is what catches printer scaling, so a template without one is unusable.
+          // It is once per DOCUMENT now, not once per page — printers scale the whole job alike, so
+          // one sheet answers for all of them, and reserving a strip on every page bought nothing.
+          // It must be on the FIRST page (the one nobody prints without) and drawn whole: TWO bars
+          // (metric and imperial), each a line plus its two end ticks = six "scale" paths. Both are
+          // required — a reader with only an inch rule cannot check the metric bar, and vice versa.
+          const sheets = svg.split('<svg class="pg"').slice(1);
+          if (sheets.length !== pages) bad(`${tag}: ${sheets.length} sheets vs ${pages} pages`);
+          // Exactly one sheet carries it, and which one is the layout's call — it goes wherever the
+          // parts already leave room (scaleSpot), so pinning it to sheet 1 would pin the packing too.
+          // What must hold is that it exists at all, on one sheet, with every mark on it: a template
+          // with no check square cannot be trusted at any size, and one drawn twice means two answers.
+          for (const u of ["5cm", "3in", "1in", "3cm"]) {
+            const on = sheets.filter((x) => x.includes(u)).length;
+            if (on !== 1) bad(`${tag}: ${u} mark on ${on} sheets, want exactly 1`);
+          }
+          if ((svg.match(/class="scale"/g) || []).length !== 6) bad(`${tag}: check square drawn incompletely`);
+          for (const q of parts) if (!svg.includes(q.name)) bad(`${tag}: ${q.name} not on paper`);
+          // Seams appear only when a part is too tall for one sheet. Derived from the module's own
+          // constants rather than copied: this block used to carry "297 - 2*8 - 14" long after the
+          // 14mm band was deleted, and only passed because no swept part happened to land in the gap
+          // between the CH it assumed and the real one.
+          const CH = 297 - 2 * MARGIN;      // a full sheet
+          const CH0 = CH - TOPBAR;          // sheet 1, which gives up its top strip to the check bar
           const tallest = Math.max(...parts.map((q) => {
             const a = [q.outline, ...(q.holes || [])].flat();
             const ys = a.map((v) => v[1]), xs = a.map((v) => v[0]);
             // If it doesn't fit the paper width it's rotated 90°, in which case the width becomes the height
             const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
-            return w > 210 - 2 * 8 ? w : h;
+            return w > 210 - 2 * MARGIN ? w : h;
           }));
-          // Judge by the note actually drawn on paper (the explanatory text also contains the word "のりしろ" / glue tab)
-          const glued = html.includes("ここから下は次のページと重なります");
-          if (tallest <= CH && glued) bad(`${tag}: glue tab emitted despite no spanning part`);
-          if (tallest > CH && !glued) bad(`${tag}: glue tab missing despite a spanning part`);
+          // Judge by what is actually drawn on paper: a seam carries code 1A on both of its sheets.
+          const glued = svg.includes(">1A<");
+          // Between CH0 and CH it depends which sheet the part lands on, so only the two certain
+          // ends are asserted: fits anywhere → never a seam; fits nowhere → always one.
+          if (tallest <= CH0 && glued) bad(`${tag}: seam emitted despite no spanning part`);
+          if (tallest > CH && !glued) bad(`${tag}: seam missing despite a spanning part`);
+          // Both halves of every seam must exist, or there is nothing to line up against: the sheet
+          // above draws the top halves and the sheet below the bottom halves, codes 1A/1B, 2A/2B …
+          for (let j = 1; j <= pages; j++)
+            for (const side of ["A", "B"]) {
+              const on = sheets.filter((x) => x.includes(`>${j}${side}<`)).length;
+              if (on && on !== 2) bad(`${tag}: seam ${j}${side} is on ${on} sheet(s), not 2`);
+            }
+          // A framed sheet carries a diamond on all four edges: the coded pair on whichever of the
+          // top/bottom edges has a seam, plus one unlabelled trim mark on each side.
+          const codes = (svg.match(/class="jlabel">\d+[AB]</g) || []).length;
+          const diamonds = (svg.match(/class="join"/g) || []).length;
+          const framed = sheets.filter((x) => x.includes('class="frame"')).length;
+          if (codes && !framed) bad(`${tag}: seams drawn but no frame to align them on`);
+          if (!codes && framed) bad(`${tag}: frame drawn on a sheet with no seam`);
+          if (diamonds !== codes + framed * 2) bad(`${tag}: ${diamonds} diamonds for ${codes} codes on ${framed} framed sheets`);
         }
 
 // ---- 4. Washi template (the paper skin's flat pattern) ----
@@ -164,19 +202,49 @@ for (const preset of PRESETS)
           if ((q.marks || []).length !== nTicks) bad(`${tag}: ${q.marks.length} ticks vs ${nTicks} grooves`);
           for (const v of [...q.outline.flat(), ...q.guides.flat(2), ...(q.marks || []).flat()])
             if (!Number.isFinite(v)) bad(`${tag}: NaN in the washi pattern`);
-          // The panel is laid out among the cardboard template's pages (the only HTML route to it).
-          const html = paperHTML(p, 3, A4, undefined, { side, end });
-          if (/NaN|Infinity|undefined/.test(html)) bad(`${tag}: NaN/undefined in HTML`);
-          if (!html.includes("和紙")) bad(`${tag}: the washi panel is not on the cardboard pages`);
+          // The panel is laid out among the cardboard template's own pages (it rides along with them).
+          const { svg } = paperPagesSVG(p, 3, undefined, { side, end }, A4);
+          if (/NaN|Infinity|undefined/.test(svg)) bad(`${tag}: NaN/undefined in the pages`);
+          if (!svg.includes("和紙")) bad(`${tag}: the washi panel is not on the cardboard pages`);
           // Guides must be drawn as guides, never as cut lines (cutting them ruins the panel).
-          if (!/class="guide"/.test(html)) bad(`${tag}: guides not drawn`);
+          if (!/class="guide"/.test(svg)) bad(`${tag}: guides not drawn`);
         }
 
-// ---- 5. Washi PDF (the file bundled in the kit ZIP) ----
+// ---- 5. The template PDFs (both shipped deliverables) ----
+// Two files come out of here: the washi template bundled in the STL kit's ZIP, and the cardboard
+// template, which since the HTML page was dropped IS the cardboard route's entire output.
+//
 // The PDF is hand-rolled (src/pdf.js), so the checks are the two ways it can be silently wrong:
 // **a broken file** (a bad xref offset makes viewers refuse it, or open it blank) and **a wrong
 // scale** (the whole point of the template). Scale is pinned by the page CTM (mm→pt = 2.835) plus
 // the 50mm ruler being drawn as literally 50mm in user space.
+const pdfStructure = (s, tag, pages) => {
+  if (!s.startsWith("%PDF-1.")) bad(`${tag}: no PDF header`);
+  if (!s.trimEnd().endsWith("%%EOF")) bad(`${tag}: no EOF marker`);
+  // Every xref offset must land exactly on its object header, or viewers reject the file.
+  const xrefAt = Number((s.match(/startxref\s+(\d+)/) || [])[1]);
+  const table = s.slice(xrefAt).match(/^xref\n0 (\d+)\n([\s\S]*?)\ntrailer/);
+  if (!table) { bad(`${tag}: no xref table`); return; }
+  table[2].split("\n").slice(1).forEach((row, i) => {   // skip the free entry
+    const off = Number(row.slice(0, 10));
+    if (!s.startsWith(`${i + 1} 0 obj`, off)) bad(`${tag}: xref offset ${i + 1} → ${off} is not an object header`);
+  });
+  if (!s.includes(`/Count ${pages}`)) bad(`${tag}: /Count != ${pages} pages`);
+  if ((s.match(/\/MediaBox\[0 0 595\.276 841\.89\]/g) || []).length !== pages) bad(`${tag}: MediaBox is not A4 on every page`);
+  // Full scale: the page CTM is mm→pt, and the ruler is 50mm long in that space.
+  if ((s.match(/2\.835 0 0 -2\.835 0 841\.89 cm/g) || []).length !== pages) bad(`${tag}: page CTM is not mm→pt`);
+  // Full scale, part two: the check square's two arms, found by LENGTH rather than by coordinates
+  // (a bar's position follows the layout). Both axes are required — the reason the mark is an L and
+  // not a bar is that a printer can scale x and y differently, and only a vertical arm sees that.
+  const seg = [...s.matchAll(/([\d.]+) ([\d.]+) m ([\d.]+) ([\d.]+) l S/g)];
+  const has = (i0, i1, fixed, len) => seg.some((m) =>
+    m[fixed[0]] === m[fixed[1]] && Math.abs(Math.abs(Number(m[i1]) - Number(m[i0])) - len) < 1e-6);
+  if (!has(1, 3, [2, 4], 76.2)) bad(`${tag}: no 3in arm on the check square`);
+  if (!has(2, 4, [1, 3], 30)) bad(`${tag}: no 3cm arm on the check square`);
+  // Text must be WinAnsi: a stray multi-byte character would print as mojibake.
+  for (const m of s.matchAll(/\((.*?)\) Tj/g))
+    for (const ch of m[1]) if (ch.charCodeAt(0) > 0xff) bad(`${tag}: non-WinAnsi text ${JSON.stringify(m[1])}`);
+};
 let np = 0;
 for (const preset of PRESETS)
   for (const height of [140, 300, 400])
@@ -184,32 +252,22 @@ for (const preset of PRESETS)
       np++;
       const p = { ...DEFAULTS, ...preset, height, boards };
       const tag = `pdf ${preset.key} h${height} b${boards}`;
-      const bytes = washiPDF(p, { side: 3, end: 3 }, A4, en);
-      const s = Buffer.from(bytes).toString("latin1");
-      if (!s.startsWith("%PDF-1.")) bad(`${tag}: no PDF header`);
-      if (!s.trimEnd().endsWith("%%EOF")) bad(`${tag}: no EOF marker`);
-      // Every xref offset must land exactly on its object header, or viewers reject the file.
-      const xrefAt = Number((s.match(/startxref\s+(\d+)/) || [])[1]);
-      const table = s.slice(xrefAt).match(/^xref\n0 (\d+)\n([\s\S]*?)\ntrailer/);
-      if (!table) { bad(`${tag}: no xref table`); continue; }
-      const rows = table[2].split("\n").slice(1); // skip the free entry
-      rows.forEach((row, i) => {
-        const off = Number(row.slice(0, 10));
-        if (!s.startsWith(`${i + 1} 0 obj`, off)) bad(`${tag}: xref offset ${i + 1} → ${off} is not an object header`);
-      });
-      // Page count, derived independently of the layout code: one part of this height on A4, split
-      // across pages that overlap by the glue tab only when it does not fit on one (CH = 267mm).
+      // Washi. Page count derived independently of the layout code: one part of this height on A4,
+      // split across pages that overlap by the glue tab only when it does not fit on one (CH = 267mm).
       const { g } = washiParts(p, { side: 3, end: 3 });
-      const H = g.sTot + 2 * g.end, CH = 297 - 2 * 8 - 14;
-      const pages = H <= CH ? 1 : Math.ceil(H / (CH - 10));
-      if (!s.includes(`/Count ${pages}`)) bad(`${tag}: /Count != ${pages} pages`);
-      if ((s.match(/\/MediaBox\[0 0 595\.276 841\.89\]/g) || []).length !== pages) bad(`${tag}: MediaBox is not A4 on every page`);
-      // Full scale: the page CTM is mm→pt, and the ruler is 50mm long in that space.
-      if ((s.match(/2\.835 0 0 -2\.835 0 841\.89 cm/g) || []).length !== pages) bad(`${tag}: page CTM is not mm→pt`);
-      if ((s.match(/8 284 m 58 284 l S/g) || []).length !== pages) bad(`${tag}: the 50mm ruler is not 50mm`);
-      // Text must be WinAnsi: a stray multi-byte character would print as mojibake.
-      for (const m of s.matchAll(/\((.*?)\) Tj/g))
-        for (const ch of m[1]) if (ch.charCodeAt(0) > 0xff) bad(`${tag}: non-WinAnsi text ${JSON.stringify(m[1])}`);
+      const H = g.sTot + 2 * g.end, CH = 297 - 2 * MARGIN, CH0 = CH - TOPBAR;
+      pdfStructure(Buffer.from(washiPDF(p, { side: 3, end: 3 }, A4, en)).toString("latin1"),
+        `${tag} washi`, H <= CH0 ? 1 : 1 + Math.ceil((H - CH0) / (CH - OVERLAP)));
+
+      // Cardboard. Its page count is checked against what the in-app preview lays out, so the file
+      // the user prints and the pages they were shown can never be a different document.
+      const cs = Buffer.from(paperPDF(p, 5, A4, en)).toString("latin1");
+      pdfStructure(cs, `${tag} cardboard`, paperPagesSVG(p, 5, en, {}, A4).pages);
+      // Every part must still be LABELLED. winAnsi drops what it cannot draw rather than mangling it,
+      // so handing this PDF a Japanese translator would leave the names silently blank and every
+      // check above would still pass — this is the one that notices.
+      for (const q of paperParts(p, 5, en).parts)
+        if (!cs.includes(q.name)) bad(`${tag} cardboard: "${q.name}" is not labelled in the PDF`);
     }
 // Japanese labels cannot be drawn with base-14 fonts, so they must be dropped, never emitted raw.
 if (winAnsi("和紙 ×8") !== " ×8") bad(`winAnsi should drop Japanese: ${JSON.stringify(winAnsi("和紙 ×8"))}`);

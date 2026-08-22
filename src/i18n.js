@@ -59,8 +59,8 @@ const EN = {
   "プリントベッド": "Print bed",
   "3Dプリント": "3D print",
   "段ボール": "Cardboard",
-  "大きさの制限はありません。A4 に収まらない部品は、のりしろ付きで次のページに続きます(トンボを合わせて貼り合わせ)。":
-    "There is no size limit: a part too big for A4 simply continues on the next page with a glue tab (line the trim marks up and paste).",
+  "大きさの制限はありません。A4 に収まらない部品は、のりしろ付きで次のページに続きます(同じ番号の半ダイヤが◇になるように重ねて貼る)。":
+    "There is no size limit: a part too big for A4 simply continues on the next page with a glue tab (overlap the matching half-diamonds until each closes into a full ◇, then paste).",
   "定番サイズ": "Common size",
   "カスタム": "Custom",
   "配置": "Layout",
@@ -88,16 +88,20 @@ const EN = {
     "Up to {n} ribs at this opening/thickness (koma notches would overlap). Thinner boards allow more.",
   // ---- Paper template (cardboard) ----
   "型紙プレビュー · 全 {n} ページ": "Template preview · {n} pages",
-  "画面上は原寸ではありません。「型紙を開く」から原寸で印刷してください。":
-    "Not to scale on screen — print it full size from \"Open template\".",
+  "画面上は原寸ではありません。PDF をダウンロードして原寸で印刷してください。":
+    "Not to scale on screen — download the PDF and print it at 100%.",
   "型紙(段ボール)": "Paper template",
   "A4 原寸 · beta": "A4 1:1 · beta",
   "この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。":
     "This output is still in development. Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Measure your material's real thickness, and check the printed 50 mm scale bar with a ruler.",
   "材料の厚み": "Material thickness",
-  "型紙を開く (A4 原寸)": "Open template (A4, 1:1)",
-  "新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。和紙の型紙も一緒に出ます。":
-    "Opens in a new tab. Print at \"Actual size (100%)\" and check the 50mm scale with a ruler. Bamboo grooves are shown as tick marks, not cut. The washi template comes with it.",
+  "型紙 PDF をダウンロード (A4 原寸)": "Download the template PDF (A4, 1:1)",
+  "プリンタの設定は「実際のサイズ / 100%」にしてください(「用紙に合わせる」は不可)。和紙の型紙も同じ PDF に入っています。":
+    "Set your printer to \"Actual size / 100%\" (never \"fit to page\"). The washi template is in the same PDF.",
+  // The PDF's own title line. English on purpose: base-14 Helvetica cannot draw Japanese (see paperPDF).
+  "TOMOSHIBI 段ボール型紙 {name} 原寸": "TOMOSHIBI cardboard template {name} (full scale)",
+  // Printed on every sheet, so it has to survive winAnsi() — plain Latin-1 only (the arrow folds).
+  "← 定規で確認": "<- check with a ruler",
   // ---- Summary ----
   "最大径": "Max diameter",
   "羽根板の全長": "Rib length",
@@ -168,34 +172,8 @@ const EN = {
   "枚(各1枚)": " (one file each)",
   // ---- Papercraft (cardboard) ----
   "コマ": "Koma",
-  "▼ここから下は次のページと重なります(のりしろ)": "▼ From here down overlaps the next page (glue tab)",
   // Kept short: it shares the bottom band with the right-aligned footer, and the PDF draws the
   // English text at the same size (a longer line collides with the footer).
-  "50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)": "50mm ← check with a ruler (print at 100%)",
-  "灯 TOMOSHIBI 型紙 {name} 原寸": "TOMOSHIBI papercraft {name} (full scale)",
-  "⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。": "⚠ At {matT}mm material thickness, at most {nMax} ribs fit (the grooves widen and overlap at the koma's center). Exported with {boards} reduced to <b>{nMax} ribs</b>. To keep the count, use thinner material.",
-  "<b>段ボール版は開発中(beta)です。</b> 寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。切る前に 50mm スケールと材料の実測厚を確認してください。":
-    "<b>The cardboard route is still in development (beta).</b> Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Before you cut, check the 50 mm scale bar and your material's real thickness.",
-  "灯 TOMOSHIBI — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)": "TOMOSHIBI — cardboard papercraft ({name} full scale / {pages} pages)",
-  "印刷 / PDFで保存": "Print / Save as PDF",
-  "HTMLで保存": "Save as HTML",
-  "PDF が欲しいときは、印刷ダイアログの<b>「送信先」を「PDFに保存」</b>にしてください。": "For a PDF, set the print dialog's <b>Destination to \"Save as PDF\"</b>.",
-  "いずれの場合も<b>「実際のサイズ / 100%」「余白: なし」</b>を選び、「用紙に合わせる」は外してください。": "Either way, choose <b>\"Actual size / 100%\" and \"Margins: none\"</b>, and turn off \"Fit to page\".",
-  "<b>「実際のサイズ / 100%」で印刷</b>してください(「用紙に合わせる」は禁止)。刷ったら各ページ下の <b>50mm スケール</b>を定規で必ず確認。": "<b>Print at \"Actual size / 100%\"</b> (\"Fit to page\" is not allowed). After printing, always check the <b>50mm scale</b> at the bottom of each page with a ruler.",
-  "ページを跨ぐ部品は、<b>のりしろ(灰色の破線より下)</b>を次ページに重ね、四隅のトンボを合わせて貼り合わせます。": "For parts that span pages, overlap the <b>glue tab (below the gray dashed line)</b> onto the next page and align the registration crosses in the four corners.",
-  "紙を段ボールに貼り、<b>実線だけ</b>を切り抜きます。<b>破線の目盛は切りません</b> — 竹ひごを巻く位置の印です。": "Glue the paper to cardboard and cut out <b>only the solid lines</b>. <b>Do not cut the dashed ticks</b> — they mark where the bamboo ribs wind.",
-  "段ボールの<b>波の向き(目)は羽根板の長手方向</b>に合わせると折れにくくなります。": "Aligning the cardboard's <b>flute direction with the rib's long axis</b> makes it less likely to fold.",
-  "材料厚 <code>{matT}mm</code> 前提でコマの溝の幅を決めています。実測厚と違うと嵌まりません(緩い/入らない)。": "The koma notch width assumes a material thickness of <code>{matT}mm</code>. If your measured thickness differs, it won't fit (too loose / won't go in).",
-  "羽根板は各枚で竹ひごの巻き位置が異なるため<b>全{boards}枚</b>を掲載しています(番号順に使用)。":
-    "Each rib winds its bamboo at a different height, so <b>all {boards} of them</b> are laid out here (use them in numbered order).",
-  "羽根板は全て<b>同一形状</b>のため型紙は1枚だけ掲載。同じものを<b>{boards}枚</b>切り出してください。":
-    "The ribs are <b>all the same shape</b>, so only one is laid out. Cut <b>{boards} copies</b> of it.",
-  "最後の<b>「和紙」の型紙</b>は段ボールではなく<b>和紙を切る</b>ためのものです。羽根板の間1面分なので、同じものを<b>{boards}枚</b>。和紙は薄いので<b>下に敷いて写して</b>から切ります(貼り付けない)。":
-    "The last sheet, the <b>washi template</b>, is not for cardboard — it is for <b>cutting the paper skin</b>. It covers one rib-to-rib panel, so cut <b>{boards} copies</b>. Washi is translucent, so <b>slip it underneath and trace it</b> (do not glue it on).",
-  "組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます(段ボール版は強度優先で爪先の凹みなし=まっすぐな爪)。差し込みが緩ければ接着してください。":
-    "Assembly: push the rib tabs radially into the two koma (the cardboard version leaves the tab tip plain — no dent — to keep it strong). Glue them if they seat loosely.",
-  "コマ2枚は<b>同一形状</b>です(上下で同じものを使います)。": "The two koma are <b>identical</b> (use the same one top and bottom).",
-  "火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。": "Body height {height}mm / {boards} ribs / bamboo pitch {pitch}mm — this band is on-screen only and is not printed.",
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
   "羽根板の間 1面分": "one rib-to-rib panel",
