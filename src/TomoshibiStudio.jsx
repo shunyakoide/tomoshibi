@@ -27,7 +27,7 @@ import {
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
 import { exportZip, openHTML, downloadFile } from "./stl.js";
-import { paperHTML, washiPDF } from "./papercraft.js";
+import { paperHTML, washiPDF, paperFit } from "./papercraft.js";
 import { fitOnBed } from "./bed.js";
 import { useViewport } from "./three/viewport.js";
 import { buildScene } from "./three/scenes.js";
@@ -63,9 +63,10 @@ export default function TomoshibiStudio() {
   const [p, setP] = useState(SAVED?.p ?? DEFAULTS);
   const [view, setView] = useState("2d");           // section view first: easiest place to read the shape. Transient
   // How the mold gets made: "stl" (3D print) / "paper" (cardboard template). Chosen on the welcome
-  // card and switchable in the print view, and NOT transient — it is a fact about the maker, not the
-  // design, and it decides whether the print bed constrains anything at all (on the cardboard route
-  // nothing is bed-limited: a part larger than A4 simply continues onto the next page with a glue tab).
+  // card and switchable from the viewport chip in any non-lit view, and NOT transient — it is a fact
+  // about the maker, not the design, and it decides whether the print bed constrains anything at all
+  // (on the cardboard route nothing is bed-limited: a part larger than A4 simply continues onto the
+  // next page with a glue tab).
   const [route, setRoute] = useState(SAVED?.route ?? "stl");
   const [drag, setDrag] = useState(null);           // key being dragged (highlights handles / slider rows)
   const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1);
@@ -90,8 +91,13 @@ export default function TomoshibiStudio() {
   // flag ALONE and not on "is there a saved design" — the autosave flushes on pagehide, so a
   // first-time visitor who merely reloads already has saved state and would never see the card,
   // which is exactly the person it is for. The cost is that an existing user meets it once.
-  const [welcome, setWelcome] = useState(() => !loadWelcomeSeen());
-  const closeWelcome = () => { saveWelcomeSeen(); setWelcome(false); };
+  // Which card it is, not just whether one is open: "first" = auto-opened on the first visit,
+  // "help" = reopened from the "?" (null = closed). The two differ in one way — the first-run card
+  // marks NEITHER route, because "stl" there is a default nobody chose and colouring it would answer
+  // the question the card is asking ("どちらでつくりますか?"). Once past that, the card is a place to
+  // switch, so the route in effect is marked. No second persisted flag: the mode carries it.
+  const [welcome, setWelcome] = useState(() => (loadWelcomeSeen() ? null : "first"));
+  const closeWelcome = () => { saveWelcomeSeen(); setWelcome(null); };
 
   // Clamp the rib count to what fits the koma. If board thickness, tolerance or the opening (◇)
   // changes make it too large — by any path — lower it here, so overlapping notches can never
@@ -236,6 +242,13 @@ export default function TomoshibiStudio() {
   // The cardboard route's print view is a document, not a scene: PagePreview draws the template's
   // pages over the (idle) canvas, exactly as the section editor does.
   const paperPreview = view === "print" && route === "paper" && !isLit;
+  // The cardboard route's own "this design won't cut well" check, the counterpart to the bed overflow
+  // above. Cheap enough to run every render (a couple of divisions — see paperFit), and deliberately
+  // NOT limited to the print view: every way out of it (fewer ribs, thinner material, a wider opening)
+  // is a control you reach for while designing, and it used to sit on the printed page, where reading
+  // it means the sheet in your hand is already the wrong one.
+  const fit = useMemo(() => (route === "paper" ? paperFit(p, matT) : null), [route, p, matT]);
+  const thinWall = fit && fit.wall < fit.thin;
   // Stable identity, so the preview's memo isn't invalidated by every unrelated render.
   const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
   const chip = chipStyle(isLit);
@@ -286,8 +299,14 @@ export default function TomoshibiStudio() {
 
       {/* The route switch lives here, on the viewport, and not in the panel: it changes what this
           whole view IS (print plates vs template pages), and buried at the bottom of the inspector's
-          scroll it was several seconds of hunting for the one control most likely to be wrong. */}
-      {view === "print" && !isLit && (
+          scroll it was several seconds of hunting for the one control most likely to be wrong.
+          Shown on every view except lit, not just the print view, because the route reaches further
+          than its own view: `bedRules` below gates the bed-overflow warning, the "keep the height
+          under N mm" hint and the rib-length warning colour, all of which surface while you are in
+          the SECTION view. Leaving the switch behind in the print view put the effect on one screen
+          and its cause on another — someone shortening a body to fit a bed they don't own. Lit is
+          excluded because it is a viewing mode (the whole inspector is hidden there too). */}
+      {!isLit && (
         <div style={{
           position: "absolute", top: 62, left: 16, display: "flex", gap: 2, padding: 4,
           borderRadius: 10, background: chip.bg,
@@ -310,13 +329,16 @@ export default function TomoshibiStudio() {
         ⌀{maxDia} × H{p.height} mm
       </div>
 
-      {/* Bed-overflow warning. Each part lies along a different axis, so the bed is width×depth.
+      {/* The two viewport alerts below share the bottom-RIGHT corner. Bottom-left is the section
+          editor's legend, which either of them used to cover; and they can never collide with each
+          other, being gated on opposite routes (bed = 3D print, koma wall = cardboard).
+          Bed-overflow warning. Each part lies along a different axis, so the bed is width×depth.
           Gated on the whole 3D-print ROUTE, not just the print view: on the cardboard route there is no
           machine to overflow — a part wider than A4 continues onto the next page with a glue tab — so
           telling that person to shorten the body would be shrinking a design for a limit they don't have. */}
       {!isLit && bedRules && overParts.length > 0 && (
         <div style={{
-          position: "absolute", bottom: 20, left: 20, display: "flex", alignItems: "center", gap: 10,
+          position: "absolute", bottom: 20, right: 20, display: "flex", alignItems: "center", gap: 10,
           padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
           borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
           fontSize: 12.5, color: UI.text, textAlign: "left", maxWidth: "60%",
@@ -329,6 +351,24 @@ export default function TomoshibiStudio() {
             {ribBaseOver && heightLimit >= 140 && (
               <><br /><span style={{ color: UI.sub }}>{t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit })}</span></>
             )}
+          </span>
+        </div>
+      )}
+
+      {/* Cardboard: the koma's notches are cut to the material thickness, so thick material eats the
+          wall between them until it tears when cut by hand. Shares the bed warning's corner, which is
+          safe because that one is gated on the 3D-print route and this one on cardboard. */}
+      {!isLit && thinWall && (
+        <div style={{
+          position: "absolute", bottom: 20, right: 20, display: "flex", alignItems: "center", gap: 10,
+          padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
+          borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
+          fontSize: 12.5, color: UI.text, textAlign: "left", maxWidth: "60%",
+        }}>
+          <span style={{ fontSize: 15 }}>⚠️</span>
+          <span>
+            {t("コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです", { wall: fit.wall.toFixed(1) })}
+            <br /><span style={{ color: UI.sub }}>{t("→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる")}</span>
           </span>
         </div>
       )}
@@ -361,7 +401,7 @@ export default function TomoshibiStudio() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* Reopens the onboarding card. Once dismissed it never auto-opens again, so this is the
               only way back to "what is this app" — keep it next to the language toggle. */}
-          <button className="icon-btn" onClick={() => setWelcome(true)} title={t("はじめかた")} aria-label={t("はじめかた")}>?</button>
+          <button className="icon-btn" onClick={() => setWelcome("help")} title={t("はじめかた")} aria-label={t("はじめかた")}>?</button>
           <button className="lang-btn" onClick={toggleLang} title="Language / 言語">{lang === "ja" ? "EN" : "日本語"}</button>
         </div>
       </div>
@@ -569,7 +609,7 @@ export default function TomoshibiStudio() {
         {viewport}
         {inspector}
         {welcome && (
-          <Welcome route={route} onClose={closeWelcome}
+          <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome}
             onPick={(r) => { setRoute(r); closeWelcome(); }} />
         )}
       </div>

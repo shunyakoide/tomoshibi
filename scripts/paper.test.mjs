@@ -26,7 +26,7 @@
  * Run this after touching the 2D side of papercraft.js / geometry.js.
  * ============================================================================
  */
-import { paperHTML, paperParts, washiParts, washiPDF, A4 } from "../src/papercraft.js";
+import { paperHTML, paperParts, paperFit, washiParts, washiPDF, A4 } from "../src/papercraft.js";
 import { winAnsi } from "../src/pdf.js";
 import { makeT } from "../src/i18n.js";
 import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR } from "../src/geometry.js";
@@ -48,7 +48,7 @@ for (const preset of PRESETS)
   for (const height of [140, 205, 300, 400])
     for (const matT of [1, 2, 5, 10]) {
       const p = { ...DEFAULTS, ...preset, height };
-      const { parts, pk } = paperParts(p, matT);
+      const { parts, pk, clamped, nMax } = paperParts(p, matT);
       const tag = `${preset.key} h${height} t${matT}`;
       const find = (pre) => parts.find((q) => q.name.startsWith(pre));
       eq(bb(find("羽根板")).h, p.height + 2 * p.tabLen, `${tag} rib total length`);
@@ -58,9 +58,17 @@ for (const preset of PRESETS)
       // straight tab, and the koma notch is full-depth so that plain tab fits.
       if (tabDented(pk)) bad(`${tag} papercraft should have no tab dent (noTabDent)`);
       eq(notchR(pk), innerRi(pk) - 0.5, `${tag} koma notch should be full-depth for the plain tab`);
-      // When the wall between koma grooves is thin (less than half the material thickness), by design notify on paper without changing the shape.
+      // The wall left between the koma's notches. Thin (under half the material thickness) means it
+      // tears when hand-cut — the app raises a viewport alert for it, and no longer the printed page,
+      // because every fix for it (fewer ribs / thinner material / a wider opening) is a control you
+      // reach for while designing. So what has to hold here is that the number the alert quotes is
+      // the real one: paperFit is what the app calls, checked against the formula and against the
+      // copy paperParts hands the template.
       const wall = (2 * Math.PI * notchR(pk)) / pk.boards - matT;
-      if (wall < matT / 2 && !paperHTML(p, matT, A4).includes("しかありません")) bad(`${tag} no warning despite the thin wall`);
+      const fit = paperFit(p, matT);
+      eq(fit.wall, wall, `${tag} paperFit wall`);
+      eq(fit.thin, matT / 2, `${tag} paperFit thin threshold`);
+      if (fit.clamped !== clamped || fit.nMax !== nMax) bad(`${tag} paperFit disagrees with paperParts`);
       // The koma is a polygonal approximation (chords) + edge notch cutouts, so the circumscribed diameter is slightly under the diameter
       // (thicker material = wider notches = more under). It's an error if it **exceeds** komaR.
       const kw = bb(find("コマ")).w, kd = 2 * komaR(pk);

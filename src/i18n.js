@@ -39,7 +39,7 @@ const EN = {
     "The tabs above also show the assembly and the lantern lit. Reopen this with the \"?\" at the top right.",
   // ---- Welcome / the route choice (3D print vs cardboard) ----
   "どちらでつくりますか?": "How will you make it?",
-  "後から「印刷」タブで変更できます": "Changeable later in the Print tab",
+  "後からいつでも変更できます": "Changeable at any time",
   "3Dプリンタ": "3D printer",
   "STL 一式をダウンロード": "Download the STL set",
   "A4 原寸の型紙を印刷 · 大きさの制限なし": "Print the A4 1:1 template · no size limit",
@@ -122,6 +122,8 @@ const EN = {
   "開口リング": "Opening ring",
   "{parts} がベッド {w}×{d}mm を超過": "{parts} exceeds the {w}×{d}mm bed",
   "→ 火袋の高さを {h}mm 以下に": "→ Reduce body height to {h}mm or less",
+  "コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです": "Only {wall}mm of koma left between notches — thin enough to tear when hand-cut",
+  "→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる": "→ Fewer ribs / thinner material / widen the opening in the section view",
   "鑑賞モード — 編集はタブで「断面」へ": "Viewing mode — switch to the Section tab to edit",
   // ---- Section editor (SectionEditor) ----
   "羽根板": "Rib",
@@ -171,7 +173,6 @@ const EN = {
   // English text at the same size (a longer line collides with the footer).
   "50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)": "50mm ← check with a ruler (print at 100%)",
   "灯 TOMOSHIBI 型紙 {name} 原寸": "TOMOSHIBI papercraft {name} (full scale)",
-  "⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。": "⚠ The koma has <b>only {wall}mm of wall between grooves</b> (groove width matches the material at {matT}mm). That's thin enough to tear when hand-cut. To thicken it: <b>reduce the number of ribs</b>, <b>use thinner material</b>, or in the section view <b>widen the opening to make the koma larger</b>.",
   "⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。": "⚠ At {matT}mm material thickness, at most {nMax} ribs fit (the grooves widen and overlap at the koma's center). Exported with {boards} reduced to <b>{nMax} ribs</b>. To keep the count, use thinner material.",
   "<b>段ボール版は開発中(beta)です。</b> 寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。切る前に 50mm スケールと材料の実測厚を確認してください。":
     "<b>The cardboard route is still in development (beta).</b> Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Before you cut, check the 50 mm scale bar and your material's real thickness.",

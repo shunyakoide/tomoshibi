@@ -11,7 +11,12 @@
  * That belongs here rather than buried in the print view, because it is not a per-export toggle — it
  * decides whether a print bed constrains the design at all, and the bed's overflow warning starts
  * nagging long before anyone opens the print view. Picking either one closes the card; skipping keeps
- * whatever was saved (3D print by default), and the print view's toggle still switches it any time.
+ * whatever was saved (3D print by default), and the viewport's toggle still switches it any time.
+ *
+ * `route` is the route to MARK as current, or **null to mark neither** — which is what the first-run
+ * card passes. On a first visit "stl" is a default nobody picked, and colouring it would have the
+ * card answer its own question; reopened from the "?" the buttons are a switch instead, so the route
+ * in effect is marked. That distinction lives in the caller (which card is this?), not here.
  *
  * The explanation itself is a single card — deliberately NOT a step-through tour with
  * spotlights: the app is one screen, and a spotlight would have to track a viewport that stretches
@@ -80,7 +85,7 @@ const ROUTES = [
   ["paper", "段ボール", "A4 原寸の型紙を印刷 · 大きさの制限なし", "beta"],
 ];
 
-export default function Welcome({ route, onPick, onClose }) {
+export default function Welcome({ route = null, onPick, onClose }) {
   const t = useT();
   const btnRef = useRef(null);
 
@@ -143,7 +148,7 @@ export default function Welcome({ route, onPick, onClose }) {
         <div style={{ marginTop: 18 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
             <span style={{ fontSize: 11.5, color: ui.sub }}>{t("どちらでつくりますか?")}</span>
-            <span style={{ fontSize: 10.5, color: ui.faintest }}>{t("後から「印刷」タブで変更できます")}</span>
+            <span style={{ fontSize: 10.5, color: ui.faintest }}>{t("後からいつでも変更できます")}</span>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             {ROUTES.map(([key, title, caption, badge], i) => (
