@@ -26,8 +26,8 @@ import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
-import { exportZip, openHTML, downloadFile } from "./stl.js";
-import { paperHTML, washiPDF, paperFit } from "./papercraft.js";
+import { exportZip, downloadFile } from "./stl.js";
+import { paperPDF, washiPDF, paperFit } from "./papercraft.js";
 import { fitOnBed } from "./bed.js";
 import { useViewport } from "./three/viewport.js";
 import { buildScene } from "./three/scenes.js";
@@ -558,7 +558,7 @@ export default function TomoshibiStudio() {
                 {/* The counterpart to the bed warning the 3D route shows here: on paper there is no
                     machine size to exceed, so the design is free — say so, or its absence just reads
                     as a missing check. */}
-                <Note>{t("大きさの制限はありません。A4 に収まらない部品は、のりしろ付きで次のページに続きます(トンボを合わせて貼り合わせ)。")}</Note>
+                <Note>{t("大きさの制限はありません。A4 に収まらない部品は、のりしろ付きで次のページに続きます(同じ番号の半ダイヤが◇になるように重ねて貼る)。")}</Note>
               </>
             )}
           </div>
@@ -582,9 +582,16 @@ export default function TomoshibiStudio() {
           <CTA label="印刷・書き出しへ進む →" outline onClick={() => setView("print")} />
         ) : route === "paper" ? (
           <>
-            <CTA label="型紙を開く (A4 原寸)"
-              onClick={() => openHTML(paperHTML(p, matT, undefined, t, { side: washiSide, end: washiEnd }), "tomoshibi_katagami_a4.html")} />
-            <Note>{t("新しいタブで開きます。「実際のサイズ(100%)」で印刷し、50mm スケールを定規で確認してください。竹ひご溝は切らず目盛線で示します。和紙の型紙も一緒に出ます。")}</Note>
+            {/* English translator, not `t`: the PDF carries base-14 Helvetica only, so Japanese
+                labels would be dropped rather than drawn (see paperPDF / winAnsi). */}
+            <CTA label="型紙 PDF をダウンロード (A4 原寸)"
+              onClick={() => downloadFile(
+                paperPDF(p, matT, undefined, makeT("en"), { side: washiSide, end: washiEnd }),
+                "tomoshibi_katagami_a4.pdf", "application/pdf")} />
+            {/* The one thing left to say. A PDF is already A4 at exact size, so the only way to lose
+                that is the printer's own scaling — everything else the old HTML page explained was
+                about making an HTML print at 1:1 in the first place. */}
+            <Note>{t("プリンタの設定は「実際のサイズ / 100%」にしてください(「用紙に合わせる」は不可)。和紙の型紙も同じ PDF に入っています。")}</Note>
           </>
         ) : (
           <>

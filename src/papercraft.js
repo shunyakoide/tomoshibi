@@ -45,9 +45,19 @@ const tid = (s, params) => (params ? Object.keys(params).reduce((a, k) => a.spli
 
 // ---- Paper (A4) ----
 export const A4 = { w: 210, h: 297, name: "A4" };
-const MARGIN = 8;    // Paper edge margin (mm). Outside the non-printable area (~5mm) of most home printers.
-const FOOTER = 14;   // Height of the info band at the bottom of the page (page number, full-scale check ruler) (mm)
-const OVERLAP = 10;  // "Glue tab" for parts spanning pages (mm). The top of the next page overlaps by this much.
+// Paper edge margin (mm) = where the alignment frame sits, pushed out to the printable limit so the
+// sheets carry as much template as they can. 5mm is what "as far out as it goes" means in practice:
+// home inkjets stop at ~3.2mm and lasers at ~4.2-5mm, so this is the last value that still prints
+// whole on essentially anything. Going further would start clipping the frame itself, and the frame
+// is what the sheets are aligned by — losing it costs more than the millimetre gains.
+export const MARGIN = 5;
+const FOOTER = 0;    // No band at the foot of every page: the parts get the full height between the margins.
+// Instead the FIRST page starts this far down, and the strip that opens up carries the check square.
+// Reserved once for the whole document rather than 14mm on every sheet. 36mm is what the try
+// square's short arm plus its labels need, and it sits inside a flat step in the cost curve: the
+// `check:paper` sweep prints 736 sheets for anything from 20mm to 40mm, against 726 at 4mm.
+export const TOPBAR = 36;
+export const OVERLAP = 10;  // "Glue tab" for parts spanning pages (mm). The top of the next page overlaps by this much.
 const GAP = 6;       // Gap between parts (mm). Margin for cutting them apart.
 const TICK = 5;      // Length of the bamboo-rib tick line (mm). Drawn inward from the outer edge.
 
@@ -203,7 +213,7 @@ function layout(parts, page) {
     return q;
   });
 
-  const build = (qs) => {
+  const build = (qs, topbar) => {
     // --- (1) Pack into rows ---
     const placed = [], rows = [];
     let y = 0, rowX = 0, rowH = 0;
@@ -217,16 +227,23 @@ function layout(parts, page) {
     endRow();
 
     // --- (2) Assign rows to pages ---
+    // Sheet 1 is TOPBAR shorter than the rest, because its top strip carries the check bar. That has
+    // to be a PAGE-space fact, not a content-space one: starting the first row at y = TOPBAR instead
+    // looks identical until a row spans pages, at which point the spanning branch below takes the
+    // row's own y as the page's `top` and the offset cancels itself out — which is exactly the common
+    // case (a rib taller than A4), so the strip silently vanished under the drawing.
+    const cap = (k) => CH - (k === 0 ? topbar : 0);   // usable content height of sheet k
     const pages = [];
-    let cur = null;
+    let cur = null, curAt = -1;
     for (const r of rows) {
-      if (r.h > CH) {
+      if (r.h > cap(pages.length)) {
         // A row that doesn't fit on one page → raise as many pages as needed, overlapping by the glue tab
-        for (let t = r.y; t < r.y + r.h; t += CH - OVERLAP) pages.push({ top: t, row: r });
-        cur = pages[pages.length - 1];  // if the last page has room, put the next row on it too
-      } else if (!cur || r.y + r.h > cur.top + CH) {
+        let t = r.y;
+        while (t < r.y + r.h) { pages.push({ top: t, row: r }); t += cap(pages.length - 1) - OVERLAP; }
+        cur = pages[pages.length - 1]; curAt = pages.length - 1;   // if the last page has room, put the next row on it too
+      } else if (!cur || r.y + r.h > cur.top + cap(curAt)) {
         cur = { top: r.y, row: r };     // doesn't fit on the current page → start the next page at this row
-        pages.push(cur);
+        pages.push(cur); curAt = pages.length - 1;
       }
     }
     if (!pages.length) pages.push({ top: 0, row: null });
@@ -237,7 +254,9 @@ function layout(parts, page) {
     //  no gluing is needed, making it look like "every page overlaps".)
     pages.forEach((pg, i) => {
       const next = pages[i + 1];
-      pg.bot = !next || (pg.row && next.row === pg.row) ? pg.top + CH : Math.min(pg.top + CH, next.top);
+      pg.y0 = MARGIN + (i === 0 ? topbar : 0);   // page y the content band starts at
+      pg.bot = !next || (pg.row && next.row === pg.row)
+        ? pg.top + cap(i) : Math.min(pg.top + cap(i), next.top);
     });
     return { placed, CW, CH, pages };
   };
@@ -257,8 +276,50 @@ function layout(parts, page) {
   // given order on a tie (羽根板 → コマ → 和紙 is the order they are cut and assembled in). That makes
   // the reordering unable to ever cost a page, which is what lets it apply unconditionally — to the
   // printed template, the PDF and the in-app preview alike, all of which come through here.
-  const asGiven = build(oriented), sorted = build(byHeight);
-  return sorted.pages.length < asGiven.pages.length ? sorted : asGiven;
+  const pick = (topbar) => {
+    const asGiven = build(oriented, topbar), sorted = build(byHeight, topbar);
+    return sorted.pages.length < asGiven.pages.length ? sorted : asGiven;
+  };
+  // Where the check square goes. It is a mark, not a part, so it belongs in room the layout has
+  // ALREADY left — most designs finish with half a sheet blank, and reserving a strip for it up
+  // front costs a page on designs that had the room all along. Only when nothing anywhere fits does
+  // sheet 1 give up TOPBAR for it. Both halves matter: an earlier version reserved the strip
+  // unconditionally and spent 10 sheets in 736 for it, and the version before THAT only looked for
+  // gaps and silently shipped 16% of designs with no check square at all.
+  const free = pick(0);
+  const spot = scaleSpot(free);
+  if (spot) return { ...free, spot };
+  const held = pick(TOPBAR);
+  return { ...held, spot: { page: 0, x: MARGIN, y: MARGIN } };
+}
+
+// Footprint of the check square including its labels (mm).
+const SQ = { w: 86, h: 34 };
+/**
+ * The first place the check square fits without touching a part, scanning sheets in order (it is
+ * more use on an early sheet than a late one). Parts are tested by BOUNDING BOX, which is
+ * conservative — a curved rib leaves real room beside it this will not use — because printing the
+ * one mark the sheet's scale is judged by across a cut line is worse than spending a page.
+ */
+function scaleSpot(lay) {
+  for (let i = 0; i < lay.pages.length; i++) {
+    const { top, bot, y0 } = lay.pages[i];
+    const prev = lay.pages[i - 1];
+    const oy = y0 - top, bandTop = y0 + (prev && prev.bot > top ? 1 : 0), bandBot = y0 + (bot - top);
+    const near = lay.placed.filter((q) => q.y < bot && q.y + q.h > top)
+      .map((q) => ({ x: MARGIN + q.x, y: oy + q.y, w: q.w, h: q.h }));
+    // Candidates are the band's own top-left corner plus the bottom-right corners the parts leave —
+    // the standard corner heuristic. A free rectangle touching nothing always has one of these as
+    // its top-left, so sweeping a grid instead would only cost time.
+    const xs = [MARGIN, ...near.map((q) => q.x + q.w + GAP)].sort((a, b) => a - b);
+    const ys = [bandTop, ...near.map((q) => q.y + q.h + GAP)].sort((a, b) => a - b);
+    for (const y of ys) for (const x of xs) {
+      if (x + SQ.w > MARGIN + lay.CW || y + SQ.h > bandBot || y < bandTop) continue;
+      if (!near.some((q) => q.x < x + SQ.w && q.x + q.w > x && q.y < y + SQ.h && q.y + q.h > y))
+        return { page: i, x, y };
+    }
+  }
+  return null;
 }
 
 // ============ Page drawing (shared by the SVG and PDF renderers) ============
@@ -273,30 +334,33 @@ export const STYLE = {
   cut: { stroke: "#000", w: 0.25 },                              // cut line
   tick: { stroke: "#000", w: 0.25, dash: [1.2, 1] },             // bamboo-rib ticks (do not cut)
   guide: { stroke: "#777", w: 0.25, dash: [4, 2.5] },            // alignment guides (do not cut)
-  reg: { stroke: "#000", w: 0.2 },                               // registration marks / scale
+  reg: { stroke: "#000", w: 0.2 },                               // registration marks
+  scale: { stroke: "#000", w: 0.6 },                             // the full-scale check bar (thick: a ruler gets laid on it)
   glue: { stroke: "#888", w: 0.2, dash: [3, 2] },                // page-overlap (glue tab) line
+  frame: { stroke: "#1769c8", w: 0.2 },                          // alignment frame of a sheet that joins another
+  join: { stroke: "#1769c8", w: 0.25 },                          // sheet-join half-diamonds (blue = align, never cut)
   pname: { fill: "#999", size: 3.4, anchor: "middle" },          // part name, faint, inside the part
   note: { fill: "#888", size: 2.6, anchor: "start" },
-  foot: { fill: "#666", size: 2.8, anchor: "end" },
+  jlabel: { fill: "#1769c8", size: 2.4, anchor: "start" },        // a seam's code (1A, 1B, 2A …), beside its diamond
 };
-// `scope` prefixes every selector. The printable page is a document of its own and needs none, but
-// the in-app preview injects these rules into the app's own stylesheet, where bare `.note` would
-// hit the inspector's notes and shrink them to 2.6px.
-const styleCSS = (scope = "") => Object.entries(STYLE).map(([k, s]) => (s.size
+// `scope` prefixes every selector, because the only consumer is the in-app preview, which injects
+// these rules into the app's own stylesheet — where a bare `.note` would hit the inspector's notes
+// and shrink them to 2.6px.
+const styleCSS = (scope) => Object.entries(STYLE).map(([k, s]) => (s.size
   ? `${scope}.${k} { font-size: ${s.size}px; fill: ${s.fill}; text-anchor: ${s.anchor}; font-family: sans-serif }`
   : `${scope}.${k} { fill: none; stroke: ${s.stroke}; stroke-width: ${s.w}${s.dash ? `; stroke-dasharray: ${s.dash.join(" ")}` : ""} }`)).join("\n  ");
 
 /** Ops for page i. The [top, top+CH] band of content coordinates lands inside the clip rectangle. */
-function pageOps(lay, i, page, info, t) {
-  const { top, bot } = lay.pages[i];
+function pageOps(lay, i, page, t) {
+  const { top, bot, y0 } = lay.pages[i];   // y0 = page y the content band starts at (sheet 1 sits TOPBAR lower)
   const ops = [];
   const path = (pts, style, close = false) => ops.push({ k: "path", pts, style, close });
   const text = (x, y, str, style) => ops.push({ k: "text", x, y, str, style });
 
-  // Parts, clipped to the page band. Without the clip a spanning part bleeds into the bottom info
-  // band and the neighbouring page's content prints on this sheet.
-  ops.push({ k: "clip", x: MARGIN, y: MARGIN, w: lay.CW, h: bot - top });
-  const ox = MARGIN, oy = MARGIN - top;                          // content → page coordinates
+  // Parts, clipped to the page band. Without the clip a spanning part bleeds past the sheet's own
+  // content box and the neighbouring page's content prints on this sheet.
+  ops.push({ k: "clip", x: MARGIN, y: y0, w: lay.CW, h: bot - top });
+  const ox = MARGIN, oy = y0 - top;                              // content → page coordinates
   for (const q of lay.placed) {
     if (q.y >= bot || q.y + q.h <= top) continue;                // not in this band
     const at = ([x, y]) => [ox + q.x + x, oy + q.y + y];
@@ -311,28 +375,119 @@ function pageOps(lay, i, page, info, t) {
   }
   ops.push({ k: "unclip" });
 
-  // Registration marks (crosses in the four corners). Used to align when gluing sheets together.
-  for (const [x, y] of [[MARGIN, MARGIN], [MARGIN + lay.CW, MARGIN], [MARGIN, MARGIN + lay.CH], [MARGIN + lay.CW, MARGIN + lay.CH]]) {
-    path([[x - 3, y], [x + 3, y]], "reg");
-    path([[x, y - 3], [x, y + 3]], "reg");
-  }
-  // Glue-tab band. Drawn only when the next page intrudes into this page's band (= a part spans
-  // pages). If no part spans, pages don't overlap, so neither the line nor the note appears.
+  const boxBot = y0 + (bot - top);
+  // ---- Joining sheets ----
+  // Only where a part actually spans pages; with no spanning part the sheets don't overlap and none
+  // of this is drawn.
+  //
+  // The convention is the one home-print sewing patterns use, and it is worth following exactly: a
+  // FRAME marking the overlap boundary, and HALF-diamonds sitting on it that complete into whole ◇
+  // when two sheets are laid up correctly. Two lines laid on each other hide a half-millimetre of
+  // error; two half-diamonds that fail to close do not. Each carries a short code (1A, 1B, 2A …) so
+  // there is no doubt which edge meets which — no sentence, because a sentence printed across the
+  // drawing is unreadable and the codes say it all.
+  //
+  // The frame is where it is for a reason. Page i draws content [top, top+cap] while page i+1 starts
+  // at top+cap-OVERLAP, so the two sheets' corner crosses are OVERLAP apart in content space and
+  // never coincide — lining THOSE up, which this template used to ask for, puts the seam 10mm out.
+  // Page i's glue line and page i+1's top content edge are the same content y. That is the pair the
+  // frame is built from, and blue because blue on a pattern sheet reads as "align", never as "cut".
   const next = lay.pages[i + 1];
   const glueTop = next && next.top < bot ? next.top : null;
-  if (glueTop != null) {
-    const gy = MARGIN + (glueTop - top);
-    path([[MARGIN, gy], [MARGIN + lay.CW, gy]], "glue");
-    text(MARGIN + 2, gy - 1.5, t("▼ここから下は次のページと重なります(のりしろ)"), "note");
+  const prev = lay.pages[i - 1];
+  const joinsPrev = prev && prev.bot > top;
+  if (glueTop != null || joinsPrev) {
+    // A frame edge is the SEAM where the sheet joins a neighbour, and the sheet's own trim edge where
+    // it doesn't — so on every sheet the box lands in the same place. Sheet 1's TOPBAR strip shifts
+    // its CONTENT down by 9mm, never its frame: a top line sitting 9mm lower on page 1 than on every
+    // other page reads as a misprint, and gives the eye a different box to trust on the first sheet.
+    const ft = joinsPrev ? y0 : MARGIN;                           // frame top
+    const fb = glueTop != null ? y0 + (glueTop - top) : boxBot;   // frame bottom
+    const L = MARGIN, R = MARGIN + lay.CW;
+    // Each frame edge is drawn as a line ACROSS THE WHOLE SHEET, not as a closed box. Overlap two
+    // sheets and the upper one covers the lower one's corners, which is exactly where a box carries
+    // all of its information; a line that runs out to the paper's edge still shows on both sides of
+    // the overlap, and a long line is what makes a small angular error visible at all.
+    path([[0, ft], [page.w, ft]], "frame");
+    path([[0, fb], [page.w, fb]], "frame");
+    path([[L, 0], [L, page.h]], "frame");
+    path([[R, 0], [R, page.h]], "frame");
+
+    let seams = 0;                                    // how many seams happen above this sheet
+    for (let j = 0; j < i; j++) if (lay.pages[j + 1] && lay.pages[j + 1].top < lay.pages[j].bot) seams++;
+    // Half a diamond: an OPEN chevron whose ends rest on a frame edge, apex pointing inward (`dx`/`dy`).
+    // Open, because the frame line it sits on already draws its base — closing it would lay a second
+    // stroke along that line and thicken exactly the line the sheets are aligned by. Two sheets laid
+    // up correctly bring two opposed chevrons base-to-base and the ◇ closes; a millimetre out and it
+    // visibly doesn't, which is the whole reason this beats "line the lines up".
+    const B = 4, D = 3.4;                             // half-base, depth (mm)
+    const half = (x, y, dx, dy, code) => {
+      path([[x - B * Math.abs(dy), y - B * Math.abs(dx)],
+        [x + D * dx, y + D * dy],
+        [x + B * Math.abs(dy), y + B * Math.abs(dx)]], "join");
+      if (code) text(x + (B + 1.5) * Math.abs(dy) + 1.5 * dx, y + (dy < 0 ? -1.4 : dy > 0 ? 2.8 : 0.9), code, "jlabel");
+    };
+    // Top and bottom edges: the mating halves. Two per seam rather than one, so laying the sheets up
+    // pins rotation as well as offset — a single mark leaves the sheet free to pivot on it. Set wide
+    // apart (a fifth in from each end) because the angle they fix is only as good as their spacing,
+    // and it keeps the codes out of the middle of the drawing where nothing can be read.
+    const jx = [L + lay.CW / 5, L + (4 * lay.CW) / 5];
+    if (joinsPrev) jx.forEach((x, k) => half(x, ft, 0, 1, `${seams}${"AB"[k]}`));
+    if (glueTop != null) jx.forEach((x, k) => half(x, fb, 0, -1, `${seams + 1}${"AB"[k]}`));
+    // Left and right edges. These mark where to TRIM, not what to mate: this layout is one column
+    // wide, so a sheet never has a neighbour beside it and there is no half to complete. They carry
+    // no code for that reason — cut the frame here and the sheets stack with their sides flush.
+    const my = (ft + fb) / 2;
+    half(L, my, 1, 0, "");
+    half(R, my, -1, 0, "");
+  } else {
+    // No seam on this sheet, so no frame — the corner crosses are then the only trim reference.
+    for (const [x, y] of [[MARGIN, y0], [MARGIN + lay.CW, y0], [MARGIN, boxBot], [MARGIN + lay.CW, boxBot]]) {
+      path([[x - 3, y], [x + 3, y]], "reg");
+      path([[x, y - 3], [x, y + 3]], "reg");
+    }
   }
-  // Full-scale check ruler (50mm). Always verify with a ruler that no printer scaling was applied.
-  const sy = page.h - MARGIN - 5, sx = MARGIN;
-  path([[sx, sy], [sx + 50, sy]], "reg");
-  path([[sx, sy - 2], [sx, sy + 2]], "reg");
-  path([[sx + 25, sy - 1.5], [sx + 25, sy + 1.5]], "reg");
-  path([[sx + 50, sy - 2], [sx + 50, sy + 2]], "reg");
-  text(sx + 53, sy + 1.5, t("50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)"), "note");
-  text(page.w - MARGIN, sy + 1.5, `${info.title} — ${i + 1} / ${info.pages}`, "foot");
+  // Full-scale check: a 5cm bar, drawn THICK so a ruler's edge has something to line up against (the
+  // 0.2mm hairline this used to be gave nothing). 5cm is enough — a longer bar reads more precisely
+  // only by spending sheet, which is the opposite of the point. It sits in a gap the layout already
+  // leaves (scaleSpot), together with the page number, so no strip of the page is set aside for it.
+  if (i === lay.spot.page) {
+    // Full-scale check, drawn as an L — a try square, not a bar. Every printable sewing pattern
+    // prints a SQUARE rather than a line, and the reason is real: a printer can scale the two axes
+    // by different amounts, and a horizontal bar cannot see that at all.
+    //
+    // It is an L and not a full square because the two axes do not cost the same. Width is free
+    // (200mm of it, mostly unused), height comes straight out of the parts, so the long arm goes
+    // across and the short arm goes down — enough to catch an axis that scaled differently, no more.
+    // A full 3in square costs 800 sheets over the `check:paper` sweep against 736 for this L.
+    //
+    // Both units ride the SAME arms rather than taking a mark each: a tick where the metric figure
+    // falls and another where the imperial one does. Patterns normally print one square labelled
+    // "10cm (4in)", but 4in is 101.6mm, so that label is wrong by 1.6mm and the reader cannot tell
+    // which unit it is true to. Two ticks on one arm are exact in both.
+    //
+    // Its position comes from the layout (`scaleSpot`), not from here — it lands in room already
+    // going spare, which is why no sheet is set aside for it.
+    const x0 = lay.spot.x, ys = lay.spot.y, AX = 76.2, AY = 30;   // 3in across, 3cm down
+    path([[x0, ys], [x0 + AX, ys]], "scale");
+    path([[x0, ys], [x0, ys + AY]], "scale");
+    // Ticks run INWARD off their arm. Outward ones can reach past MARGIN, outside the printable
+    // limit MARGIN is set to — and a tick the printer clips no longer says where the length ends,
+    // on the one measurement the whole sheet is trusted by.
+    const across = (len, label) => {
+      path([[x0 + len, ys], [x0 + len, ys + 3]], "scale");
+      text(x0 + len + 1, ys + 6.4, label, "note");
+    };
+    const down = (len, label) => {
+      path([[x0, ys + len], [x0 + 3, ys + len]], "scale");
+      text(x0 + 4.5, ys + len + 1, label, "note");
+    };
+    across(50, "5cm");
+    across(AX, "3in");
+    down(25.4, "1in");
+    down(AY, "3cm");
+    text(x0 + 8, ys + 11, t("← 定規で確認"), "note");
+  }
   return ops;
 }
 
@@ -349,9 +504,8 @@ function pageOps(lay, i, page, info, t) {
 export function paperPagesSVG(p, matT, t = tid, washiOpts = {}, page = A4) {
   const { parts, pk, clamped, nMax } = paperParts(p, matT, t, washiOpts);
   const lay = layout(parts, page);
-  const info = { pages: lay.pages.length, title: t("灯 TOMOSHIBI 型紙 {name} 原寸", { name: page.name }) };
   const svgs = [];
-  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, info, t), i, page));
+  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, t), i, page));
   return { svg: svgs.join(""), css: styleCSS(".pages "), pages: lay.pages.length, pk, clamped, nMax };
 }
 
@@ -387,112 +541,27 @@ function pageSVG(ops, i, page) {
  */
 export function pagesPDF(parts, page, t, title) {
   const lay = layout(parts, page);
-  const info = { pages: lay.pages.length, title };
   const pages = [];
-  for (let i = 0; i < lay.pages.length; i++) pages.push(pageOps(lay, i, page, info, t));
+  for (let i = 0; i < lay.pages.length; i++) pages.push(pageOps(lay, i, page, t));
   return buildPDF(pages, page, STYLE, title);
 }
 
 /**
- * Shared page shell: parts → laid-out pages + the on-screen instruction band (hidden when printing).
- * Both templates (the cardboard mold and the washi skin) go through here, so the print rules that
- * actually decide whether the result is usable — full-scale ruler, registration crosses, glue tabs,
- * "save as HTML" — cannot drift apart between them.
- *   head(pages) → { h1, body }: the title line and the instruction HTML for that template.
- *   file: basename for the "Save as HTML" button.
+ * The cardboard template as a print-ready PDF — the route's one deliverable.
+ *
+ * It replaced a self-contained HTML page whose entire preamble existed to talk the reader through
+ * printing an HTML at exactly 1:1 ("Actual size / 100%", no margins, fit-to-page off, and a
+ * "save as HTML" button for later). A PDF is already A4 at exact size, so all of that went with it;
+ * what is left worth saying is the one printer setting, and the app says it beside the download.
+ *
+ * `t` must be the **English** translator, for the reason washiPDF documents: the PDF carries
+ * base-14 Helvetica only, and winAnsi() drops anything outside Latin-1 — hand it Japanese and the
+ * part names come out as " x8" with the word silently gone. Nothing dimensional depends on the
+ * labels; the drawing is identical either way.
  */
-function pagesHTML(parts, page, t, { title, head, file }) {
-  const lay = layout(parts, page);
-  const info = { pages: lay.pages.length, title };
-  const svgs = [];
-  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, info, t), i, page));
-  const H = head(lay.pages.length);
-
-  return `<meta charset="utf-8"><title>${esc(title)}</title>
-<style>
-  /* One sheet per page, exactly paper-sized. The SVG carries the margins, so this is 0. */
-  @page { size: ${page.name}; margin: 0 }
-  body { margin: 0; font-family: system-ui, "Hiragino Sans", sans-serif; color: #2b2118; background: #eae6df }
-  .pg { display: block; background: #fff; page-break-after: always; break-after: page; margin: 0 auto 12px }
-  /* Line and text styles are generated from the shared STYLE table, so the PDF renderer draws with
-     exactly the same widths, dashes and sizes. */
-  ${styleCSS()}
-  .head { max-width: 190mm; margin: 16px auto; padding: 16px 20px; background: #fff; border-radius: 10px; line-height: 1.75; font-size: 13px }
-  .head h1 { font-size: 16px; margin: 0 0 10px }
-  .head ol { padding-left: 1.2em; margin: 8px 0 } .head li { margin: 3px 0 }
-  .head code { background: #f2efe9; padding: 1px 5px; border-radius: 4px }
-  .warn { background: #fff4e8; border-left: 3px solid #d95b18; padding: 8px 12px; border-radius: 4px }
-  /* Status note ("this route is still in development"). Deliberately quieter than .warn: nothing is
-     wrong with this particular print, so it must not read as an error about the design. */
-  .beta { background: #f4f2ed; border-left: 3px solid #b9b0a0; padding: 8px 12px; border-radius: 4px; color: #6b6252 }
-  .beta b { color: #4a4438 }
-  /* action buttons (screen only); .head is hidden when printing, so they never appear on paper */
-  .acts { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 14px }
-  .acts button { font: inherit; font-weight: 700; padding: 10px 18px; border-radius: 9px; cursor: pointer;
-    border: 1px solid #d95b18; background: #d95b18; color: #fff }
-  .acts button.sub { background: #fff; color: #d95b18 }
-  .acts button:hover { filter: brightness(1.06) }
-  .acts .hint { font-size: 12px; color: #8a7f6e; line-height: 1.5 }
-  @media print { .head { display: none } body { background: #fff } .pg { margin: 0 } }
-</style>
-<div class="head">
-  <h1>${H.h1}</h1>
-  <div class="acts">
-    <button onclick="window.print()">${t("印刷 / PDFで保存")}</button>
-    <button class="sub" onclick="saveHtml()">${t("HTMLで保存")}</button>
-    <span class="hint">${t("PDF が欲しいときは、印刷ダイアログの<b>「送信先」を「PDFに保存」</b>にしてください。")}<br>
-      ${t("いずれの場合も<b>「実際のサイズ / 100%」「余白: なし」</b>を選び、「用紙に合わせる」は外してください。")}</span>
-  </div>
-  ${H.body}
-</div>
-${svgs.join("\n")}
-<script>
-// Save this page itself as an HTML file (to reprint later or hand to another device).
-// The page is self-contained (no external references), so this single file reproduces it.
-function saveHtml() {
-  var html = "<!doctype html>\\n" + document.documentElement.outerHTML;
-  var a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
-  a.download = "${file}_${page.name.toLowerCase()}.html";
-  a.click();
-  setTimeout(function () { URL.revokeObjectURL(a.href); }, 10000);
-}
-</script>`;
-}
-
-/**
- * Return the papercraft's printable HTML (self-contained, single file).
- * Open it in the browser and print via Ctrl/⌘+P → "Actual size (100%), no margins".
- */
-export function paperHTML(p, matT, page = A4, t = tid, washiOpts = {}) {
-  const { parts, pk, clamped, nMax } = paperParts(p, matT, t, washiOpts);
-  return pagesHTML(parts, page, t, {
-    title: t("灯 TOMOSHIBI 型紙 {name} 原寸", { name: page.name }),
-    file: "tomoshibi_katagami",
-    head: (pages) => ({
-      h1: t("灯 TOMOSHIBI — 段ボール用 型紙({name} 原寸 / 全 {pages} ページ)", { name: page.name, pages }),
-      // Screen-only (the .head block is display:none when printing), so saying it here costs the
-      // printed sheet nothing while still reaching the person about to cut a sheet of cardboard.
-      body: `<p class="beta">${t("<b>段ボール版は開発中(beta)です。</b> 寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。切る前に 50mm スケールと材料の実測厚を確認してください。")}</p>`
-        + (clamped
-        ? `<p class="warn">${t("⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。", { matT, nMax, boards: p.boards })}</p>`
-        : "")
-        + `<ol>
-    <li>${t("<b>「実際のサイズ / 100%」で印刷</b>してください(「用紙に合わせる」は禁止)。刷ったら各ページ下の <b>50mm スケール</b>を定規で必ず確認。")}</li>
-    <li>${t("ページを跨ぐ部品は、<b>のりしろ(灰色の破線より下)</b>を次ページに重ね、四隅のトンボを合わせて貼り合わせます。")}</li>
-    <li>${t("紙を段ボールに貼り、<b>実線だけ</b>を切り抜きます。<b>破線の目盛は切りません</b> — 竹ひごを巻く位置の印です。")}</li>
-    <li>${t("段ボールの<b>波の向き(目)は羽根板の長手方向</b>に合わせると折れにくくなります。")}</li>
-    <li>${t("材料厚 <code>{matT}mm</code> 前提でコマの溝の幅を決めています。実測厚と違うと嵌まりません(緩い/入らない)。", { matT })}</li>
-    <li>${pk.spiral
-          ? t("羽根板は各枚で竹ひごの巻き位置が異なるため<b>全{boards}枚</b>を掲載しています(番号順に使用)。", { boards: pk.boards })
-          : t("羽根板は全て<b>同一形状</b>のため型紙は1枚だけ掲載。同じものを<b>{boards}枚</b>切り出してください。", { boards: pk.boards })}</li>
-    <li>${t("コマ2枚は<b>同一形状</b>です(上下で同じものを使います)。")}</li>
-    <li>${t("最後の<b>「和紙」の型紙</b>は段ボールではなく<b>和紙を切る</b>ためのものです。羽根板の間1面分なので、同じものを<b>{boards}枚</b>。和紙は薄いので<b>下に敷いて写して</b>から切ります(貼り付けない)。", { boards: pk.boards })}</li>
-    <li>${t("組み立て: 羽根板の爪を上下2枚のコマに放射状に差し込みます(段ボール版は強度優先で爪先の凹みなし=まっすぐな爪)。差し込みが緩ければ接着してください。")}</li>
-  </ol>
-  <p style="color:#8a7f6e;font-size:12px;margin:6px 0 0">${t("火袋の高さ {height}mm / 羽根板 {boards}枚 / 竹ひごピッチ {pitch}mm — この帯は画面表示だけで、印刷はされません。", { height: p.height, boards: pk.boards, pitch: p.pitch })}</p>`,
-    }),
-  });
+export function paperPDF(p, matT, page = A4, t = tid, washiOpts = {}) {
+  const { parts } = paperParts(p, matT, t, washiOpts);
+  return pagesPDF(parts, page, t, t("TOMOSHIBI 段ボール型紙 {name} 原寸", { name: page.name }));
 }
 
 // ============ Washi skin template (cut the paper BEFORE pasting) ============

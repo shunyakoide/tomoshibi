@@ -44,7 +44,7 @@ export default function PagePreview({ p, matT, washi, lang }) {
       <div className="pages" dangerouslySetInnerHTML={{ __html: svg }} />
       <div className="pages-note">
         {t("型紙プレビュー · 全 {n} ページ", { n: pages })}
-        <span> — {t("画面上は原寸ではありません。「型紙を開く」から原寸で印刷してください。")}</span>
+        <span> — {t("画面上は原寸ではありません。PDF をダウンロードして原寸で印刷してください。")}</span>
       </div>
     </div>
   );
