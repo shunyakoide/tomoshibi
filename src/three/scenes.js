@@ -278,7 +278,20 @@ export function buildScene(s, { p, view, viewChanged, printRibs, bedW, bedD, rou
   }
   // Two views draw no 3D at all, and both are documents drawn over this canvas: the section editor,
   // and the cardboard route's print view (PagePreview shows the template's own A4 pages).
-  if (view === "2d" || (view === "print" && route === "paper")) return;
+  if (view === "2d" || (view === "print" && route === "paper")) {
+    // Hand the canvas back BLANK before leaving. Emptying s.group is not enough: everything that
+    // makes a view look like itself is state on objects that outlive the group — the dark-room sky,
+    // the bloom pass, and the grid and contact shadow, which are children of the scene rather than
+    // the group and so are never swept by the loop above. Returning early without undoing them left
+    // the previous view showing through the document: 点灯 → 印刷(段ボール) put the A4 pages on a
+    // black field, and 組立 → 断面 left the ground grid under the section editor.
+    s.scene.background = null;
+    s.scene.fog = null;
+    s.bloomPass.enabled = false;
+    s.groundGrid.visible = false;
+    s.shadow.visible = false;
+    return;
+  }
 
   const R = maxRadius(p);
   const lightVP = view !== "lit";   // assembly/print are CAD-style bright; only lit is dark
