@@ -57,7 +57,12 @@ const FOOTER = 0;    // No band at the foot of every page: the parts get the ful
 // square's short arm plus its labels need, and it sits inside a flat step in the cost curve: the
 // `check:paper` sweep prints 736 sheets for anything from 20mm to 40mm, against 726 at 4mm.
 export const TOPBAR = 36;
-export const OVERLAP = 10;  // "Glue tab" for parts spanning pages (mm). The top of the next page overlaps by this much.
+// Sheets BUTT together, they do not overlap. A glue tab would put the join line OVERLAP inside the
+// trim edge, so every sheet at a seam would carry two blue lines a centimetre apart — one to cut on
+// and one to align on — and no drawing can make that pair unambiguous. Trimming both sheets on the
+// one line and taping behind is the same join the reference patterns describe ("trim any white
+// printer border first, then the frames coincide"), and it hands each continuation sheet 10mm of
+// content back.
 const GAP = 6;       // Gap between parts (mm). Margin for cutting them apart.
 const TICK = 5;      // Length of the bamboo-rib tick line (mm). Drawn inward from the outer edge.
 
@@ -196,10 +201,10 @@ export function paperParts(p, matT, t = tid, washiOpts = {}) {
 // takes 966 sheets down to 761, halving the count on 123 of 360 designs and raising it on none.
 //
 // Layout principle: **never let a row that fits on one page span pages**. If it doesn't fit, just start the next page at
-// the top of that row, with no glue tab needed (cut it out without gluing paper together). A glue tab is needed only for
+// the top of that row (cut it out without joining paper at all). A seam happens only for
 // "a row taller than one page" = a part that doesn't fit on one sheet, like a long rib, and only then do pages overlap by
-// OVERLAP. Previously all pages overlapped uniformly, so a glue-tab band appeared on every page even with no spanning part,
-// and the effective height was wastefully reduced by OVERLAP too.
+// they butt at the trim line. Previously every page overlapped uniformly, so a glue-tab band appeared on every page even with
+// no spanning part, and the effective height was wastefully reduced on all of them.
 function layout(parts, page) {
   const CW = page.w - 2 * MARGIN;              // content width
   const CH = page.h - 2 * MARGIN - FOOTER;     // content height (usable height per page)
@@ -237,9 +242,9 @@ function layout(parts, page) {
     let cur = null, curAt = -1;
     for (const r of rows) {
       if (r.h > cap(pages.length)) {
-        // A row that doesn't fit on one page → raise as many pages as needed, overlapping by the glue tab
+        // A row that doesn't fit on one page → raise as many pages as needed, butting at the trim line
         let t = r.y;
-        while (t < r.y + r.h) { pages.push({ top: t, row: r }); t += cap(pages.length - 1) - OVERLAP; }
+        while (t < r.y + r.h) { pages.push({ top: t, row: r }); t += cap(pages.length - 1); }
         cur = pages[pages.length - 1]; curAt = pages.length - 1;   // if the last page has room, put the next row on it too
       } else if (!cur || r.y + r.h > cur.top + cap(curAt)) {
         cur = { top: r.y, row: r };     // doesn't fit on the current page → start the next page at this row
@@ -248,10 +253,10 @@ function layout(parts, page) {
     }
     if (!pages.length) pages.push({ top: 0, row: null });
     // Bottom edge of each page. Only when **the next page continues the same row** (= splitting a part that doesn't fit on
-    // one sheet) do we draw to the full CH and overlap the next page by OVERLAP (the glue tab). Otherwise cut at "the position
+    // one sheet) do we draw to the full CH. Otherwise cut at "the position
     // where the next page begins" → the head of the next row doesn't intrude into the previous page.
-    // (Without this distinction, the next row would bleed into the bottom of a spanning page, producing a glue tab even where
-    //  no gluing is needed, making it look like "every page overlaps".)
+    // (Without this distinction, the next row would bleed into the bottom of a spanning page, producing a seam even where
+    //  nothing is joined, making it look like "every page continues".)
     pages.forEach((pg, i) => {
       const next = pages[i + 1];
       pg.y0 = MARGIN + (i === 0 ? topbar : 0);   // page y the content band starts at
@@ -303,7 +308,7 @@ const SQ = { w: 86, h: 34 };
  */
 function scaleSpot(lay) {
   for (let i = 0; i < lay.pages.length; i++) {
-    const { top, bot, y0 } = lay.pages[i];
+    const { top, bot, y0, row } = lay.pages[i];
     const prev = lay.pages[i - 1];
     const oy = y0 - top, bandTop = y0 + (prev && prev.bot > top ? 1 : 0), bandBot = y0 + (bot - top);
     const near = lay.placed.filter((q) => q.y < bot && q.y + q.h > top)
@@ -325,7 +330,7 @@ function scaleSpot(lay) {
 // ============ Page drawing (shared by the SVG and PDF renderers) ============
 // A page is built once as a list of **drawing ops in mm page coordinates** (y down from the sheet's
 // top-left), and the two renderers only translate ops into their own syntax. The rules that decide
-// whether the print is usable — the clip band, the glue tab, the 50mm ruler, the registration
+// whether the print is usable — the clip band, the trim box, the check square, the seam
 // crosses — therefore exist exactly once, and the PDF cannot silently disagree with the HTML.
 //
 // Line/text styles live here too (not in the stylesheet) for the same reason: the CSS block is
@@ -334,9 +339,7 @@ export const STYLE = {
   cut: { stroke: "#000", w: 0.25 },                              // cut line
   tick: { stroke: "#000", w: 0.25, dash: [1.2, 1] },             // bamboo-rib ticks (do not cut)
   guide: { stroke: "#777", w: 0.25, dash: [4, 2.5] },            // alignment guides (do not cut)
-  reg: { stroke: "#000", w: 0.2 },                               // registration marks
   scale: { stroke: "#000", w: 0.6 },                             // the full-scale check bar (thick: a ruler gets laid on it)
-  glue: { stroke: "#888", w: 0.2, dash: [3, 2] },                // page-overlap (glue tab) line
   frame: { stroke: "#1769c8", w: 0.2 },                          // alignment frame of a sheet that joins another
   join: { stroke: "#1769c8", w: 0.25 },                          // sheet-join half-diamonds (blue = align, never cut)
   pname: { fill: "#999", size: 3.4, anchor: "middle" },          // part name, faint, inside the part
@@ -352,7 +355,7 @@ const styleCSS = (scope) => Object.entries(STYLE).map(([k, s]) => (s.size
 
 /** Ops for page i. The [top, top+CH] band of content coordinates lands inside the clip rectangle. */
 function pageOps(lay, i, page, t) {
-  const { top, bot, y0 } = lay.pages[i];   // y0 = page y the content band starts at (sheet 1 sits TOPBAR lower)
+  const { top, bot, y0, row } = lay.pages[i];   // y0 = page y the content band starts at (sheet 1 sits TOPBAR lower)
   const ops = [];
   const path = (pts, style, close = false) => ops.push({ k: "path", pts, style, close });
   const text = (x, y, str, style) => ops.push({ k: "text", x, y, str, style });
@@ -375,51 +378,49 @@ function pageOps(lay, i, page, t) {
   }
   ops.push({ k: "unclip" });
 
-  const boxBot = y0 + (bot - top);
+  // Where the sheet is TRIMMED, which is a fact about the paper, not about the parts on it. Not
+  // `y0 + (bot - top)`: a page whose next page starts a new row rather than continuing this one ends
+  // its content band early, and marking THAT as the sheet's edge draws a trim line across the middle
+  // of the paper — a line that is neither a seam nor a cut, differing from sheet to sheet.
+  const trimBot = page.h - MARGIN;
+  // ---- The trim box ----
+  // Drawn IDENTICALLY on every sheet, seam or not, because it is a fact about the paper and not
+  // about the parts on it. Each edge runs the whole width or height rather than closing into a box:
+  // lay two sheets up and the upper one covers the lower one's corners, which is exactly where a box
+  // keeps all of its information, and only a long line makes a small angular error visible.
+  const L = MARGIN, R = MARGIN + lay.CW;
+  path([[0, MARGIN], [page.w, MARGIN]], "frame");
+  path([[0, trimBot], [page.w, trimBot]], "frame");
+  path([[L, 0], [L, page.h]], "frame");
+  path([[R, 0], [R, page.h]], "frame");
+
   // ---- Joining sheets ----
   // Only where a part actually spans pages; with no spanning part the sheets don't overlap and none
   // of this is drawn.
   //
-  // The convention is the one home-print sewing patterns use, and it is worth following exactly: a
-  // FRAME marking the overlap boundary, and HALF-diamonds sitting on it that complete into whole ◇
-  // when two sheets are laid up correctly. Two lines laid on each other hide a half-millimetre of
-  // error; two half-diamonds that fail to close do not. Each carries a short code (1A, 1B, 2A …) so
-  // there is no doubt which edge meets which — no sentence, because a sentence printed across the
-  // drawing is unreadable and the codes say it all.
+  // The convention is the one home-print sewing patterns use, and it is worth following exactly:
+  // HALF-diamonds that complete into a whole ◇ when two sheets are laid up correctly. Two lines laid
+  // on each other hide a half-millimetre of error; two half-diamonds that fail to close do not. Each
+  // carries a short code (1A, 1B, 2A …) so there is no doubt which edge meets which — no sentence,
+  // because a sentence printed across the drawing is unreadable and the codes say it all.
   //
-  // The frame is where it is for a reason. Page i draws content [top, top+cap] while page i+1 starts
-  // at top+cap-OVERLAP, so the two sheets' corner crosses are OVERLAP apart in content space and
-  // never coincide — lining THOSE up, which this template used to ask for, puts the seam 10mm out.
-  // Page i's glue line and page i+1's top content edge are the same content y. That is the pair the
-  // frame is built from, and blue because blue on a pattern sheet reads as "align", never as "cut".
-  const next = lay.pages[i + 1];
-  const glueTop = next && next.top < bot ? next.top : null;
-  const prev = lay.pages[i - 1];
-  const joinsPrev = prev && prev.bot > top;
-  if (glueTop != null || joinsPrev) {
-    // A frame edge is the SEAM where the sheet joins a neighbour, and the sheet's own trim edge where
-    // it doesn't — so on every sheet the box lands in the same place. Sheet 1's TOPBAR strip shifts
-    // its CONTENT down by 9mm, never its frame: a top line sitting 9mm lower on page 1 than on every
-    // other page reads as a misprint, and gives the eye a different box to trust on the first sheet.
-    const ft = joinsPrev ? y0 : MARGIN;                           // frame top
-    const fb = glueTop != null ? y0 + (glueTop - top) : boxBot;   // frame bottom
-    const L = MARGIN, R = MARGIN + lay.CW;
-    // Each frame edge is drawn as a line ACROSS THE WHOLE SHEET, not as a closed box. Overlap two
-    // sheets and the upper one covers the lower one's corners, which is exactly where a box carries
-    // all of its information; a line that runs out to the paper's edge still shows on both sides of
-    // the overlap, and a long line is what makes a small angular error visible at all.
-    path([[0, ft], [page.w, ft]], "frame");
-    path([[0, fb], [page.w, fb]], "frame");
-    path([[L, 0], [L, page.h]], "frame");
-    path([[R, 0], [R, page.h]], "frame");
-
+  // The seam IS the trim box, and that is why sheets butt rather than overlap. With a glue tab the
+  // join line necessarily sits a centimetre inside the trim edge, so every sheet at a seam carries
+  // two blue lines — one to cut on, one to align on — and nothing about the drawing can make that
+  // pair unambiguous. One line does both jobs: cut both sheets on it, butt the cut edges, and the
+  // two chevrons meet base-to-base.
+  // A seam is where the NEXT sheet carries on the same row — i.e. a part too tall for one sheet. It is
+  // read from the row, not from an overlap: sheets butt, so there is no overlap left to detect.
+  const next = lay.pages[i + 1], prev = lay.pages[i - 1];
+  const cutsBelow = !!(next && row && next.row === row);
+  const cutsAbove = !!(prev && row && prev.row === row);
+  if (cutsBelow || cutsAbove) {
     let seams = 0;                                    // how many seams happen above this sheet
-    for (let j = 0; j < i; j++) if (lay.pages[j + 1] && lay.pages[j + 1].top < lay.pages[j].bot) seams++;
-    // Half a diamond: an OPEN chevron whose ends rest on a frame edge, apex pointing inward (`dx`/`dy`).
-    // Open, because the frame line it sits on already draws its base — closing it would lay a second
-    // stroke along that line and thicken exactly the line the sheets are aligned by. Two sheets laid
-    // up correctly bring two opposed chevrons base-to-base and the ◇ closes; a millimetre out and it
-    // visibly doesn't, which is the whole reason this beats "line the lines up".
+    for (let j = 0; j < i; j++) if (lay.pages[j + 1] && lay.pages[j + 1].row === lay.pages[j].row) seams++;
+    // Half a diamond: an OPEN chevron whose ends rest on a line, apex pointing inward. Open, because
+    // the line it sits on already draws its base — closing it would lay a second stroke along the
+    // very line the sheets are aligned by and thicken it. Two sheets laid up correctly bring opposed
+    // chevrons base-to-base and the ◇ closes; a millimetre out and it visibly doesn't.
     const B = 4, D = 3.4;                             // half-base, depth (mm)
     const half = (x, y, dx, dy, code) => {
       path([[x - B * Math.abs(dy), y - B * Math.abs(dx)],
@@ -427,30 +428,20 @@ function pageOps(lay, i, page, t) {
         [x + B * Math.abs(dy), y + B * Math.abs(dx)]], "join");
       if (code) text(x + (B + 1.5) * Math.abs(dy) + 1.5 * dx, y + (dy < 0 ? -1.4 : dy > 0 ? 2.8 : 0.9), code, "jlabel");
     };
-    // Top and bottom edges: the mating halves. Two per seam rather than one, so laying the sheets up
-    // pins rotation as well as offset — a single mark leaves the sheet free to pivot on it. Set wide
-    // apart (a fifth in from each end) because the angle they fix is only as good as their spacing,
-    // and it keeps the codes out of the middle of the drawing where nothing can be read.
+    // Two per seam rather than one, so laying the sheets up pins rotation as well as offset — a
+    // single mark leaves the sheet free to pivot on it. Set wide apart (a fifth in from each end)
+    // because the angle they fix is only as good as their spacing, and it keeps the codes out of the
+    // middle of the drawing where nothing can be read.
     const jx = [L + lay.CW / 5, L + (4 * lay.CW) / 5];
-    if (joinsPrev) jx.forEach((x, k) => half(x, ft, 0, 1, `${seams}${"AB"[k]}`));
-    if (glueTop != null) jx.forEach((x, k) => half(x, fb, 0, -1, `${seams + 1}${"AB"[k]}`));
+    if (cutsAbove) jx.forEach((x, k) => half(x, MARGIN, 0, 1, `${seams}${"AB"[k]}`));
+    if (cutsBelow) jx.forEach((x, k) => half(x, trimBot, 0, -1, `${seams + 1}${"AB"[k]}`));
     // Left and right edges. These mark where to TRIM, not what to mate: this layout is one column
     // wide, so a sheet never has a neighbour beside it and there is no half to complete. They carry
-    // no code for that reason — cut the frame here and the sheets stack with their sides flush.
-    const my = (ft + fb) / 2;
+    // no code for that reason — cut the box here and the sheets stack with their sides flush.
+    const my = (MARGIN + trimBot) / 2;
     half(L, my, 1, 0, "");
     half(R, my, -1, 0, "");
-  } else {
-    // No seam on this sheet, so no frame — the corner crosses are then the only trim reference.
-    for (const [x, y] of [[MARGIN, y0], [MARGIN + lay.CW, y0], [MARGIN, boxBot], [MARGIN + lay.CW, boxBot]]) {
-      path([[x - 3, y], [x + 3, y]], "reg");
-      path([[x, y - 3], [x, y + 3]], "reg");
-    }
   }
-  // Full-scale check: a 5cm bar, drawn THICK so a ruler's edge has something to line up against (the
-  // 0.2mm hairline this used to be gave nothing). 5cm is enough — a longer bar reads more precisely
-  // only by spending sheet, which is the opposite of the point. It sits in a gap the layout already
-  // leaves (scaleSpot), together with the page number, so no strip of the page is set aside for it.
   if (i === lay.spot.page) {
     // Full-scale check, drawn as an L — a try square, not a bar. Every printable sewing pattern
     // prints a SQUARE rather than a line, and the reason is real: a printer can scale the two axes

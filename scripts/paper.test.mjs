@@ -26,7 +26,7 @@
  * Run this after touching the 2D side of papercraft.js / geometry.js.
  * ============================================================================
  */
-import { paperPagesSVG, paperPDF, paperParts, paperFit, washiParts, washiPDF, A4, MARGIN, TOPBAR, OVERLAP } from "../src/papercraft.js";
+import { paperPagesSVG, paperPDF, paperParts, paperFit, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.js";
 import { winAnsi } from "../src/pdf.js";
 import { makeT } from "../src/i18n.js";
 import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR } from "../src/geometry.js";
@@ -149,14 +149,25 @@ for (const preset of PRESETS)
               const on = sheets.filter((x) => x.includes(`>${j}${side}<`)).length;
               if (on && on !== 2) bad(`${tag}: seam ${j}${side} is on ${on} sheet(s), not 2`);
             }
-          // A framed sheet carries a diamond on all four edges: the coded pair on whichever of the
+          // A sheet at a seam carries a diamond on all four edges: the coded pair on whichever of the
           // top/bottom edges has a seam, plus one unlabelled trim mark on each side.
           const codes = (svg.match(/class="jlabel">\d+[AB]</g) || []).length;
           const diamonds = (svg.match(/class="join"/g) || []).length;
+          const seamed = sheets.filter((x) => x.includes('class="join"')).length;
+          // A horizontal frame line can only be one of three things, and a fourth value means it is
+          // marking something that isn't there. This caught a bottom frame drawn at the end of the
+          // CONTENT band on pages whose next page starts a new row — a line across the middle of the
+          // paper that is neither a seam nor a cut, and that moved from sheet to sheet.
+          const trimBot = A4.h - MARGIN;
+          for (const y of svg.matchAll(/M0 ([\d.]+)L210 /g))
+            if (![MARGIN, trimBot].some((v) => Math.abs(Number(y[1]) - v) < 1e-6))
+              bad(`${tag}: frame line at y=${y[1]}, not a trim edge (${MARGIN}/${trimBot})`);
+          // The trim box is a fact about the PAPER, so it is on every sheet and identical on each —
+          // a box that changes size from sheet to sheet is the bug this replaced (a seam sheet's box
+          // used to stop at the seam, 10mm short of the others).
           const framed = sheets.filter((x) => x.includes('class="frame"')).length;
-          if (codes && !framed) bad(`${tag}: seams drawn but no frame to align them on`);
-          if (!codes && framed) bad(`${tag}: frame drawn on a sheet with no seam`);
-          if (diamonds !== codes + framed * 2) bad(`${tag}: ${diamonds} diamonds for ${codes} codes on ${framed} framed sheets`);
+          if (framed !== pages) bad(`${tag}: trim box on ${framed} of ${pages} sheets`);
+          if (diamonds !== codes + seamed * 2) bad(`${tag}: ${diamonds} diamonds for ${codes} codes on ${seamed} seamed sheets`);
         }
 
 // ---- 4. Washi template (the paper skin's flat pattern) ----
@@ -229,7 +240,9 @@ const pdfStructure = (s, tag, pages) => {
     const off = Number(row.slice(0, 10));
     if (!s.startsWith(`${i + 1} 0 obj`, off)) bad(`${tag}: xref offset ${i + 1} → ${off} is not an object header`);
   });
-  if (!s.includes(`/Count ${pages}`)) bad(`${tag}: /Count != ${pages} pages`);
+  const want = [].concat(pages);
+  if (!want.some((n) => s.includes(`/Count ${n}`))) bad(`${tag}: /Count is none of ${want.join("/")}`);
+  pages = want.find((n) => s.includes(`/Count ${n}`));
   if ((s.match(/\/MediaBox\[0 0 595\.276 841\.89\]/g) || []).length !== pages) bad(`${tag}: MediaBox is not A4 on every page`);
   // Full scale: the page CTM is mm→pt, and the ruler is 50mm long in that space.
   if ((s.match(/2\.835 0 0 -2\.835 0 841\.89 cm/g) || []).length !== pages) bad(`${tag}: page CTM is not mm→pt`);
@@ -253,11 +266,14 @@ for (const preset of PRESETS)
       const p = { ...DEFAULTS, ...preset, height, boards };
       const tag = `pdf ${preset.key} h${height} b${boards}`;
       // Washi. Page count derived independently of the layout code: one part of this height on A4,
-      // split across pages that overlap by the glue tab only when it does not fit on one (CH = 267mm).
+      // butt-split across pages when it does not fit on one. Two answers are admissible because the
+      // check square either finds room beside the panel (no strip reserved) or does not (sheet 1
+      // gives up TOPBAR) — which of the two is the layout's call, and pinning it here would pin the
+      // packing. Either way the split itself is what this checks.
       const { g } = washiParts(p, { side: 3, end: 3 });
       const H = g.sTot + 2 * g.end, CH = 297 - 2 * MARGIN, CH0 = CH - TOPBAR;
-      pdfStructure(Buffer.from(washiPDF(p, { side: 3, end: 3 }, A4, en)).toString("latin1"),
-        `${tag} washi`, H <= CH0 ? 1 : 1 + Math.ceil((H - CH0) / (CH - OVERLAP)));
+      pdfStructure(Buffer.from(washiPDF(p, { side: 3, end: 3 }, A4, en)).toString("latin1"), `${tag} washi`,
+        [Math.max(1, Math.ceil(H / CH)), H <= CH0 ? 1 : 1 + Math.ceil((H - CH0) / CH)]);
 
       // Cardboard. Its page count is checked against what the in-app preview lays out, so the file
       // the user prints and the pages they were shown can never be a different document.
