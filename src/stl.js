@@ -25,8 +25,7 @@ export function buildSTL(geometries) {
 }
 // The revoke is deferred, not synchronous. `a.click()` only *starts* the fetch of the blob URL;
 // revoking in the same tick is a race the browser is free to lose, and when it does the download
-// fails silently — no error, no file, and the bigger the kit the likelier it is. openHTML below
-// already defers for the same reason.
+// fails silently — no error, no file, and the bigger the kit the likelier it is.
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -34,18 +33,7 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-// Open the generated HTML (paper template) in a new tab. Print with Ctrl/⌘+P in that tab.
-// If the popup is blocked, fall back to downloading it as a file.
-export function openHTML(html, filename) {
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const w = window.open(url, "_blank");
-  if (!w) triggerDownload(blob, filename);
-  setTimeout(() => URL.revokeObjectURL(url), 60000); // don't revoke until the new tab has finished loading
-}
-
-// Download an already-built file (bytes or string), e.g. the washi template PDF or a design JSON.
-// Unlike openHTML, there is nothing to preview — the file is the deliverable.
+// Download an already-built file (bytes or string): the two template PDFs, or a design JSON.
 export function downloadFile(data, filename, mime = "application/octet-stream") {
   triggerDownload(new Blob([data], { type: mime }), filename);
 }
