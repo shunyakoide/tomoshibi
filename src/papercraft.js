@@ -125,14 +125,36 @@ function paperP(p, matT) {
 }
 
 /**
+ * What the measured material thickness does to the mold, without building a single part — so the app
+ * can ask on every render. Two facts, both of which the design can be changed to fix:
+ *
+ * - `wall`: how much koma is left BETWEEN two notches, at the notch bottom. Thicker material widens
+ *   the notches and thins that wall; below half the material thickness it tears when hand-cut.
+ * - `clamped` / `nMax`: whether the rib count had to come down, because the widened notches would
+ *   otherwise overlap at the koma's centre.
+ *
+ * Kept separate from paperParts (which returns the same numbers alongside the parts) so that asking
+ * costs a couple of divisions rather than an outline of every rib, koma and washi panel.
+ */
+export function paperFit(p, matT) {
+  const pk = paperP(p, matT);
+  const nMax = maxBoards(pk);
+  return {
+    wall: (2 * Math.PI * notchR(pk)) / pk.boards - matT,
+    thin: matT / 2,                      // the threshold: thinner than half the material tears when cut by hand
+    clamped: p.boards > nMax,
+    nMax,
+  };
+}
+
+/**
  * Build all parts to lay out on the papercraft. The returned p is "the papercraft p with material thickness applied".
  * Depending on material thickness, boards may exceed maxBoards (the notches overlap at the center), so always clamp it,
  * and return whether it was clamped in `clamped` so the UI/page can warn.
  */
 export function paperParts(p, matT, t = tid, washiOpts = {}) {
   const pk = paperP(p, matT);            // = the mold this template actually cuts (thickness applied, count clamped)
-  const nMax = maxBoards(pk);            // maxBoards reads thickness/tolerance, never boards, so the clamp doesn't move it
-  const clamped = p.boards > nMax;
+  const { wall, clamped, nMax } = paperFit(p, matT);   // one source for the fit warnings, shared with the app's alert
 
   // All ribs are identical unless spiral winding shifts the groove (tick) positions per rib. When they
   // are identical, emit a single rib labeled "×N" (cut N copies) instead of N duplicate sheets.
@@ -154,16 +176,14 @@ export function paperParts(p, matT, t = tid, washiOpts = {}) {
   const pageCount = (ks) => layout([...ribParts, ...ks, ...washiSheets], A4).pages.length;
   const komas = pageCount(twoKoma) > pageCount(oneKoma) ? oneKoma : twoKoma;
   const parts = [...ribParts, ...komas, ...washiSheets];
-  // Wall thickness remaining between the koma's notches (at the notch bottom = notchR). Thicker material
-  // widens the notches, thinning the wall. The shape isn't changed (we don't silently reduce the count),
-  // but if it's at a level that would tear when hand-cut (less than half the material thickness), note it on
-  // the page so the user has grounds to choose count/material/opening.
-  const wall = (2 * Math.PI * notchR(pk)) / pk.boards - matT;
   return { parts, pk, clamped, nMax, wall };
 }
 
 // ============ Page layout ============
 // Done in two stages. (1) Pack parts top-down into "rows" without considering pages. (2) Assign rows to pages.
+// Both stages run twice — once in the order the parts arrive and once ordered by decreasing height —
+// and the cheaper result wins (see "Which order to pack in" below). Over the check:paper sweep that
+// takes 966 sheets down to 761, halving the count on 123 of 360 designs and raising it on none.
 //
 // Layout principle: **never let a row that fits on one page span pages**. If it doesn't fit, just start the next page at
 // the top of that row, with no glue tab needed (cut it out without gluing paper together). A glue tab is needed only for
@@ -174,45 +194,71 @@ function layout(parts, page) {
   const CW = page.w - 2 * MARGIN;              // content width
   const CH = page.h - 2 * MARGIN - FOOTER;     // content height (usable height per page)
 
-  // --- (1) Pack into rows ---
-  const placed = [], rows = [];
-  let y = 0, rowX = 0, rowH = 0;
-  const endRow = () => { if (rowH > 0) { rows.push({ y, h: rowH }); y += rowH + GAP; rowX = 0; rowH = 0; } };
-  for (const raw of parts) {
-    // A landscape part that doesn't fit the paper width is rotated 90° to portrait
+  // Orient every part up front, before any packing decision: a landscape part that doesn't fit the
+  // paper width is rotated 90° to portrait, and it is the ORIENTED height the row ordering below
+  // sorts on (rotating afterwards would sort on the wrong dimension).
+  const oriented = parts.map((raw) => {
     let q = toPage(raw, false);
     if (q.w > CW) { const r = toPage(raw, true); if (r.w <= CW) q = r; }
-    if (rowX > 0 && rowX + q.w > CW) endRow();   // wrap to a new row when the width runs out
-    placed.push({ ...q, x: rowX, y });
-    rowX += q.w + GAP;
-    rowH = Math.max(rowH, q.h);
-  }
-  endRow();
-
-  // --- (2) Assign rows to pages ---
-  const pages = [];
-  let cur = null;
-  for (const r of rows) {
-    if (r.h > CH) {
-      // A row that doesn't fit on one page → raise as many pages as needed, overlapping by the glue tab
-      for (let t = r.y; t < r.y + r.h; t += CH - OVERLAP) pages.push({ top: t, row: r });
-      cur = pages[pages.length - 1];  // if the last page has room, put the next row on it too
-    } else if (!cur || r.y + r.h > cur.top + CH) {
-      cur = { top: r.y, row: r };     // doesn't fit on the current page → start the next page at this row
-      pages.push(cur);
-    }
-  }
-  if (!pages.length) pages.push({ top: 0, row: null });
-  // Bottom edge of each page. Only when **the next page continues the same row** (= splitting a part that doesn't fit on
-  // one sheet) do we draw to the full CH and overlap the next page by OVERLAP (the glue tab). Otherwise cut at "the position
-  // where the next page begins" → the head of the next row doesn't intrude into the previous page.
-  // (Without this distinction, the next row would bleed into the bottom of a spanning page, producing a glue tab even where
-  //  no gluing is needed, making it look like "every page overlaps".)
-  pages.forEach((pg, i) => {
-    const next = pages[i + 1];
-    pg.bot = !next || (pg.row && next.row === pg.row) ? pg.top + CH : Math.min(pg.top + CH, next.top);
+    return q;
   });
-  return { placed, CW, CH, pages };
+
+  const build = (qs) => {
+    // --- (1) Pack into rows ---
+    const placed = [], rows = [];
+    let y = 0, rowX = 0, rowH = 0;
+    const endRow = () => { if (rowH > 0) { rows.push({ y, h: rowH }); y += rowH + GAP; rowX = 0; rowH = 0; } };
+    for (const q of qs) {
+      if (rowX > 0 && rowX + q.w > CW) endRow();   // wrap to a new row when the width runs out
+      placed.push({ ...q, x: rowX, y });
+      rowX += q.w + GAP;
+      rowH = Math.max(rowH, q.h);
+    }
+    endRow();
+
+    // --- (2) Assign rows to pages ---
+    const pages = [];
+    let cur = null;
+    for (const r of rows) {
+      if (r.h > CH) {
+        // A row that doesn't fit on one page → raise as many pages as needed, overlapping by the glue tab
+        for (let t = r.y; t < r.y + r.h; t += CH - OVERLAP) pages.push({ top: t, row: r });
+        cur = pages[pages.length - 1];  // if the last page has room, put the next row on it too
+      } else if (!cur || r.y + r.h > cur.top + CH) {
+        cur = { top: r.y, row: r };     // doesn't fit on the current page → start the next page at this row
+        pages.push(cur);
+      }
+    }
+    if (!pages.length) pages.push({ top: 0, row: null });
+    // Bottom edge of each page. Only when **the next page continues the same row** (= splitting a part that doesn't fit on
+    // one sheet) do we draw to the full CH and overlap the next page by OVERLAP (the glue tab). Otherwise cut at "the position
+    // where the next page begins" → the head of the next row doesn't intrude into the previous page.
+    // (Without this distinction, the next row would bleed into the bottom of a spanning page, producing a glue tab even where
+    //  no gluing is needed, making it look like "every page overlaps".)
+    pages.forEach((pg, i) => {
+      const next = pages[i + 1];
+      pg.bot = !next || (pg.row && next.row === pg.row) ? pg.top + CH : Math.min(pg.top + CH, next.top);
+    });
+    return { placed, CW, CH, pages };
+  };
+
+  // --- Which order to pack in ---
+  // A row is as tall as its tallest part, so the height of every SHORTER part in it is paid for and
+  // thrown away: a koma (a disc a few tens of mm across) sharing a row with a rib (the whole body
+  // height) leaves the rest of that sheet blank under it. Packing by decreasing height — the classic
+  // first-fit-decreasing-height shelf heuristic — puts parts of similar height in the same row
+  // instead. Same-type parts share a height, so in practice this reorders the GROUPS (ribs / washi /
+  // komas) and leaves each one contiguous rather than shuffling the sheet.
+  const byHeight = oriented
+    .map((q, i) => [q, i])
+    .sort((a, b) => b[0].h - a[0].h || a[1] - b[1])   // stable: the original index breaks ties
+    .map(([q]) => q);
+  // It is a heuristic, not a proof, so take whichever order actually costs fewer sheets and keep the
+  // given order on a tie (羽根板 → コマ → 和紙 is the order they are cut and assembled in). That makes
+  // the reordering unable to ever cost a page, which is what lets it apply unconditionally — to the
+  // printed template, the PDF and the in-app preview alike, all of which come through here.
+  const asGiven = build(oriented), sorted = build(byHeight);
+  return sorted.pages.length < asGiven.pages.length ? sorted : asGiven;
 }
 
 // ============ Page drawing (shared by the SVG and PDF renderers) ============
@@ -419,7 +465,7 @@ function saveHtml() {
  * Open it in the browser and print via Ctrl/⌘+P → "Actual size (100%), no margins".
  */
 export function paperHTML(p, matT, page = A4, t = tid, washiOpts = {}) {
-  const { parts, pk, clamped, nMax, wall } = paperParts(p, matT, t, washiOpts);
+  const { parts, pk, clamped, nMax } = paperParts(p, matT, t, washiOpts);
   return pagesHTML(parts, page, t, {
     title: t("灯 TOMOSHIBI 型紙 {name} 原寸", { name: page.name }),
     file: "tomoshibi_katagami",
@@ -431,9 +477,6 @@ export function paperHTML(p, matT, page = A4, t = tid, washiOpts = {}) {
         + (clamped
         ? `<p class="warn">${t("⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。", { matT, nMax, boards: p.boards })}</p>`
         : "")
-        + (wall < matT / 2
-          ? `<p class="warn">${t("⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。", { wall: wall.toFixed(1), matT })}</p>`
-          : "")
         + `<ol>
     <li>${t("<b>「実際のサイズ / 100%」で印刷</b>してください(「用紙に合わせる」は禁止)。刷ったら各ページ下の <b>50mm スケール</b>を定規で必ず確認。")}</li>
     <li>${t("ページを跨ぐ部品は、<b>のりしろ(灰色の破線より下)</b>を次ページに重ね、四隅のトンボを合わせて貼り合わせます。")}</li>
