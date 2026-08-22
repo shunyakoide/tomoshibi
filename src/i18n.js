@@ -59,8 +59,8 @@ const EN = {
   "プリントベッド": "Print bed",
   "3Dプリント": "3D print",
   "段ボール": "Cardboard",
-  "大きさの制限はありません。A4 に収まらない部品は、のりしろ付きで次のページに続きます(同じ番号の半ダイヤが◇になるように重ねて貼る)。":
-    "There is no size limit: a part too big for A4 simply continues on the next page with a glue tab (overlap the matching half-diamonds until each closes into a full ◇, then paste).",
+  "大きさの制限はありません。A4 に収まらない部品は次のページに続きます(両方を青い枠で切り、同じ番号の半ダイヤが◇になるよう突き合わせて裏からテープ)。":
+    "There is no size limit: a part too big for A4 simply continues on the next page. Trim both sheets on the blue box, butt the cut edges until each pair of half-diamonds closes into a full ◇, and tape from behind.",
   "定番サイズ": "Common size",
   "カスタム": "Custom",
   "配置": "Layout",

@@ -66,7 +66,7 @@ export default function TomoshibiStudio() {
   // card and switchable from the viewport chip in any non-lit view, and NOT transient — it is a fact
   // about the maker, not the design, and it decides whether the print bed constrains anything at all
   // (on the cardboard route nothing is bed-limited: a part larger than A4 simply continues onto the
-  // next page with a glue tab).
+  // next page, butt-joined).
   const [route, setRoute] = useState(SAVED?.route ?? "stl");
   const [drag, setDrag] = useState(null);           // key being dragged (highlights handles / slider rows)
   const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1);
@@ -334,7 +334,7 @@ export default function TomoshibiStudio() {
           other, being gated on opposite routes (bed = 3D print, koma wall = cardboard).
           Bed-overflow warning. Each part lies along a different axis, so the bed is width×depth.
           Gated on the whole 3D-print ROUTE, not just the print view: on the cardboard route there is no
-          machine to overflow — a part wider than A4 continues onto the next page with a glue tab — so
+          machine to overflow — a part wider than A4 continues onto the next page, butt-joined — so
           telling that person to shorten the body would be shrinking a design for a limit they don't have. */}
       {!isLit && bedRules && overParts.length > 0 && (
         <div style={{
@@ -558,7 +558,7 @@ export default function TomoshibiStudio() {
                 {/* The counterpart to the bed warning the 3D route shows here: on paper there is no
                     machine size to exceed, so the design is free — say so, or its absence just reads
                     as a missing check. */}
-                <Note>{t("大きさの制限はありません。A4 に収まらない部品は、のりしろ付きで次のページに続きます(同じ番号の半ダイヤが◇になるように重ねて貼る)。")}</Note>
+                <Note>{t("大きさの制限はありません。A4 に収まらない部品は次のページに続きます(両方を青い枠で切り、同じ番号の半ダイヤが◇になるよう突き合わせて裏からテープ)。")}</Note>
               </>
             )}
           </div>
