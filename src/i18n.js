@@ -33,13 +33,17 @@ const EN = {
   "竹ひごを巻いて和紙を貼る": "Wind bamboo, paste the washi",
   "画面に映っているのは提灯そのものではなく、その上で組み立てる「型」です":
     "What you see is not the lantern itself — it is the mold the lantern is built on",
-  "3Dプリンタが無くても、段ボール用の原寸型紙を出せます(beta)":
-    "No 3D printer needed: it also prints a full-scale template for cardboard (beta)",
   "和紙の型紙(先に切っておく用)は、どちらの出力にも付いてきます":
     "The washi template — for cutting the paper before pasting — comes with either output",
   "上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。":
     "The tabs above also show the assembly and the lantern lit. Reopen this with the \"?\" at the top right.",
-  "さわってみる": "Start",
+  // ---- Welcome / the route choice (3D print vs cardboard) ----
+  "どちらでつくりますか?": "How will you make it?",
+  "後からいつでも変更できます": "Changeable at any time",
+  "3Dプリンタ": "3D printer",
+  "STL 一式をダウンロード": "Download the STL set",
+  "A4 原寸の型紙を印刷 · 大きさの制限なし": "Print the A4 1:1 template · no size limit",
+  "とりあえず見る": "Just look around",
   // ---- Toolbar ----
   "元に戻す": "Undo",
   "やり直し": "Redo",
@@ -52,10 +56,11 @@ const EN = {
   "ドラッグ / 値クリックで入力": "Drag or click the value to type",
   "骨組み": "Frame",
   "印刷・書き出し": "Print / export",
-  "型のつくり方": "How to make the mold",
   "プリントベッド": "Print bed",
   "3Dプリント": "3D print",
   "段ボール": "Cardboard",
+  "大きさの制限はありません。A4 に収まらない部品は、のりしろ付きで次のページに続きます(トンボを合わせて貼り合わせ)。":
+    "There is no size limit: a part too big for A4 simply continues on the next page with a glue tab (line the trim marks up and paste).",
   "定番サイズ": "Common size",
   "カスタム": "Custom",
   "配置": "Layout",
@@ -82,6 +87,9 @@ const EN = {
   "この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます":
     "Up to {n} ribs at this opening/thickness (koma notches would overlap). Thinner boards allow more.",
   // ---- Paper template (cardboard) ----
+  "型紙プレビュー · 全 {n} ページ": "Template preview · {n} pages",
+  "画面上は原寸ではありません。「型紙を開く」から原寸で印刷してください。":
+    "Not to scale on screen — print it full size from \"Open template\".",
   "型紙(段ボール)": "Paper template",
   "A4 原寸 · beta": "A4 1:1 · beta",
   "この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。":
@@ -114,6 +122,8 @@ const EN = {
   "開口リング": "Opening ring",
   "{parts} がベッド {w}×{d}mm を超過": "{parts} exceeds the {w}×{d}mm bed",
   "→ 火袋の高さを {h}mm 以下に": "→ Reduce body height to {h}mm or less",
+  "コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです": "Only {wall}mm of koma left between notches — thin enough to tear when hand-cut",
+  "→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる": "→ Fewer ribs / thinner material / widen the opening in the section view",
   "鑑賞モード — 編集はタブで「断面」へ": "Viewing mode — switch to the Section tab to edit",
   // ---- Section editor (SectionEditor) ----
   "羽根板": "Rib",
@@ -163,7 +173,6 @@ const EN = {
   // English text at the same size (a longer line collides with the footer).
   "50mm ← 定規で確認(合わなければ「実際のサイズ/100%」で印刷し直し)": "50mm ← check with a ruler (print at 100%)",
   "灯 TOMOSHIBI 型紙 {name} 原寸": "TOMOSHIBI papercraft {name} (full scale)",
-  "⚠ コマの<b>溝と溝の間の壁が {wall}mm</b> しかありません(溝の幅は材料厚どおりの {matT}mm)。手で切ると裂けやすい細さです。太くするには <b>羽根板の枚数を減らす</b>・<b>薄い材料にする</b>・断面図で<b>開口を広げてコマを大きくする</b> のいずれかが効きます。": "⚠ The koma has <b>only {wall}mm of wall between grooves</b> (groove width matches the material at {matT}mm). That's thin enough to tear when hand-cut. To thicken it: <b>reduce the number of ribs</b>, <b>use thinner material</b>, or in the section view <b>widen the opening to make the koma larger</b>.",
   "⚠ 材料厚 {matT}mm では羽根板は最大 {nMax} 枚です(溝が広がり、コマの中心で溝どうしが重なるため)。{boards} 枚 → <b>{nMax} 枚</b>に減らして出力しました。枚数を保ちたい場合は薄い材料を使ってください。": "⚠ At {matT}mm material thickness, at most {nMax} ribs fit (the grooves widen and overlap at the koma's center). Exported with {boards} reduced to <b>{nMax} ribs</b>. To keep the count, use thinner material.",
   "<b>段ボール版は開発中(beta)です。</b> 寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。切る前に 50mm スケールと材料の実測厚を確認してください。":
     "<b>The cardboard route is still in development (beta).</b> Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Before you cut, check the 50 mm scale bar and your material's real thickness.",

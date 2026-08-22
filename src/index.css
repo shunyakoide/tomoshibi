@@ -88,16 +88,30 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 }
 .seg:hover { border-color: var(--accent-45); }
 .seg[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
-.seg--lg { padding: 8px 4px; font-size: 12.5px; }   /* the print-mode toggle sits a little larger */
 /* Status marker on an option ("beta"). Outlined rather than filled so it reads as a note about the
-   option and not as a second thing to press, and it inherits currentColor so the pressed (filled
-   orange) state needs no separate rule. */
-.seg .badge {
+   option and not as a second thing to press, and it inherits currentColor so every host — a
+   segmented option, the welcome card's route button, the viewport chip — needs no rule of its own,
+   pressed (filled orange) state included. */
+.badge {
   margin-left: 5px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px;
   font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: 0.04em;
   text-transform: uppercase; opacity: 0.72; vertical-align: 1px;
 }
 
+.route-btn {   /* welcome card: pick how you'll make the mold (3D print / cardboard) */
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: left;
+  padding: 12px 13px; border-radius: 11px; cursor: pointer;
+  background: var(--card); color: var(--text); border: 1px solid var(--card-edge);
+  font-family: var(--sans); transition: background 0.13s, border-color 0.13s;
+}
+.route-btn > b { font-size: 13px; font-weight: 700; }
+.route-btn > i { font-size: 10.5px; font-style: normal; line-height: 1.45; color: var(--sub); }
+.route-btn:hover { background: #fffaf5; border-color: var(--accent-55); }
+/* The saved route, when the card is reopened from the "?" — aria-current rather than aria-pressed,
+   because these are live actions that happen to mark the current setting, not a toggle; and a tint
+   rather than the filled orange of .seg, for the same reason. */
+.route-btn[aria-current="true"] { background: var(--accent-06); border-color: var(--accent); }
+.route-btn[aria-current="true"] > b { color: var(--accent); }
 .cta {   /* full-width call to action at the foot of the panel */
   width: 100%; padding: 12px; border: none; border-radius: 10px; cursor: pointer;
   background: var(--accent); color: #fff; box-shadow: 0 3px 10px var(--accent-3);
@@ -203,6 +217,52 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .tool-group > div { display: flex; gap: 6px; }
 .note { font-size: 10.5px; line-height: 1.6; color: var(--faint); }
 .hint { font-size: 11px; line-height: 1.5; color: var(--faint); padding: 2px 0 4px; }
+
+/* ---- page preview (cardboard route's print view) ---- */
+/* A document viewer over the (empty) 3D canvas: the pages flow and the whole thing scrolls. The
+   sheets are the template's own SVG, so only their size on screen is set here.
+   The sheets FILL the width instead of sitting at a fixed size — a fixed width left most of a wide
+   viewport grey while the pages stayed too small to read anything on.
+   `repeat(auto-fit, minmax(<min>, 1fr))` is doing the work, and the choice of auto-FIT over both
+   flex-wrap and auto-fill is the whole point: auto-fit collapses the tracks no page landed in and
+   lets the survivors share ALL the width, so two pages become half the pane each rather than two
+   thumbnails in a row of seven. Uniform, too — grid tracks are one width for every row, whereas
+   `flex-wrap` + `flex-grow` blows up whatever is left alone on the last row. Page height follows on
+   its own: the sheet is an SVG with a viewBox, so it carries A4's aspect ratio intrinsically. */
+.pages {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  align-content: start; gap: 14px;
+  /* The top pad clears the two floating chip rows drawn over this canvas — without enough of it the
+     first page slides under them. The route row is the lower one: top 62px + its own height (a
+     .tab's 7px padding twice around a ~17px line box, the badge being the tallest thing in it, plus
+     the chip's 4px padding twice and its border) ≈ 110px, and the rest is the gap. Anything that
+     changes .tab's padding or font size moves this number. */
+  padding: 124px 20px 14px;
+}
+.pages .pg {
+  width: 100%; height: auto; background: #fff;
+  border: 1px solid rgba(59,52,43,0.14); box-shadow: 0 3px 12px rgba(59,52,43,0.16);
+}
+/* Narrow: the pane is only 44vh tall here, so a page's height is the binding constraint rather than
+   its width. A smaller track keeps two sheets side by side instead of one filling the phone's width
+   and running several screens deep. Matches useNarrow(860). */
+@media (max-width: 860px) {
+  .pages {
+    padding: 118px 12px 10px; gap: 10px;   /* same chips, so the same clearance, minus the slack */
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+/* Full --text, not the muted --sub/--faint the inspector's notes use: this bar sits on the viewport
+   over a grey canvas rather than on the panel, and at 11px the browns were washed out. The two
+   halves (what this is / the caveat that it is not full scale) stay distinguishable by WEIGHT
+   instead, so neither of them gives up contrast for the hierarchy. */
+.pages-note {
+  flex: none; padding: 8px 20px 12px; font-size: 11px; line-height: 1.5; font-weight: 600;
+  color: var(--text); background: rgba(255,255,255,0.82); border-top: 1px solid var(--edge);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
+.pages-note > span { font-weight: 400; }
 
 /* ---- crash screen (main.jsx error boundary) ---- */
 /* Its own dark palette rather than the panel tokens: whatever went wrong may well be in the theme,

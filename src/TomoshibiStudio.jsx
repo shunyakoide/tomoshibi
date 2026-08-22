@@ -27,7 +27,7 @@ import {
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
 import { exportZip, openHTML, downloadFile } from "./stl.js";
-import { paperHTML, washiPDF } from "./papercraft.js";
+import { paperHTML, washiPDF, paperFit } from "./papercraft.js";
 import { fitOnBed } from "./bed.js";
 import { useViewport } from "./three/viewport.js";
 import { buildScene } from "./three/scenes.js";
@@ -37,11 +37,12 @@ import {
   loadWelcomeSeen, saveWelcomeSeen,
 } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
+import PagePreview from "./PagePreview.jsx";
 import Welcome from "./Welcome.jsx";
 import { DEFAULTS, SIL_ROWS } from "./config.js";
 import { makeT } from "./i18n.js";
 import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.js";
-import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, SegButton, CTA, Note } from "./ui/controls.jsx";
+import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note } from "./ui/controls.jsx";
 import PresetChips from "./ui/PresetChips.jsx";
 import PointCard from "./ui/PointCard.jsx";
 import Toolbar from "./ui/Toolbar.jsx";
@@ -50,6 +51,10 @@ import Logo from "./ui/Logo.jsx";
 const PANEL = 336;          // inspector width (px)
 const BED_PRESETS = [180, 220, 250, 256, 300, 350];
 const VIEWS = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]];
+// How the mold gets made. Cardboard is marked beta: its dimensions come from the same geometry.js
+// functions as the printed parts and are covered by check:paper, but the route has had far less
+// real-world building behind it than the STL one.
+const ROUTES = [["stl", "3Dプリント", null], ["paper", "段ボール", "beta"]];
 
 // Restore from localStorage once at startup (module top level, so a lazy initializer can't parse twice).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
@@ -57,7 +62,12 @@ const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 export default function TomoshibiStudio() {
   const [p, setP] = useState(SAVED?.p ?? DEFAULTS);
   const [view, setView] = useState("2d");           // section view first: easiest place to read the shape. Transient
-  const [printMode, setPrintMode] = useState("stl"); // print view output: "stl" (3D print) / "paper" (cardboard). Transient
+  // How the mold gets made: "stl" (3D print) / "paper" (cardboard template). Chosen on the welcome
+  // card and switchable from the viewport chip in any non-lit view, and NOT transient — it is a fact
+  // about the maker, not the design, and it decides whether the print bed constrains anything at all
+  // (on the cardboard route nothing is bed-limited: a part larger than A4 simply continues onto the
+  // next page with a glue tab).
+  const [route, setRoute] = useState(SAVED?.route ?? "stl");
   const [drag, setDrag] = useState(null);           // key being dragged (highlights handles / slider rows)
   const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1);
   const [bedW, setBedW] = useState(SAVED?.bedW ?? 256);   // print bed (mm). Restored as a machine setting
@@ -81,8 +91,13 @@ export default function TomoshibiStudio() {
   // flag ALONE and not on "is there a saved design" — the autosave flushes on pagehide, so a
   // first-time visitor who merely reloads already has saved state and would never see the card,
   // which is exactly the person it is for. The cost is that an existing user meets it once.
-  const [welcome, setWelcome] = useState(() => !loadWelcomeSeen());
-  const closeWelcome = () => { saveWelcomeSeen(); setWelcome(false); };
+  // Which card it is, not just whether one is open: "first" = auto-opened on the first visit,
+  // "help" = reopened from the "?" (null = closed). The two differ in one way — the first-run card
+  // marks NEITHER route, because "stl" there is a default nobody chose and colouring it would answer
+  // the question the card is asking ("どちらでつくりますか?"). Once past that, the card is a place to
+  // switch, so the route in effect is marked. No second persisted flag: the mode carries it.
+  const [welcome, setWelcome] = useState(() => (loadWelcomeSeen() ? null : "first"));
+  const closeWelcome = () => { saveWelcomeSeen(); setWelcome(null); };
 
   // Clamp the rib count to what fits the koma. If board thickness, tolerance or the opening (◇)
   // changes make it too large — by any path — lower it here, so overlapping notches can never
@@ -93,14 +108,14 @@ export default function TomoshibiStudio() {
   }, [p.boards, boardsMax]);
 
   // Runs after the clamp above, so what lands in localStorage is always the clamped design.
-  useAutosave({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd });
+  useAutosave({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd, route });
 
   // Rebuild the 3D preview whenever the design or the view changes.
   useEffect(() => {
     const viewChanged = prevView.current !== view;
     prevView.current = view;
-    buildScene(three.current, { p, view, viewChanged, printRibs, bedW, bedD });
-  }, [p, view, printRibs, bedW, bedD, three]);
+    buildScene(three.current, { p, view, viewChanged, printRibs, bedW, bedD, route });
+  }, [p, view, printRibs, bedW, bedD, route, three]);
 
   // Ribs to print (1..boards). With spiral winding every rib is a different shape, so all of them
   // are exported — duplicating one would not make a spiral.
@@ -153,7 +168,7 @@ export default function TomoshibiStudio() {
   // Export the design as JSON. localStorage is a volatile cache; this file is the backup you can
   // rely on. Same schema as the config.json inside the ZIP.
   const exportDesign = () => downloadFile(
-    serializeState({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd }),
+    serializeState({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd, route }),
     "tomoshibi_design.json", "application/json",
   );
 
@@ -167,7 +182,7 @@ export default function TomoshibiStudio() {
       const s = parseImport(String(reader.result));
       if (!s) return fail();
       setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setMatT(s.matT);
-      setWashiSide(s.washiSide); setWashiEnd(s.washiEnd);
+      setWashiSide(s.washiSide); setWashiEnd(s.washiEnd); setRoute(s.route);
     };
     reader.onerror = fail;
     reader.readAsText(file);
@@ -176,7 +191,7 @@ export default function TomoshibiStudio() {
   const resetAll = () => {
     if (!window.confirm(t("すべての設定を初期状態に戻します。よろしいですか?"))) return;
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* continue even if storage is disabled */ }
-    setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1);
+    setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1); setRoute("stl");
   };
 
   // ---- Derived figures ----
@@ -223,6 +238,19 @@ export default function TomoshibiStudio() {
   }, [bedFit, p, bedW, bedD]);
 
   const isLit = view === "lit";   // lit = a viewing mode: panel hidden, dark background
+  const bedRules = route === "stl";   // does a print bed constrain this design at all? (cardboard: never)
+  // The cardboard route's print view is a document, not a scene: PagePreview draws the template's
+  // pages over the (idle) canvas, exactly as the section editor does.
+  const paperPreview = view === "print" && route === "paper" && !isLit;
+  // The cardboard route's own "this design won't cut well" check, the counterpart to the bed overflow
+  // above. Cheap enough to run every render (a couple of divisions — see paperFit), and deliberately
+  // NOT limited to the print view: every way out of it (fewer ribs, thinner material, a wider opening)
+  // is a control you reach for while designing, and it used to sit on the printed page, where reading
+  // it means the sheet in your hand is already the wrong one.
+  const fit = useMemo(() => (route === "paper" ? paperFit(p, matT) : null), [route, p, matT]);
+  const thinWall = fit && fit.wall < fit.thin;
+  // Stable identity, so the preview's memo isn't invalidated by every unrelated render.
+  const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
   const chip = chipStyle(isLit);
 
   // ============ Left: viewport ============
@@ -238,6 +266,10 @@ export default function TomoshibiStudio() {
         <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag}
           sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode} t={t} />
       )}
+
+      {/* Print view, cardboard route: the output is a document, so the preview is one — the
+          template's own pages, over the same (empty) canvas the section editor uses. */}
+      {paperPreview && <PagePreview p={p} matT={matT} washi={washiOpts} lang={lang} />}
 
       {glError && (
         <div style={{
@@ -265,6 +297,30 @@ export default function TomoshibiStudio() {
         ))}
       </div>
 
+      {/* The route switch lives here, on the viewport, and not in the panel: it changes what this
+          whole view IS (print plates vs template pages), and buried at the bottom of the inspector's
+          scroll it was several seconds of hunting for the one control most likely to be wrong.
+          Shown on every view except lit, not just the print view, because the route reaches further
+          than its own view: `bedRules` below gates the bed-overflow warning, the "keep the height
+          under N mm" hint and the rib-length warning colour, all of which surface while you are in
+          the SECTION view. Leaving the switch behind in the print view put the effect on one screen
+          and its cause on another — someone shortening a body to fit a bed they don't own. Lit is
+          excluded because it is a viewing mode (the whole inspector is hidden there too). */}
+      {!isLit && (
+        <div style={{
+          position: "absolute", top: 62, left: 16, display: "flex", gap: 2, padding: 4,
+          borderRadius: 10, background: chip.bg,
+          backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+          border: `1px solid ${chip.edge}`, boxShadow: "0 2px 10px rgba(59,52,43,0.07)",
+        }}>
+          {ROUTES.map(([k, l, badge]) => (
+            <button key={k} className="tab" aria-pressed={route === k} onClick={() => setRoute(k)}>
+              {t(l)}{badge && <em className="badge">{badge}</em>}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Dimension chip (always live) */}
       <div style={{
         position: "absolute", top: 24, right: 24, fontSize: 12, color: chip.txt,
@@ -273,11 +329,16 @@ export default function TomoshibiStudio() {
         ⌀{maxDia} × H{p.height} mm
       </div>
 
-      {/* Bed-overflow warning. Each part lies along a different axis, so the bed is width×depth.
-          The bed only constrains 3D printing — hidden while a paper template is selected. */}
-      {!isLit && overParts.length > 0 && !(view === "print" && printMode !== "stl") && (
+      {/* The two viewport alerts below share the bottom-RIGHT corner. Bottom-left is the section
+          editor's legend, which either of them used to cover; and they can never collide with each
+          other, being gated on opposite routes (bed = 3D print, koma wall = cardboard).
+          Bed-overflow warning. Each part lies along a different axis, so the bed is width×depth.
+          Gated on the whole 3D-print ROUTE, not just the print view: on the cardboard route there is no
+          machine to overflow — a part wider than A4 continues onto the next page with a glue tab — so
+          telling that person to shorten the body would be shrinking a design for a limit they don't have. */}
+      {!isLit && bedRules && overParts.length > 0 && (
         <div style={{
-          position: "absolute", bottom: 20, left: 20, display: "flex", alignItems: "center", gap: 10,
+          position: "absolute", bottom: 20, right: 20, display: "flex", alignItems: "center", gap: 10,
           padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
           borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
           fontSize: 12.5, color: UI.text, textAlign: "left", maxWidth: "60%",
@@ -290,6 +351,24 @@ export default function TomoshibiStudio() {
             {ribBaseOver && heightLimit >= 140 && (
               <><br /><span style={{ color: UI.sub }}>{t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit })}</span></>
             )}
+          </span>
+        </div>
+      )}
+
+      {/* Cardboard: the koma's notches are cut to the material thickness, so thick material eats the
+          wall between them until it tears when cut by hand. Shares the bed warning's corner, which is
+          safe because that one is gated on the 3D-print route and this one on cardboard. */}
+      {!isLit && thinWall && (
+        <div style={{
+          position: "absolute", bottom: 20, right: 20, display: "flex", alignItems: "center", gap: 10,
+          padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
+          borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
+          fontSize: 12.5, color: UI.text, textAlign: "left", maxWidth: "60%",
+        }}>
+          <span style={{ fontSize: 15 }}>⚠️</span>
+          <span>
+            {t("コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです", { wall: fit.wall.toFixed(1) })}
+            <br /><span style={{ color: UI.sub }}>{t("→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる")}</span>
           </span>
         </div>
       )}
@@ -322,7 +401,7 @@ export default function TomoshibiStudio() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* Reopens the onboarding card. Once dismissed it never auto-opens again, so this is the
               only way back to "what is this app" — keep it next to the language toggle. */}
-          <button className="icon-btn" onClick={() => setWelcome(true)} title={t("はじめかた")} aria-label={t("はじめかた")}>?</button>
+          <button className="icon-btn" onClick={() => setWelcome("help")} title={t("はじめかた")} aria-label={t("はじめかた")}>?</button>
           <button className="lang-btn" onClick={toggleLang} title="Language / 言語">{lang === "ja" ? "EN" : "日本語"}</button>
         </div>
       </div>
@@ -417,25 +496,18 @@ export default function TomoshibiStudio() {
           </Note>
         </div>
 
-        {/* Print view: two mutually-exclusive output methods (3D print vs cardboard). The segmented
-            toggle picks one and shows only its settings; the footer CTA switches to match. The washi
-            template is deliberately NOT a third option: it is not another way to make the mold, it is
-            the paper skin you need on top of whichever mold you built. */}
+        {/* Print view: the settings for whichever route is selected — the switch itself sits on the
+            viewport, next to the mode tabs. The washi template is deliberately NOT a third route: it
+            is not another way to make the mold, it is the paper skin you need on top of whichever
+            mold you built, so it lives above with the design settings. */}
         {view === "print" && (
           <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 16, marginTop: 4 }}>
-            {/* Titled, because the panel is one long scroll: without it the toggle reads as another
-                shape setting rather than "this is the print/export section". */}
-            <SectionLabel title="印刷・書き出し" hint="型のつくり方" />
-            <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-              {/* Cardboard is marked beta: its dimensions come from the same geometry.js functions
-                  as the printed parts and are covered by check:paper, but the route has had far
-                  less real-world building behind it than the STL one. */}
-              {[["stl", "3Dプリント", null], ["paper", "段ボール", "beta"]].map(([k, l, badge]) => (
-                <SegButton key={k} label={l} badge={badge} active={printMode === k} onClick={() => setPrintMode(k)} large />
-              ))}
-            </div>
+            {/* Titled, because the panel is one long scroll: without it the first control reads as
+                another shape setting rather than "this is the print/export section". The hint names
+                the route, so the panel says which of the two these settings belong to. */}
+            <SectionLabel title="印刷・書き出し" hint={route === "stl" ? "3Dプリント" : "段ボール"} />
 
-            {printMode === "stl" ? (
+            {route === "stl" ? (
               <>
                 <SectionLabel title="プリントベッド" />
                 {/* Common (square) bed presets as a dropdown rather than a wrapping chip row (saves a
@@ -483,6 +555,10 @@ export default function TomoshibiStudio() {
                 <Stepper label="材料の厚み" value={matT} min={1} max={10} step={0.5} onChange={setMatT}>
                   {matT} mm
                 </Stepper>
+                {/* The counterpart to the bed warning the 3D route shows here: on paper there is no
+                    machine size to exceed, so the design is free — say so, or its absence just reads
+                    as a missing check. */}
+                <Note>{t("大きさの制限はありません。A4 に収まらない部品は、のりしろ付きで次のページに続きます(トンボを合わせて貼り合わせ)。")}</Note>
               </>
             )}
           </div>
@@ -495,7 +571,7 @@ export default function TomoshibiStudio() {
           <span style={{ color: UI.faint }}>{t("最大径")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>⌀{maxDia} mm</span>
           <span style={{ color: UI.faint }}>{t("羽根板の全長")}</span>
-          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: ribFits ? UI.text : UI.warn }}>
+          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: !bedRules || ribFits ? UI.text : UI.warn }}>
             {ribLen} mm
           </span>
           <span style={{ color: UI.faint }}>{t("上下の開口(半径)")}</span>
@@ -504,7 +580,7 @@ export default function TomoshibiStudio() {
 
         {view !== "print" ? (
           <CTA label="印刷・書き出しへ進む →" outline onClick={() => setView("print")} />
-        ) : printMode === "paper" ? (
+        ) : route === "paper" ? (
           <>
             <CTA label="型紙を開く (A4 原寸)"
               onClick={() => openHTML(paperHTML(p, matT, undefined, t, { side: washiSide, end: washiEnd }), "tomoshibi_katagami_a4.html")} />
@@ -532,7 +608,10 @@ export default function TomoshibiStudio() {
       }}>
         {viewport}
         {inspector}
-        {welcome && <Welcome onClose={closeWelcome} />}
+        {welcome && (
+          <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome}
+            onPick={(r) => { setRoute(r); closeWelcome(); }} />
+        )}
       </div>
     </TContext.Provider>
   );
