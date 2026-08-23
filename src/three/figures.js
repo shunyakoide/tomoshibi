@@ -22,7 +22,7 @@
 import * as THREE from "three";
 import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
-  standCollarTop, standSaddleH, standSlotSep, fukuroRange,
+  standCollarTop, standSaddleH, standSlotSep, fukuroRange, komaR,
 } from "../geometry.js";
 
 // The isometric direction every figure is drawn from. Shared, because the shade's silhouette has to
@@ -67,10 +67,33 @@ function part(geo, hot) {
  */
 const ribGeo = (p, k, smooth) => ribGeometry(smooth ? { ...p, lighten: false } : p, k, { smooth });
 
+/**
+ * The rubber bands that hold the assembly together while you work: one just outside each koma, round
+ * the bundle of tabs. **The only thing in this file that is not a part** — it is not printed, not
+ * cut and not in geometry.js, so it is drawn as a plain torus sized off `komaR`, the radius the tabs
+ * actually end at. Never drawn in ink, because it is not a part: full accent while the step is ABOUT
+ * the bands, muted once it is not — otherwise the next step highlights its rings in the very orange
+ * the bands are already wearing, and the figure stops saying which two things are new.
+ */
+const BAND_OFF = 0xe3b39d;
+function bands(p, hot) {
+  const g = new THREE.Group();
+  const r = komaR(p);
+  for (const y of [-p.tabLen * 0.45, p.height + p.tabLen * 0.45]) {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(r + 0.8, 1.1, 8, 64),
+      new THREE.MeshBasicMaterial({ color: hot ? HI : BAND_OFF }));
+    t.rotation.x = Math.PI / 2;
+    t.position.y = y;
+    g.add(t);
+  }
+  return g;
+}
+
 /** Ribs radiating from the axis, koma at whichever ends the step has reached (and, once the guide
  *  has fitted them, the two opening rings — the mold carries those for the rest of the build). */
-function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false } = {}) {
+function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false, band = false } = {}) {
   const g = new THREE.Group();
+  if (band) g.add(bands(p, hot === "bands"));
   if (rings) {
     const { lo: t0, hi: t1 } = fukuroRange(p);
     for (const top of [false, true]) {
@@ -122,7 +145,7 @@ function moldOnStand(p, hot, smooth) {
   g.add(standPieces(p, null));
   // Rings included: by the time the mold goes in the stand the guide has fitted them, and a figure
   // that quietly drops a part the reader just installed makes them wonder what they did wrong.
-  const mold = moldPieces(p, { hot: hot === "mold" ? "ribs" : null, smooth, rings: true });
+  const mold = moldPieces(p, { hot: hot === "mold" ? "ribs" : null, smooth, rings: true, band: true });
   mold.rotation.z = Math.PI / 2;
   mold.position.set(p.height / 2, standCollarTop() + standSaddleH(p), 0);
   g.add(mold);
@@ -152,7 +175,9 @@ const SCENES = {
   // The rings go on the ASSEMBLED MOLD, right after the second koma: the washi's cover allowance is
   // folded over them, so they are in place long before anything is pasted, and they stay in the
   // lantern when the mold comes out. Hence the mold here rather than the finished shade.
-  rings: (p, sm) => moldPieces(p, { smooth: sm, rings: true, hot: "rings" }),
+  // The bands ride along from here on, muted: the text beside this step asks for them, and a
+  // figure that leaves them out is a figure of a mold that has already sprung apart.
+  rings: (p, sm) => moldPieces(p, { smooth: sm, rings: true, hot: "rings", band: true }),
 };
 
 export const FIGURES = Object.keys(SCENES);
