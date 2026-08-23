@@ -238,8 +238,8 @@ const EN = {
   "羽根板の外縁の溝に竹ひごを沿わせ、下から上へ巻いていきます。溝が受けるので滑り落ちません。「螺旋巻き」で設計した型なら、溝が段ごとにずれていて1本の連続した螺旋になります。":
     "Lay the bamboo into the grooves on the ribs' outer edges and wind upward from the bottom. The grooves hold it, so it cannot slip. If you designed with spiral winding, they step round rib by rib and the bamboo becomes one continuous helix.",
   "和紙を貼る": "Paste the washi",
-  "でんぷん糊を竹ひごに置き、和紙をのせて刷毛で撫でて密着させます。羽根板と羽根板の間を1面ずつ、縁を少し重ねながら。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。":
-    "Dab starch paste onto the bamboo, lay the washi over it and stroke it down with a brush. Work one rib-to-rib panel at a time, overlapping the edges slightly. Cut the paper first with the washi template in the ZIP — trimming it wet is the fiddly part.",
+  "でんぷん糊を竹ひごに置き、和紙をのせて刷毛で撫でて密着させます。羽根板と羽根板の間を1面ずつ、1つ飛ばしに。一周したら戻って間を埋めます — 縁を重ねる相手が濡れていない面になります。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。":
+    "Dab starch paste onto the bamboo, lay the washi over it and stroke it down with a brush. Work one rib-to-rib panel at a time, skipping every other bay; go round once, then come back and fill the gaps — each overlap then lands on a panel that is no longer wet. Cut the paper first with the washi template in the ZIP — trimming it wet is the fiddly part.",
   "乾かす": "Let it dry",
   "糊と和紙が完全に乾くまで置きます。乾くと紙が張って形が決まります。急がないこと — 生乾きで型を抜くと歪みます。":
     "Leave it until the paste and the paper are completely dry. Drying is what pulls the paper taut and sets the shape. Do not rush it: pulling the mold from a damp shade warps it.",
