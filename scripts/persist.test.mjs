@@ -19,7 +19,7 @@ globalThis.localStorage = {
 
 const P = await import("../src/persist.js");
 const G = await import("../src/geometry.js");
-const { DEFAULTS } = await import("../src/config.js");
+const { DEFAULTS, LIMITS } = await import("../src/config.js");
 
 const openEdges = (g) => {
   const pos = g.getAttribute("position"), idx = g.index ? g.index.array : null;
@@ -97,8 +97,11 @@ t("grooveList returns a finite count even after pitch=0 restore", (() => {
 // Out-of-range numbers (negative / huge) → clamp to the allowed range.
 P.saveState({ p: { ...DEFAULTS, height: -5, boardT: 99, boards: 999 }, bedW: 9, bedD: 9999, printRibs: 1 });
 r = P.loadSaved();
-t("height negative → 140 or more", r.p.height >= 140);
+// Read the floor from LIMITS rather than restating it: the point of the assertion is "a corrupt
+// height lands back inside the range the editor works in", not the number itself.
+t(`height negative → ${LIMITS.height[0]} or more`, r.p.height >= LIMITS.height[0]);
 t("boardT huge → 4 or less", r.p.boardT <= 4);
+t(`pts radius → within ${LIMITS.r.join("..")}`, r.p.pts.every((q) => q.r >= LIMITS.r[0] && q.r <= LIMITS.r[1]));
 t("boards huge → maxBoards or less", r.p.boards <= G.maxBoards(r.p));
 t("bedW/bedD out of range → 100..420", r.bedW >= 100 && r.bedD <= 420);
 

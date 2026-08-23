@@ -30,7 +30,7 @@ import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, washiPart
 import { winAnsi } from "../src/pdf.js";
 import { makeT } from "../src/i18n.js";
 import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR } from "../src/geometry.js";
-import { PRESETS, DEFAULTS } from "../src/config.js";
+import { PRESETS, DEFAULTS, LIMITS } from "../src/config.js";
 
 let fail = 0;
 const bad = (msg) => { console.log("FAIL:", msg); fail++; };
@@ -363,9 +363,51 @@ for (const preset of PRESETS)
         Buffer.from(paperPDF(p, 5, A4, en, { side, end })).toString("latin1"), `${tag} cardboard`);
     }
 
+// ---- 7. The silhouette extremes (the corners of LIMITS) ----
+// Cardboard is the route with no size limit — a part too tall for A4 just continues on the next
+// sheet — so it is the route that actually meets a 2m body, and the one where the sweeps above say
+// nothing: they run 140..400mm at the presets' own radii. This walks the corners of the box the
+// editor now allows and asserts what would make the template wrong rather than merely large: the
+// rib is still drawn at full scale (its length is the geometry's, not a fitted one), the washi
+// panel is still cut to the meridian ARC length — which only runs further from the straight height
+// as the body gets steeper — and every part still lands on a page with no NaN in it.
+let nx = 0;
+const [xhLo, xhHi] = LIMITS.height, [xrLo, xrHi] = LIMITS.r;
+for (const preset of PRESETS)
+  for (const height of [xhLo, xhHi])
+    for (const rMax of [xrLo * 2, xrHi]) {
+      nx++;
+      const widest = Math.max(...preset.pts.map((q) => q.r));
+      const pts = preset.pts.map((q) => ({ ...q, r: Math.min(xrHi, Math.max(xrLo, (q.r * rMax) / widest)) }));
+      const p = { ...DEFAULTS, ...preset, pts, height };
+      const tag = `extreme ${preset.key} h${height} rMax${rMax}`;
+      const { parts, pk } = paperParts(p, 5);
+      const rib = parts.find((q) => q.name.startsWith("羽根板"));
+      eq(bb(rib).h, p.height + 2 * p.tabLen, `${tag} rib total length`);
+      if (!parts.some((q) => q.name.startsWith("和紙"))) bad(`${tag}: washi panel missing`);
+      for (const q of parts)
+        for (const [x, y] of [q.outline, ...(q.holes || [])].flat())
+          if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
+      // Integrated independently of washiGore, as in section 4: the panel must cover the arc.
+      const fr = fukuroRange(p), y0 = fr.lo * height, y1 = fr.hi * height;
+      let arc = 0, prev = outerR(p, y0 / height);
+      for (let i = 1; i <= 4000; i++) {
+        const y = y0 + ((y1 - y0) * i) / 4000, R = outerR(p, y / height);
+        arc += Math.hypot((y1 - y0) / 4000, R - prev); prev = R;
+      }
+      const panel = bb(parts.find((q) => q.name.startsWith("和紙"))).h;
+      if (panel + 0.01 < arc) bad(`${tag}: washi panel ${panel} shorter than the meridian arc ${arc}`);
+      // The pages still render, and every part still lands on one.
+      const { svg, pages } = paperPagesSVG(p, 5, undefined, {}, A4);
+      if (/NaN|Infinity|undefined/.test(svg)) bad(`${tag}: NaN/undefined in the pages`);
+      if ((svg.match(/class="pg"/g) || []).length !== pages) bad(`${tag}: page count disagrees with the markup`);
+      for (const q of parts) if (!svg.includes(q.name)) bad(`${tag}: ${q.name} not on paper`);
+      if (pk.boards < 4) bad(`${tag}: rib count clamped to ${pk.boards}`);
+    }
+
 // Japanese labels cannot be drawn with base-14 fonts, so they must be dropped, never emitted raw.
 if (winAnsi("和紙 ×8") !== " ×8") bad(`winAnsi should drop Japanese: ${JSON.stringify(winAnsi("和紙 ×8"))}`);
 if (winAnsi("50mm ← 定規で確認") !== "50mm <- ") bad(`winAnsi arrow fold: ${JSON.stringify(winAnsi("50mm ← 定規で確認"))}`);
 
-console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF combos, ${fail} FAIL ===`);
+console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme combos, ${fail} FAIL ===`);
 process.exit(fail ? 1 : 0);

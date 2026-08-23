@@ -39,7 +39,7 @@ import {
 import SectionEditor from "./SectionEditor.jsx";
 import PagePreview, { WashiPreview } from "./PagePreview.jsx";
 import Welcome from "./Welcome.jsx";
-import { DEFAULTS, SIL_ROWS } from "./config.js";
+import { DEFAULTS, LIMITS, SIL_ROWS } from "./config.js";
 import { makeT } from "./i18n.js";
 import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.js";
 import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note } from "./ui/controls.jsx";
@@ -229,8 +229,12 @@ export default function TomoshibiStudio() {
   const heightLimit = useMemo(() => {
     const ribW = Math.min(...bedFit.rib), baseW = Math.min(...bedFit.base);
     const baseConst = Math.round(standBoardLength(p) - p.height);   // base length minus height
-    let limit = 140;
-    for (let h = 140; h <= 400; h++) {
+    // 0 means no height fits at all — the parts are too WIDE, and the hint below correctly stays
+    // away rather than telling someone to shrink a body that was never the problem. (Seeding this
+    // with the minimum instead made the hint read "→ reduce to 60mm" for a ⌀1.1m design, which no
+    // height saves; the guard on the hint was already written for this case.)
+    let limit = 0;
+    for (let h = LIMITS.height[0]; h <= LIMITS.height[1]; h++) {
       if (!fitOnBed([ribW, h + 2 * p.tabLen], bedW, bedD).fits || !fitOnBed([baseW, h + baseConst], bedW, bedD).fits) break;
       limit = h;
     }
@@ -356,7 +360,7 @@ export default function TomoshibiStudio() {
             {t("{parts} がベッド {w}×{d}mm を超過", { parts: overParts.join(" · "), w: bedW, d: bedD })}
             {/* The height hint only applies to the length-driven parts (rib / base); skip it when only
                 a height-independent part (ring / koma / post) overflows, or when no height is small enough. */}
-            {ribBaseOver && heightLimit >= 140 && (
+            {ribBaseOver && heightLimit >= LIMITS.height[0] && (
               <><br /><span style={{ color: UI.sub }}>{t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit })}</span></>
             )}
           </span>

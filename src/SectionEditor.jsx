@@ -18,7 +18,8 @@
  * ============================================================================
  */
 import React, { useRef } from "react";
-import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterPts, komaR, innerRi, ribOutline2D, lightenHoles2D } from "./geometry.js";
+import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterPts, komaR, innerRi, maxRadius, ribOutline2D, lightenHoles2D } from "./geometry.js";
+import { LIMITS } from "./config.js";
 import { clamp } from "./util.js";
 
 // SVG logical coordinates (fixed). Center axis cx, baseline y0. Display scales uniformly to fit the container.
@@ -35,7 +36,11 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
   const svgRef = useRef(null);
 
   const H = p.height;
-  const s = Math.min(2.0, 520 / H);          // mm → SVG units
+  // mm → SVG units. Fit BOTH axes: height alone set the scale while the radius was capped at
+  // 130mm and could not overflow, but a wide, low body now runs straight off the sides — taking
+  // the ◇ you are dragging with it. 520/H and 2.0 are unchanged, so nothing that fitted before
+  // is redrawn at a different size; the width term only ever makes it smaller.
+  const s = Math.min(2.0, 520 / H, (CX - 30) / Math.max(maxRadius(p), 1));
   const neckB = cutYbot(p), neckT = cutYtop(p); // bottom/top neck height (mm, independent)
   const tnB = neckB / H, tnT = neckT / H;
   const topY = Y0 - H * s;
@@ -119,7 +124,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
   };
 
   const handles = [
-    { key: "height", label: "火袋の高さ", x: CX, y: topY, axis: "y", min: 140, max: 400,
+    { key: "height", label: "火袋の高さ", x: CX, y: topY, axis: "y", min: LIMITS.height[0], max: LIMITS.height[1],
       cursor: "ns-resize", guide: [CX - 60, topY, CX + 60, topY],
       lx: CX - 22, ly: topY - 8, anchor: "end" },
     // The opening (= neck) radius is the outermost control point itself → no separate handle (drag the ◇).
@@ -147,7 +152,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
         // The outermost control points can move all the way to the end (they set the neck height). Inner ones stay between their neighbors.
         const lo = i > 0 ? pts[i - 1].t + 0.04 : 0.01;
         const hi = i < pts.length - 1 ? pts[i + 1].t - 0.04 : 0.99;
-        pts[i].r = clamp(10, 130, start.r + (c.x - s0.x) / s);
+        pts[i].r = clamp(...LIMITS.r, start.r + (c.x - s0.x) / s);
         pts[i].t = clamp(lo, hi, start.t + (s0.y - c.y) / (H * s));
         return { ...o, pts };
       });
@@ -158,7 +163,7 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
   // Click to add a point there and select it. geometry is unchanged (just adds one point to pts).
   const addAtT = (mt) => {
     if (p.pts.length >= 8) return;
-    const r = clamp(10, 130, outerR(p, mt));
+    const r = clamp(...LIMITS.r, outerR(p, mt));
     setP((o) => {
       const pts = [...o.pts, { t: mt, r }].sort((a, b) => a.t - b.t);
       const idx = pts.findIndex((q) => q.t === mt);

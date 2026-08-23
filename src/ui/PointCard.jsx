@@ -11,6 +11,7 @@
  * ============================================================================
  */
 import React from "react";
+import { LIMITS } from "../config.js";
 import { bakeBezierHandles } from "../geometry.js";
 import { clamp } from "../util.js";
 import { UI, useT } from "./theme.js";
@@ -56,8 +57,8 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode 
             <SegButton label="✥ 点を動かす" active={editMode === "move"} onClick={() => setEditMode("move")} />
             <SegButton label="◠ カーブ調整" active={editMode === "curve"} onClick={enterCurve} />
           </div>
-          <NumInput label="張り出し(半径)" value={Math.round(pt.r)} min={10} max={130}
-            onChange={(v) => patch({ r: clamp(10, 130, v) })} />
+          <NumInput label="張り出し(半径)" value={Math.round(pt.r)} min={LIMITS.r[0]} max={LIMITS.r[1]}
+            onChange={(v) => patch({ r: clamp(...LIMITS.r, v) })} />
           <NumInput label="高さ位置" value={Math.round(pt.t * p.height)} min={1} max={p.height}
             onChange={setHeightMm} />
           <div style={{ display: "flex", gap: 6, margin: "4px 0 10px" }}>
