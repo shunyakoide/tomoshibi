@@ -90,10 +90,8 @@ anything older, so on Node 18 the install fails rather than degrading.
 > 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を貼る → 照明化。
 
 The app says the same thing in the **Guide** view, with the figures and the part counts of the
-design you are actually holding — and with the lamp-holder base to download when you get to the
-light. (That base is a fixed ⌀65 × 5mm disc for an E17/E26 holder; unlike every other part here it
-does not follow your design.) **That last step is marked a draft**: the base is real and printable,
-but how the legs and the lamp fitting actually attach is still being worked out.
+design you are actually holding. **The last step is marked a draft**: how the legs and the lamp
+fitting attach is still being worked out, so the guide says what the light has to be and no more.
 
 ### No 3D printer? Use cardboard (beta)
 

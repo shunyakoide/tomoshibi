@@ -217,7 +217,6 @@ const EN = {
   "段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。":
     "The cardboard mold has no posts, base or rings — the template cuts the mold itself. Hold it in your hands as you turn it, or rest it on a box.",
   "「印刷」ビューへ →": "Go to the Print view →",
-  "レセップ台座の STL をダウンロード": "Download the lamp-holder base (STL)",
   "部品をつくる": "Make the parts",
   "「印刷」ビューから STL を書き出し、羽根板・コマ・支柱・土台・口輪を印刷します。コマと支柱は上下で同じ部品なので、スライサーで2つに複製してください。":
     "Export the STLs from the Print view and print the ribs, koma, posts, base and rings. The koma and the posts are the same part top and bottom, so duplicate each one in your slicer.",
@@ -251,8 +250,8 @@ const EN = {
   "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。":
     "Slip a ring over each opening. Their bore follows the opening, so they drop onto the ribs' outer edge. Nothing holds either the rings or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the rings when you paste, which is why they stay in the lantern after the mold comes out. The one with the leg sockets is the bottom.",
   "灯りをつける": "Put a light in it",
-  "下の開口にレセップ(E17/E26)の台座を入れて電球を立てます。台座は下のリンクから。⌀65×5mm の固定寸法なので、設計を変えても形は変わりません。":
-    "Drop the lamp-holder base into the bottom opening and stand an E17/E26 holder on it. The base is the download below. It is a fixed ⌀65 × 5mm disc — unlike everything else here, it does not follow the design.",
+  "下の開口から明かりを入れます。電球は和紙のすぐ内側に来るので、熱を持ちにくい LED を選んでください。":
+    "Light it through the bottom opening. The bulb sits just inside the washi, so use an LED rather than a filament bulb.",
 };
 
 // Return the translation function for language `lang`. t(key, params?): for English, look up EN
