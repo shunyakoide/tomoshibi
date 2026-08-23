@@ -23,8 +23,14 @@
  *
  * The **washi template** (`washiParts` / `washiPDF`) — the flat pattern of the paper skin itself, so
  * the washi can be cut BEFORE pasting instead of trimmed after — rides along with both routes rather
- * than being a separate download: it is laid out among the cardboard pages here, and exported as a
- * PDF inside the kit ZIP for the 3D-printed mold.
+ * than being a separate download: it is its **own PDF** inside the download either route produces
+ * (the STL kit's ZIP, and the cardboard template's ZIP beside `tomoshibi_katagami_a4.pdf`). It is a
+ * file of its own rather than a few more pages of the cardboard template because the two are printed
+ * at different moments — the mold once, the skin once per lantern, often on different paper — and
+ * because one deliverable per document is what lets `pagesPDF` number and seam the sheets sensibly.
+ * On the cardboard route it must be built from `paperP()`, not from the design as edited: see there.
+ * It has **no on-screen preview** — one sheet of one shape, which a PDF viewer shows better than the
+ * app can. `washiPagesSVG` survives that removal as the verification's second encoding; see it.
  *
  * Every page is built once as a list of drawing ops (`pageOps`) and then rendered as **SVG for the
  * browser** or as **PDF for the kit ZIP** (pdf.js). One drawing, two encodings — a full-scale bug
@@ -132,8 +138,12 @@ function komaPart(pk, name) {
  * adding the 3D-print fit (0.3mm default) would instead make it wobble and the tab couldn't hold the koma.
  * noTabDent: cardboard skips the tab-tip dent (the koma stop) — cardboard favors keeping the tab strong (the
  * dent removes tab material) over the inward stop; the koma notch then stays full-depth so the plain tab fits.
+ *
+ * Exported because the **washi PDF that ships with this route must be built from it too**: the
+ * panel's width is the rib-to-rib arc, so a clamped rib count means wider panels, and a skin cut from
+ * the design as edited would not meet itself on the mold this template makes.
  */
-function paperP(p, matT) {
+export function paperP(p, matT) {
   const pk = { ...p, boardT: matT, komaT: matT, fit: 0, noTabDent: true };
   pk.boards = Math.min(pk.boards, maxBoards(pk));
   return pk;
@@ -163,11 +173,12 @@ export function paperFit(p, matT) {
 }
 
 /**
- * Build all parts to lay out on the papercraft. The returned p is "the papercraft p with material thickness applied".
+ * Build all parts to lay out on the papercraft: the mold's own (ribs + koma), and nothing else — the
+ * washi panel is a separate document (see the top of the file). The returned p is `paperP()`'s.
  * Depending on material thickness, boards may exceed maxBoards (the notches overlap at the center), so always clamp it,
  * and return whether it was clamped in `clamped` so the UI/page can warn.
  */
-export function paperParts(p, matT, t = tid, washiOpts = {}) {
+export function paperParts(p, matT, t = tid) {
   const pk = paperP(p, matT);            // = the mold this template actually cuts (thickness applied, count clamped)
   const { wall, clamped, nMax } = paperFit(p, matT);   // one source for the fit warnings, shared with the app's alert
 
@@ -184,13 +195,11 @@ export function paperParts(p, matT, t = tid, washiOpts = {}) {
   // page count on A4 (the print page).
   const twoKoma = [komaPart(pk, `${t("コマ")} 1/2`), komaPart(pk, `${t("コマ")} 2/2`)];
   const oneKoma = [komaPart(pk, `${t("コマ")} ×2`)];
-  // The washi panel ships with the cardboard template too. Someone building the mold out of cardboard
-  // needs the paper skin just as much, and they never open the STL ZIP (where the PDF rides). Built
-  // from pk, so the panel width follows the possibly-clamped rib count = the mold this sheet makes.
-  const washiSheets = washiParts(pk, washiOpts, t).parts;
-  const pageCount = (ks) => layout([...ribParts, ...ks, ...washiSheets], A4).pages.length;
+  const pageCount = (ks) => layout([...ribParts, ...ks], A4).pages.length;
   const komas = pageCount(twoKoma) > pageCount(oneKoma) ? oneKoma : twoKoma;
-  const parts = [...ribParts, ...komas, ...washiSheets];
+  // Mold only — ribs and koma. The washi panel used to be laid out here as one more sheet; it is now
+  // its own PDF beside this one in the route's ZIP, for the reasons at the top of the file.
+  const parts = [...ribParts, ...komas];
   return { parts, pk, clamped, nMax, wall };
 }
 
@@ -492,8 +501,8 @@ function pageOps(lay, i, page, t) {
  * HTML generates its CSS from the same table). Pure, like the rest of this module: it builds strings,
  * and the caller decides where they go.
  */
-export function paperPagesSVG(p, matT, t = tid, washiOpts = {}, page = A4) {
-  const { parts, pk, clamped, nMax } = paperParts(p, matT, t, washiOpts);
+export function paperPagesSVG(p, matT, t = tid, page = A4) {
+  const { parts, pk, clamped, nMax } = paperParts(p, matT, t);
   const lay = layout(parts, page);
   const svgs = [];
   for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, t), i, page));
@@ -538,7 +547,8 @@ export function pagesPDF(parts, page, t, title) {
 }
 
 /**
- * The cardboard template as a print-ready PDF — the route's one deliverable.
+ * The cardboard template as a print-ready PDF — the mold itself (ribs + koma). It downloads inside
+ * the route's ZIP next to the washi PDF, the same way the STL kit carries its own.
  *
  * It replaced a self-contained HTML page whose entire preamble existed to talk the reader through
  * printing an HTML at exactly 1:1 ("Actual size / 100%", no margins, fit-to-page off, and a
@@ -550,8 +560,8 @@ export function pagesPDF(parts, page, t, title) {
  * part names come out as " x8" with the word silently gone. Nothing dimensional depends on the
  * labels; the drawing is identical either way.
  */
-export function paperPDF(p, matT, page = A4, t = tid, washiOpts = {}) {
-  const { parts } = paperParts(p, matT, t, washiOpts);
+export function paperPDF(p, matT, page = A4, t = tid) {
+  const { parts } = paperParts(p, matT, t);
   return pagesPDF(parts, page, t, t("TOMOSHIBI 段ボール型紙 {name} 原寸", { name: page.name }));
 }
 
@@ -568,11 +578,11 @@ export function washiParts(p, opts = {}, t = tid) {
 }
 
 /**
- * The washi panels as a **print-ready PDF** (Uint8Array) — the file bundled in the kit ZIP, so the
- * 3D-print route prints it directly with no intermediate step. (The cardboard route needs no PDF:
- * the same panel is laid out among its own template pages by `paperParts`.) `t` must be an ASCII
- * translator (see pdf.js); it defaults to the identity, which would emit Japanese, so callers pass
- * the English one.
+ * The washi panels as a **print-ready PDF** (Uint8Array) — the file bundled in the download either
+ * route produces, so it prints directly with no intermediate step. On the cardboard route, hand it
+ * `paperP(p, matT)`: the panel width follows the rib count, which that route can clamp. `t` must be
+ * an ASCII translator (see pdf.js); it defaults to the identity, which would emit Japanese, so
+ * callers pass the English one.
  */
 export function washiPDF(p, opts = {}, page = A4, t = tid) {
   const { parts } = washiParts(p, opts, t);
@@ -580,12 +590,12 @@ export function washiPDF(p, opts = {}, page = A4, t = tid) {
 }
 
 /**
- * The same sheets `washiPDF` writes, as SVG — for the 3D-print route's print view. On the cardboard
- * route the washi panel is already visible, because `paperParts` lays it out among the template's own
- * pages; on the 3D route the PDF only rides inside the kit ZIP, so without this it is the one thing
- * the app makes that you can never look at before downloading it. Built from the same
- * `layout` + `pageOps` + `pageSVG` as every other sheet, so the preview is the file, page count and
- * check square included — never a second drawing of it.
+ * The same sheets `washiPDF` writes, as SVG. **Nothing in the app draws these** — the washi template
+ * has no preview; it downloads as a PDF and is read in a PDF viewer. What keeps this here is
+ * `check:paper`, which compares the PDF against it path by path (section 6): the PDF is hand-rolled,
+ * and markup is the encoding you can actually assert on. Same `layout` + `pageOps` + `pageSVG` as
+ * every other sheet, so it stays the same drawing the file carries — the moment it is a second
+ * drawing, the comparison is worthless and so is this function.
  */
 export function washiPagesSVG(p, opts = {}, t = tid, page = A4) {
   const { parts } = washiParts(p, opts, t);
