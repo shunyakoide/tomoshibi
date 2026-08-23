@@ -23,7 +23,7 @@ import * as THREE from "three";
 import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
   standCollarTop, standSaddleH, standSlotSep, fukuroRange, komaR, maxRadius,
-  grooveList, grooveR, higoSpiralPath, outerR,
+  grooveList, grooveR, higoSpiralPath, outerR, openingR,
 } from "../geometry.js";
 
 // The isometric direction every figure is drawn from. Shared rather than local to the camera,
@@ -352,16 +352,36 @@ function moldOnStand(p, hot, smooth, washi = null) {
  * The rubber bands are simply gone — with the koma off there is nothing left for them to hold, and a
  * figure that keeps them is a figure of a step not finished.
  */
-const PULL_DIR = new THREE.Vector3(-VIEW_DIR.y, VIEW_DIR.x, VIEW_DIR.z);
+// How far the mold is turned away from square-on to the camera. At 0° the open mouth faces the
+// reader and the frame fills with the inside of the lantern — every remaining rib edge-on, and the
+// bamboo on the far wall showing through. At 45° the mouth is edge-on and the shade flattens into a
+// leaf with a sliver at one end. 15° keeps the mouth an ellipse you can read as a hole.
+const PULL_YAW = (15 * Math.PI) / 180;
 function pullScene(p, smooth) {
+  const root = new THREE.Group();
   const w = new THREE.Group();
+  w.rotation.y = PULL_YAW;
+  // Out of the WIDER opening. A rib is as wide as the body is deep, and a lantern's two mouths are
+  // rarely the same size — the default is ⌀148 at the bottom and ⌀38 at the top, and the top will
+  // never pass a rib. Drawn the other way up it does not read as the wrong choice, it reads as the
+  // rib tearing its way out through the paper, which is what it was doing.
+  const top = openingR(p, true) >= openingR(p, false);
+  const dir = top ? -1 : 1;                // which way along the axis the rib leaves
+  // The exit always points along world +x, so the rib comes out towards the right whichever end it
+  // leaves by; turning the mold over is free, and the reader should not have to read it backwards.
+  const rz = (dir * Math.PI) / 2;
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, PULL_YAW, rz, "YXZ"));
   const mold = moldPieces(p, {
     komaBot: false, komaTop: false, smooth, rings: !smooth, higo: true, washi: "all",
-    pull: { dir: PULL_DIR, slide: (p.height + p.tabLen * 2) * 0.62 },
+    pull: {
+      dir: VIEW_DIR.clone().applyQuaternion(q.invert()),   // the camera, in the mold's own frame
+      slide: -dir * (p.height + p.tabLen * 2) * 0.62,
+    },
   });
-  mold.rotation.z = -Math.PI / 2;          // axis along +x, so the rib comes out towards the right
-  mold.position.x = -p.height / 2;         // ...and the body sits in the middle of the frame
+  mold.rotation.z = rz;
+  mold.position.x = (dir * p.height) / 2;  // ...and the body sits in the middle of the frame
   w.add(mold);
+  root.add(w);
   // Both koma, off: flat on the same table the shade is lying on, and IN FRONT of it — the isometric
   // puts +z at the near-left, which is where the frame is empty. Beside the ends is where they would
   // go by instinct and it does not work: the body bulges a full radius past its own opening, so a
@@ -372,9 +392,9 @@ function pullScene(p, smooth) {
     const k = part(komaGeometry(p), false);
     k.rotation.x = -Math.PI / 2;
     k.position.set(sgn * (kR + 5), -R, R * 0.7 + kR + 8);
-    w.add(k);
+    root.add(k);                           // outside the yaw: they are on the table, not on the mold
   }
-  return w;
+  return root;
 }
 
 /**
