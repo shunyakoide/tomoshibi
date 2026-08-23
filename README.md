@@ -17,6 +17,15 @@ output is static files.
 
 **→ [Open the app](https://shunyakoide.github.io/tomoshibi/)** — nothing to install; it runs entirely in the browser.
 
+![The section editor: an egg-shaped lantern profile with draggable control points, dimensions and a live rib outline](docs/screenshots/section.png)
+
+*Drag the ◇ handles to sculpt the silhouette. The rib outline drawn beside it — grooves, tabs and lightening windows included — is the same geometry the STL is written from.*
+
+| Assembly | Print | Lit |
+| --- | --- | --- |
+| ![The assembled mold cradled on its stand](docs/screenshots/assembly.png) | ![Print plates laid out on the bed, with the washi template docked beside them](docs/screenshots/print.png) | ![The finished lantern, lit, standing on three legs](docs/screenshots/lit.png) |
+| The mold on its stand, held clear of the table so you can turn it as you wind. | Every part laid out on your bed, the washi template alongside. | What you are building towards. |
+
 ---
 
 ## What it makes
