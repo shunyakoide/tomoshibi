@@ -117,7 +117,10 @@ function walk(dir, out = []) {
   return out;
 }
 
-const SRC = walk("src").filter((f) => !f.endsWith("i18n.js"));
+// pdf-glyphs.js is keyed by the character it draws, so every Japanese glyph in it reads as an
+// untranslated UI string. It is generated data (tools/pdffont), not copy — check:glyphs is what
+// holds it to its own source, the same way this file holds the dictionary to its.
+const SRC = walk("src").filter((f) => !f.endsWith("i18n.js") && !f.endsWith("pdf-glyphs.js"));
 const rawAll = SRC.map((f) => fs.readFileSync(f, "utf8"));
 
 // Candidate UI strings, mapped to the files they came from (for a useful failure message).

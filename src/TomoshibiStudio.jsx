@@ -40,7 +40,6 @@ import SectionEditor from "./SectionEditor.jsx";
 import PagePreview from "./PagePreview.jsx";
 import Welcome from "./Welcome.jsx";
 import { DEFAULTS, LIMITS, SIL_ROWS } from "./config.js";
-import { makeT } from "./i18n.js";
 import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.js";
 import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note } from "./ui/controls.jsx";
 import PresetChips from "./ui/PresetChips.jsx";
@@ -151,8 +150,9 @@ export default function TomoshibiStudio() {
     // even if localStorage is gone. Same schema as persist.js, so it loads back as-is.
     // The washi template comes too: it belongs to this design (its panel width follows the rib count
     // you are about to print) and, unlike the parts, cannot be re-derived from the STLs. A PDF rather
-    // than the HTML page so it prints at 100% with no intermediate step — always English-labelled,
-    // since a self-contained PDF cannot carry a Japanese font (pdf.js).
+    // than the HTML page so it prints at 100% with no intermediate step, and labelled in the UI's
+    // language — the templates used to be English whatever the app said, because the writer had no
+    // Japanese glyphs to draw with (pdf.js carries its own now).
     const cfg = JSON.stringify({ schemaVersion: SCHEMA_VERSION, p, bedW, bedD }, null, 2);
     exportZip([
       ...ribEntries,
@@ -165,17 +165,17 @@ export default function TomoshibiStudio() {
       { name: "tomoshibi_ring_top.stl", geos: [ringGeometry(p, true)] },
     ], "tomoshibi_kit.zip", [
       { name: "tomoshibi_config.json", bytes: new TextEncoder().encode(cfg) },
-      { name: WASHI_PDF, bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, makeT("en")) },
+      { name: WASHI_PDF, bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, t) },
     ]);
   };
 
   // The cardboard route's bundle, shaped like the STL kit's: one download, and the washi template a
-  // separate PDF inside it. Both are written with the ENGLISH translator — base-14 Helvetica has no
-  // CJK glyphs, so a Japanese label is dropped rather than drawn (see paperPDF / winAnsi).
+  // separate PDF inside it. Both follow the UI's language, so the sheet in your hands says what the
+  // screen you cut it from said.
   const downloadPaperKit = () => zipBundle({
-    "tomoshibi_katagami_a4.pdf": paperPDF(p, matT, undefined, makeT("en")),
+    "tomoshibi_katagami_a4.pdf": paperPDF(p, matT, undefined, t),
     // washiSrc, not p: on this route the panel follows the possibly-clamped rib count.
-    [WASHI_PDF]: washiPDF(washiSrc, washiOpts, undefined, makeT("en")),
+    [WASHI_PDF]: washiPDF(washiSrc, washiOpts, undefined, t),
   }, "tomoshibi_katagami.zip");
 
   // Export the design as JSON. localStorage is a volatile cache; this file is the backup you can

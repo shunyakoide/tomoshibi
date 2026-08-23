@@ -120,8 +120,8 @@ not the body height, so it reaches the openings exactly.
 It is not a separate download: the panel's allowances live in the **Washi** section of the
 side panel, and the template itself comes with whichever output you pick — as
 `tomoshibi_washi_a4_beta.pdf` inside that route's ZIP, next to the STLs or next to the mold's
-own template. The PDF is written directly by the app — no dependencies — and its labels
-are English, since a self-contained PDF can't carry a Japanese font.
+own template. The PDF is written directly by the app — no dependencies — and it prints in
+whichever language the app is set to.
 
 ---
 

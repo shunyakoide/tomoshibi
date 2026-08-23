@@ -99,9 +99,10 @@ const EN = {
   "プリンタの設定は「実際のサイズ / 100%」にしてください(「用紙に合わせる」は不可)。":
     "Set your printer to \"Actual size / 100%\" (never \"fit to page\").",
   " は別 PDF として同梱されます(そのまま原寸で印刷)。": " is bundled as a separate PDF (print it at 100% as-is).",
-  // The PDF's own title line. English on purpose: base-14 Helvetica cannot draw Japanese (see paperPDF).
+  // The PDF's own title line — it becomes the document title, which a viewer shows in its window.
   "TOMOSHIBI 段ボール型紙 {name} 原寸": "TOMOSHIBI cardboard template {name} (full scale)",
-  // Printed on every sheet, so it has to survive winAnsi() — plain Latin-1 only (the arrow folds).
+  // Printed on every sheet. Both languages reach paper now (the writer carries outlines for the
+  // Japanese), so keep both SHORT: the note shares its band with the right-aligned footer.
   "← 定規で確認": "<- check with a ruler",
   // ---- Summary ----
   "最大径": "Max diameter",
@@ -178,8 +179,8 @@ const EN = {
   "枚(各1枚)": " (one file each)",
   // ---- Papercraft (cardboard) ----
   "コマ": "Koma",
-  // Kept short: it shares the bottom band with the right-aligned footer, and the PDF draws the
-  // English text at the same size (a longer line collides with the footer).
+  // Kept short: it shares the bottom band with the right-aligned footer, and the PDF draws either
+  // language at the same size (a longer line collides with the footer).
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
   "羽根板の間 1面分 · beta": "one rib-to-rib panel · beta",
