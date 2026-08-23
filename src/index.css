@@ -265,6 +265,83 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 }
 .pages-note > span { font-weight: 400; }
 
+/* ---- assembly guide (GuidePage.jsx) ---- */
+/* A reading document, so it is set like one: a single measured column, generous leading, and the
+   figures on a fixed track so the text edge stays straight down the page. It owns the whole window
+   (no inspector), which is why the column is centred rather than hugging the viewport's left. */
+/* 124px of head room, the same figure the print view's page grid uses and for the same reason: the
+   mode tabs and the route chip float over this canvas, and once the window is narrow enough for the
+   column to reach the left edge they land on the title. */
+.guide-doc { max-width: 860px; margin: 0 auto; padding: 124px 24px 72px; }
+.guide-kicker {
+  margin: 0 0 6px; font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
+}
+.guide-h1 { margin: 0 0 10px; font-size: 25px; font-weight: 700; color: var(--head); }
+.guide-lead { margin: 0; font-size: 14px; line-height: 1.75; color: var(--sub); max-width: 62ch; }
+.guide-h2 {
+  margin: 40px 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+  color: var(--head); border-bottom: 1px solid var(--edge); padding-bottom: 8px;
+}
+/* The design's numbers. A row of them rather than a table: five short facts read faster across than
+   down, and they wrap to two lines on a phone without becoming a scrollable grid. */
+.guide-spec { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 22px 0 0; }
+.guide-spec dt { font-size: 11px; color: var(--faint); margin-bottom: 2px; }
+.guide-spec dd { margin: 0; font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text); }
+
+.guide-parts {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px;
+}
+.guide-parts > li { padding: 10px 12px 12px; }
+.guide-part-name { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13.5px; }
+.guide-part-name > span { font-family: var(--mono); font-size: 12px; color: var(--sub); }
+.guide-part-dim { margin-top: 2px; font-family: var(--mono); font-size: 11px; color: var(--faint); }
+
+.guide-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.guide-steps > li { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 20px; padding: 16px; align-items: start; }
+/* A step with nothing to show (its only child is the text) spans the column instead of leaving a
+   300px hole where the figure would be. */
+.guide-steps > li > :only-child { grid-column: 1 / -1; }
+.guide-steps h3 { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; font-size: 15.5px; font-weight: 700; color: var(--head); }
+.guide-steps p { margin: 0; font-size: 13.5px; line-height: 1.8; color: var(--text); }
+.guide-num {
+  flex: none; width: 24px; height: 24px; border-radius: 50%; color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700;
+}
+/* The figure well. It keeps its box whether the drawing has arrived, the photograph is missing, or
+   neither exists — a step that reflows when its image loads is a step you lose your place in. */
+.guide-fig {
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  aspect-ratio: 4 / 3; border-radius: 10px; background: #fff; border: 1px solid var(--edge);
+}
+.guide-fig--part { aspect-ratio: 3 / 2; margin-bottom: 8px; border-color: transparent; background: transparent; }
+.guide-fig img { width: 100%; height: 100%; object-fit: contain; }
+.guide-slot { font-size: 11px; color: var(--faint); text-align: center; padding: 8px; }
+.guide-note { margin: 12px 0 0; font-size: 12px; line-height: 1.7; color: var(--sub); }
+.guide-dl { margin: 12px 0 0 !important; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.guide-dl a {
+  font-size: 13px; font-weight: 600; text-decoration: none;
+  border-bottom: 1.5px solid; padding-bottom: 1px;
+}
+.guide-dl > span { font-size: 11px; color: var(--faint); }
+.guide-steps .btn { margin-top: 12px; }
+
+@media (max-width: 860px) {
+  /* One column: a 300px figure beside text on a phone leaves neither of them readable. */
+  .guide-doc { padding: 124px 14px 40px; }
+  .guide-steps > li { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}
+/* Printing the page IS the printable guide — the app writes no PDF for it. Drop the app's furniture
+   (tabs, chips, the scroll box) and let the browser paginate the document itself; a step must not be
+   split across the fold, which is what break-inside on the cards buys. */
+@media print {
+  .guide { position: static !important; overflow: visible !important; background: #fff !important; }
+  .guide-doc { max-width: none; padding: 0; }   /* the chips are gone on paper, and so is their clearance */
+  .guide-steps > li, .guide-parts > li { break-inside: avoid; box-shadow: none; }
+  .guide-h2 { break-after: avoid; }
+}
+
 /* ---- crash screen (main.jsx error boundary) ---- */
 /* Its own dark palette rather than the panel tokens: whatever went wrong may well be in the theme,
    so this screen must not depend on anything the app sets up at startup. */

@@ -38,6 +38,7 @@ import {
 } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
 import PagePreview from "./PagePreview.jsx";
+import GuidePage from "./GuidePage.jsx";
 import Welcome from "./Welcome.jsx";
 import { DEFAULTS, LIMITS, SIL_ROWS } from "./config.js";
 import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.js";
@@ -53,7 +54,9 @@ const PANEL = 336;          // inspector width (px)
 // mailed, reprinted months later, handed to someone else — and the caveat has to travel with it.
 const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";
 const BED_PRESETS = [180, 220, 250, 256, 300, 350];
-const VIEWS = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]];
+// In build order: shape it, see it assembled, print it, then make it. "作り方" comes after 印刷
+// because that is when you have parts in your hands, and before 点灯, which is the finished thing.
+const VIEWS = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["guide", "作り方"], ["lit", "点灯"]];
 // How the mold gets made. Cardboard is marked beta: its dimensions come from the same geometry.js
 // functions as the printed parts and are covered by check:paper, but the route has had far less
 // real-world building behind it than the STL one.
@@ -259,6 +262,10 @@ export default function TomoshibiStudio() {
   }, [bedFit, p, bedW, bedD]);
 
   const isLit = view === "lit";   // lit = a viewing mode: panel hidden, dark background
+  // Views that take the whole window. Lit is one because it is a viewing mode; the guide is one
+  // because it is a document — a 400px inspector beside it would leave a column too narrow to read,
+  // and there is nothing on that panel you reach for with glue on your hands.
+  const solo = isLit || view === "guide";
   const bedRules = route === "stl";   // does a print bed constrain this design at all? (cardboard: never)
   // The cardboard route's print view is a document, not a scene: PagePreview draws the template's
   // pages over the (idle) canvas, exactly as the section editor does.
@@ -282,8 +289,10 @@ export default function TomoshibiStudio() {
   const viewport = (
     <main style={{
       position: "relative", minWidth: 0, minHeight: 0,
-      flex: narrow ? "0 0 auto" : "1 1 auto",
-      height: narrow ? "44vh" : "auto",
+      // With no inspector below it, the viewport is the page: it takes the height rather than
+      // leaving the bottom half of a phone screen empty under a 44vh box.
+      flex: narrow && !solo ? "0 0 auto" : "1 1 auto",
+      height: narrow && !solo ? "44vh" : "auto",
     }}>
       <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg(isLit), transition: "background 0.3s" }} />
       {/* Section view: the direct-manipulation editor, overlaid on the WebGL canvas */}
@@ -295,6 +304,11 @@ export default function TomoshibiStudio() {
       {/* Print view, cardboard route: the output is a document, so the preview is one — the
           template's own pages, over the same (empty) canvas the section editor uses. */}
       {paperPreview && <PagePreview p={p} matT={matT} lang={lang} />}
+
+      {/* The build guide: also a document over the idle canvas, and also drawn from this design. */}
+      {view === "guide" && (
+        <GuidePage p={p} route={route} matT={matT} onGoPrint={() => setView("print")} />
+      )}
 
       {glError && (
         <div style={{
@@ -346,13 +360,17 @@ export default function TomoshibiStudio() {
         </div>
       )}
 
-      {/* Dimension chip (always live) */}
-      <div style={{
-        position: "absolute", top: 24, right: 24, fontSize: 12, color: chip.txt,
-        fontFamily: mono, letterSpacing: "0.05em", textAlign: "right", pointerEvents: "none",
-      }}>
-        ⌀{maxDia} × H{p.height} mm
-      </div>
+      {/* Dimension chip — live on every view that shows the model. Not on the guide: that page opens
+          with the same two numbers in its own spec row, and on a phone the fifth tab grew the strip
+          far enough right to run into this. */}
+      {view !== "guide" && (
+        <div style={{
+          position: "absolute", top: 24, right: 24, fontSize: 12, color: chip.txt,
+          fontFamily: mono, letterSpacing: "0.05em", textAlign: "right", pointerEvents: "none",
+        }}>
+          ⌀{maxDia} × H{p.height} mm
+        </div>
+      )}
 
       {/* The two viewport alerts below share the bottom-RIGHT corner. Bottom-left is the section
           editor's legend, which either of them used to cover; and they can never collide with each
@@ -410,7 +428,7 @@ export default function TomoshibiStudio() {
   );
 
   // ============ Right: inspector (hidden in lit mode) ============
-  const inspector = isLit ? null : (
+  const inspector = solo ? null : (
     <aside style={{
       display: "flex", flexDirection: "column",
       width: narrow ? "auto" : PANEL, flex: narrow ? "1 1 auto" : `0 0 ${PANEL}px`,

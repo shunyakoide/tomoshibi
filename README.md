@@ -48,7 +48,8 @@ opening**. This app generates that mold as 3D-printable split parts.
 - **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
 - **Cardboard papercraft mode** (beta) — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the ribs and koma hubs from cardboard. Notch widths follow the thickness you measured, so the parts still mesh.
 - **Washi template (和紙の型紙)** (beta) — the paper skin itself, developed flat: one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. Includes the side overlap, the cover allowance past the openings, and dashed guides for the rib lines and bamboo positions. It ships with whichever output you choose, as its own PDF inside that download.
-- **English / Japanese UI** — toggle in the top bar.
+- **Assembly guide** — a step-by-step page for **your** design: the parts list counts the ribs you are printing and measures the parts you are printing, and the figures are drawn from the same geometry the STLs are written from. It runs past the mold, too — winding the bamboo, pasting the washi, pulling the mold, and putting a light in it. Print it from the browser if you want it on paper.
+- **English / Japanese UI** — toggle in the top bar. Both templates print in the language the app is showing.
 - **Watertight by construction** — every exported part is a closed manifold, verified by an automated sweep (see [CONTRIBUTING](CONTRIBUTING.md)).
 
 ---
@@ -70,7 +71,7 @@ anything older, so on Node 18 the install fails rather than degrading.
 
 ## Using it
 
-- **Top tabs** — switch between **Section / Assembly / Print / Lit** views.
+- **Top tabs** — switch between **Section / Assembly / Print / Guide / Lit** views.
 - **Right panel** — pick a preset, then drag the section's control points to reshape; open the accordions (Frame, Bamboo, Print bed…) for finer settings.
 - **Preview** — drag to orbit, wheel / pinch to zoom.
 - **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `config.json` backup of your design. (STL compresses well: a default kit is about 190 KB zipped.)
@@ -87,6 +88,11 @@ anything older, so on Node 18 the install fails rather than degrading.
 
 > **制作フロー**: 印刷 → コマ2枚のノッチに羽根板を差し込む → 溝に竹ひごを巻く → 糊＋和紙を
 > 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を貼る → 照明化。
+
+The app says the same thing in the **Guide** view, with the figures and the part counts of the
+design you are actually holding — and with the lamp-holder base to download when you get to the
+light. (That base is a fixed ⌀65 × 5mm disc for an E17/E26 holder; unlike every other part here it
+does not follow your design.)
 
 ### No 3D printer? Use cardboard (beta)
 

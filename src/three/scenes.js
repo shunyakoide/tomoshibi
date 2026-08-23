@@ -10,6 +10,8 @@
  *  print view on the cardboard route — its output is a document, so PagePreview draws the template's
  *  own pages over this canvas the same way.)
  *   lit   … the finished lantern glowing in a dark room (no mold at all)
+ * ("guide" draws no 3D either: the assembly page's figures are rendered off-screen by
+ *  three/figures.js and shown as images, so eleven of them cost one WebGL context, not eleven.)
  *
  * Every shape comes from geometry.js — nothing here computes a dimension of its own, or the preview
  * and the STL would drift apart. The print layout is the one thing that touches geometry: it
@@ -276,9 +278,10 @@ export function buildScene(s, { p, view, viewChanged, printRibs, bedW, bedD, rou
     s.group.remove(m);
     m.traverse((o) => o.geometry && o.geometry.dispose());
   }
-  // Two views draw no 3D at all, and both are documents drawn over this canvas: the section editor,
-  // and the cardboard route's print view (PagePreview shows the template's own A4 pages).
-  if (view === "2d" || (view === "print" && route === "paper")) {
+  // Three views draw no 3D at all, and each is a document drawn over this canvas: the section
+  // editor, the build guide (GuidePage — its figures are rendered off-screen, not here), and the
+  // cardboard route's print view (PagePreview shows the template's own A4 pages).
+  if (view === "2d" || view === "guide" || (view === "print" && route === "paper")) {
     // Hand the canvas back BLANK before leaving. Emptying s.group is not enough: everything that
     // makes a view look like itself is state on objects that outlive the group — the dark-room sky,
     // the bloom pass, and the grid and contact shadow, which are children of the scene rather than

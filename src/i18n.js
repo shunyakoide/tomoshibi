@@ -192,6 +192,66 @@ const EN = {
   "この型紙は検証中です。全面を切る前に、まず 1 面だけ合わせてみてください。":
     "Still being verified: cut one panel and offer it up before you cut them all.",
   "TOMOSHIBI 和紙型紙 {name} 原寸": "TOMOSHIBI washi template {name} (full scale)",
+
+  // ---- Assembly guide (the 作り方 view) ----
+  // Body text is long by the standards of this file: it is the only place in the app that explains a
+  // hand movement rather than labelling a control, and it is read once, away from the screen.
+  "作り方": "Guide",
+  "組立説明書": "Assembly guide",
+  "3Dプリントで型をつくる": "Build the mold by 3D printing",
+  "段ボールで型をつくる": "Build the mold from cardboard",
+  "型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図と数値はいま画面にある設計そのものです。":
+    "Assemble the mold, wind the bamboo, paste the washi, and pull the mold once it is dry. Every figure and every number here is the design currently on screen.",
+  "高さ": "Height",
+  "段ボール厚": "Cardboard",
+  "枚": "pcs",
+  "部品": "Parts",
+  "手順": "Steps",
+  "支柱": "Post",
+  "土台": "Base",
+  "口輪(下)": "Ring (bottom)",
+  "口輪(上)": "Ring (top)",
+  "写真": "Photo",
+  "図を描けませんでした": "Figure unavailable",
+  "段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。":
+    "The cardboard mold has no posts, base or rings — the template cuts the mold itself. Hold it in your hands as you turn it, or rest it on a box.",
+  "「印刷」ビューへ →": "Go to the Print view →",
+  "レセップ台座の STL をダウンロード": "Download the lamp-holder base (STL)",
+  "部品をつくる": "Make the parts",
+  "「印刷」ビューから STL を書き出し、羽根板・コマ・支柱・土台・口輪を印刷します。コマと支柱は上下で同じ部品なので、スライサーで2つに複製してください。":
+    "Export the STLs from the Print view and print the ribs, koma, posts, base and rings. The koma and the posts are the same part top and bottom, so duplicate each one in your slicer.",
+  "「印刷」ビューから型紙 ZIP をダウンロードし、原寸(100%)で刷ります。段ボールに貼るか下敷きにして、線のとおりに切り出します。刃は新しいものを。":
+    "Download the template ZIP from the Print view and print it at 100%. Glue the sheets to the cardboard or slip them underneath, and cut along the lines. Use a fresh blade.",
+  "土台を組む": "Assemble the stand",
+  "土台のスリットに支柱の爪をまっすぐ差し込みます。肩が襟の上面に当たるまで押し込めば正しい深さです。2本とも、くぼみを上に向けて同じ向きに。":
+    "Push each post straight down into its slot in the base. When the shoulders meet the top of the collar it is in far enough. Both posts face the same way, saddle up.",
+  "コマに羽根板を差す": "Plug the ribs into a koma",
+  "コマを平らに置き、まわりのノッチに羽根板の爪を差し込みます。爪の先の欠きがコマの内側に噛むので、奥まで入れば止まります。太い側の向きをすべて揃えてください。":
+    "Lay one koma flat and plug a rib tab into each notch around it. The notch at the tip of the tab catches the koma's hub, so a tab that is all the way in stops there. Point every rib's wider end the same way.",
+  "もう1枚のコマをかぶせる": "Cap it with the second koma",
+  "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1か所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。":
+    "Line every tab up with a notch first, then press the koma down flat. Seating one tab at a time is what cracks them — work around the whole circle a little at a time. The two koma are the same part.",
+  "土台に載せる": "Set it in the stand",
+  "型を横向きにして、両端のコマを支柱のくぼみに載せます。手で1回転させて、振れや引っかかりがないか確認してください。ここまでが型の組立です。":
+    "Turn the mold on its side and rest a koma in each post's saddle. Spin it once by hand and check that it runs true and catches on nothing. The mold is now assembled.",
+  "竹ひごを巻く": "Wind the bamboo",
+  "羽根板の外縁の溝に竹ひごを沿わせ、下から上へ巻いていきます。溝が受けるので滑り落ちません。「螺旋巻き」で設計した型なら、溝が段ごとにずれていて1本の連続した螺旋になります。":
+    "Lay the bamboo into the grooves on the ribs' outer edges and wind upward from the bottom. The grooves hold it, so it cannot slip. If you designed with spiral winding, they step round rib by rib and the bamboo becomes one continuous helix.",
+  "和紙を貼る": "Paste the washi",
+  "でんぷん糊を竹ひごに置き、和紙をのせて刷毛で撫でて密着させます。羽根板と羽根板の間を1面ずつ、縁を少し重ねながら。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。":
+    "Dab starch paste onto the bamboo, lay the washi over it and stroke it down with a brush. Work one rib-to-rib panel at a time, overlapping the edges slightly. Cut the paper first with the washi template in the ZIP — trimming it wet is the fiddly part.",
+  "乾かす": "Let it dry",
+  "糊と和紙が完全に乾くまで置きます。乾くと紙が張って形が決まります。急がないこと — 生乾きで型を抜くと歪みます。":
+    "Leave it until the paste and the paper are completely dry. Drying is what pulls the paper taut and sets the shape. Do not rush it: pulling the mold from a damp shade warps it.",
+  "型を抜く": "Pull the mold",
+  "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。":
+    "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are.",
+  "口輪をはめる": "Fit the opening rings",
+  "上下の開口に口輪を入れて真円を保ちます。はみ出した和紙は開口の縁で切り揃えてください。下の口輪には脚を挿すソケットが付いています(設計で切ってある場合)。":
+    "Set a ring into each opening to hold it round, and trim the overhanging washi at the rim. The bottom ring carries the leg sockets, if this design had room to cut them.",
+  "灯りをつける": "Put a light in it",
+  "下の開口にレセップ(E17/E26)の台座を入れて電球を立てます。台座は下のリンクから。⌀65×5mm の固定寸法なので、設計を変えても形は変わりません。":
+    "Drop the lamp-holder base into the bottom opening and stand an E17/E26 holder on it. The base is the download below. It is a fixed ⌀65 × 5mm disc — unlike everything else here, it does not follow the design.",
 };
 
 // Return the translation function for language `lang`. t(key, params?): for English, look up EN

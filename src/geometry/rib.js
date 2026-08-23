@@ -228,12 +228,15 @@ export function ribNumberHoles2D(p, k) {
   return holes;
 }
 // 3D rib = extrude the 2D final shape (straight inner edge + inner tabs at the same top/bottom positions + outer-edge curve + lightening).
-export function ribShape(p, k) {
+// `opts` reaches ribOutline2D untouched — today that is `{ smooth: true }`, the grooveless outer edge
+// the cardboard template cuts (papercraft.js) and the guide's cardboard figures draw. Omitted, the
+// rib is the printed one, vertex for vertex.
+export function ribShape(p, k, opts = {}) {
   const holes = p.lighten ? lightenHoles2D(p).holes : [];
-  return shapeFromPts(ribOutline2D(p, k), [...holes, ...ribNumberHoles2D(p, k)]);
+  return shapeFromPts(ribOutline2D(p, k, opts), [...holes, ...ribNumberHoles2D(p, k)]);
 }
-export const ribGeometry = (p, k) => {
-  const g = new THREE.ExtrudeGeometry(ribShape(p, k), { depth: p.boardT, bevelEnabled: false });
+export const ribGeometry = (p, k, opts = {}) => {
+  const g = new THREE.ExtrudeGeometry(ribShape(p, k, opts), { depth: p.boardT, bevelEnabled: false });
   g.translate(0, 0, -p.boardT / 2);
   return g;
 };
