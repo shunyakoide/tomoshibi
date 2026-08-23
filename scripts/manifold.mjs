@@ -19,7 +19,7 @@
  * ============================================================================
  */
 import * as G from "../src/geometry.js";
-import { PRESETS, DEFAULTS } from "../src/config.js";
+import { PRESETS, DEFAULTS, LIMITS } from "../src/config.js";
 
 const Q = 1e4; // Quantization (0.0001mm). Edge sharing is judged by vertex coordinates.
 const key = (a) => [Math.round(a[0] * Q), Math.round(a[1] * Q), Math.round(a[2] * Q)].join(",");
@@ -157,5 +157,58 @@ for (const preset of PRESETS)
         }
 console.log(`\n=== spiral winding: ${spTotal} checks, ${spFail} FAIL ===`);
 
-if (fail + hfail + spFail > 0) process.exitCode = 1;
-process.exit(fail + hfail + spFail ? 1 : 0);
+// ============ Silhouette extremes sweep (the corners of LIMITS) ============
+// Everything above runs the presets at their own radii, so it only ever sees a moderately sloped
+// body — and the slope is what the groove notch, and therefore the lightening window, is sensitive
+// to. A groove is cut along the surface NORMAL, so on a steep face its tip reaches inward in x by
+// `depth × √(1+slope²)`; the window used to stand a constant 11mm off the smooth edge, which the
+// notch simply swallowed. That produced open edges on any wide, low body — and at the *old* caps
+// the worst case was already down to 0.2mm of surviving material, i.e. the bug was reachable
+// before the caps were widened, and invisible here because nothing scaled the control points.
+//
+// So this section stretches each preset to the edges of LIMITS in both axes. Radius targets are
+// applied by scaling every control point until the widest one lands on the target, which keeps the
+// preset's shape and makes the slope scale with it — the whole point. higoD 3 is included because
+// the notch depth (and so the reach) is largest there.
+let exFail = 0, exTotal = 0;
+const [hLo, hHi] = LIMITS.height, [rLo, rHi] = LIMITS.r;
+for (const preset of PRESETS)
+  for (const height of [hLo, 205, hHi])
+    for (const rMax of [rLo * 2, 130, rHi])
+      for (const higoD of [2, 3]) {
+        const widest = Math.max(...preset.pts.map((q) => q.r));
+        const pts = preset.pts.map((q) => ({ ...q, r: Math.min(rHi, Math.max(rLo, (q.r * rMax) / widest)) }));
+        const base = { ...DEFAULTS, ...preset, pts, height, higoD };
+        const p = { ...base, boards: Math.min(8, G.maxBoards(base)) };
+        for (const r of checkParts(p)) {
+          exTotal++;
+          if (!r.ok) { exFail++; if (exFail <= 40) console.log(`✗[X] ${preset.key} h${height} rMax${rMax} hd${higoD} :: ${r.name} → ${r.reason}`); }
+        }
+      }
+// A straight cylinder isolates the radius floor from every shape effect: it is the one family
+// where "how small may r be" has a single answer, and that answer (LIMITS.r[0]) is what the
+// editor, the typed field and persist all clamp to. One step below it must fail, or the floor is
+// in the wrong place and the app is either refusing valid designs or shipping broken ones.
+const cyl = (height, r) => {
+  const base = { ...DEFAULTS, pts: [{ t: 0.05, r }, { t: 0.5, r }, { t: 0.95, r }], height };
+  return checkParts({ ...base, boards: Math.min(8, G.maxBoards(base)) });
+};
+for (const height of [hLo, 205, hHi]) {
+  for (const r of [rLo, 40, rHi])
+    for (const res of cyl(height, r)) {
+      exTotal++;
+      if (!res.ok) { exFail++; if (exFail <= 40) console.log(`✗[X] cylinder h${height} r${r} :: ${res.name} → ${res.reason}`); }
+    }
+  // The floor is only meaningful if it is the actual wall. Two millimetres under it, the rib must
+  // NOT come out watertight — if it does, the floor has drifted above the wall and the app is
+  // refusing designs it could make.
+  exTotal++;
+  if (cyl(height, rLo - 2).every((res) => res.ok)) {
+    exFail++;
+    console.log(`✗[X] cylinder h${height} r${rLo - 2} is watertight — LIMITS.r[0] is above the real floor`);
+  }
+}
+console.log(`\n=== silhouette extremes (h ${hLo}..${hHi} × r ${rLo}..${rHi}): ${exTotal} checks, ${exFail} FAIL ===`);
+
+if (fail + hfail + spFail + exFail > 0) process.exitCode = 1;
+process.exit(fail + hfail + spFail + exFail ? 1 : 0);

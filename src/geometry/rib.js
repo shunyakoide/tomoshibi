@@ -12,7 +12,7 @@
  */
 import * as THREE from "three";
 import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, tabDepth, tabDented, TAB_DENT_W, TAB_DENT_H } from "./profile.js";
-import { grooveList, grooveOuterPts, grooveR } from "./groove.js";
+import { grooveDepth, grooveList, grooveOuterPts, grooveR, profileSlope } from "./groove.js";
 import { shapeFromPts } from "./shape.js";
 
 // [Rib inner-edge curve = banana (crescent) shape] To make the rib easier to pull out from the
@@ -101,13 +101,35 @@ export function ribOutline2D(p, k = 0, opts = {}) {
   pts.push([Ri, 0]);
   return pts;
 }
-// Lightening windows (keep the outer band bandW and the inner core spineW, divided by struts strut).
-// The window's outer boundary is based on the "smooth outer edge (outerR)" ignoring the groove bumps (prevents bumpiness).
+// Lightening windows (keep the outer band, and the inner core spineW, divided by struts strut).
+// The window's outer boundary follows the "smooth outer edge (outerR)" rather than the grooved one,
+// so it does not go bumpy — the grooves are accounted for by the band's width instead (see `band`).
 const Y_STAGGER = 0.13; // amount (mm) to offset the window's y-ends off the outline sample lattice (0.5mm)
+// Solid material (mm) that must remain between a groove's notch tip and the lightening window,
+// once the slope term below overtakes the flat-face band. Under ~2mm the strip prints as a tear
+// line — and with the old constant band, the steepest shape the app allowed was down to 0.2mm.
+const BAND_SOLID = 3;
 export function lightenHoles2D(p) {
   const h = p.height, td = tabDepth(p);
   const spineW = Math.max(9, td + 3), bandW = 11, strut = 8, MIN_MAT = 12;
   const oS = (y) => outerR(p, Math.min(Math.max(y, 0), h) / h); // smooth outer edge
+  // The band of solid left between the grooved edge and the window. It cannot be a constant,
+  // because a groove is cut along the surface NORMAL: the notch tip lands `depth × √(1+slope²)`
+  // further in **in x** than the smooth edge at the tip's own height (the normal's y-component
+  // drags the tip up a face that is itself climbing in x). On a gentle face that is barely more
+  // than the depth and `bandW` swallows it whole; on a steep one — a wide, low body — it is
+  // several times bandW, the window's outer edge is drawn straight through the notch, and earcut
+  // returns a cap with open edges. Hence the slope term, taken as the worst over ±1.5mm so the
+  // 2mm chords between window samples cannot cut the corner either.
+  const gDepth = grooveDepth(p);
+  const reach = (y) => {
+    let m = 0;
+    for (let d = -1.5; d <= 1.5; d += 0.75) m = Math.max(m, Math.abs(profileSlope(p, y + d)));
+    return gDepth * Math.hypot(1, m);
+  };
+  // `bandW` is the floor, so every design that was already clear of the notch keeps the exact
+  // window it had; BAND_SOLID is the material that has to survive behind the tip once it isn't.
+  const band = (y) => Math.max(bandW, reach(y) + BAND_SOLID);
   // Make the window's inner side follow the inner-edge banana curve (keeping the core spineW at a
   // constant width) → the center window also takes a shape following the scoop. Collinear points are
   // thinned by cleanPoly, so earcut does not break.
@@ -120,7 +142,7 @@ export function lightenHoles2D(p) {
   //       out the lightening effect).
   const yBot = cutYbot(p) + 14, yTop = h - cutYtop(p) - 6;
   const nWin = Math.max(1, Math.round((yTop - yBot) / 46)), winH = (yTop - yBot) / nWin, holes = [];
-  const thin = (y) => oS(y) - bandW - xi(y) < MIN_MAT;
+  const thin = (y) => oS(y) - band(y) - xi(y) < MIN_MAT;
   for (let i = 0; i < nWin; i++) {
     let y0 = yBot + i * winH + strut / 2, y1 = yBot + (i + 1) * winH - strut / 2;
     // At thin-material ends (like the narrowing top), pull the window ends in short of it (shrink instead of eliminating entirely).
@@ -142,7 +164,7 @@ export function lightenHoles2D(p) {
     // match the ends exactly (no stray points at the corners).
     const ns = Math.max(2, Math.ceil((yb - ya) / 2));
     const poly = [];
-    for (let i = 0; i <= ns; i++) { const y = ya + ((yb - ya) * i) / ns; poly.push([oS(y) - bandW, y]); }
+    for (let i = 0; i <= ns; i++) { const y = ya + ((yb - ya) * i) / ns; poly.push([oS(y) - band(y), y]); }
     for (let i = ns; i >= 0; i--) { const y = ya + ((yb - ya) * i) / ns; poly.push([xi(y), y]); }
     holes.push(poly);
   }

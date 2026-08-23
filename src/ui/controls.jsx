@@ -42,9 +42,19 @@ export function ScrubRow({ cfg, drag, setDrag }) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef(null);
   const id = useId();
-  const { value, min, max, round, unit } = cfg;
-  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  const { value, min, max, round, unit, curve } = cfg;
   const snap = (v) => clamp(min, max, +(Math.round(v / round) * round).toFixed(4));
+  // Optional non-linear travel, for a row whose range spans far more than the sizes anyone
+  // actually works at. `curve: k` maps slider position u∈[0,1] to min+(max-min)·u^k, so the small
+  // end gets the travel: over 60–2000mm a linear slider spends 93% of itself above 200mm, while
+  // k=2.5 gives 60–400mm — where nearly every lantern lives — half the bar. The input runs in u
+  // (0..U) only when a curve is set; every other row keeps its exact mm markup, because there a
+  // u-space step would quantize the arrow keys into doing nothing and then jumping.
+  const U = 1000;
+  const bent = curve > 1 && max > min;
+  const toU = (v) => Math.round(U * Math.pow(Math.max(0, (v - min) / (max - min)), 1 / curve));
+  const toV = (u) => min + (max - min) * Math.pow(u / U, curve);
+  const pct = max > min ? (bent ? toU(value) / U : (value - min) / (max - min)) * 100 : 0;
 
   useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select(); } }, [editing]);
   const commit = (raw) => {
@@ -57,9 +67,10 @@ export function ScrubRow({ cfg, drag, setDrag }) {
     <div className="scrub-row" data-active={drag === cfg.key}>
       <label htmlFor={id}>{t(cfg.label)}</label>
       <input
-        id={id} type="range" min={min} max={max} step={round} value={value}
+        id={id} type="range"
+        min={bent ? 0 : min} max={bent ? U : max} step={bent ? 1 : round} value={bent ? toU(value) : value}
         aria-label={`${t(cfg.label)} (${unit})`} aria-valuetext={`${cfg.display ?? value} ${unit}`}
-        onChange={(e) => cfg.onChange(snap(+e.target.value))}
+        onChange={(e) => cfg.onChange(snap(bent ? toV(+e.target.value) : +e.target.value))}
         onPointerDown={() => setDrag(cfg.key)}
         onPointerUp={() => setDrag(null)}
         onFocus={() => setDrag(cfg.key)}

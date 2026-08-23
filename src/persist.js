@@ -16,7 +16,7 @@
  * or an oversized boards producing a non-watertight koma on the first render.
  * ============================================================================
  */
-import { DEFAULTS } from "./config.js";
+import { DEFAULTS, LIMITS } from "./config.js";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.js";
 import { clamp } from "./util.js";
 
@@ -40,8 +40,12 @@ export function saveWelcomeSeen() {
 // straight into geometry and break it (in particular pitch:0 makes grooveList's
 // n=Math.round(span/pitch)=Infinity loop forever). Always clamp into range here.
 // Ranges match the UI slider/stepper allowed domains (unknowns get a safely wide range).
+// The two silhouette ranges come from LIMITS rather than being written out again: a saved design
+// is only "safe" if it is a design the editor could have produced, and r's floor in particular is
+// a geometric wall (below it the rib cannot close), not a UI preference — the 8 that used to sit
+// here let a corrupt file through at a radius the editor itself refuses.
 const BOUNDS = {
-  height: [140, 400], rTop: [8, 130], rBot: [8, 130], boards: [4, 16],
+  height: LIMITS.height, rTop: LIMITS.r, rBot: LIMITS.r, boards: [4, 16],
   boardWidth: [10, 120], boardT: [1, 4], higoD: [1, 4], pitch: [8, 30],
   fit: [0, 1], tabLen: [5, 40], tabW: [4, 40], komaT: [3, 20], tabR: [6, 40],
 };
@@ -65,7 +69,7 @@ function validatePts(pts) {
   }
   return pts
     .map((q) => {
-      const out = { t: clamp(0, 1, q.t), r: clamp(8, 140, q.r) };
+      const out = { t: clamp(0, 1, q.t), r: clamp(...LIMITS.r, q.r) };
       if (q.sharp) out.sharp = true;
       const ho = validHandle(q.ho), hi = validHandle(q.hi);
       if (ho) out.ho = ho;

@@ -41,11 +41,10 @@ export function equatorY(p) {
 //   bamboo rib to seat even on a tilted face.
 export function grooveOuterPts(p, grooves, gR) {
   const h = p.height, mid = equatorY(p), STEP = 0.5;
-  const DEEP = 2.1; // perpendicular depth factor; on a flat face this equals the legacy radial depth.
   const info = grooves.map((g) => {
-    const sl = (outerR(p, Math.min(1, (g + 0.6) / h)) - outerR(p, Math.max(0, (g - 0.6) / h))) / 1.2; // dR/dy
+    const sl = profileSlope(p, g);                     // dR/dy
     const T = Math.hypot(1, sl);                       // |tangent| = 1/cosθ
-    const depth = Math.min(p.higoD * 1.5, gR * DEEP);  // constant perpendicular depth (matches the flat notch)
+    const depth = grooveDepth(p, gR);                  // constant perpendicular depth (matches the flat notch)
     const skew = Math.min(0.62, 0.24 + Math.abs(sl) * 0.32);
     const cs = g < mid ? 1 : -1;                        // toward the center (equator): +y when g is below the equator
     // Along-surface half-widths → y half-widths (÷T). Center side gentle (wide), opening side steep (narrow).
@@ -85,6 +84,18 @@ export function grooveOuterPts(p, grooves, gR) {
 // same value (prevents cross-section/STL mismatch).
 const GROOVE_CLEAR = 0.25;
 export function grooveR(p) { return p.higoD / 2 + GROOVE_CLEAR; }
+// The local slope dR/dy of the smooth outer edge at height y (mm). Sampled over the same ±0.6mm
+// span everywhere, so "how steep is the face here" has one answer across the whole file.
+export function profileSlope(p, y) {
+  const h = p.height;
+  return (outerR(p, Math.min(1, (y + 0.6) / h)) - outerR(p, Math.max(0, (y - 0.6) / h))) / 1.2;
+}
+// One groove's perpendicular depth (mm) — how deep `grooveOuterPts` cuts along the normal.
+// `lightenHoles2D` needs the same number to work out how far a notch reaches **in x** on a slope
+// (the tip travels `depth × √(1+slope²)` inward, not `depth`), which is what keeps the lightening
+// window from being cut straight through a groove. Shared rather than repeated, for that reason.
+const GROOVE_DEEP = 2.1; // perpendicular depth factor; on a flat face this equals the legacy radial depth.
+export function grooveDepth(p, gR = grooveR(p)) { return Math.min(p.higoD * 1.5, gR * GROOVE_DEEP); }
 // The groove-distribution lattice (valid range [gLo,gHi] within the lamp body, count n, spacing
 // step). Aggregated in one place so grooveList and the spiral path higoSpiralPath use the same
 // lattice (if they diverge, the mold and the drawing disagree).

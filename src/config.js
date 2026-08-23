@@ -35,9 +35,25 @@ export const DEFAULTS = {
   spiral: false, // make the bamboo-rib grooves spiral (shift each rib's grooves downward so all ribs form one continuous spiral). Default is horizontal rings.
 };
 
-// Silhouette scrub rows (fine-tune by dragging left/right). Value range and sensitivity.
+// How far the lamp body may be stretched, in mm — body height, and any control point's radius.
+// One table, because the same two numbers are needed by the section editor's drag, the typed
+// fields, the scrub row and persist's sanitize, and a design that four of them disagree about is a
+// design that snaps back the moment you touch it somewhere else.
+//
+// **The floors are geometry, the ceilings are not.** r=10 is where the opening becomes narrower
+// than the rib's own core (`innerRi`) — the tab is then wider than the mouth it has to come out
+// of, and the rib closes on itself; every height from 30 to 2000mm fails at r=8 and passes at
+// r=10, so it is a wall, not a preference. The ceilings are the opposite: `check:manifold` sweeps
+// this whole box watertight, and they are set where no hand-drag reaches them (a festival 大提灯
+// is about ⌀1m, so ⌀1.2m of headroom). They exist only so a corrupt file or a fat-fingered typed
+// value cannot ask for a metre-per-mm lantern and hang the tab.
+export const LIMITS = { height: [60, 2000], r: [10, 600] };
+
+// Silhouette scrub rows (a slider plus a click-to-type value). Range, travel curve and step.
 // Radius-type values are edited by directly dragging the section-view ◇ (control points), so
 // they aren't held here.
 export const SIL_ROWS = [
-  { key: "height", label: "火袋の高さ", min: 140, max: 400, sens: 0.5, round: 1, unit: "mm" },
+  // `curve` because the range is now 60–2000mm: linear travel would put every ordinary lantern in
+  // the first sixth of the bar. See ScrubRow for the mapping.
+  { key: "height", label: "火袋の高さ", min: LIMITS.height[0], max: LIMITS.height[1], curve: 2.5, round: 1, unit: "mm" },
 ];
