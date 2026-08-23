@@ -37,7 +37,7 @@ import {
   loadWelcomeSeen, saveWelcomeSeen,
 } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
-import PagePreview from "./PagePreview.jsx";
+import PagePreview, { WashiPreview } from "./PagePreview.jsx";
 import Welcome from "./Welcome.jsx";
 import { DEFAULTS, SIL_ROWS } from "./config.js";
 import { makeT } from "./i18n.js";
@@ -242,6 +242,10 @@ export default function TomoshibiStudio() {
   // The cardboard route's print view is a document, not a scene: PagePreview draws the template's
   // pages over the (idle) canvas, exactly as the section editor does.
   const paperPreview = view === "print" && route === "paper" && !isLit;
+  // The 3D route's counterpart. Its washi template only ever existed inside the kit ZIP, so it was
+  // the one sheet the app makes that you could not look at first — it docks beside the plates rather
+  // than replacing them (the plates are what this view is about).
+  const washiPreview = view === "print" && route === "stl" && !isLit;
   // The cardboard route's own "this design won't cut well" check, the counterpart to the bed overflow
   // above. Cheap enough to run every render (a couple of divisions — see paperFit), and deliberately
   // NOT limited to the print view: every way out of it (fewer ribs, thinner material, a wider opening)
@@ -270,6 +274,10 @@ export default function TomoshibiStudio() {
       {/* Print view, cardboard route: the output is a document, so the preview is one — the
           template's own pages, over the same (empty) canvas the section editor uses. */}
       {paperPreview && <PagePreview p={p} matT={matT} washi={washiOpts} lang={lang} />}
+
+      {/* Print view, 3D route: the plates are 3D, but the washi template that ships with them is
+          paper — so it is shown as the sheet it is, docked at the side. */}
+      {washiPreview && <WashiPreview p={p} washi={washiOpts} lang={lang} />}
 
       {glError && (
         <div style={{

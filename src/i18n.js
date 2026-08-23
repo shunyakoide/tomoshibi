@@ -115,6 +115,7 @@ const EN = {
   "して印刷してください。設定は ": " and print them. Settings are bundled as ",
   " として同梱されます(バックアップ用)。": " (for backup).",
   "和紙の型紙 ": "The washi template ",
+  "和紙の型紙": "Washi template",
   " も同梱されます(そのまま原寸で印刷)。": " is bundled too (print it at 100% as-is).",
   // ---- Warnings / status ----
   "⚠ 3Dプレビューを初期化できませんでした": "⚠ Could not initialize the 3D preview",
