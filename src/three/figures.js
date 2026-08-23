@@ -23,7 +23,7 @@ import * as THREE from "three";
 import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
   standCollarTop, standSaddleH, standSlotSep, fukuroRange, komaR, maxRadius,
-  grooveList, grooveR, higoSpiralPath, outerR, openingR,
+  grooveList, grooveR, higoSpiralPath, outerR, openingR, ringLegs,
 } from "../geometry.js";
 
 // The isometric direction every figure is drawn from. Shared rather than local to the camera,
@@ -177,7 +177,7 @@ function washiProfile(p) {
   }
   return out;
 }
-function washiSkin(p, bays, hotBay) {
+function washiSkin(p, bays, hotBay, face = WASHI_FACE) {
   const g = new THREE.Group();
   const prof = washiProfile(p);
   const d = (Math.PI * 2) / p.boards;
@@ -185,7 +185,7 @@ function washiSkin(p, bays, hotBay) {
     const hot = k === hotBay;
     const geo = new THREE.LatheGeometry(prof, 16, ribPhi(k, d), d);
     g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      color: hot ? HI_FACE : WASHI_FACE, side: THREE.DoubleSide,
+      color: hot ? HI_FACE : face, side: THREE.DoubleSide,
       polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
     })));
     g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 24),
@@ -226,10 +226,10 @@ function washiYaw(p, dir) {
  *
  * Nothing is highlighted: the step adds no part, it waits.
  */
-function washiWhole(p) {
+function washiWhole(p, face) {
   const bays = [];
   for (let k = 0; k < p.boards; k++) bays.push(k);
-  return washiSkin(p, bays, null);
+  return washiSkin(p, bays, null, face);
 }
 function washiPieces(p) {
   const d = (Math.PI * 2) / p.boards;
@@ -256,7 +256,8 @@ function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null
   const g = new THREE.Group();
   if (band) g.add(bands(p, hot === "bands"));
   if (higo) g.add(higoWinding(p, hot === "higo"));
-  if (washi) g.add(washi === "all" ? washiWhole(p) : washiPieces(p));
+  if (washi === "all" || washi === "lit") g.add(washiWhole(p, washi === "lit" ? LIT_FACE : WASHI_FACE));
+  else if (washi) g.add(washiPieces(p));
   if (rings) {
     const { lo: t0, hi: t1 } = fukuroRange(p);
     for (const top of [false, true]) {
@@ -305,7 +306,7 @@ function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null
   // The yaw turns the mold, not the panels: they are placed on bays, and turning them alone would
   // simply slide them off their ribs. Wrapped rather than set on `g` itself, so a caller's own
   // rotation (the quarter turn into the stand) still composes the way it reads.
-  if (washi && washi !== "all") {
+  if (washi && washi !== "all" && washi !== "lit") {
     const w = new THREE.Group();
     g.rotation.y = washiYaw(p, washi);
     w.add(g);
@@ -407,9 +408,52 @@ function pullScene(p, smooth) {
 }
 
 /**
- * What each figure shows. Keys are the guide's step ids; the value builds the group. A step whose
- * answer does not depend on the design has no entry and takes a photograph instead — which is now
- * only the last one, wiring a socket into a ⌀65 disc that is the same for every lantern here.
+ * The finished lantern, lit and on its legs — the one figure with no mold in it at all.
+ *
+ * **Warm, not white.** The rest of the page is a white-parts drawing and the pasted washi is ivory;
+ * a lit shade is the same paper with light behind it, so it is drawn the colour the lit view's own
+ * emissive gives it. That, and the legs, is the whole of "the light is on" — no rays: this page is a
+ * set of technical drawings, and a starburst is the one mark on it that would be decoration.
+ *
+ * **The legs are the lit view's legs** (`scenes.js` buildLit — same 0.42·height drop and 0.35·drop
+ * splay), rooted in the bottom ring's SOCKETS rather than on the rim: `ringLegs` gives the pad
+ * centres, so a design with the sockets switched off — or an opening too small to hold them — draws
+ * a lantern standing on its own rim instead of one balanced on legs that have nothing to push into.
+ * Cardboard prints no rings at all, so it never has them either.
+ *
+ * Rods rather than parts: they are drawn as a plain coloured mesh like the bamboo and the bands,
+ * because you supply them (the socket takes a ⌀6 rod and you cut it to the height you want). An
+ * outlined cylinder is no help anyway — 12 facets draw as a hatched tube, 24 draw as nothing at all.
+ */
+const LIT_FACE = 0xf9d9a3;       // the lit view's warm emissive, as a flat fill
+const LEG_INK = 0x8f949c;        // a metal rod, light enough not to out-weigh the ink outlines
+function litScene(p, smooth) {
+  const g = new THREE.Group();
+  // No mold: the shade, the bamboo inside it, and the rings glued into its openings.
+  g.add(moldPieces(p, {
+    ribs: false, komaBot: false, komaTop: false, smooth, rings: !smooth, higo: true, washi: "lit",
+  }));
+  const legs = smooth ? null : ringLegs(p);
+  if (!legs) return g;
+  const y0 = fukuroRange(p).lo * p.height;         // the bottom opening = where the ring seats
+  const drop = p.height * 0.42, splay = drop * 0.35;
+  const mat = new THREE.MeshBasicMaterial({ color: LEG_INK });
+  for (let i = 0; i < legs.n; i++) {
+    const a = (i / legs.n) * Math.PI * 2;
+    const top = new THREE.Vector3(legs.Rc * Math.cos(a), y0, legs.Rc * Math.sin(a));
+    const foot = new THREE.Vector3((legs.Rc + splay) * Math.cos(a), y0 - drop, (legs.Rc + splay) * Math.sin(a));
+    const v = new THREE.Vector3().subVectors(foot, top);
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(legs.bore, legs.bore, v.length(), 20), mat);
+    rod.position.copy(top).addScaledVector(v, 0.5);
+    rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().normalize());
+    g.add(rod);
+  }
+  return g;
+}
+
+/**
+ * What each figure shows. Keys are the guide's step ids; the value builds the group — every step on
+ * the page has one, from the first koma to the lantern lit on its legs.
  */
 const SCENES = {
   // Parts, one at a time, for the parts list.
@@ -454,6 +498,8 @@ const SCENES = {
   dry: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, washi: "all" }),
   // Pulling it out — see `pullScene`.
   pull: (p, sm) => pullScene(p, sm),
+  // Lit, on its legs — see `litScene`.
+  light: (p, sm) => litScene(p, sm),
 };
 // The view direction inside the mold's OWN frame once it is lying in the stand. The group is turned
 // a quarter turn about Z there, so world (x,y,z) reads as local (y,-x,z).

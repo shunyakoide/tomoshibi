@@ -12,14 +12,13 @@
  * in the download. A guide with "rib ×8" printed on it is wrong for half its readers the moment the
  * app has a rib-count control at all.
  *
- * [Figures vs photographs] A figure is drawn when the answer depends on the design — which parts,
- *   how many, what shape. That reaches further than the mold: how many turns of bamboo and which way
- *   they run, how many washi panels and where their seams fall, which rib comes out of the opening
- *   and how far it has to come in to get there, are all answers about this design. The one step left
- *   that is the same for every lantern here — wiring a socket into a fixed ⌀65 disc — takes a
- *   photograph instead, dropped into `public/photos/` under the name the step gives. Until the file
- *   is there the slot shows what it is waiting for, so the layout is finished before the
- *   photography is.
+ * [Every step is drawn] A figure is drawn when the answer depends on the design — which parts, how
+ *   many, what shape — and on this page every step turns out to be one: how many turns of bamboo and
+ *   which way they run, how many washi panels and where their seams fall, which rib comes out of the
+ *   opening and how far it has to come in to get there, what the thing looks like lit and on its
+ *   legs. Steps that are pure technique used to take a **photograph** from `public/photos/`, with a
+ *   slot naming the file it wanted; nothing is waiting on a photograph any more, so that mechanism
+ *   is gone rather than left behind unused. Bring it back with the step that needs it.
  * [Route] The cardboard route builds the same mold out of a different material and has no stand and
  *   no printed rings, so those steps are filtered rather than reworded.
  * [Print] The page carries print styles (index.css): the browser's own "Save as PDF" is the paper
@@ -48,8 +47,8 @@ const PARTS = [
   { id: "ringTop", name: "口輪(上)", geo: (p) => ringGeometry(p, true), n: () => 1, stl: true },
 ];
 
-// The build, in order. `fig` is drawn from the design; `photo` is a file in public/photos/; `stl`
-// marks a step the cardboard route does not have. Bodies are i18n keys like every other string.
+// The build, in order. `fig` is drawn from the design; `stl` marks a step the cardboard route does
+// not have. Bodies are i18n keys like every other string.
 const STEPS = [
   {
     id: "make", title: "部品をつくる",
@@ -93,7 +92,7 @@ const STEPS = [
     body: "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。",
   },
   {
-    id: "light", title: "灯りをつける", photo: "socket.jpg", socket: true,
+    id: "light", title: "灯りをつける", fig: "light", socket: true,
     body: "下の開口にレセップ(E17/E26)の台座を入れて電球を立てます。台座は下のリンクから。⌀65×5mm の固定寸法なので、設計を変えても形は変わりません。",
   },
 ];
@@ -196,14 +195,13 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
             <li key={s.id} style={card}>
               {/* No well when the step has nothing to show — an empty box reads as a figure that
                   failed to load, which is exactly what it looks like next to ten that did. */}
-              {(s.fig || s.photo) && (
+              {s.fig && (
                 <div className="guide-fig">
-                  {s.fig && figs[s.fig] && <img src={figs[s.fig]} alt="" />}
+                  {figs[s.fig] && <img src={figs[s.fig]} alt="" />}
                   {/* null (not undefined) means the drawing FAILED rather than not having arrived.
                       Saying so beats an empty well: a figure that silently vanishes is a gap nobody
                       reads as a bug — it cost an hour here once. */}
-                  {s.fig && figs[s.fig] === null && <span className="guide-slot">{t("図を描けませんでした")}</span>}
-                  {s.photo && <Photo name={s.photo} />}
+                  {figs[s.fig] === null && <span className="guide-slot">{t("図を描けませんでした")}</span>}
                 </div>
               )}
               <div>
@@ -229,14 +227,3 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
   );
 }
 
-/**
- * A photograph of a step, or — until the file is in `public/photos/` — a slot saying which file it
- * is waiting for. A missing image must not print a broken icon on a page someone is building from,
- * and naming the file here is what lets the photography land without touching this component.
- */
-function Photo({ name }) {
-  const t = useT();
-  const [ok, setOk] = useState(true);
-  if (!ok) return <span className="guide-slot">{t("写真")} · <span style={{ fontFamily: mono }}>{name}</span></span>;
-  return <img src={`${import.meta.env.BASE_URL}photos/${name}`} alt="" onError={() => setOk(false)} />;
-}
