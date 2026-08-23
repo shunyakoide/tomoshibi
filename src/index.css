@@ -319,12 +319,6 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .guide-fig img { width: 100%; height: 100%; object-fit: contain; }
 .guide-slot { font-size: 11px; color: var(--faint); text-align: center; padding: 8px; }
 .guide-note { margin: 12px 0 0; font-size: 12px; line-height: 1.7; color: var(--sub); }
-.guide-dl { margin: 12px 0 0 !important; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.guide-dl a {
-  font-size: 13px; font-weight: 600; text-decoration: none;
-  border-bottom: 1.5px solid; padding-bottom: 1px;
-}
-.guide-dl > span { font-size: 11px; color: var(--faint); }
 .guide-steps .btn { margin-top: 12px; }
 
 @media (max-width: 860px) {

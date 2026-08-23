@@ -31,9 +31,7 @@ import {
 } from "./geometry.js";
 import { paperP } from "./papercraft.js";
 import { figureImage, disposeFigures } from "./three/figures.js";
-import { UI, accent, accentA, mono, useT } from "./ui/theme.js";
-
-const SOCKET_STL = "tomoshibi_socket_base.stl";   // the lamp-holder base, in public/ (see the step)
+import { UI, accent, useT } from "./ui/theme.js";
 
 // The parts this design makes. `geo` is measured for the size line and drawn for the thumbnail;
 // `n` counts them. The cardboard route cuts only the mold itself (see paperParts) — no stand, and no
@@ -93,11 +91,13 @@ const STEPS = [
   },
   {
     // `wip`: this step is not settled yet, and the badge says so where someone reads it rather than
-    // in a commit message. The socket base below is real and printable; how the legs and the lamp
-    // fitting actually attach is not designed, and the figure's legs are one answer, not the answer.
-    id: "light", title: "灯りをつける", fig: "light", socket: true,
+    // in a commit message. How the legs and the lamp fitting attach is not designed — the figure's
+    // legs are one answer, not the answer — so the step says what the light has to be and no more.
+    // It used to offer a ⌀65 lamp-holder base to print (`tomoshibi_socket_base.stl`); that fitting
+    // is one of the things being reconsidered, so it is not offered while it is undecided.
+    id: "light", title: "灯りをつける", fig: "light",
     wip: "脚と灯具の固定方法はまだ検討中です。",
-    body: "下の開口にレセップ(E17/E26)の台座を入れて電球を立てます。台座は下のリンクから。⌀65×5mm の固定寸法なので、設計を変えても形は変わりません。",
+    body: "下の開口から明かりを入れます。電球は和紙のすぐ内側に来るので、熱を持ちにくい LED を選んでください。",
   },
 ];
 
@@ -219,14 +219,6 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
                 {s.wip && <p className="guide-note">{t(s.wip)}</p>}
                 {s.id === "make" && (
                   <button className="btn btn--ghost" onClick={onGoPrint}>{t("「印刷」ビューへ →")}</button>
-                )}
-                {s.socket && (
-                  <p className="guide-dl">
-                    <a href={import.meta.env.BASE_URL + SOCKET_STL} download style={{ color: accent, borderColor: accentA(0.4) }}>
-                      {t("レセップ台座の STL をダウンロード")}
-                    </a>
-                    <span style={{ fontFamily: mono }}>{SOCKET_STL}</span>
-                  </p>
                 )}
               </div>
             </li>
