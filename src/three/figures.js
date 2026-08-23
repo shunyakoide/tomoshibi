@@ -23,6 +23,7 @@ import * as THREE from "three";
 import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
   standCollarTop, standSaddleH, standSlotSep, fukuroRange, komaR,
+  grooveList, grooveR, higoSpiralPath, outerR,
 } from "../geometry.js";
 
 // The isometric direction every figure is drawn from. Shared, because the shade's silhouette has to
@@ -89,11 +90,49 @@ function bands(p, hot) {
   return g;
 }
 
+/**
+ * The bamboo, wound into the grooves. Not a printed part either — but unlike the bands, not invented
+ * either: the rings sit at `grooveList`'s heights on `outerR`'s radius, the same two functions that
+ * cut the grooves, so a design with eleven grooves is drawn with eleven rings and a spiral one is
+ * drawn as the single descending helix `higoSpiralPath` hands the lit view. **That is why this step
+ * earns a figure rather than a photograph**: how many turns, and which way they run, is an answer
+ * about this design.
+ *
+ * Centred ON the outer edge rather than sunk into it. The V is only 0.5mm wider at its mouth than
+ * the rod (`grooveR` = higoD/2 + 0.25), so a round rib of that diameter wedges level with the
+ * surface long before it reaches the tip — the lit preview centres it there for the same reason.
+ * The cardboard route cuts no grooves at all and the bamboo simply lies on the smooth edge at the
+ * template's ticks, which are these same heights: nothing here branches on the route.
+ */
+const HIGO_OFF = 0xbfa06a;      // bamboo tan, once the step has moved on (see `bands` for why muted)
+function higoWinding(p, hot) {
+  const g = new THREE.Group();
+  const r = p.higoD / 2;
+  const mat = () => new THREE.MeshBasicMaterial({ color: hot ? HI : HIGO_OFF });
+  if (p.spiral) {
+    const path = higoSpiralPath(p);
+    if (path.length > 1) {
+      const curve = new THREE.CatmullRomCurve3(path.map(([a, y, rad]) =>
+        new THREE.Vector3(rad * Math.cos(a), y, rad * Math.sin(a))));
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, path.length * 2, r, 8, false), mat()));
+    }
+  } else {
+    for (const y of grooveList(p, grooveR(p))) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(outerR(p, y / p.height), r, 8, 96), mat());
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = y;
+      g.add(ring);
+    }
+  }
+  return g;
+}
+
 /** Ribs radiating from the axis, koma at whichever ends the step has reached (and, once the guide
  *  has fitted them, the two opening rings — the mold carries those for the rest of the build). */
-function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false, band = false } = {}) {
+function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false, band = false, higo = false } = {}) {
   const g = new THREE.Group();
   if (band) g.add(bands(p, hot === "bands"));
+  if (higo) g.add(higoWinding(p, hot === "higo"));
   if (rings) {
     const { lo: t0, hi: t1 } = fukuroRange(p);
     for (const top of [false, true]) {
@@ -143,9 +182,10 @@ function standPieces(p, hot) {
 function moldOnStand(p, hot, smooth) {
   const g = new THREE.Group();
   g.add(standPieces(p, null));
-  // Rings included: by the time the mold goes in the stand the guide has fitted them, and a figure
-  // that quietly drops a part the reader just installed makes them wonder what they did wrong.
-  const mold = moldPieces(p, { hot: hot === "mold" ? "ribs" : null, smooth, rings: true, band: true });
+  // Rings and bamboo included: by the time the mold goes in the stand the guide has fitted the one
+  // and wound the other, and a figure that quietly drops what the reader just installed makes them
+  // wonder what they did wrong.
+  const mold = moldPieces(p, { hot: hot === "mold" ? "ribs" : null, smooth, rings: true, band: true, higo: true });
   mold.rotation.z = Math.PI / 2;
   mold.position.set(p.height / 2, standCollarTop() + standSaddleH(p), 0);
   g.add(mold);
@@ -154,7 +194,7 @@ function moldOnStand(p, hot, smooth) {
 
 /**
  * What each figure shows. Keys are the guide's step ids; the value builds the group. Anything the
- * guide cannot draw — winding bamboo, pasting washi — has no entry and gets a photo instead.
+ * guide cannot draw — pasting washi, waiting for it to dry — has no entry and gets a photo instead.
  */
 const SCENES = {
   // Parts, one at a time, for the parts list.
@@ -168,7 +208,7 @@ const SCENES = {
   stand: (p) => standPieces(p, "column"),
   ribsIn: (p, sm) => moldPieces(p, { komaTop: false, hot: "oneRib", smooth: sm }),
   komaOn: (p, sm) => moldPieces(p, { hot: "komaTop", smooth: sm }),
-  // Nothing is highlighted here: the mold was assembled three steps ago and the stand one step ago,
+  // Nothing is highlighted here: the mold was assembled four steps ago and the stand one step ago,
   // so colouring either says "this is new" about a part that is not. What the figure adds is the
   // relationship, and eight orange ribs in a stand read as a tangle rather than as an instruction.
   onStand: (p, sm) => moldOnStand(p, null, sm),
@@ -178,6 +218,13 @@ const SCENES = {
   // The bands ride along from here on, muted: the text beside this step asks for them, and a
   // figure that leaves them out is a figure of a mold that has already sprung apart.
   rings: (p, sm) => moldPieces(p, { smooth: sm, rings: true, hot: "rings", band: true }),
+  // Winding: the mold as the last three steps left it, with the bamboo on. Drawn standing upright,
+  // which is where it is wound — the stand comes out one step later, for the pasting.
+  // `smooth` is the cardboard route, and that route's guide has no ring step and no band advice (its
+  // koma holds by friction, the fibres crushing to a snug fit), so the figure must not show either:
+  // this is the only scene both routes draw, and a part the reader was never told to fit reads as a
+  // step they missed.
+  higo: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, hot: "higo" }),
 };
 
 export const FIGURES = Object.keys(SCENES);
