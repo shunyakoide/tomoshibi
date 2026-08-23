@@ -211,6 +211,8 @@ const EN = {
   "土台": "Base",
   "口輪(下)": "Ring (bottom)",
   "口輪(上)": "Ring (top)",
+  "編集中": "draft",
+  "脚と灯具の固定方法はまだ検討中です。": "How the legs and the lamp fitting attach is still being worked out.",
   "図を描けませんでした": "Figure unavailable",
   "段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。":
     "The cardboard mold has no posts, base or rings — the template cuts the mold itself. Hold it in your hands as you turn it, or rest it on a box.",
