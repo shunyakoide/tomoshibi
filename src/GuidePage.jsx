@@ -13,11 +13,12 @@
  * app has a rib-count control at all.
  *
  * [Figures vs photographs] A figure is drawn when the answer depends on the design — which parts,
- *   how many, what shape. Winding the bamboo is one of those (how many turns, and whether they run
- *   level or as one helix, is an answer about this design), so it is drawn too. The steps that are
- *   pure technique — pasting the washi, drying, wiring a socket — take a photograph instead, dropped
- *   into `public/photos/` under the name each step names. Until the file is there the slot shows
- *   what it is waiting for, so the layout is finished before the photography is.
+ *   how many, what shape. Winding the bamboo and pasting the washi are both of those — how many
+ *   turns and which way they run, how many panels and where their seams fall, are answers about this
+ *   design — so they are drawn too. The steps that are pure technique — drying, easing the mold out,
+ *   wiring a socket — take a photograph instead, dropped into `public/photos/` under the name each
+ *   step names. Until the file is there the slot shows what it is waiting for, so the layout is
+ *   finished before the photography is.
  * [Route] The cardboard route builds the same mold out of a different material and has no stand and
  *   no printed rings, so those steps are filtered rather than reworded.
  * [Print] The page carries print styles (index.css): the browser's own "Save as PDF" is the paper
@@ -79,7 +80,7 @@ const STEPS = [
     body: "型を横向きにして、両端のコマを支柱のくぼみに載せます。こうすると型が回るので、1面貼っては回し、を繰り返せます。まず手で1回転させて、振れや引っかかりがないか確認してください。",
   },
   {
-    id: "washi", title: "和紙を貼る", photo: "washi.jpg",
+    id: "washi", title: "和紙を貼る", fig: "washi",
     body: "でんぷん糊を竹ひごに置き、和紙をのせて刷毛で撫でて密着させます。羽根板と羽根板の間を1面ずつ、縁を少し重ねながら。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。",
   },
   {
