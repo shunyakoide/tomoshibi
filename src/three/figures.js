@@ -127,12 +127,90 @@ function higoWinding(p, hot) {
   return g;
 }
 
+/**
+ * Rib k's meridian as a LatheGeometry angle. A lathe puts its point at (r·sin φ, y, r·cos φ) while
+ * rib k is placed by `rotation.y = k·2π/N`, which lands it at azimuth −k·2π/N — so the two conventions
+ * differ by a quarter turn and a sign, and a panel built at the naive angle straddles a rib instead
+ * of sitting between two. Bay k is then [ribPhi(k), ribPhi(k+1)].
+ */
+const ribPhi = (k, d) => Math.PI / 2 + k * d;
+/**
+ * The washi, pasted. One `LatheGeometry` PER BAY rather than one skin with a slice missing, because
+ * the seams are the instruction: real panels lap over each rib, and a single lathe would draw only
+ * its two outer edges and read as one continuous wrapper. Each panel is its own surface, so every
+ * seam draws.
+ *
+ * The radius is `outerR + higoD` — outside the bamboo, which is centred on `outerR` — the same
+ * expression the lit preview skins the finished lantern with. It runs `fukuroRange` only: the neck
+ * carries no paper, exactly as the washi template's own panel does (papercraft.js). The cover
+ * allowance folded over the opening rings is not drawn; it is 3mm of paper, and drawing it would
+ * only blunt the rim the figure is trying to show.
+ *
+ * Double-sided, unlike every part here: a panel turns its inside to the camera as it curves away,
+ * and a culled one is a panel that is pasted and invisible.
+ *
+ * And **ivory rather than the white every part is drawn in** — the one place that rule is dropped.
+ * The parts are white because they are the object; here the paper is a second surface laid OVER the
+ * object, and white on white is a panel you cannot see against a white card: the first version drew
+ * three pasted panels that read as bare air with a stray arc round them. A tint barely off the page
+ * is enough to say "there is paper here" without competing with the panel going on now.
+ */
+const WASHI_FACE = 0xf3ede2;
+function washiSkin(p, bays, hotBay) {
+  const g = new THREE.Group();
+  const { lo, hi } = fukuroRange(p);
+  const prof = [];
+  for (let i = 0; i <= 60; i++) {
+    const t = lo + (hi - lo) * (i / 60);
+    prof.push(new THREE.Vector2(outerR(p, t) + p.higoD, t * p.height));
+  }
+  const d = (Math.PI * 2) / p.boards;
+  for (const k of bays) {
+    const hot = k === hotBay;
+    const geo = new THREE.LatheGeometry(prof, 16, ribPhi(k, d), d);
+    g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      color: hot ? HI_FACE : WASHI_FACE, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+    })));
+    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 24),
+      new THREE.LineBasicMaterial({ color: hot ? HI : INK })));
+  }
+  return g;
+}
+/**
+ * Which bay the camera looks into, given the view direction IN THE GROUP'S OWN FRAME (the mold is
+ * turned on its side for the stand, so its bays are not where the world axes say). Half-done is the
+ * legible state — skin on one side, bare cage on the other — and that only reads if the boundary
+ * between them faces the reader rather than hiding round the back.
+ */
+function bayFacing(p, dir) {
+  const d = (Math.PI * 2) / p.boards;
+  const camPhi = Math.PI / 2 - Math.atan2(dir.z, dir.x);
+  return Math.round((camPhi - Math.PI / 2) / d - 0.5);
+}
+/**
+ * A quarter of the bays pasted and the next one going on, with bare cage beyond it: the step is
+ * "one rib-to-rib panel at a time", and only a half-finished skin can show that.
+ *
+ * A quarter, not a half, because the camera sees about a quarter of the way round before the surface
+ * turns away — panels past that are drawn edge-on behind the mold, where a pasted panel contributes
+ * a stray arc and nothing else. The hot one leads the group, so the reader sees the boundary it is
+ * being added at rather than a gap somewhere behind.
+ */
+function washiPieces(p, dir) {
+  const kc = bayFacing(p, dir);
+  const bays = [kc];
+  for (let i = 1; i <= Math.max(1, Math.round(p.boards / 4)); i++) bays.push(kc + i);
+  return washiSkin(p, bays, kc);
+}
+
 /** Ribs radiating from the axis, koma at whichever ends the step has reached (and, once the guide
  *  has fitted them, the two opening rings — the mold carries those for the rest of the build). */
-function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false, band = false, higo = false } = {}) {
+function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false, band = false, higo = false, washi = null } = {}) {
   const g = new THREE.Group();
   if (band) g.add(bands(p, hot === "bands"));
   if (higo) g.add(higoWinding(p, hot === "higo"));
+  if (washi) g.add(washiPieces(p, washi));
   if (rings) {
     const { lo: t0, hi: t1 } = fukuroRange(p);
     for (const top of [false, true]) {
@@ -179,13 +257,13 @@ function standPieces(p, hot) {
 }
 
 /** The mold lying in the stand, exactly as the assembly view shows it (same maths, same result). */
-function moldOnStand(p, hot, smooth) {
+function moldOnStand(p, hot, smooth, washi = null) {
   const g = new THREE.Group();
   g.add(standPieces(p, null));
   // Rings and bamboo included: by the time the mold goes in the stand the guide has fitted the one
   // and wound the other, and a figure that quietly drops what the reader just installed makes them
   // wonder what they did wrong.
-  const mold = moldPieces(p, { hot: hot === "mold" ? "ribs" : null, smooth, rings: true, band: true, higo: true });
+  const mold = moldPieces(p, { hot: hot === "mold" ? "ribs" : null, smooth, rings: true, band: true, higo: true, washi });
   mold.rotation.z = Math.PI / 2;
   mold.position.set(p.height / 2, standCollarTop() + standSaddleH(p), 0);
   g.add(mold);
@@ -194,7 +272,8 @@ function moldOnStand(p, hot, smooth) {
 
 /**
  * What each figure shows. Keys are the guide's step ids; the value builds the group. Anything the
- * guide cannot draw — pasting washi, waiting for it to dry — has no entry and gets a photo instead.
+ * guide cannot draw — waiting for it to dry, easing the mold back out — has no entry and gets a
+ * photo instead.
  */
 const SCENES = {
   // Parts, one at a time, for the parts list.
@@ -225,6 +304,11 @@ const SCENES = {
   // this is the only scene both routes draw, and a part the reader was never told to fit reads as a
   // step they missed.
   higo: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, hot: "higo" }),
+  // Pasting: the same mold, half skinned. Drawn UPRIGHT even on the printed route, where the step
+  // before it set the mold in the stand — the stand is that figure's subject, and here it would lay
+  // the posts across the very seams this one is about. Upright, a panel is the vertical lens the
+  // reader cut from the washi template, which is the shape they are holding.
+  washi: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, washi: VIEW_DIR }),
 };
 
 export const FIGURES = Object.keys(SCENES);
