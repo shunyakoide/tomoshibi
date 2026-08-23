@@ -26,8 +26,10 @@ import {
   grooveList, grooveR, higoSpiralPath, outerR,
 } from "../geometry.js";
 
-// The isometric direction every figure is drawn from. Shared, because the shade's silhouette has to
-// be computed against the same axis the camera looks down (see `rings`).
+// The isometric direction every figure is drawn from. Shared rather than local to the camera,
+// because the washi panels are PLACED against it: which bays are pasted, and the yaw that puts the
+// skipped one in the middle of the frame, are both answers about where the reader is standing
+// (see `washiYaw`).
 const VIEW_DIR = new THREE.Vector3(1, 0.85, 1).normalize();
 
 const INK = 0x33302b;        // edge lines: the UI's ink, not pure black
@@ -156,14 +158,18 @@ const ribPhi = (k, d) => Math.PI / 2 + k * d;
  * is enough to say "there is paper here" without competing with the panel going on now.
  */
 const WASHI_FACE = 0xf3ede2;
-function washiSkin(p, bays, hotBay) {
-  const g = new THREE.Group();
+function washiProfile(p) {
   const { lo, hi } = fukuroRange(p);
-  const prof = [];
+  const out = [];
   for (let i = 0; i <= 60; i++) {
     const t = lo + (hi - lo) * (i / 60);
-    prof.push(new THREE.Vector2(outerR(p, t) + p.higoD, t * p.height));
+    out.push(new THREE.Vector2(outerR(p, t) + p.higoD, t * p.height));
   }
+  return out;
+}
+function washiSkin(p, bays, hotBay) {
+  const g = new THREE.Group();
+  const prof = washiProfile(p);
   const d = (Math.PI * 2) / p.boards;
   for (const k of bays) {
     const hot = k === hotBay;
@@ -201,6 +207,20 @@ function washiYaw(p, dir) {
   const camPhi = Math.PI / 2 - Math.atan2(dir.z, dir.x);
   return camPhi - ribPhi(0, d) - d / 2;
 }
+/**
+ * Every bay pasted — the shade as it is left to dry. Still one lathe per bay, not a single surface
+ * of revolution: a full lathe has no crease anywhere, so `EdgesGeometry` finds nothing but its two
+ * rims and the body comes out an ivory blob with no outline at all. Per bay, the seams draw, and the
+ * outermost ones sit within half a bay of the silhouette — where meridians are seen edge-on, so they
+ * land on it. The seams are worth drawing for their own sake anyway: a dry shade shows them.
+ *
+ * Nothing is highlighted: the step adds no part, it waits.
+ */
+function washiWhole(p) {
+  const bays = [];
+  for (let k = 0; k < p.boards; k++) bays.push(k);
+  return washiSkin(p, bays, null);
+}
 function washiPieces(p) {
   const d = (Math.PI * 2) / p.boards;
   const bays = [];
@@ -215,7 +235,7 @@ function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null
   const g = new THREE.Group();
   if (band) g.add(bands(p, hot === "bands"));
   if (higo) g.add(higoWinding(p, hot === "higo"));
-  if (washi) g.add(washiPieces(p));
+  if (washi) g.add(washi === "all" ? washiWhole(p) : washiPieces(p));
   if (rings) {
     const { lo: t0, hi: t1 } = fukuroRange(p);
     for (const top of [false, true]) {
@@ -245,7 +265,7 @@ function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null
   // The yaw turns the mold, not the panels: they are placed on bays, and turning them alone would
   // simply slide them off their ribs. Wrapped rather than set on `g` itself, so a caller's own
   // rotation (the quarter turn into the stand) still composes the way it reads.
-  if (washi) {
+  if (washi && washi !== "all") {
     const w = new THREE.Group();
     g.rotation.y = washiYaw(p, washi);
     w.add(g);
@@ -325,6 +345,11 @@ const SCENES = {
   washi: (p, sm) => (sm
     ? moldPieces(p, { smooth: true, higo: true, washi: VIEW_DIR })
     : moldOnStand(p, null, false, DIR_ON_STAND)),
+  // Drying: every bay pasted, and OFF the stand — nothing turns while it dries, and the stand in
+  // the frame would say there is still something to do to it. What is left of the mold to see is
+  // what sticks out past the paper: the necks, the tabs and the two koma, which is the reader's
+  // reminder that it is all still in there until the shade is dry.
+  dry: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, washi: "all" }),
 };
 // The view direction inside the mold's OWN frame once it is lying in the stand. The group is turned
 // a quarter turn about Z there, so world (x,y,z) reads as local (y,-x,z).
