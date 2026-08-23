@@ -15,6 +15,8 @@ output is static files.
 > **3Dプリント用「張型（はりがた）」ジェネレーター**。ブラウザ上で断面を直接編集し、
 > 印刷用の STL を書き出せます。
 
+**→ [Open the app](https://shunyakoide.github.io/tomoshibi/)** — nothing to install; it runs entirely in the browser.
+
 ---
 
 ## What it makes
@@ -147,4 +149,4 @@ CI runs them on every push and pull request.
 **使い方**: 上部タブで **断面/組立/印刷/点灯** を切替、右パネルで断面の制御点をドラッグして
 形を調整、印刷ビューから全パーツの STL（ZIP）を書き出し。初回に出る案内カードは
 パネル右上の **?** でいつでも開き直せます。作り方は上記「From print to lantern」を参照。
-ライセンスは [MIT](LICENSE)。
+ライセンスは [MIT](LICENSE)。アプリは **[こちら](https://shunyakoide.github.io/tomoshibi/)**（インストール不要・ブラウザのみで動作）。
