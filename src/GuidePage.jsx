@@ -13,12 +13,13 @@
  * app has a rib-count control at all.
  *
  * [Figures vs photographs] A figure is drawn when the answer depends on the design — which parts,
- *   how many, what shape. Winding the bamboo and pasting the washi are both of those — how many
- *   turns and which way they run, how many panels and where their seams fall, are answers about this
- *   design — so they are drawn too. The steps that are pure technique — drying, easing the mold out,
- *   wiring a socket — take a photograph instead, dropped into `public/photos/` under the name each
- *   step names. Until the file is there the slot shows what it is waiting for, so the layout is
- *   finished before the photography is.
+ *   how many, what shape. That reaches further than the mold: how many turns of bamboo and which way
+ *   they run, how many washi panels and where their seams fall, which rib comes out of the opening
+ *   and how far it has to come in to get there, are all answers about this design. The one step left
+ *   that is the same for every lantern here — wiring a socket into a fixed ⌀65 disc — takes a
+ *   photograph instead, dropped into `public/photos/` under the name the step gives. Until the file
+ *   is there the slot shows what it is waiting for, so the layout is finished before the
+ *   photography is.
  * [Route] The cardboard route builds the same mold out of a different material and has no stand and
  *   no printed rings, so those steps are filtered rather than reworded.
  * [Print] The page carries print styles (index.css): the browser's own "Save as PDF" is the paper
@@ -88,7 +89,7 @@ const STEPS = [
     body: "糊と和紙が完全に乾くまで置きます。乾くと紙が張って形が決まります。急がないこと — 生乾きで型を抜くと歪みます。",
   },
   {
-    id: "pull", title: "型を抜く", photo: "pull.jpg",
+    id: "pull", title: "型を抜く", fig: "pull",
     body: "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。",
   },
   {

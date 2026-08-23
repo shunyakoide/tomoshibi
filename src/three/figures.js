@@ -22,7 +22,7 @@
 import * as THREE from "three";
 import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
-  standCollarTop, standSaddleH, standSlotSep, fukuroRange, komaR,
+  standCollarTop, standSaddleH, standSlotSep, fukuroRange, komaR, maxRadius,
   grooveList, grooveR, higoSpiralPath, outerR,
 } from "../geometry.js";
 
@@ -142,8 +142,9 @@ const ribPhi = (k, d) => Math.PI / 2 + k * d;
  * its two outer edges and read as one continuous wrapper. Each panel is its own surface, so every
  * seam draws.
  *
- * The radius is `outerR + higoD` — outside the bamboo, which is centred on `outerR` — the same
- * expression the lit preview skins the finished lantern with. It runs `fukuroRange` only: the neck
+ * The surface is the mold's own, offset `higoD` clear of it — outside the bamboo, which is centred
+ * on `outerR` (see `washiProfile` for why that offset has to follow the normal). It runs
+ * `fukuroRange` only: the neck
  * carries no paper, exactly as the washi template's own panel does (papercraft.js). The cover
  * allowance folded over the opening rings is not drawn; it is 3mm of paper, and drawing it would
  * only blunt the rim the figure is trying to show.
@@ -160,10 +161,19 @@ const ribPhi = (k, d) => Math.PI / 2 + k * d;
 const WASHI_FACE = 0xf3ede2;
 function washiProfile(p) {
   const { lo, hi } = fukuroRange(p);
+  const H = p.height, N = 60, dt = (hi - lo) / N / 2 || 1e-4;
   const out = [];
-  for (let i = 0; i <= 60; i++) {
-    const t = lo + (hi - lo) * (i / 60);
-    out.push(new THREE.Vector2(outerR(p, t) + p.higoD, t * p.height));
+  for (let i = 0; i <= N; i++) {
+    const t = lo + (hi - lo) * (i / N);
+    // Offset along the surface NORMAL, not along x. Pushing the profile out horizontally leaves only
+    // `higoD·cos θ` of clearance on a face at angle θ, and the bamboo is a round rod of higoD across
+    // sitting ON that face: past θ ≈ 60° the rod comes out through the paper that is supposed to be
+    // lying over it. A squat, steep-sided body reaches that easily (r=120 over h=90 is dR/dy = 2),
+    // and it drew its bamboo as rings printed on the outside of the shade.
+    const t0 = Math.max(lo, t - dt), t1 = Math.min(hi, t + dt);
+    const s = (outerR(p, t1) - outerR(p, t0)) / ((t1 - t0) * H);      // dR/dy
+    const n = Math.hypot(1, s);
+    out.push(new THREE.Vector2(outerR(p, t) + p.higoD / n, t * H - (p.higoD * s) / n));
   }
   return out;
 }
@@ -231,7 +241,18 @@ function washiPieces(p) {
   return washiSkin(p, bays, 1);            // one of the pair is the one going on now
 }
 
-function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false, band = false, higo = false, washi = null } = {}) {
+/**
+ * Which rib is drawn FACE-ON from `dir`. A rib is a flat plate extruded along its own z, so rib k's
+ * faces look out at azimuth π/2 − k·2π/N; the nearest one to the camera's azimuth is the rib whose
+ * shape can actually be read — any other is seen edge-on and draws as a line.
+ */
+function faceOnRib(p, dir) {
+  const d = (Math.PI * 2) / p.boards;
+  const k = Math.round((Math.PI / 2 - Math.atan2(dir.z, dir.x)) / d);
+  return ((k % p.boards) + p.boards) % p.boards;
+}
+
+function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false, band = false, higo = false, washi = null, pull = null } = {}) {
   const g = new THREE.Group();
   if (band) g.add(bands(p, hot === "bands"));
   if (higo) g.add(higoWinding(p, hot === "higo"));
@@ -245,11 +266,27 @@ function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null
       g.add(r);
     }
   }
+  // `pull` draws one rib on its way out (see `pullScene`); the rest stay where they are, hidden
+  // inside the shade like they would be.
+  const pulled = pull ? faceOnRib(p, pull.dir) : -1;
   if (ribs) for (let k = 0; k < p.boards; k++) {
     // "oneRib" colours a single rib: the step plugs them in one at a time, and a figure with all
     // eight highlighted says "everything is new" — which is the one thing a highlight cannot mean.
-    const m = part(ribGeo(p, k, smooth), hot === "ribs" || (hot === "oneRib" && k === 0));
-    m.rotation.y = (k / p.boards) * Math.PI * 2;
+    const geo = ribGeo(p, k, smooth);
+    const m = part(geo, hot === "ribs" || (hot === "oneRib" && k === 0) || k === pulled);
+    const a = (k / p.boards) * Math.PI * 2;
+    m.rotation.y = a;
+    if (k === pulled) {
+      // Onto the axis before it slides: a rib is wider than the mouth it has to leave by, so it
+      // comes out by being brought in to the middle first — which is what the hollowed inner edge
+      // is for. Centred by the geometry's own bounding box rather than by `innerRi`/`maxRadius`, so
+      // a lightening window or the cardboard route's smooth edge cannot leave it a millimetre out.
+      geo.computeBoundingBox();
+      const b = geo.boundingBox;
+      const inward = (b.min.x + b.max.x) / 2;
+      // `position` is in the parent's frame, so the radial move has to be turned with the rib.
+      m.position.set(-inward * Math.cos(a), pull.slide, inward * Math.sin(a));
+    }
     g.add(m);
   }
   if (komaBot) {
@@ -305,9 +342,45 @@ function moldOnStand(p, hot, smooth, washi = null) {
 }
 
 /**
- * What each figure shows. Keys are the guide's step ids; the value builds the group. Anything the
- * guide cannot draw — waiting for it to dry, easing the mold back out — has no entry and gets a
- * photo instead.
+ * The mold coming out, mid-extraction: the shade dry, both koma off, one rib half drawn out of the
+ * opening. **Lying on its side** — the rib leaves along the axis, so upright the whole action points
+ * at the camera and draws as a stub over the mouth. Sideways it reads left to right.
+ *
+ * The koma are set down flat rather than exploded along the axis, which is the usual convention for
+ * a part being taken off: the axis here is exactly where the rib is coming out, so a disc floating
+ * on it reads as being in the way. A part lying flat on the table reads as off and overlaps nothing.
+ * The rubber bands are simply gone — with the koma off there is nothing left for them to hold, and a
+ * figure that keeps them is a figure of a step not finished.
+ */
+const PULL_DIR = new THREE.Vector3(-VIEW_DIR.y, VIEW_DIR.x, VIEW_DIR.z);
+function pullScene(p, smooth) {
+  const w = new THREE.Group();
+  const mold = moldPieces(p, {
+    komaBot: false, komaTop: false, smooth, rings: !smooth, higo: true, washi: "all",
+    pull: { dir: PULL_DIR, slide: (p.height + p.tabLen * 2) * 0.62 },
+  });
+  mold.rotation.z = -Math.PI / 2;          // axis along +x, so the rib comes out towards the right
+  mold.position.x = -p.height / 2;         // ...and the body sits in the middle of the frame
+  w.add(mold);
+  // Both koma, off: flat on the same table the shade is lying on, and IN FRONT of it — the isometric
+  // puts +z at the near-left, which is where the frame is empty. Beside the ends is where they would
+  // go by instinct and it does not work: the body bulges a full radius past its own opening, so a
+  // koma clear of the silhouette there has to sit a long way out and takes the whole drawing down a
+  // size with it.
+  const kR = komaR(p), R = maxRadius(p);
+  for (const sgn of [-1, 1]) {
+    const k = part(komaGeometry(p), false);
+    k.rotation.x = -Math.PI / 2;
+    k.position.set(sgn * (kR + 5), -R, R * 0.7 + kR + 8);
+    w.add(k);
+  }
+  return w;
+}
+
+/**
+ * What each figure shows. Keys are the guide's step ids; the value builds the group. A step whose
+ * answer does not depend on the design has no entry and takes a photograph instead — which is now
+ * only the last one, wiring a socket into a ⌀65 disc that is the same for every lantern here.
  */
 const SCENES = {
   // Parts, one at a time, for the parts list.
@@ -350,6 +423,8 @@ const SCENES = {
   // what sticks out past the paper: the necks, the tabs and the two koma, which is the reader's
   // reminder that it is all still in there until the shade is dry.
   dry: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, washi: "all" }),
+  // Pulling it out — see `pullScene`.
+  pull: (p, sm) => pullScene(p, sm),
 };
 // The view direction inside the mold's OWN frame once it is lying in the stand. The group is turned
 // a quarter turn about Z there, so world (x,y,z) reads as local (y,-x,z).
