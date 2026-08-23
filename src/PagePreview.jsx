@@ -16,10 +16,16 @@
  *
  * On screen it is NOT full scale (a 210mm page is ~230px here) — hence the note, and hence the
  * ruler printed on every sheet, which is the only check that actually catches printer scaling.
+ *
+ * `WashiPreview` at the bottom is the same idea for the **3D-print route**, which has no document
+ * view of its own: its washi template goes straight into the kit ZIP, so it was the one sheet the app
+ * produces that you could never look at before downloading it. It docks at the side of the plate
+ * view instead of covering it — the plates are still the subject there, the washi is what comes out
+ * of the paper printer alongside them.
  * ============================================================================
  */
 import React, { useDeferredValue, useMemo } from "react";
-import { paperPagesSVG } from "./papercraft.js";
+import { paperPagesSVG, washiPagesSVG } from "./papercraft.js";
 import { UI as ui, useT } from "./ui/theme.js";
 
 export default function PagePreview({ p, matT, washi, lang }) {
@@ -46,6 +52,30 @@ export default function PagePreview({ p, matT, washi, lang }) {
         {t("型紙プレビュー · 全 {n} ページ", { n: pages })}
         <span> — {t("画面上は原寸ではありません。PDF をダウンロードして原寸で印刷してください。")}</span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The washi template's sheets, docked beside the 3D route's plate view. Same sheets as
+ * `tomoshibi_washi_a4.pdf` in the kit ZIP, through the same renderer — so this is the file, not a
+ * picture of it. Absolutely positioned rather than laid over the whole viewport, because the plates
+ * remain the subject of this view and the camera behind it has to stay draggable.
+ */
+export function WashiPreview({ p, washi, lang }) {
+  const t = useT();
+  const dp = useDeferredValue(p);   // same reason as above: a slider drag would ask for this 60×/s
+  const { svg, css, pages } = useMemo(
+    () => washiPagesSVG(dp, washi, t),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- t is derived from lang (new identity per render)
+    [dp, washi.side, washi.end, lang],
+  );
+
+  return (
+    <div className="pages pages-dock">
+      <style>{css}</style>
+      <div className="pages-dock-cap">{t("和紙の型紙")}{pages > 1 ? ` · ${pages}p` : ""}</div>
+      <div dangerouslySetInnerHTML={{ __html: svg }} />
     </div>
   );
 }

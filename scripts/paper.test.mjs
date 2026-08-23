@@ -26,7 +26,7 @@
  * Run this after touching the 2D side of papercraft.js / geometry.js.
  * ============================================================================
  */
-import { paperPagesSVG, paperPDF, paperParts, paperFit, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.js";
+import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.js";
 import { winAnsi } from "../src/pdf.js";
 import { makeT } from "../src/i18n.js";
 import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR } from "../src/geometry.js";
@@ -219,6 +219,13 @@ for (const preset of PRESETS)
           if (!svg.includes("和紙")) bad(`${tag}: the washi panel is not on the cardboard pages`);
           // Guides must be drawn as guides, never as cut lines (cutting them ruins the panel).
           if (!/class="guide"/.test(svg)) bad(`${tag}: guides not drawn`);
+          // The 3D route sees the panel on its own sheets instead (WashiPreview, docked beside the
+          // plates) — the same sheets the kit ZIP's PDF is written from, so they carry the same
+          // drawing and the same guides. Section 5 pins their page count to that PDF's.
+          const ws = washiPagesSVG(p, { side, end }, undefined, A4).svg;
+          if (/NaN|Infinity|undefined/.test(ws)) bad(`${tag}: NaN/undefined in the washi sheets`);
+          if (!ws.includes("和紙")) bad(`${tag}: the panel is not on its own sheets`);
+          if (!/class="guide"/.test(ws)) bad(`${tag}: guides not drawn on the washi sheets`);
         }
 
 // ---- 5. The template PDFs (both shipped deliverables) ----
@@ -240,9 +247,7 @@ const pdfStructure = (s, tag, pages) => {
     const off = Number(row.slice(0, 10));
     if (!s.startsWith(`${i + 1} 0 obj`, off)) bad(`${tag}: xref offset ${i + 1} → ${off} is not an object header`);
   });
-  const want = [].concat(pages);
-  if (!want.some((n) => s.includes(`/Count ${n}`))) bad(`${tag}: /Count is none of ${want.join("/")}`);
-  pages = want.find((n) => s.includes(`/Count ${n}`));
+  if (!s.includes(`/Count ${pages}`)) bad(`${tag}: /Count is not ${pages}`);
   if ((s.match(/\/MediaBox\[0 0 595\.276 841\.89\]/g) || []).length !== pages) bad(`${tag}: MediaBox is not A4 on every page`);
   // Full scale: the page CTM is mm→pt, and the ruler is 50mm long in that space.
   if ((s.match(/2\.835 0 0 -2\.835 0 841\.89 cm/g) || []).length !== pages) bad(`${tag}: page CTM is not mm→pt`);
@@ -265,15 +270,19 @@ for (const preset of PRESETS)
       np++;
       const p = { ...DEFAULTS, ...preset, height, boards };
       const tag = `pdf ${preset.key} h${height} b${boards}`;
-      // Washi. Page count derived independently of the layout code: one part of this height on A4,
-      // butt-split across pages when it does not fit on one. Two answers are admissible because the
-      // check square either finds room beside the panel (no strip reserved) or does not (sheet 1
-      // gives up TOPBAR) — which of the two is the layout's call, and pinning it here would pin the
-      // packing. Either way the split itself is what this checks.
+      // Washi. Its page count is checked twice over. First against a derivation that owes the layout
+      // code nothing — one part of this height on A4, butt-split across pages when it does not fit on
+      // one. Two answers are admissible there because the check square either finds room beside the
+      // panel (no strip reserved) or does not (sheet 1 gives up TOPBAR); which of the two is the
+      // layout's call, and pinning it here would pin the packing. Then the PDF is pinned to the
+      // preview's exact answer, so the sheets the 3D route shows beside its plates and the file in
+      // the kit ZIP can never be a different document (same pairing as the cardboard one below).
       const { g } = washiParts(p, { side: 3, end: 3 });
       const H = g.sTot + 2 * g.end, CH = 297 - 2 * MARGIN, CH0 = CH - TOPBAR;
-      pdfStructure(Buffer.from(washiPDF(p, { side: 3, end: 3 }, A4, en)).toString("latin1"), `${tag} washi`,
-        [Math.max(1, Math.ceil(H / CH)), H <= CH0 ? 1 : 1 + Math.ceil((H - CH0) / CH)]);
+      const wPages = washiPagesSVG(p, { side: 3, end: 3 }, en, A4).pages;
+      if (![Math.max(1, Math.ceil(H / CH)), H <= CH0 ? 1 : 1 + Math.ceil((H - CH0) / CH)].includes(wPages))
+        bad(`${tag} washi: preview lays out ${wPages} pages, neither admissible answer`);
+      pdfStructure(Buffer.from(washiPDF(p, { side: 3, end: 3 }, A4, en)).toString("latin1"), `${tag} washi`, wPages);
 
       // Cardboard. Its page count is checked against what the in-app preview lays out, so the file
       // the user prints and the pages they were shown can never be a different document.
@@ -285,9 +294,78 @@ for (const preset of PRESETS)
       for (const q of paperParts(p, 5, en).parts)
         if (!cs.includes(q.name)) bad(`${tag} cardboard: "${q.name}" is not labelled in the PDF`);
     }
+// ---- 6. The preview IS the file ----
+// Both deliverables are shown on screen before they are downloaded — the cardboard route's pages
+// fill its print view, the washi sheets dock beside the 3D route's plates — and both previews are
+// built from the same `pageOps` the PDF is written from. Section 5 pins their page COUNT; this pins
+// the drawing itself, so a change to one renderer cannot quietly leave the other behind.
+//
+// Compared as coordinates, not as bytes, because the two encodings legitimately differ in three
+// ways and only these three:
+//   · the SVG rounds to 2dp at generation, the PDF to 3dp — a coordinate ending .xx5 double-rounds
+//     0.01mm apart, so the compare carries a tolerance and the sort uses a coarse 0.1mm key
+//     (a lexicographic sort would reorder the two lists differently over that same 0.01, and a key
+//     built from only the first few points leaves genuinely distinct paths tied);
+//   · a part name is centred by `text-anchor: middle` in SVG and by a pre-shifted x in the PDF —
+//     the same place on the page, so its x is not comparable and text sorts on y + content;
+//   · SVG escapes `<` as `&lt;`.
+const r2 = (v) => (+v).toFixed(2);
+const pkey = (v) => String(v.split(" ").length).padStart(6) + "|"
+  + v.split(" ").map((x) => (Math.round(+x * 10) / 10).toFixed(1).padStart(9)).join(",");
+const byPath = (a, b) => (pkey(a) < pkey(b) ? -1 : pkey(a) > pkey(b) ? 1 : 0);
+const tkey = (v) => v.split(" ").slice(1).join(" ");
+const byText = (a, b) => (tkey(a) < tkey(b) ? -1 : tkey(a) > tkey(b) ? 1 : 0);
+const svgPaths = (svg) => [...svg.matchAll(/ d="([^"]+)"/g)]
+  .map((m) => m[1].replace(/[MLZ]/g, " ").trim().split(/\s+/).map(r2).join(" ")).sort(byPath);
+const svgText = (svg) => [...svg.matchAll(/<text x="([\d.-]+)" y="([\d.-]+)"[^>]*>([^<]*)</g)]
+  .map((m) => `${r2(m[1])} ${r2(m[2])} ${m[3].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")}`)
+  .sort(byText);
+const pdfBody = (s2) => [...s2.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map((m) => m[1]).join("\n");
+const pdfPaths = (s2) => pdfBody(s2)
+  .replace(/BT[\s\S]*?ET/g, "")            // a text block's `Tm` matrix ends in "m" — not a moveto
+  .split(/\bS\b/)
+  .map((seg) => [...seg.matchAll(/(-?[\d.]+) (-?[\d.]+) [ml]\n?/g)].flatMap((m) => [r2(m[1]), r2(m[2])]).join(" "))
+  .filter(Boolean).sort(byPath);
+const pdfText = (s2) => [...pdfBody(s2).matchAll(/1 0 0 -1 ([\d.-]+) ([\d.-]+) Tm \((.*?)\) Tj/g)]
+  .map((m) => `${r2(m[1])} ${r2(m[2])} ${m[3]}`).sort(byText);
+
+const sameDrawing = (svg, pdf, tag) => {
+  const cmp = (x, y, what, anchored) => {
+    if (x.length !== y.length) { bad(`${tag} ${what}: ${x.length} on screen vs ${y.length} in the PDF`); return; }
+    for (let i = 0; i < x.length; i++) {
+      const av = x[i].split(" "), bv = y[i].split(" ");
+      if (av.length !== bv.length) { bad(`${tag} ${what} #${i}: ${av.length} vs ${bv.length} tokens`); return; }
+      for (let j = anchored ? 1 : 0; j < av.length; j++) {
+        const an = Number(av[j]), bn = Number(bv[j]);
+        const ok = Number.isNaN(an) || Number.isNaN(bn) ? av[j] === bv[j] : Math.abs(an - bn) < 0.011;
+        if (!ok) { bad(`${tag} ${what} #${i}: ${av[j]} vs ${bv[j]}`); return; }
+      }
+    }
+  };
+  cmp(svgPaths(svg), pdfPaths(pdf), "paths", false);
+  cmp(svgText(svg), pdfText(pdf), "text", true);
+};
+
+let ns = 0;
+for (const preset of PRESETS)
+  for (const height of [140, 205, 300, 400])
+    for (const [side, end] of [[3, 3], [0, 0], [10, 5]]) {
+      ns++;
+      const p = { ...DEFAULTS, ...preset, height };
+      const tag = `same ${preset.key} h${height} s${side} e${end}`;
+      // Built with the SAME translator the PDF gets, so this is about the drawing, not the labels.
+      const w = washiPagesSVG(p, { side, end }, en, A4).svg;
+      sameDrawing(w, Buffer.from(washiPDF(p, { side, end }, A4, en)).toString("latin1"), `${tag} washi`);
+      // The language must not move a single coordinate — only the words.
+      if (svgPaths(washiPagesSVG(p, { side, end }, undefined, A4).svg).join("|") !== svgPaths(w).join("|"))
+        bad(`${tag} washi: the drawing changes with the UI language`);
+      sameDrawing(paperPagesSVG(p, 5, en, { side, end }, A4).svg,
+        Buffer.from(paperPDF(p, 5, A4, en, { side, end })).toString("latin1"), `${tag} cardboard`);
+    }
+
 // Japanese labels cannot be drawn with base-14 fonts, so they must be dropped, never emitted raw.
 if (winAnsi("和紙 ×8") !== " ×8") bad(`winAnsi should drop Japanese: ${JSON.stringify(winAnsi("和紙 ×8"))}`);
 if (winAnsi("50mm ← 定規で確認") !== "50mm <- ") bad(`winAnsi arrow fold: ${JSON.stringify(winAnsi("50mm ← 定規で確認"))}`);
 
-console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf combos, ${fail} FAIL ===`);
+console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF combos, ${fail} FAIL ===`);
 process.exit(fail ? 1 : 0);

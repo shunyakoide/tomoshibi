@@ -578,3 +578,19 @@ export function washiPDF(p, opts = {}, page = A4, t = tid) {
   const { parts } = washiParts(p, opts, t);
   return pagesPDF(parts, page, t, t("TOMOSHIBI 和紙型紙 {name} 原寸", { name: page.name }));
 }
+
+/**
+ * The same sheets `washiPDF` writes, as SVG — for the 3D-print route's print view. On the cardboard
+ * route the washi panel is already visible, because `paperParts` lays it out among the template's own
+ * pages; on the 3D route the PDF only rides inside the kit ZIP, so without this it is the one thing
+ * the app makes that you can never look at before downloading it. Built from the same
+ * `layout` + `pageOps` + `pageSVG` as every other sheet, so the preview is the file, page count and
+ * check square included — never a second drawing of it.
+ */
+export function washiPagesSVG(p, opts = {}, t = tid, page = A4) {
+  const { parts } = washiParts(p, opts, t);
+  const lay = layout(parts, page);
+  const svgs = [];
+  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, t), i, page));
+  return { svg: svgs.join(""), css: styleCSS(".pages "), pages: lay.pages.length };
+}
