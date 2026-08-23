@@ -270,6 +270,9 @@ function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null
   // inside the shade like they would be.
   const pulled = pull ? faceOnRib(p, pull.dir) : -1;
   if (ribs) for (let k = 0; k < p.boards; k++) {
+    // In `pull` the others are already out: the step takes them one at a time, and the last one is
+    // the only state in the whole sequence where the mouth is not packed with rib edges seen end-on.
+    if (pull && k !== pulled) continue;
     // "oneRib" colours a single rib: the step plugs them in one at a time, and a figure with all
     // eight highlighted says "everything is new" — which is the one thing a highlight cannot mean.
     const geo = ribGeo(p, k, smooth);
@@ -342,9 +345,15 @@ function moldOnStand(p, hot, smooth, washi = null) {
 }
 
 /**
- * The mold coming out, mid-extraction: the shade dry, both koma off, one rib half drawn out of the
- * opening. **Lying on its side** — the rib leaves along the axis, so upright the whole action points
- * at the camera and draws as a stub over the mouth. Sideways it reads left to right.
+ * The mold coming out, near the end of it: the shade dry, both koma off, and the LAST rib half drawn
+ * out of the opening. **Lying on its side** — a rib leaves along the axis, so upright the whole
+ * action points at the camera and draws as a stub over the mouth. Sideways it reads left to right.
+ *
+ * One rib rather than all of them, and it is not just tidier: the ribs come out one at a time, and
+ * the last one is the only moment in that sequence where the mouth is a mouth. With the other seven
+ * still in, the opening fills with rib edges seen end-on and the reader is looking at a turbine.
+ * What is left inside is the bamboo, seen from within through the far wall, which is what a real
+ * shade shows once the mold is out of it.
  *
  * The koma are set down flat rather than exploded along the axis, which is the usual convention for
  * a part being taken off: the axis here is exactly where the rib is coming out, so a disc floating
