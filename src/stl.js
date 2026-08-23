@@ -38,13 +38,20 @@ export function downloadFile(data, filename, mime = "application/octet-stream") 
   triggerDownload(new Blob([data], { type: mime }), filename);
 }
 
+// Bundle already-built files ({ name: bytes }) into one ZIP and download it. Both routes hand their
+// output over this way — one download each, with the washi PDF a separate file inside it rather than
+// pages spliced into another document.
+export function zipBundle(files, filename) {
+  // STL is highly repetitive, so DEFLATE takes it to roughly a fifth. Level 6 is fflate's default
+  // trade-off; the whole kit still zips in well under a second.
+  downloadFile(zipSync(files), filename, "application/zip");
+}
+
 // Convert parts: [{ name, geos }] to STLs and bundle into a ZIP. extraFiles: [{ name, bytes }]
 // are optional extra files (settings JSON, the washi PDF, …) bundled as-is.
 export function exportZip(parts, filename, extraFiles = []) {
   const files = {};
   for (const pt of parts) files[pt.name] = new Uint8Array(buildSTL(pt.geos));
   for (const f of extraFiles) files[f.name] = f.bytes;
-  // STL is highly repetitive, so DEFLATE takes it to roughly a fifth. Level 6 is fflate's default
-  // trade-off; the whole kit still zips in well under a second.
-  downloadFile(zipSync(files), filename, "application/zip");
+  zipBundle(files, filename);
 }

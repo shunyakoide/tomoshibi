@@ -47,7 +47,7 @@ opening**. This app generates that mold as 3D-printable split parts.
 - **Bamboo-rib grooves** — evenly spaced V-notches with barbs so the bamboo seats and won't slip.
 - **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
 - **Cardboard papercraft mode** (beta) — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the ribs and koma hubs from cardboard. Notch widths follow the thickness you measured, so the parts still mesh.
-- **Washi template (和紙の型紙)** — the paper skin itself, developed flat: one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. Includes the side overlap, the cover allowance past the openings, and dashed guides for the rib lines and bamboo positions. It ships with whichever output you choose — a PDF in the STL kit ZIP, or one more sheet in the cardboard template.
+- **Washi template (和紙の型紙)** (beta) — the paper skin itself, developed flat: one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. Includes the side overlap, the cover allowance past the openings, and dashed guides for the rib lines and bamboo positions. It ships with whichever output you choose, as its own PDF inside that download.
 - **English / Japanese UI** — toggle in the top bar.
 - **Watertight by construction** — every exported part is a closed manifold, verified by an automated sweep (see [CONTRIBUTING](CONTRIBUTING.md)).
 
@@ -94,16 +94,22 @@ anything older, so on Node 18 the install fails rather than degrading.
 > printed parts and are checked automatically, but far fewer people have actually built a mold
 > this way, so expect rough edges — and please open an issue if something doesn't fit.
 
-The Print view's **"Open papercraft"** button opens full-scale A4 pages. Measure your
+The Print view downloads a ZIP of two full-scale A4 PDFs: the mold's template
+(`tomoshibi_katagami_a4.pdf`) and the washi one (`tomoshibi_washi_a4_beta.pdf`). Measure your
 cardboard and enter its thickness — the koma notches are cut to it, so the ribs push in
 and hold with no glue or hardware. It prints the mold itself (ribs + koma); stand it on
 whatever is to hand. Grooves are not cut — you can't carve a 0.5 mm V-notch into
 cardboard — so the outer edge is a smooth curve with dashed ticks marking where each
-bamboo rib goes. A part too wide for one page is split across two with a 10 mm glue tab.
-Every page includes a 50 mm scale bar; make sure your printer prints at 100% (not "fit to
-page").
+bamboo rib goes. A part too tall for one page continues on the next: cut both sheets on
+the blue frame, butt the cut edges so the coded half-diamonds close into ◇, and tape from
+behind. One sheet carries an L-shaped check square (3in across, 3cm down) — measure it
+with a ruler, and make sure your printer prints at 100% (not "fit to page").
 
-### Cutting the washi first
+### Cutting the washi first (beta)
+
+> **Still being verified.** Flattening a doubly-curved surface is approximate by nature (see the
+> panel size the app reports), and how much a damp sheet takes up is still being checked against
+> real builds. Cut one panel and offer it up before you cut them all.
 
 Trimming the washi after it is pasted is the fiddliest part of the build, and a torn wet
 edge shows. The app also gives you a full-scale template of one panel — the surface between two
@@ -112,10 +118,10 @@ cut all N panels before you paste anything. Its length is the length **along the
 not the body height, so it reaches the openings exactly.
 
 It is not a separate download: the panel's allowances live in the **Washi** section of the
-side panel, and the template itself comes with whichever output you pick — a print-ready
-`tomoshibi_washi_a4.pdf` inside the STL kit ZIP, or one more sheet among the cardboard
-template's pages. The PDF is written directly by the app — no dependencies — and its
-labels are English, since a self-contained PDF can't carry a Japanese font.
+side panel, and the template itself comes with whichever output you pick — as
+`tomoshibi_washi_a4_beta.pdf` inside that route's ZIP, next to the STLs or next to the mold's
+own template. The PDF is written directly by the app — no dependencies — and its labels
+are English, since a self-contained PDF can't carry a Japanese font.
 
 ---
 
@@ -152,7 +158,7 @@ CI runs them on every push and pull request.
   開口が小さくソケットが入らない場合は、内ふちに小さな出っ張りを付けた輪のみになる（上下の見分け用）。
 
 **特長**: 断面の直接編集 / 竹ひご溝（螺旋巻きにも対応・羽根に通し番号を刻印）/
-3Dプリンタが無くても作れる段ボール型紙（原寸 A4・**開発中/beta**）/ 貼る前に切るための和紙の型紙（原寸 A4）/ 英日 UI 切替 /
+3Dプリンタが無くても作れる段ボール型紙（原寸 A4・**開発中/beta**）/ 貼る前に切るための和紙の型紙（原寸 A4・**検証中/beta**）/ 英日 UI 切替 /
 全パーツ水密（自動スイープで検証）。
 
 **使い方**: 上部タブで **断面/組立/印刷/点灯** を切替、右パネルで断面の制御点をドラッグして

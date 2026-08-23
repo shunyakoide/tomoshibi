@@ -18,15 +18,19 @@
  * The **washi template** (the paper skin's flat pattern) is checked by the same three, with its own
  * decisive invariant: the sheet's length is the **meridian arc length**, not the body height. Cutting
  * the washi to the straight height is the mistake the template exists to prevent, so section 4
- * asserts it against an independent integration of outerR. Section 5 covers the **washi PDF**
- * (the file bundled in the kit ZIP): a hand-rolled PDF is silently wrong in two ways — a bad xref
- * offset (viewers refuse it or open it blank) and a wrong scale — so both are pinned there.
+ * asserts it against an independent integration of outerR. It is a **document of its own** on both
+ * routes — its own PDF inside whichever ZIP you download — so section 4 also pins the two halves of
+ * that split: the panel is not among the cardboard template's pages, and the copy that ships with
+ * cardboard is cut from `paperP` (thick material can clamp the rib count, and the panel is one
+ * rib-to-rib bay wide). Section 5 covers the **washi PDF** itself: a hand-rolled PDF is silently
+ * wrong in two ways — a bad xref offset (viewers refuse it or open it blank) and a wrong scale — so
+ * both are pinned there.
  *
  * Run:  npm run check:paper
  * Run this after touching the 2D side of papercraft.js / geometry.js.
  * ============================================================================
  */
-import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.js";
+import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.js";
 import { winAnsi } from "../src/pdf.js";
 import { makeT } from "../src/i18n.js";
 import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR } from "../src/geometry.js";
@@ -73,6 +77,12 @@ for (const preset of PRESETS)
       // (thicker material = wider notches = more under). It's an error if it **exceeds** komaR.
       const kw = bb(find("コマ")).w, kd = 2 * komaR(pk);
       if (!(kw <= kd + 0.01 && kw >= kd * 0.9)) bad(`${tag} koma outer diameter ${kw} vs ${kd}`);
+      // The washi PDF that ships with THIS route is cut from paperP, not from the design as edited.
+      // The panel is one rib-to-rib bay wide, so a clamped rib count means wider panels; cutting the
+      // unclamped ones would give a skin that does not meet itself on the mold this template makes.
+      eq(washiParts(paperP(p, matT)).g.span, washiParts(pk).g.span, `${tag} washi span`);
+      if (fit.clamped && !(washiParts(pk).g.wMax > washiParts(p).g.wMax))
+        bad(`${tag}: the clamped rib count does not widen the washi panel`);
     }
 
 // ---- 2/3. Sweep for missing parts / NaN / page consistency ----
@@ -87,10 +97,11 @@ for (const preset of PRESETS)
           const tag = `${preset.key} h${height} b${boards} t${matT} pi${pitch}`;
           const { parts, pk, clamped, nMax } = paperParts(p, matT);
           const nRibParts = pk.spiral ? pk.boards : 1; // identical ribs → a single "×N" sheet; spiral → one per rib
-          // Koma is 2 sheets, or 1 ("×2") when 2 would spill onto an extra page, + the washi panel:
-          // whoever builds the mold from cardboard needs the paper skin and never opens the STL ZIP.
-          if (parts.length !== nRibParts + 2 && parts.length !== nRibParts + 3) bad(`${tag}: part count ${parts.length}`);
-          if (!parts.some((q) => q.name.startsWith("和紙"))) bad(`${tag}: washi panel missing from the cardboard template`);
+          // The mold and nothing else: koma is 2 sheets, or 1 ("×2") when 2 would spill onto an extra
+          // page. The washi panel is a document of its own (its own PDF beside this one in the ZIP),
+          // so a sheet of it appearing here would mean it is being printed twice.
+          if (parts.length !== nRibParts + 1 && parts.length !== nRibParts + 2) bad(`${tag}: part count ${parts.length}`);
+          if (parts.some((q) => q.name.startsWith("和紙"))) bad(`${tag}: washi panel laid out among the cardboard pages`);
           if (clamped && pk.boards !== nMax) bad(`${tag}: clamp mismatch`);
           for (const q of parts) {
             const pts = [q.outline, ...(q.holes || [])].flat();
@@ -101,7 +112,7 @@ for (const preset of PRESETS)
           // The template ships as a PDF, but its pages are built from the same pageOps; paperPagesSVG
           // renders them as the markup the in-app preview shows, which is what these assertions read.
           // (The PDF's own structural checks are section 5.)
-          const { svg, pages } = paperPagesSVG(p, matT, undefined, {}, A4);
+          const { svg, pages } = paperPagesSVG(p, matT, undefined, A4);
           if (/NaN|Infinity|undefined/.test(svg)) bad(`${tag}: NaN/undefined in the pages`);
           if (pages < 1 || pages > 60) bad(`${tag}: page count ${pages}`);
           if ((svg.match(/class="pg"/g) || []).length !== pages) bad(`${tag}: page count disagrees with the markup`);
@@ -213,19 +224,18 @@ for (const preset of PRESETS)
           if ((q.marks || []).length !== nTicks) bad(`${tag}: ${q.marks.length} ticks vs ${nTicks} grooves`);
           for (const v of [...q.outline.flat(), ...q.guides.flat(2), ...(q.marks || []).flat()])
             if (!Number.isFinite(v)) bad(`${tag}: NaN in the washi pattern`);
-          // The panel is laid out among the cardboard template's own pages (it rides along with them).
-          const { svg } = paperPagesSVG(p, 3, undefined, { side, end }, A4);
-          if (/NaN|Infinity|undefined/.test(svg)) bad(`${tag}: NaN/undefined in the pages`);
-          if (!svg.includes("和紙")) bad(`${tag}: the washi panel is not on the cardboard pages`);
-          // Guides must be drawn as guides, never as cut lines (cutting them ruins the panel).
-          if (!/class="guide"/.test(svg)) bad(`${tag}: guides not drawn`);
-          // The 3D route sees the panel on its own sheets instead (WashiPreview, docked beside the
-          // plates) — the same sheets the kit ZIP's PDF is written from, so they carry the same
-          // drawing and the same guides. Section 5 pins their page count to that PDF's.
+          // The panel's own sheets — the SVG encoding of the pages the ZIP's PDF is written from
+          // (nothing in the app draws them; see washiPagesSVG). Section 5 pins their page count to
+          // that PDF's; here, that they are drawn at all, and drawn as guides.
           const ws = washiPagesSVG(p, { side, end }, undefined, A4).svg;
           if (/NaN|Infinity|undefined/.test(ws)) bad(`${tag}: NaN/undefined in the washi sheets`);
           if (!ws.includes("和紙")) bad(`${tag}: the panel is not on its own sheets`);
+          // Guides must be drawn as guides, never as cut lines (cutting them ruins the panel).
           if (!/class="guide"/.test(ws)) bad(`${tag}: guides not drawn on the washi sheets`);
+          // …and nowhere else: the cardboard template stopped carrying it when it became its own PDF,
+          // and a panel on both would be one printed twice, at two different rib counts.
+          if (paperPagesSVG(p, 3, undefined, A4).svg.includes("和紙"))
+            bad(`${tag}: the washi panel is still on the cardboard pages`);
         }
 
 // ---- 5. The template PDFs (both shipped deliverables) ----
@@ -287,18 +297,22 @@ for (const preset of PRESETS)
       // Cardboard. Its page count is checked against what the in-app preview lays out, so the file
       // the user prints and the pages they were shown can never be a different document.
       const cs = Buffer.from(paperPDF(p, 5, A4, en)).toString("latin1");
-      pdfStructure(cs, `${tag} cardboard`, paperPagesSVG(p, 5, en, {}, A4).pages);
+      pdfStructure(cs, `${tag} cardboard`, paperPagesSVG(p, 5, en, A4).pages);
+      // The split, in the shipped bytes: the mold's PDF carries no washi panel. (Labelled in
+      // English here, so this is what "和紙 ×N" comes out as when winAnsi has had it.)
+      if (cs.includes(en("和紙"))) bad(`${tag} cardboard: the washi panel is in the mold's PDF`);
       // Every part must still be LABELLED. winAnsi drops what it cannot draw rather than mangling it,
       // so handing this PDF a Japanese translator would leave the names silently blank and every
       // check above would still pass — this is the one that notices.
       for (const q of paperParts(p, 5, en).parts)
         if (!cs.includes(q.name)) bad(`${tag} cardboard: "${q.name}" is not labelled in the PDF`);
     }
-// ---- 6. The preview IS the file ----
-// Both deliverables are shown on screen before they are downloaded — the cardboard route's pages
-// fill its print view, the washi sheets dock beside the 3D route's plates — and both previews are
-// built from the same `pageOps` the PDF is written from. Section 5 pins their page COUNT; this pins
-// the drawing itself, so a change to one renderer cannot quietly leave the other behind.
+// ---- 6. One drawing, two encodings ----
+// Every page is built once as `pageOps` and then rendered as SVG or as PDF. The cardboard route's
+// SVG is what its print view shows before you download anything; the washi's is drawn nowhere and
+// exists for this comparison. Section 5 pins the page COUNT; this pins the drawing itself, so a
+// change to one renderer cannot quietly leave the other behind — which is the only thing standing
+// between a hand-rolled PDF and a file that disagrees with everything else here.
 //
 // Compared as coordinates, not as bytes, because the two encodings legitimately differ in three
 // ways and only these three:
@@ -348,10 +362,15 @@ const sameDrawing = (svg, pdf, tag) => {
 
 let ns = 0;
 for (const preset of PRESETS)
-  for (const height of [140, 205, 300, 400])
+  for (const height of [140, 205, 300, 400]) {
+    const p = { ...DEFAULTS, ...preset, height };
+    // Once per design, not once per allowance pair: the mold's template stopped depending on the
+    // washi allowances the day the panel became its own document.
+    ns++;
+    sameDrawing(paperPagesSVG(p, 5, en, A4).svg,
+      Buffer.from(paperPDF(p, 5, A4, en)).toString("latin1"), `same ${preset.key} h${height} cardboard`);
     for (const [side, end] of [[3, 3], [0, 0], [10, 5]]) {
       ns++;
-      const p = { ...DEFAULTS, ...preset, height };
       const tag = `same ${preset.key} h${height} s${side} e${end}`;
       // Built with the SAME translator the PDF gets, so this is about the drawing, not the labels.
       const w = washiPagesSVG(p, { side, end }, en, A4).svg;
@@ -359,9 +378,8 @@ for (const preset of PRESETS)
       // The language must not move a single coordinate — only the words.
       if (svgPaths(washiPagesSVG(p, { side, end }, undefined, A4).svg).join("|") !== svgPaths(w).join("|"))
         bad(`${tag} washi: the drawing changes with the UI language`);
-      sameDrawing(paperPagesSVG(p, 5, en, { side, end }, A4).svg,
-        Buffer.from(paperPDF(p, 5, A4, en, { side, end })).toString("latin1"), `${tag} cardboard`);
     }
+  }
 
 // ---- 7. The silhouette extremes (the corners of LIMITS) ----
 // Cardboard is the route with no size limit — a part too tall for A4 just continues on the next
@@ -384,7 +402,9 @@ for (const preset of PRESETS)
       const { parts, pk } = paperParts(p, 5);
       const rib = parts.find((q) => q.name.startsWith("羽根板"));
       eq(bb(rib).h, p.height + 2 * p.tabLen, `${tag} rib total length`);
-      if (!parts.some((q) => q.name.startsWith("和紙"))) bad(`${tag}: washi panel missing`);
+      // The panel that ships beside these pages, cut from the same pk they are (see section 1).
+      const wparts = washiParts(pk).parts;
+      if (!wparts.length) bad(`${tag}: washi panel missing`);
       for (const q of parts)
         for (const [x, y] of [q.outline, ...(q.holes || [])].flat())
           if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
@@ -395,10 +415,10 @@ for (const preset of PRESETS)
         const y = y0 + ((y1 - y0) * i) / 4000, R = outerR(p, y / height);
         arc += Math.hypot((y1 - y0) / 4000, R - prev); prev = R;
       }
-      const panel = bb(parts.find((q) => q.name.startsWith("和紙"))).h;
+      const panel = bb(wparts.find((q) => q.name.startsWith("和紙"))).h;
       if (panel + 0.01 < arc) bad(`${tag}: washi panel ${panel} shorter than the meridian arc ${arc}`);
       // The pages still render, and every part still lands on one.
-      const { svg, pages } = paperPagesSVG(p, 5, undefined, {}, A4);
+      const { svg, pages } = paperPagesSVG(p, 5, undefined, A4);
       if (/NaN|Infinity|undefined/.test(svg)) bad(`${tag}: NaN/undefined in the pages`);
       if ((svg.match(/class="pg"/g) || []).length !== pages) bad(`${tag}: page count disagrees with the markup`);
       for (const q of parts) if (!svg.includes(q.name)) bad(`${tag}: ${q.name} not on paper`);

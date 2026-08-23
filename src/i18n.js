@@ -33,8 +33,8 @@ const EN = {
   "竹ひごを巻いて和紙を貼る": "Wind bamboo, paste the washi",
   "画面に映っているのは提灯そのものではなく、その上で組み立てる「型」です":
     "What you see is not the lantern itself — it is the mold the lantern is built on",
-  "和紙の型紙(先に切っておく用)は、どちらの出力にも付いてきます":
-    "The washi template — for cutting the paper before pasting — comes with either output",
+  "和紙の型紙(先に切っておく用・beta)は、どちらの出力にも付いてきます":
+    "The washi template (beta) — for cutting the paper before pasting — comes with either output",
   "上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。":
     "The tabs above also show the assembly and the lantern lit. Reopen this with the \"?\" at the top right.",
   // ---- Welcome / the route choice (3D print vs cardboard) ----
@@ -95,9 +95,10 @@ const EN = {
   "この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。":
     "This output is still in development. Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Measure your material's real thickness, and check the printed 50 mm scale bar with a ruler.",
   "材料の厚み": "Material thickness",
-  "型紙 PDF をダウンロード (A4 原寸)": "Download the template PDF (A4, 1:1)",
-  "プリンタの設定は「実際のサイズ / 100%」にしてください(「用紙に合わせる」は不可)。和紙の型紙も同じ PDF に入っています。":
-    "Set your printer to \"Actual size / 100%\" (never \"fit to page\"). The washi template is in the same PDF.",
+  "型紙 ZIP をダウンロード (A4 原寸)": "Download the template ZIP (A4, 1:1)",
+  "プリンタの設定は「実際のサイズ / 100%」にしてください(「用紙に合わせる」は不可)。":
+    "Set your printer to \"Actual size / 100%\" (never \"fit to page\").",
+  " は別 PDF として同梱されます(そのまま原寸で印刷)。": " is bundled as a separate PDF (print it at 100% as-is).",
   // The PDF's own title line. English on purpose: base-14 Helvetica cannot draw Japanese (see paperPDF).
   "TOMOSHIBI 段ボール型紙 {name} 原寸": "TOMOSHIBI cardboard template {name} (full scale)",
   // Printed on every sheet, so it has to survive winAnsi() — plain Latin-1 only (the arrow folds).
@@ -115,7 +116,6 @@ const EN = {
   "して印刷してください。設定は ": " and print them. Settings are bundled as ",
   " として同梱されます(バックアップ用)。": " (for backup).",
   "和紙の型紙 ": "The washi template ",
-  "和紙の型紙": "Washi template",
   " も同梱されます(そのまま原寸で印刷)。": " is bundled too (print it at 100% as-is).",
   // ---- Warnings / status ----
   "⚠ 3Dプレビューを初期化できませんでした": "⚠ Could not initialize the 3D preview",
@@ -182,12 +182,14 @@ const EN = {
   // English text at the same size (a longer line collides with the footer).
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
-  "羽根板の間 1面分": "one rib-to-rib panel",
+  "羽根板の間 1面分 · beta": "one rib-to-rib panel · beta",
   "のりしろ(左右)": "Overlap (sides)",
   "被せ代(上下)": "Cover (ends)",
   "1面のサイズ": "Panel size",
-  "貼る前に和紙を切るための原寸型紙です。STL の ZIP と段ボールの型紙に同梱されます。":
-    "A full-scale template for cutting the washi before you paste it. It ships inside the STL kit ZIP and with the cardboard template.",
+  "貼る前に和紙を切るための原寸型紙です。どちらの出力にも別 PDF で同梱されます。":
+    "A full-scale template for cutting the washi before you paste it. Either output bundles it as its own PDF.",
+  "この型紙は検証中です。全面を切る前に、まず 1 面だけ合わせてみてください。":
+    "Still being verified: cut one panel and offer it up before you cut them all.",
   "TOMOSHIBI 和紙型紙 {name} 原寸": "TOMOSHIBI washi template {name} (full scale)",
 };
 

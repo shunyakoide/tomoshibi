@@ -74,7 +74,9 @@ const STEPS = [
 
 const POINTS = [
   "画面に映っているのは提灯そのものではなく、その上で組み立てる「型」です",
-  "和紙の型紙(先に切っておく用)は、どちらの出力にも付いてきます",
+  // beta in the string rather than as a badge: this is a sentence in a bullet list, and the badge
+  // element belongs on the things you press (the route buttons below).
+  "和紙の型紙(先に切っておく用・beta)は、どちらの出力にも付いてきます",
 ];
 
 // The two ways to make the mold. Sub-line = what you actually receive, because "3D print / cardboard"

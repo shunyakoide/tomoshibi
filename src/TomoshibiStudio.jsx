@@ -26,8 +26,8 @@ import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit,
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
-import { exportZip, downloadFile } from "./stl.js";
-import { paperPDF, washiPDF, paperFit } from "./papercraft.js";
+import { exportZip, zipBundle, downloadFile } from "./stl.js";
+import { paperPDF, washiPDF, paperFit, paperP } from "./papercraft.js";
 import { fitOnBed } from "./bed.js";
 import { useViewport } from "./three/viewport.js";
 import { buildScene } from "./three/scenes.js";
@@ -37,7 +37,7 @@ import {
   loadWelcomeSeen, saveWelcomeSeen,
 } from "./persist.js";
 import SectionEditor from "./SectionEditor.jsx";
-import PagePreview, { WashiPreview } from "./PagePreview.jsx";
+import PagePreview from "./PagePreview.jsx";
 import Welcome from "./Welcome.jsx";
 import { DEFAULTS, LIMITS, SIL_ROWS } from "./config.js";
 import { makeT } from "./i18n.js";
@@ -49,6 +49,10 @@ import Toolbar from "./ui/Toolbar.jsx";
 import Logo from "./ui/Logo.jsx";
 
 const PANEL = 336;          // inspector width (px)
+// The washi template's filename, in one place because it is written into two ZIPs and printed in two
+// notes. `_beta` is part of it on purpose: the file outlives the app screen it came from — it gets
+// mailed, reprinted months later, handed to someone else — and the caveat has to travel with it.
+const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";
 const BED_PRESETS = [180, 220, 250, 256, 300, 350];
 const VIEWS = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]];
 // How the mold gets made. Cardboard is marked beta: its dimensions come from the same geometry.js
@@ -161,9 +165,18 @@ export default function TomoshibiStudio() {
       { name: "tomoshibi_ring_top.stl", geos: [ringGeometry(p, true)] },
     ], "tomoshibi_kit.zip", [
       { name: "tomoshibi_config.json", bytes: new TextEncoder().encode(cfg) },
-      { name: "tomoshibi_washi_a4.pdf", bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, makeT("en")) },
+      { name: WASHI_PDF, bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, makeT("en")) },
     ]);
   };
+
+  // The cardboard route's bundle, shaped like the STL kit's: one download, and the washi template a
+  // separate PDF inside it. Both are written with the ENGLISH translator — base-14 Helvetica has no
+  // CJK glyphs, so a Japanese label is dropped rather than drawn (see paperPDF / winAnsi).
+  const downloadPaperKit = () => zipBundle({
+    "tomoshibi_katagami_a4.pdf": paperPDF(p, matT, undefined, makeT("en")),
+    // washiSrc, not p: on this route the panel follows the possibly-clamped rib count.
+    [WASHI_PDF]: washiPDF(washiSrc, washiOpts, undefined, makeT("en")),
+  }, "tomoshibi_katagami.zip");
 
   // Export the design as JSON. localStorage is a volatile cache; this file is the backup you can
   // rely on. Same schema as the config.json inside the ZIP.
@@ -250,10 +263,6 @@ export default function TomoshibiStudio() {
   // The cardboard route's print view is a document, not a scene: PagePreview draws the template's
   // pages over the (idle) canvas, exactly as the section editor does.
   const paperPreview = view === "print" && route === "paper" && !isLit;
-  // The 3D route's counterpart. Its washi template only ever existed inside the kit ZIP, so it was
-  // the one sheet the app makes that you could not look at first — it docks beside the plates rather
-  // than replacing them (the plates are what this view is about).
-  const washiPreview = view === "print" && route === "stl" && !isLit;
   // The cardboard route's own "this design won't cut well" check, the counterpart to the bed overflow
   // above. Cheap enough to run every render (a couple of divisions — see paperFit), and deliberately
   // NOT limited to the print view: every way out of it (fewer ribs, thinner material, a wider opening)
@@ -263,6 +272,10 @@ export default function TomoshibiStudio() {
   const thinWall = fit && fit.wall < fit.thin;
   // Stable identity, so the preview's memo isn't invalidated by every unrelated render.
   const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
+  // The design the washi template is cut from. On cardboard that is `paperP`, not the design on
+  // screen: thick material can clamp the rib count, and the panel is one rib-to-rib bay wide — so the
+  // sheet has to describe the mold this route makes rather than the one being edited.
+  const washiSrc = useMemo(() => (route === "paper" ? paperP(p, matT) : p), [route, p, matT]);
   const chip = chipStyle(isLit);
 
   // ============ Left: viewport ============
@@ -281,11 +294,7 @@ export default function TomoshibiStudio() {
 
       {/* Print view, cardboard route: the output is a document, so the preview is one — the
           template's own pages, over the same (empty) canvas the section editor uses. */}
-      {paperPreview && <PagePreview p={p} matT={matT} washi={washiOpts} lang={lang} />}
-
-      {/* Print view, 3D route: the plates are 3D, but the washi template that ships with them is
-          paper — so it is shown as the sheet it is, docked at the side. */}
-      {washiPreview && <WashiPreview p={p} washi={washiOpts} lang={lang} />}
+      {paperPreview && <PagePreview p={p} matT={matT} lang={lang} />}
 
       {glError && (
         <div style={{
@@ -492,9 +501,13 @@ export default function TomoshibiStudio() {
 
         {/* Washi: the paper skin's own allowances. Part of the design (the panel follows the
             silhouette and the rib count), not an output method — the template ships with whichever
-            output you pick, so there is no separate download here. */}
+            output you pick, so there is no separate download here.
+            Marked beta like the cardboard route, and for the same kind of reason: flattening a
+            doubly-curved surface is approximate by nature, and how much a damp sheet takes up is
+            still being checked against actual builds. The dimensions are checked (check:paper), the
+            fit on a real lantern is not. */}
         <div style={{ marginBottom: 20 }}>
-          <SectionLabel title="和紙" hint="羽根板の間 1面分" />
+          <SectionLabel title="和紙" hint="羽根板の間 1面分 · beta" />
           <Stepper label="のりしろ(左右)" value={washiSide} min={0} max={15} step={1} onChange={setWashiSide}>
             {washiSide} mm
           </Stepper>
@@ -508,7 +521,8 @@ export default function TomoshibiStudio() {
             </span>
           </div>
           <Note style={{ marginTop: 2 }}>
-            {t("貼る前に和紙を切るための原寸型紙です。STL の ZIP と段ボールの型紙に同梱されます。")}
+            {t("貼る前に和紙を切るための原寸型紙です。どちらの出力にも別 PDF で同梱されます。")}
+            <br />{t("この型紙は検証中です。全面を切る前に、まず 1 面だけ合わせてみてください。")}
           </Note>
         </div>
 
@@ -615,23 +629,21 @@ export default function TomoshibiStudio() {
           <CTA label="印刷・書き出しへ進む →" outline onClick={() => setView("print")} />
         ) : route === "paper" ? (
           <>
-            {/* English translator, not `t`: the PDF carries base-14 Helvetica only, so Japanese
-                labels would be dropped rather than drawn (see paperPDF / winAnsi). */}
-            <CTA label="型紙 PDF をダウンロード (A4 原寸)"
-              onClick={() => downloadFile(
-                paperPDF(p, matT, undefined, makeT("en"), { side: washiSide, end: washiEnd }),
-                "tomoshibi_katagami_a4.pdf", "application/pdf")} />
+            <CTA label="型紙 ZIP をダウンロード (A4 原寸)" onClick={downloadPaperKit} />
             {/* The one thing left to say. A PDF is already A4 at exact size, so the only way to lose
                 that is the printer's own scaling — everything else the old HTML page explained was
                 about making an HTML print at 1:1 in the first place. */}
-            <Note>{t("プリンタの設定は「実際のサイズ / 100%」にしてください(「用紙に合わせる」は不可)。和紙の型紙も同じ PDF に入っています。")}</Note>
+            <Note>
+              {t("プリンタの設定は「実際のサイズ / 100%」にしてください(「用紙に合わせる」は不可)。")}
+              <br />{t("和紙の型紙 ")}<span style={{ fontFamily: mono }}>{WASHI_PDF}</span>{t(" は別 PDF として同梱されます(そのまま原寸で印刷)。")}
+            </Note>
           </>
         ) : (
           <>
             <CTA label="STL 書き出し" onClick={downloadKit} />
             <Note>
               {t("コマ・柱は上下同一のため各1つ入っています。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong>{t("して印刷してください。設定は ")}<span style={{ fontFamily: mono }}>tomoshibi_config.json</span>{t(" として同梱されます(バックアップ用)。")}
-              <br />{t("和紙の型紙 ")}<span style={{ fontFamily: mono }}>tomoshibi_washi_a4.pdf</span>{t(" も同梱されます(そのまま原寸で印刷)。")}
+              <br />{t("和紙の型紙 ")}<span style={{ fontFamily: mono }}>{WASHI_PDF}</span>{t(" も同梱されます(そのまま原寸で印刷)。")}
             </Note>
           </>
         )}

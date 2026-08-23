@@ -244,20 +244,6 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   width: 100%; height: auto; background: #fff;
   border: 1px solid rgba(59,52,43,0.14); box-shadow: 0 3px 12px rgba(59,52,43,0.16);
 }
-/* The 3D route's dock: the washi sheets beside the plate view rather than over it. The plates stay
-   the subject of that view and the camera behind must stay draggable, so this is a column pinned to
-   the left gutter — the one strip of the print view nothing else claims (the mode chips are above it,
-   the bed-overflow alert is bottom-right). Its own scroll, for the designs whose panel runs to two
-   sheets. */
-.pages-dock {
-  position: absolute; left: 20px; top: 124px; bottom: 20px; width: 190px;
-  padding: 0; grid-template-columns: 1fr; gap: 8px; pointer-events: auto;
-}
-.pages-dock-cap {
-  font-size: 11px; font-weight: 600; color: var(--sub);
-  background: rgba(255,255,255,0.82); border-radius: 5px; padding: 3px 7px;
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-}
 
 /* Narrow: the pane is only 44vh tall here, so a page's height is the binding constraint rather than
    its width. A smaller track keeps two sheets side by side instead of one filling the phone's width
@@ -267,9 +253,6 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
     padding: 118px 12px 10px; gap: 10px;   /* same chips, so the same clearance, minus the slack */
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
-  /* The pane is 44vh here, so a 190px dock would be most of it. Narrow enough to still read the
-     panel's outline, and the plates keep the middle. */
-  .pages-dock { left: 12px; top: 118px; bottom: 12px; width: 104px; }
 }
 /* Full --text, not the muted --sub/--faint the inspector's notes use: this bar sits on the viewport
    over a grey canvas rather than on the panel, and at 11px the browns were washed out. The two
