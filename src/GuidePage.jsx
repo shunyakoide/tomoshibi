@@ -13,10 +13,11 @@
  * app has a rib-count control at all.
  *
  * [Figures vs photographs] A figure is drawn when the answer depends on the design — which parts,
- *   how many, what shape. The steps that do not (winding bamboo, pasting washi, wiring a socket)
- *   take a photograph instead, dropped into `public/photos/` under the name each step names. Until
- *   the file is there the slot shows what it is waiting for, so the layout is finished before the
- *   photography is.
+ *   how many, what shape. Winding the bamboo is one of those (how many turns, and whether they run
+ *   level or as one helix, is an answer about this design), so it is drawn too. The steps that are
+ *   pure technique — pasting the washi, drying, wiring a socket — take a photograph instead, dropped
+ *   into `public/photos/` under the name each step names. Until the file is there the slot shows
+ *   what it is waiting for, so the layout is finished before the photography is.
  * [Route] The cardboard route builds the same mold out of a different material and has no stand and
  *   no printed rings, so those steps are filtered rather than reworded.
  * [Print] The page carries print styles (index.css): the browser's own "Save as PDF" is the paper
@@ -66,7 +67,7 @@ const STEPS = [
     body: "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。",
   },
   {
-    id: "higo", title: "竹ひごを巻く", photo: "higo.jpg",
+    id: "higo", title: "竹ひごを巻く", fig: "higo",
     body: "羽根板の外縁の溝に竹ひごを沿わせ、下から上へ巻いていきます。溝が受けるので滑り落ちません。「螺旋巻き」で設計した型なら、溝が段ごとにずれていて1本の連続した螺旋になります。",
   },
   {
