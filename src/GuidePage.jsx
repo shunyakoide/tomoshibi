@@ -92,7 +92,11 @@ const STEPS = [
     body: "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。",
   },
   {
+    // `wip`: this step is not settled yet, and the badge says so where someone reads it rather than
+    // in a commit message. The socket base below is real and printable; how the legs and the lamp
+    // fitting actually attach is not designed, and the figure's legs are one answer, not the answer.
     id: "light", title: "灯りをつける", fig: "light", socket: true,
+    wip: "脚と灯具の固定方法はまだ検討中です。",
     body: "下の開口にレセップ(E17/E26)の台座を入れて電球を立てます。台座は下のリンクから。⌀65×5mm の固定寸法なので、設計を変えても形は変わりません。",
   },
 ];
@@ -205,8 +209,14 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
                 </div>
               )}
               <div>
-                <h3><span className="guide-num" style={{ background: accent }}>{i + 1}</span>{t(s.title)}</h3>
+                <h3>
+                  <span className="guide-num" style={{ background: accent }}>{i + 1}</span>
+                  {/* Title and badge in one flex item, so the badge keeps its own 5px against the
+                      words instead of taking the h3's 10px gap as well. */}
+                  <span>{t(s.title)}{s.wip && <em className="badge">{t("編集中")}</em>}</span>
+                </h3>
                 <p>{t(!stl && s.paperBody ? s.paperBody : s.body)}</p>
+                {s.wip && <p className="guide-note">{t(s.wip)}</p>}
                 {s.id === "make" && (
                   <button className="btn btn--ghost" onClick={onGoPrint}>{t("「印刷」ビューへ →")}</button>
                 )}

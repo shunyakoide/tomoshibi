@@ -92,7 +92,8 @@ anything older, so on Node 18 the install fails rather than degrading.
 The app says the same thing in the **Guide** view, with the figures and the part counts of the
 design you are actually holding — and with the lamp-holder base to download when you get to the
 light. (That base is a fixed ⌀65 × 5mm disc for an E17/E26 holder; unlike every other part here it
-does not follow your design.)
+does not follow your design.) **That last step is marked a draft**: the base is real and printable,
+but how the legs and the lamp fitting actually attach is still being worked out.
 
 ### No 3D printer? Use cardboard (beta)
 
