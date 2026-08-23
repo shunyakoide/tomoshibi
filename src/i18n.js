@@ -232,8 +232,8 @@ const EN = {
   "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1か所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。":
     "Line every tab up with a notch first, then press the koma down flat. Seating one tab at a time is what cracks them — work around the whole circle a little at a time. The two koma are the same part.",
   "土台に載せる": "Set it in the stand",
-  "型を横向きにして、両端のコマを支柱のくぼみに載せます。手で1回転させて、振れや引っかかりがないか確認してください。ここまでが型の組立です。":
-    "Turn the mold on its side and rest a koma in each post's saddle. Spin it once by hand and check that it runs true and catches on nothing. The mold is now assembled.",
+  "型を横向きにして、両端のコマを支柱のくぼみに載せます。こうすると型が回るので、1面貼っては回し、を繰り返せます。まず手で1回転させて、振れや引っかかりがないか確認してください。":
+    "Turn the mold on its side and rest a koma in each post's saddle. Now it turns: paste one panel, roll it round, paste the next. Spin it once by hand first and check that it runs true and catches on nothing.",
   "竹ひごを巻く": "Wind the bamboo",
   "羽根板の外縁の溝に竹ひごを沿わせ、下から上へ巻いていきます。溝が受けるので滑り落ちません。「螺旋巻き」で設計した型なら、溝が段ごとにずれていて1本の連続した螺旋になります。":
     "Lay the bamboo into the grooves on the ribs' outer edges and wind upward from the bottom. The grooves hold it, so it cannot slip. If you designed with spiral winding, they step round rib by rib and the bamboo becomes one continuous helix.",
@@ -244,11 +244,11 @@ const EN = {
   "糊と和紙が完全に乾くまで置きます。乾くと紙が張って形が決まります。急がないこと — 生乾きで型を抜くと歪みます。":
     "Leave it until the paste and the paper are completely dry. Drying is what pulls the paper taut and sets the shape. Do not rush it: pulling the mold from a damp shade warps it.",
   "型を抜く": "Pull the mold",
-  "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。":
-    "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are.",
+  "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。":
+    "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are. The rings stay behind with the lantern; trim the overhanging washi at the rim.",
   "口輪をはめる": "Fit the opening rings",
-  "上下の開口に口輪を入れて真円を保ちます。はみ出した和紙は開口の縁で切り揃えてください。下の口輪には脚を挿すソケットが付いています(設計で切ってある場合)。":
-    "Set a ring into each opening to hold it round, and trim the overhanging washi at the rim. The bottom ring carries the leg sockets, if this design had room to cut them.",
+  "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。":
+    "Slip a ring over each opening. Their bore follows the opening, so they drop onto the ribs' outer edge. The washi's cover allowance is folded over them when you paste, which is why the rings stay in the lantern after the mold comes out. The one with the leg sockets is the bottom.",
   "灯りをつける": "Put a light in it",
   "下の開口にレセップ(E17/E26)の台座を入れて電球を立てます。台座は下のリンクから。⌀65×5mm の固定寸法なので、設計を変えても形は変わりません。":
     "Drop the lamp-holder base into the bottom opening and stand an E17/E26 holder on it. The base is the download below. It is a fixed ⌀65 × 5mm disc — unlike everything else here, it does not follow the design.",

@@ -22,7 +22,7 @@
 import * as THREE from "three";
 import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
-  standCollarTop, standSaddleH, standSlotSep, outerR, fukuroRange,
+  standCollarTop, standSaddleH, standSlotSep, fukuroRange,
 } from "../geometry.js";
 
 // The isometric direction every figure is drawn from. Shared, because the shade's silhouette has to
@@ -67,9 +67,19 @@ function part(geo, hot) {
  */
 const ribGeo = (p, k, smooth) => ribGeometry(smooth ? { ...p, lighten: false } : p, k, { smooth });
 
-/** Ribs radiating from the axis, koma at whichever ends the step has reached. */
-function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false } = {}) {
+/** Ribs radiating from the axis, koma at whichever ends the step has reached (and, once the guide
+ *  has fitted them, the two opening rings — the mold carries those for the rest of the build). */
+function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false } = {}) {
   const g = new THREE.Group();
+  if (rings) {
+    const { lo: t0, hi: t1 } = fukuroRange(p);
+    for (const top of [false, true]) {
+      const r = part(ringGeometry(p, top), hot === "rings");
+      r.rotation.x = -Math.PI / 2;
+      r.position.y = (top ? t1 : t0) * p.height;    // the openings, which is where they seat
+      g.add(r);
+    }
+  }
   if (ribs) for (let k = 0; k < p.boards; k++) {
     // "oneRib" colours a single rib: the step plugs them in one at a time, and a figure with all
     // eight highlighted says "everything is new" — which is the one thing a highlight cannot mean.
@@ -107,10 +117,12 @@ function standPieces(p, hot) {
 }
 
 /** The mold lying in the stand, exactly as the assembly view shows it (same maths, same result). */
-function moldOnStand(p, hot) {
+function moldOnStand(p, hot, smooth) {
   const g = new THREE.Group();
   g.add(standPieces(p, null));
-  const mold = moldPieces(p, { hot: hot === "mold" ? "ribs" : null });
+  // Rings included: by the time the mold goes in the stand the guide has fitted them, and a figure
+  // that quietly drops a part the reader just installed makes them wonder what they did wrong.
+  const mold = moldPieces(p, { hot: hot === "mold" ? "ribs" : null, smooth, rings: true });
   mold.rotation.z = Math.PI / 2;
   mold.position.set(p.height / 2, standCollarTop() + standSaddleH(p), 0);
   g.add(mold);
@@ -133,41 +145,14 @@ const SCENES = {
   stand: (p) => standPieces(p, "column"),
   ribsIn: (p, sm) => moldPieces(p, { komaTop: false, hot: "oneRib", smooth: sm }),
   komaOn: (p, sm) => moldPieces(p, { hot: "komaTop", smooth: sm }),
-  onStand: (p) => moldOnStand(p, "mold"),
-  // By this step the mold is out, so the figure shows the finished shade — drawing the rings against
-  // the mold would put them somewhere they never meet. The shade is the lamp body revolved, the same
-  // surface the washi is pasted onto (the neck carries none, so the run is fukuroRange).
-  rings: (p) => {
-    const g = new THREE.Group();
-    const { lo: t0, hi: t1 } = fukuroRange(p), N = 96;
-    const prof = [];
-    for (let i = 0; i <= N; i++) {
-      const t = t0 + ((t1 - t0) * i) / N;
-      prof.push(new THREE.Vector2(outerR(p, t), t * p.height));
-    }
-    // The shade is drawn as white faces WITHOUT EdgesGeometry: a surface of revolution is smooth, so
-    // there is no crease anywhere on it and EdgesGeometry returns nothing — the shade came out
-    // invisible, and the far ring showed through it. The faces are what hides that ring; the outline
-    // is added by hand below, because a silhouette is a property of the VIEW, not of the mesh.
-    g.add(new THREE.Mesh(new THREE.LatheGeometry(prof, 64), new THREE.MeshBasicMaterial({
-      color: PAPER, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
-    })));
-    // Viewed orthographically, a surface of revolution shows its profile exactly at the two meridians
-    // 90° from the camera's azimuth. Those two curves ARE the outline.
-    const az = Math.atan2(VIEW_DIR.x, VIEW_DIR.z);
-    for (const side of [1, -1]) {
-      const a2 = az + (side * Math.PI) / 2;
-      const pts = prof.map((v) => new THREE.Vector3(v.x * Math.sin(a2), v.y, v.x * Math.cos(a2)));
-      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: INK })));
-    }
-    for (const top of [false, true]) {
-      const r = part(ringGeometry(p, top), true);
-      r.rotation.x = -Math.PI / 2;
-      r.position.y = (top ? t1 : t0) * p.height;
-      g.add(r);
-    }
-    return g;
-  },
+  // Nothing is highlighted here: the mold was assembled three steps ago and the stand one step ago,
+  // so colouring either says "this is new" about a part that is not. What the figure adds is the
+  // relationship, and eight orange ribs in a stand read as a tangle rather than as an instruction.
+  onStand: (p, sm) => moldOnStand(p, null, sm),
+  // The rings go on the ASSEMBLED MOLD, right after the second koma: the washi's cover allowance is
+  // folded over them, so they are in place long before anything is pasted, and they stay in the
+  // lantern when the mold comes out. Hence the mold here rather than the finished shade.
+  rings: (p, sm) => moldPieces(p, { smooth: sm, rings: true, hot: "rings" }),
 };
 
 export const FIGURES = Object.keys(SCENES);
