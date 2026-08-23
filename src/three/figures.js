@@ -178,39 +178,44 @@ function washiSkin(p, bays, hotBay) {
   return g;
 }
 /**
- * Which bay the camera looks into, given the view direction IN THE GROUP'S OWN FRAME (the mold is
- * turned on its side for the stand, so its bays are not where the world axes say). Half-done is the
- * legible state — skin on one side, bare cage on the other — and that only reads if the boundary
- * between them faces the reader rather than hiding round the back.
- */
-function bayFacing(p, dir) {
-  const d = (Math.PI * 2) / p.boards;
-  const camPhi = Math.PI / 2 - Math.atan2(dir.z, dir.x);
-  return Math.round((camPhi - Math.PI / 2) / d - 0.5);
-}
-/**
- * A quarter of the bays pasted and the next one going on, with bare cage beyond it: the step is
- * "one rib-to-rib panel at a time", and only a half-finished skin can show that.
+ * Panels on every other bay, and the yaw that makes that legible.
  *
- * A quarter, not a half, because the camera sees about a quarter of the way round before the surface
- * turns away — panels past that are drawn edge-on behind the mold, where a pasted panel contributes
- * a stray arc and nothing else. The hot one leads the group, so the reader sees the boundary it is
- * being added at rather than a gap somewhere behind.
+ * The mold is turned so that a bay CENTRE sits on the camera axis, and the panels go on the bays
+ * either side of it: panel · gap · panel, the gap dead centre. A mold has no preferred rotation, so
+ * this costs nothing — and it is the only way to get two alternating panels both fully front-facing.
+ * A bay is 360/N wide, so leaving the phase to chance lands one of any such pair across the
+ * silhouette, where the reader sees its INSIDE through the bare bay with the near side's bamboo
+ * drawn over it: paper behind the bamboo, which is the one thing pasting is not. (Three placements
+ * were tried by eye before this one — leading away from the camera hides the gap, and centring the
+ * run on it puts ivory on both rims, which reads as one skin with a hole torn in it.)
+ *
+ * Alternating is what the step asks for — skip a bay, go round, then come back and fill the gaps, so
+ * each overlap laps onto a panel that is no longer wet — and it is also the only pattern a still
+ * figure can state: contiguous panels are just "a partly covered mold", while a gap between two
+ * pasted bays is unmistakably deliberate.
  */
-function washiPieces(p, dir) {
-  const kc = bayFacing(p, dir);
-  const bays = [kc];
-  for (let i = 1; i <= Math.max(1, Math.round(p.boards / 4)); i++) bays.push(kc + i);
-  return washiSkin(p, bays, kc);
+function washiYaw(p, dir) {
+  const d = (Math.PI * 2) / p.boards;
+  // `dir` is the view direction in the GROUP'S frame — the mold is turned a quarter turn to lie in
+  // the stand, and its bays go with it.
+  const camPhi = Math.PI / 2 - Math.atan2(dir.z, dir.x);
+  return camPhi - ribPhi(0, d) - d / 2;
+}
+function washiPieces(p) {
+  const d = (Math.PI * 2) / p.boards;
+  const bays = [];
+  // Out from the centre bay, every other one, for as long as the WHOLE bay stays within ~78° of the
+  // axis. Scoring a bay by its centre is not enough: a bay centred at 67° still reaches past 90°.
+  for (let i = 1; i * d + d / 2 <= 1.36; i += 2) bays.push(-i, i);
+  if (!bays.length) bays.push(-1, 1);      // a very coarse mold (few, wide ribs): show the pair anyway
+  return washiSkin(p, bays, 1);            // one of the pair is the one going on now
 }
 
-/** Ribs radiating from the axis, koma at whichever ends the step has reached (and, once the guide
- *  has fitted them, the two opening rings — the mold carries those for the rest of the build). */
 function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false, band = false, higo = false, washi = null } = {}) {
   const g = new THREE.Group();
   if (band) g.add(bands(p, hot === "bands"));
   if (higo) g.add(higoWinding(p, hot === "higo"));
-  if (washi) g.add(washiPieces(p, washi));
+  if (washi) g.add(washiPieces(p));
   if (rings) {
     const { lo: t0, hi: t1 } = fukuroRange(p);
     for (const top of [false, true]) {
@@ -236,6 +241,15 @@ function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null
     const kt = part(komaGeometry(p), hot === "komaTop");
     kt.rotation.x = Math.PI / 2; kt.position.y = p.height + p.tabLen;
     g.add(kt);
+  }
+  // The yaw turns the mold, not the panels: they are placed on bays, and turning them alone would
+  // simply slide them off their ribs. Wrapped rather than set on `g` itself, so a caller's own
+  // rotation (the quarter turn into the stand) still composes the way it reads.
+  if (washi) {
+    const w = new THREE.Group();
+    g.rotation.y = washiYaw(p, washi);
+    w.add(g);
+    return w;
   }
   return g;
 }
@@ -304,12 +318,17 @@ const SCENES = {
   // this is the only scene both routes draw, and a part the reader was never told to fit reads as a
   // step they missed.
   higo: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, hot: "higo" }),
-  // Pasting: the same mold, half skinned. Drawn UPRIGHT even on the printed route, where the step
-  // before it set the mold in the stand — the stand is that figure's subject, and here it would lay
-  // the posts across the very seams this one is about. Upright, a panel is the vertical lens the
-  // reader cut from the washi template, which is the shape they are holding.
-  washi: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, washi: VIEW_DIR }),
+  // Pasting: the mold where the reader left it — IN THE STAND, which is what the stand is for (you
+  // paste a panel, turn it, paste the next). The cardboard route has no stand, so there it is drawn
+  // standing on its koma instead; that is also why the panels have to be placed per orientation
+  // rather than once (see `washiPieces`).
+  washi: (p, sm) => (sm
+    ? moldPieces(p, { smooth: true, higo: true, washi: VIEW_DIR })
+    : moldOnStand(p, null, false, DIR_ON_STAND)),
 };
+// The view direction inside the mold's OWN frame once it is lying in the stand. The group is turned
+// a quarter turn about Z there, so world (x,y,z) reads as local (y,-x,z).
+const DIR_ON_STAND = new THREE.Vector3(VIEW_DIR.y, -VIEW_DIR.x, VIEW_DIR.z);
 
 export const FIGURES = Object.keys(SCENES);
 
