@@ -23,7 +23,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   maxRadius, outerR, standBoardLength, maxBoards,
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
+  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit,
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
 import { exportZip, downloadFile } from "./stl.js";
@@ -199,6 +199,10 @@ export default function TomoshibiStudio() {
   // Washi panel figures for the panel readout. A 0.5mm meridian sweep, so memoize it rather than
   // recompute on every render (dragging re-renders constantly).
   const washiG = useMemo(() => washiGore(p, { side: washiSide, end: washiEnd }), [p, washiSide, washiEnd]);
+  // Whether this opening has room for the leg sockets at all — asked apart from the checkbox, so the
+  // panel can say "they will not fit here" without saying it to someone who simply turned them off.
+  // Read from the same function the geometry does, so the two cannot disagree about the part.
+  const legsFit = useMemo(() => ringLegsFit(p), [p]);
   // Opening radii, shown for reference only. Ribs come out by removing a koma and tilting them, so
   // "opening ≥ rib width" would not actually decide whether they clear — no check, no false warning.
   const topOpen = Math.round(outerR(p, 1));
@@ -506,6 +510,23 @@ export default function TomoshibiStudio() {
           <Note style={{ marginTop: 2 }}>
             {t("貼る前に和紙を切るための原寸型紙です。STL の ZIP と段ボールの型紙に同梱されます。")}
           </Note>
+        </div>
+
+        {/* Opening ring: like the washi, a part of the finished LANTERN rather than of the mold, which
+            is why it sits down here with the washi and not up in 骨組み. The hoop itself is sized from
+            the opening and has nothing to set; the bottom one's leg sockets do. */}
+        <div style={{ marginBottom: 20 }}>
+          <SectionLabel title="開口リング" hint="完成品に残る輪" />
+          <Checkbox checked={p.legSockets ?? true} label="脚ソケット(下)"
+            onToggle={() => setP((o) => ({ ...o, legSockets: !(o.legSockets ?? true) }))} />
+          {/* Said here, not on the part: the way out of it is a control on this panel, and a socket
+              that silently is not there is one you find out about with the print in your hand. It
+              only appears when the design ASKED for sockets — otherwise it is not news. */}
+          {(p.legSockets ?? true) && !legsFit && (
+            <div className="hint">
+              {t("この開口には脚ソケットが入りません(下の輪のみになります)。開口を広げると入ります")}
+            </div>
+          )}
         </div>
 
         {/* Print view: the settings for whichever route is selected — the switch itself sits on the

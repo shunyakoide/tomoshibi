@@ -28,7 +28,7 @@ opening**. This app generates that mold as 3D-printable split parts.
 | **Rib (羽根板)** | The radial boards that form the mold surface (N of them, like orange segments). The outer edge carries the lamp-body curve and V-notch grooves for the bamboo ribs; both ends have tabs. |
 | **Koma / hub (コマ)** | Two identical gear-like hubs (top & bottom). Notches around the rim hold the rib tabs; the stand cradles them. |
 | **Stand (土台)** | A base that holds the assembled mold off the table with two U-shaped saddles, so it can be rotated while you work. |
-| **Opening rings (口輪)** | Thin flat hoops for the finished lantern's openings, which have no koma left in them, so the openings keep their shape. The bottom one has a small square tab on its inner rim to tell the two apart once printed. |
+| **Opening rings (口輪)** | Thin flat hoops for the finished lantern's openings, which have no koma left in them, so the openings keep their shape. The **bottom one can carry leg sockets** — three flat pads inside the hoop, each with a 6mm bore, for standing the finished lantern on legs of your own. Where the opening is too small for them it falls back to a plain hoop with a small tab on its inner rim, which tells the two apart once printed. |
 
 ### Features
 
@@ -71,7 +71,7 @@ anything older, so on Node 18 the install fails rather than degrading.
 2. Set the assembly on the stand.
 3. Wind bamboo ribs into the outer-edge grooves; paste washi paper over them.
 4. Let it dry, then pull the koma out (toward the tab side) and slip the ribs out through the openings.
-5. Glue the opening rings into the top & bottom openings — the one with the small tab on its inner edge is the bottom.
+5. Glue the opening rings into the top & bottom openings — the one with the leg sockets is the bottom.
    Then fit your own light.
 
 > **制作フロー**: 印刷 → コマ2枚のノッチに羽根板を差し込む → 溝に竹ひごを巻く → 糊＋和紙を
@@ -137,7 +137,8 @@ CI runs them on every push and pull request.
 - **コマ** — 爪を束ねる歯車状のハブ（上下2個）。
 - **土台** — コマを U 字サドルで受けて型を宙に浮かせ、回しながら作業できる台。
 - **口輪** — 完成した提灯の開口に貼る薄い平リング（完成品にコマは残らないため）。開口の形を保つ。
-  上下で同じ形なので、下側は内側のふちに小さな四角い出っ張りを1つ付けて見分けられるようにしてある。
+  下側は輪の内側に脚ソケット（3ヶ所の平パッド＋⌀6の穴）を付けられる。完成品を脚で立てるための受けで、脚は各自で用意する。
+  開口が小さくソケットが入らない場合は、内ふちに小さな出っ張りを付けた輪のみになる（上下の見分け用）。
 
 **特長**: 断面の直接編集 / 竹ひご溝（螺旋巻きにも対応・羽根に通し番号を刻印）/
 3Dプリンタが無くても作れる段ボール型紙（原寸 A4・**開発中/beta**）/ 貼る前に切るための和紙の型紙（原寸 A4）/ 英日 UI 切替 /

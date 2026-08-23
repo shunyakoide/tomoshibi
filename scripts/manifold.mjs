@@ -210,5 +210,83 @@ for (const height of [hLo, 205, hHi]) {
 }
 console.log(`\n=== silhouette extremes (h ${hLo}..${hHi} × r ${rLo}..${rHi}): ${exTotal} checks, ${exFail} FAIL ===`);
 
-if (fail + hfail + spFail + exFail > 0) process.exitCode = 1;
-process.exit(fail + hfail + spFail + exFail ? 1 : 0);
+// ============ Bottom-ring leg sockets sweep ============
+// The bottom opening ring carries three onigiri pads with a leg bore each, unless `p.legSockets` is
+// off or the opening is too small to hold them. The sweeps above only ever run it on, at the
+// presets' own radii. Both branches are exercised here across the whole radius range, because the
+// failure they guard against is not visible in the preview: on a small opening the pads fold
+// through the ring's axis and through each other, into a solid no slicer can read. `ringLegs` is
+// the guard, so what is checked is that its verdict is right in BOTH directions — every design it
+// accepts must be watertight, and every one it refuses must fall back to a plain hoop that still is.
+// The pad centres = where a leg goes in, in the ring's own XY plane.
+const padCentres = (p) => {
+  const l = G.ringLegs(p);
+  if (!l) return [];
+  return Array.from({ length: l.n }, (_, k) => {
+    const a = (k / l.n) * Math.PI * 2;
+    return [l.Rc * Math.cos(a), l.Rc * Math.sin(a)];
+  });
+};
+// How many of the mesh's faces cover (x, y) when projected onto the XY plane.
+const faceHits = (geom, x, y) => {
+  const pos = geom.getAttribute("position"), idx = geom.index ? geom.index.array : null;
+  const n = idx ? idx.length / 3 : pos.count / 3;
+  const side = (ax, ay, bx, by) => (ax - x) * (by - y) - (bx - x) * (ay - y);
+  let hits = 0;
+  for (let t = 0; t < n; t++) {
+    const i0 = idx ? idx[t * 3] : t * 3, i1 = idx ? idx[t * 3 + 1] : t * 3 + 1, i2 = idx ? idx[t * 3 + 2] : t * 3 + 2;
+    const d1 = side(pos.getX(i0), pos.getY(i0), pos.getX(i1), pos.getY(i1));
+    const d2 = side(pos.getX(i1), pos.getY(i1), pos.getX(i2), pos.getY(i2));
+    const d3 = side(pos.getX(i2), pos.getY(i2), pos.getX(i0), pos.getY(i0));
+    if (!(((d1 < 0) || (d2 < 0) || (d3 < 0)) && ((d1 > 0) || (d2 > 0) || (d3 > 0)))) hits++;
+  }
+  return hits;
+};
+let lgFail = 0, lgTotal = 0, lgOn = 0, lgOff = 0;
+for (const preset of PRESETS)
+  for (const height of [hLo, 205, 400])
+    for (const rMax of [rLo, 20, 40, 130, rHi])
+      for (const legSockets of [true, false]) {
+        {
+          const widest = Math.max(...preset.pts.map((q) => q.r));
+          const pts = preset.pts.map((q) => ({ ...q, r: Math.min(rHi, Math.max(rLo, (q.r * rMax) / widest)) }));
+          const p = { ...DEFAULTS, ...preset, pts, height, legSockets };
+          if (G.ringLegs(p)) lgOn++; else lgOff++;
+          // The flag and the room are separate answers, and the UI shows different text for each.
+          lgTotal++;
+          if (!legSockets && G.ringLegs(p)) { lgFail++; console.log(`✗[L] ${preset.key} :: legSockets:false still cut sockets`); }
+          lgTotal++;
+          if (legSockets && G.ringLegsFit(p) !== (G.ringLegs(p) !== null)) { lgFail++; console.log(`✗[L] ${preset.key} :: ringLegsFit disagrees with ringLegs`); }
+          const tag = `${preset.key} h${height} rMax${rMax} legs${legSockets ? 1 : 0}`;
+          for (const [name, g] of [["ring.bot", G.ringGeometry(p, false)], ["ring.top", G.ringGeometry(p, true)]]) {
+            const r = checkGeom(g);
+            lgTotal++;
+            if (!r.ok) { lgFail++; if (lgFail <= 40) console.log(`✗[L] ${tag} :: ${name} → ${r.reason}`); }
+          }
+          // Edge counting is blind to a hole that got FILLED IN — the shell stays closed either way,
+          // and a leg socket with no bore is a ring you cannot put a leg in. So shoot a ray up the
+          // middle of each pad and count the faces it crosses: 0 means the bore is open, 2 would
+          // mean it is capped. This is the one check that looks at the sockets as sockets.
+          for (const [x, y] of padCentres(p)) {
+            lgTotal++;
+            const c = faceHits(G.ringGeometry(p, false), x, y);
+            if (c !== 0) { lgFail++; if (lgFail <= 40) console.log(`✗[L] ${tag} :: leg bore blocked (${c} faces over it)`); }
+          }
+          // The pads are separate closed shells merged into the hoop, so edge counting alone would
+          // pass a set that has folded through itself. Assert the shape reasons the guard exists for.
+          const legs = G.ringLegs(p);
+          lgTotal++;
+          if (legs && legs.Rc - legs.triR < 0) { lgFail++; console.log(`✗[L] ${tag} :: pad crosses the axis`); }
+          lgTotal++;
+          if (legs) {
+            const cx = legs.Rc + legs.triR / 2, cy = (legs.triR * Math.sqrt(3)) / 2;
+            if (2 * Math.atan2(cy, cx) >= (2 * Math.PI) / legs.n) { lgFail++; console.log(`✗[L] ${tag} :: pads overlap each other`); }
+          }
+        }
+      }
+console.log(`\n=== bottom-ring leg sockets: ${lgTotal} checks, ${lgFail} FAIL ===`);
+console.log(`sockets cut: ${lgOn} / plain hoop + marker (off, or no room): ${lgOff}`);
+
+const bad = fail + hfail + spFail + exFail + lgFail;
+if (bad > 0) process.exitCode = 1;
+process.exit(bad ? 1 : 0);

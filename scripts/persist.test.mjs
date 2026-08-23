@@ -35,7 +35,10 @@ const openEdges = (g) => {
 const finiteP = (p) => Object.entries(p).every(([k, v]) => k === "shape" || k === "pts" || typeof v === "boolean" || Number.isFinite(v))
   && p.pts.every((q) => Number.isFinite(q.t) && Number.isFinite(q.r));
 const manifoldOK = (p) => {
-  try { return [G.ribGeometry(p, 0), G.komaGeometry(p), G.standGeometry(p), G.boardGeometry(p)].every((g) => openEdges(g) === 0); }
+  // The rings are in here because legN/legD are persisted and feed a mesh: a corrupt pair is the
+  // one way a restore can hand the bottom ring pads it cannot build.
+  try { return [G.ribGeometry(p, 0), G.komaGeometry(p), G.standGeometry(p), G.boardGeometry(p),
+    G.ringGeometry(p, false), G.ringGeometry(p, true)].every((g) => openEdges(g) === 0); }
   catch (e) { return "EXC:" + e.message; }
 };
 const KEY = P.STORAGE_KEY;
@@ -80,6 +83,30 @@ t("bedW missing → 256", r.bedW === 256 && r.bedD === 256);
 
 P.saveState({ p: { ...DEFAULTS, neckOn: false }, bedW: 256, bedD: 256, printRibs: 1 });
 t("legacy neckOn preserved", P.loadSaved().p.neckOn === false);
+
+// ---- bottom-ring leg sockets (legSockets) ----
+// One flag, but it decides which of two solids the bottom ring is, so both have to survive the
+// round-trip watertight — and a design saved before the flag existed has to come back with sockets.
+P.saveState({ p: { ...DEFAULTS, legSockets: false }, bedW: 256, bedD: 256, printRibs: 1 });
+r = P.loadSaved();
+t("legSockets off preserved", r.p.legSockets === false);
+t("legSockets off → no sockets cut", G.ringLegs(r.p) === null);
+t("legSockets off → watertight", manifoldOK(r.p) === true);
+
+const noLegs = { ...DEFAULTS };
+delete noLegs.legSockets;
+P.saveState({ p: noLegs, bedW: 256, bedD: 256, printRibs: 1 });
+r = P.loadSaved();
+t("pre-flag save → sockets on", r.p.legSockets === true && G.ringLegs(r.p) !== null);
+t("pre-flag save → watertight", manifoldOK(r.p) === true);
+
+// A tiny opening has no room for pads; the ring must fall back to a hoop rather than fold up, and
+// say so through ringLegsFit rather than by silently producing a different part.
+P.saveState({ p: { ...DEFAULTS, pts: [{ t: 0.05, r: 10 }, { t: 0.5, r: 40 }, { t: 0.95, r: 10 }] },
+  bedW: 256, bedD: 256, printRibs: 1 });
+r = P.loadSaved();
+t("opening too small → no sockets", G.ringLegs(r.p) === null && G.ringLegsFit(r.p) === false);
+t("opening too small → still watertight", manifoldOK(r.p) === true);
 
 P.saveState({ p: { ...DEFAULTS, height: 333 }, bedW: 256, bedD: 256, printRibs: 3 });
 r = P.loadSaved();

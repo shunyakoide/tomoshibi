@@ -125,6 +125,11 @@ const EN = {
   "柱": "Post",
   "連結板": "Connector",
   "開口リング": "Opening ring",
+  // ---- Opening ring (kuchiwa) ----
+  "完成品に残る輪": "stays in the finished lantern",
+  "脚ソケット(下)": "Leg sockets (bottom)",
+  "この開口には脚ソケットが入りません(下の輪のみになります)。開口を広げると入ります":
+    "No room for leg sockets at this opening (the bottom ring stays a plain hoop). A wider opening will fit them.",
   "{parts} がベッド {w}×{d}mm を超過": "{parts} exceeds the {w}×{d}mm bed",
   "→ 火袋の高さを {h}mm 以下に": "→ Reduce body height to {h}mm or less",
   "コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです": "Only {wall}mm of koma left between notches — thin enough to tear when hand-cut",
