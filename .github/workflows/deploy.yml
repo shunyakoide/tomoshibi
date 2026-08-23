@@ -1,0 +1,55 @@
+# Publishes dist/ to GitHub Pages. The site is static and client-side only — there is no backend
+# to deploy, so "release" is literally "put the build output on a static host".
+#
+# The Pages source must be set to "GitHub Actions" in the repository settings; with the classic
+# branch source this workflow uploads an artifact nothing ever reads.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Manual re-run, for redeploying the same commit (e.g. after a Pages settings change).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write        # publish the artifact
+  id-token: write     # deploy-pages authenticates by OIDC, not a token in a secret
+
+# One deployment at a time, and never cancel one in flight: a cancelled deploy can leave the site
+# on a half-published state, which is worse than briefly serving the previous commit.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      # Only the build runs here. The correctness gates (lint / manifold / paper / persist / i18n)
+      # run in ci.yml on this same commit, in parallel — gating this workflow on that one would
+      # need workflow_run and would double the wall-clock for no extra safety: a red CI is visible
+      # on the commit either way, and a build that does not compile fails right here.
+      - run: npm run build
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          # vite.config.js sets base: "./", so the output is position-independent — the same
+          # artifact works at a user-site root or under /Lamp-Kit-Generator/ with no rebuild.
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
