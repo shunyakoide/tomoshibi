@@ -161,6 +161,17 @@ const i18nSrc = fs.readFileSync("src/i18n.js", "utf8");
 const dictBody = i18nSrc.slice(i18nSrc.indexOf("const EN = {"), i18nSrc.indexOf("\n};"));
 const EN_KEYS = [...dictBody.matchAll(/^\s{2}"((?:[^"\\]|\\.)*)":/gm)].map((m) => unescape_(m[1]));
 
+// A duplicate key is invisible in JS — the object literal keeps the last one — so a new entry that
+// happens to repeat a word already in the dictionary silently RETRANSLATES the old one somewhere
+// else in the app. Adding "\u548c\u7d19": "Washi paper" for a materials card did exactly that to the
+// inspector's own "\u548c\u7d19" section heading, and nothing else here noticed.
+const dupes = EN_KEYS.filter((k, i) => EN_KEYS.indexOf(k) !== i);
+if (dupes.length) {
+  for (const k of [...new Set(dupes)]) bad(`duplicate EN entry (the later one silently wins): ${JSON.stringify(k)}`);
+} else {
+  ok(`no duplicate dictionary keys (${EN_KEYS.length} entries)`);
+}
+
 const orphans = EN_KEYS.filter((k) => !where.has(k));
 if (orphans.length) {
   for (const k of orphans) {

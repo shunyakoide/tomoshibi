@@ -89,8 +89,10 @@ anything older, so on Node 18 the install fails rather than degrading.
 > **制作フロー**: 印刷 → コマ2枚のノッチに羽根板を差し込む → 溝に竹ひごを巻く → 糊＋和紙を
 > 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を貼る → 照明化。
 
-The app says the same thing in the **Guide** view, with the figures and the part counts of the
-design you are actually holding. The last step gives the **three ways to light it** — cover a lamp
+The app says the same thing in the **Guide** view — every step drawn, and a list of what you
+supply yourself (bamboo, washi, paste, a razor, a lamp) drawn beside it. The drawings are of one
+example lantern rather than of your design: the method does not change with the shape, and the
+sizes and counts are the ones you set in the app. The last step gives the **three ways to light it** — cover a lamp
 stood on the floor, hang it from a pendant cord, or add legs and fix the lamp in from below — each
 drawn, and the third only where the bottom ring has the leg sockets to take it. **That step is
 marked a draft**: how the lamp fitting attaches is still being worked out, so the guide says what
