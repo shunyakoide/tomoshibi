@@ -2,8 +2,9 @@
  * ============================================================================
  * FIGURES — the assembly guide's line drawings, rendered from the real parts
  * ============================================================================
- * Every figure on the guide page is a picture of **this** design: 8 ribs are drawn as 8 ribs, and a
- * 400mm body is drawn tall. The shapes come from `geometry.js` like everything else here, so a
+ * Every figure on the guide page is drawn from a real design `p`: 8 ribs are drawn as 8 ribs, and a
+ * 400mm body is drawn tall. (The guide hands the same FIXED design to every call these days — see
+ * GuidePage. Nothing in this file knows that, and nothing here should.) The shapes come from `geometry.js` like everything else here, so a
  * figure cannot show a mold the STL does not make — the failure a hand-drawn illustration guarantees
  * the day someone changes a part.
  *
@@ -560,7 +561,7 @@ function lightLegs(p, smooth) {
 
 /**
  * ============================================================================
- * THE KIT — the only figures here that are not this design
+ * THE KIT — the figures that are not this design
  * ============================================================================
  * Everything above is `p` made visible. These are not. A pot of paste, a roll of tape and a brush
  * are things you buy, and nothing about them is decided by the lantern — the same reason `KIT` in
@@ -906,6 +907,10 @@ function razorBlade() {
   return g;
 }
 
+// The holder's shell. Two figures draw it: the kit card's lamp, hanging with its cord grip up, and
+// the fitting figures at the foot of this file, standing the other way up with its threaded stem
+// and nut on show. Same object, so the same two numbers.
+const SOCKET_R = 17, SOCKET_H = 34;
 /**
  * The pendant lamp holder — the cord-and-socket that ways (2) and (3) hang the lamp from. It is
  * NOT a card of its own: on its own it is a fitting, and the list is a list of things you need in
@@ -930,9 +935,9 @@ function pendantSocket() {
   const cap = solid(new THREE.CylinderGeometry(8, 13, 12, 32));      // the cord grip
   cap.position.y = 28;
   g.add(cap, silhouetteLines(8, 13, 34, 22));
-  const body = solid(new THREE.CylinderGeometry(17, 17, 34, 32));    // the shell
+  const body = solid(new THREE.CylinderGeometry(SOCKET_R, SOCKET_R, SOCKET_H, 32));   // the shell
   body.position.y = 5;
-  g.add(body, silhouetteLines(17, 17, 22, -12));
+  g.add(body, silhouetteLines(SOCKET_R, SOCKET_R, 22, -12));
   // The skirt around the mouth the bulb screws into. Only just wider than the shell: the view
   // looks DOWN on this, so the mouth itself is on the far side and no amount of ring drawn there
   // is visible (it was drawn as an annulus first — the shell sits over the bore and hides it).
@@ -1080,6 +1085,195 @@ function lamps() {
   return g;
 }
 
+/**
+ * ============================================================================
+ * FIXING THE LAMP — the sub-figures under way (3), "legs, fixed from below"
+ * ============================================================================
+ * How the lamp is held to the lantern is the one thing the light step could not say. For the legs
+ * the answer is the one the ready-made lantern kits use, and it needs no part this app prints: a
+ * pendant holder's cord leaves through a THREADED STEM with a fixing nut on it, so a wire with a
+ * loop bent in its end can be stacked on that stem and clamped under the nut. Three wires, three
+ * loops, one nut — the lamp and its legs come off the bench as one piece.
+ *
+ * These ignore `p` exactly as the kit's figures do, and for the same reason: a socket, a nut and a
+ * metre of wire are things you buy, and nothing about them is decided by the lantern. Two things
+ * they DO share with the drawings around them:
+ *
+ * [Orientation] The holder is drawn the way this way of doing it leaves it — mouth UP, so the bulb
+ *   points into the shade, cord and stem DOWN. That is the whole difference between way (3) and
+ *   way (2) hung upside down, and it is why the nut is reachable at all.
+ * [Colour] The wire is ACCENT here and grey in the option's own figure — `bands`' rule, that a
+ *   thing is drawn hot while the step is ABOUT it and muted once it is not. These three figures are
+ *   about the wire; the figure above them is about the lantern.
+ *
+ * There is no arrow on the nut (the reference drawing for this has a red one). Nothing else on the
+ * page has an arrow, and it does not need one: the nut is drawn OFF the thread in (2) and run up
+ * tight in (3), which is the exploded-then-assembled pair the guide already uses for `lightSet`.
+ */
+const STEM_R = 5.5, STEM_H = 28;      // the threaded stem the cord leaves by, and the nut runs on
+const NUT_R = 9.5, NUT_H = 6;         // across the corners: a hex draws its own edges, unlike a tube
+const WIRE_R = 1.3, LOOP_R = 8.6;     // the leg wire, and the loop bent in its end (it has to pass
+                                      // over the stem's thread: LOOP_R - WIRE_R > STEM_R + 0.5)
+// Where the stack of loops starts, and it is a long way down the stem for a reason that is about
+// the drawing rather than about the fitting: the shell is ⌀34 and the loops are ⌀20, so a loop up
+// against the shell's underside is UNDER it — the view looks down, and all three vanished, leaving
+// three arms coming out of thin air. This far down, all three clear the shell's edge. A real one
+// takes them anywhere along the thread.
+const LOOP_Y = -14;
+// One leg's shape — arm out, drop, and how far the foot lands outside the arm. The wire figure and
+// the assembled one draw the same leg; only the close-up cuts it short.
+const LEG = [50, 76, 26];
+
+/** The holder, mouth up, with its stem and thread. `crop` cuts the shell short for the close-up. */
+function lampHolder(crop) {
+  const g = new THREE.Group();
+  const h = crop ? SOCKET_H * 0.55 : SOCKET_H;
+  const shell = solid(new THREE.CylinderGeometry(SOCKET_R, SOCKET_R, h, 32));
+  shell.position.y = h / 2;
+  g.add(shell, silhouetteLines(SOCKET_R, SOCKET_R, h, 0));
+  const stem = solid(new THREE.CylinderGeometry(STEM_R, STEM_R, STEM_H, 24));
+  stem.position.y = -STEM_H / 2;
+  g.add(stem, silhouetteLines(STEM_R, STEM_R, 0, -STEM_H));
+  // The thread, as raised rings. `ledBulb`'s cap says "screw" the same way and for the same reason:
+  // a smooth white cylinder says nothing at all, and this one has to read as something a nut runs on.
+  for (let y = -STEM_H + 1.6; y < -2; y += 2.6) {
+    const band = solid(new THREE.CylinderGeometry(STEM_R + 0.5, STEM_R + 0.5, 1.2, 24));
+    band.position.y = y;
+    g.add(band, silhouetteLines(STEM_R + 0.5, STEM_R + 0.5, y + 0.6, y - 0.6));
+  }
+  return g;
+}
+
+/** The fixing nut: a hex prism with the stem's bore through it — without the bore it is a plug. */
+function hexNut() {
+  const s = new THREE.Shape();
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+    const x = NUT_R * Math.cos(a), y = NUT_R * Math.sin(a);
+    if (i === 0) s.moveTo(x, y); else s.lineTo(x, y);
+  }
+  s.closePath();
+  s.holes.push(new THREE.Path().absarc(0, 0, STEM_R + 0.6, 0, Math.PI * 2, true));
+  const geo = new THREE.ExtrudeGeometry(s, { depth: NUT_H, bevelEnabled: false, curveSegments: 24 });
+  geo.rotateX(-Math.PI / 2);            // extruded along +z; stand it on its axis
+  geo.translate(0, -NUT_H / 2, 0);
+  return solid(geo);
+}
+
+/**
+ * One leg, bent to shape: the loop, the arm out to the opening, and the drop to the floor. Swept as
+ * ONE tube through a point list rather than assembled from cylinders — the corners then come out as
+ * bends, which is what a wire has, instead of as the notch two cylinders meeting leave.
+ *
+ * The loop lies flat, centred on the origin, so the wire is placed by simply dropping it onto the
+ * stem's axis. It runs just under a full turn and leaves TANGENTIALLY: the tangent for a decreasing
+ * angle is (sin a, -cos a), so ending at a = pi/2 is what sends the arm off along +x. That last
+ * eighth of a turn is also what keeps the loop from closing on itself, which at wire thickness
+ * would be two rods in the same place.
+ */
+function legWire(arm, drop, splay) {
+  const pts = [];
+  const TURN = Math.PI * 1.9, N = 44;
+  for (let i = 0; i <= N; i++) {
+    const a = Math.PI / 2 + TURN * (1 - i / N);
+    pts.push(new THREE.Vector3(LOOP_R * Math.cos(a), 0, LOOP_R * Math.sin(a)));
+  }
+  pts.push(
+    new THREE.Vector3(arm * 0.5, 0, LOOP_R),
+    new THREE.Vector3(arm * 0.92, 0, LOOP_R),                       // out over the opening; the two
+    new THREE.Vector3(arm + splay * 0.1, -drop * 0.08, LOOP_R),     // points closing in on the
+    new THREE.Vector3(arm + splay * 0.45, -drop * 0.45, LOOP_R),    // corner are what keep the bend
+    new THREE.Vector3(arm + splay, -drop, LOOP_R),                  // a bend and not a long curve
+  );
+  const curve = new THREE.CatmullRomCurve3(pts);
+  // 8 radial segments and drawn as a `part`, not as the plain filled tube the option's own figure
+  // uses for its legs. Filled, three loops stacked on one stem merge into a single orange blob —
+  // they are the same colour, they overlap in projection, and nothing separates them. As a part
+  // each gets its outline, and the 45deg facets clear the 24deg edge threshold the same way
+  // `coil()` leans on, so the wire reads as a rod with three turns rather than as a lump.
+  const geo = new THREE.TubeGeometry(curve, pts.length * 3, WIRE_R, 8, false);
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: HI, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+  })));
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 24), new THREE.LineBasicMaterial({ color: INK })));
+  return g;
+}
+
+// A third of a turn between legs, and NO phase on the triad — which is a decision, because the
+// obvious tidy-up is to turn it. With three legs and one isometric camera, one of them always
+// points nearly along the view axis, and the two ways it can go are not equal: a leg pointing AWAY
+// has an arm that projects up the page (odd-looking, but three legs are still visible and countable)
+// while a leg pointing AT the reader collapses to a stub behind the socket and the figure is left
+// showing two. Turning the triad a quarter turn to balance the back pair was tried, and that is
+// exactly what it cost. So: legs on 0/120/240, gaps on 60/180/300 — see the cord for what uses them.
+const LEG_PHASE = 0;
+
+/** The three loops stacked on the stem, each turned a third of a turn on from the last. */
+function legLoops(g, arm, drop, splay) {
+  for (let i = 0; i < 3; i++) {
+    const w = legWire(arm, drop, splay);
+    w.rotation.y = LEG_PHASE + (i / 3) * Math.PI * 2;
+    w.position.y = LOOP_Y - i * 3.4;    // stacked, a wire thickness apart and a little daylight
+    g.add(w);
+  }
+  return LOOP_Y - 2 * 3.4 - WIRE_R;     // where the stack ends = where a tightened nut comes to
+}
+
+/**
+ * The cord: out of the stem, down, then TURNED out of frame — `lightLegs` turns it for the reason
+ * this one does too, that a dark line straight down between three legs is read as a fourth. `az` is
+ * the compass bearing it leaves on, and it has to be one of the GAPS between the legs (60, 180 or
+ * 300 as `LEG_PHASE` leaves them): out through a leg, the two lines cross and the cord is read as
+ * part of the frame. 300 is the gap that projects to the right, where the frame has the room.
+ */
+function lampCord(g, y0, down, run, az = -Math.PI / 3) {
+  const mat = new THREE.MeshBasicMaterial({ color: CORD_INK });
+  const drop = new THREE.Mesh(new THREE.CylinderGeometry(CORD_R, CORD_R, down, 12), mat);
+  drop.position.y = y0 - down / 2;
+  g.add(drop);
+  if (!run) return;
+  const out = new THREE.Mesh(new THREE.CylinderGeometry(CORD_R, CORD_R, run, 12), mat);
+  out.rotation.z = -Math.PI / 2;                       // stand it along +x, then swing it round
+  out.rotation.y = -az;
+  out.position.set((run / 2) * Math.cos(az), y0 - down, (run / 2) * Math.sin(az));
+  g.add(out);
+}
+
+/** (3a) The wire on its own, bent to shape. One of the three: they are all the same shape. */
+function legBend() {
+  const g = new THREE.Group();
+  g.add(legWire(...LEG));
+  return g;
+}
+
+/** (3b) The loops on the stem, nut off — a close-up, so the shell is cropped and the legs are cut. */
+function legStack() {
+  const g = new THREE.Group();
+  g.add(lampHolder(true));
+  legLoops(g, 24, 15, 7);               // the legs cut short: this frame is about the stem
+  const nut = hexNut();
+  nut.position.y = -STEM_H - 9;         // clear of the thread, waiting on the cord: the nut is OFF
+  g.add(nut);
+  lampCord(g, 0, STEM_H + 24, 0);       // straight down, and cut off: nothing else is in this frame
+  return g;
+}
+
+/** (3c) Tightened, with a bulb in it: the lamp and its three legs, now one piece that stands up. */
+function legStood() {
+  const g = new THREE.Group();
+  g.add(lampHolder(false));
+  const bulb = ledBulb();
+  bulb.position.y = SOCKET_H + BULB_FOOT - 8;          // 8mm of cap screwed into the mouth
+  g.add(bulb);
+  const yEnd = legLoops(g, ...LEG);
+  const nut = hexNut();
+  nut.position.y = yEnd - NUT_H / 2;                   // run up tight under the stack
+  g.add(nut);
+  lampCord(g, -STEM_H, 24, 28);
+  return g;
+}
+
 const SCENES = {
   // Parts, one at a time, for the parts list.
   rib: (p, sm) => part(ribGeo(p, 0, sm), false),
@@ -1138,6 +1332,11 @@ const SCENES = {
   kitWashi: () => washiStack(),
   kitRazor: () => razorBlade(),
   kitLight: () => lamps(),
+  // Fixing the lamp — the sub-steps under way (3). Like the kit's, these ignore `p`: what holds a
+  // lamp to the paper is hardware you buy, not something the mold decides.
+  legBend: () => legBend(),
+  legStack: () => legStack(),
+  legStood: () => legStood(),
 };
 // The view direction inside the mold's OWN frame once it is lying in the stand. The group is turned
 // a quarter turn about Z there, so world (x,y,z) reads as local (y,-x,z).
