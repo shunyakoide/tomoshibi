@@ -49,8 +49,8 @@ const LEG_OVERLAP = 0.6; // how far the pad's outer edge overlaps into the hoop 
 const PAD_CORE = 1;      // material the inner vertex must leave around the ring's axis, mm
 const PAD_GAP = 1.5;     // clear air required between two neighbouring pads, mm
 // Bottom-ring marker, for when there are no leg sockets to tell the pair apart. The two rings are
-// then the same flat hoop in different sizes, and on a shape whose openings are close (the sphere
-// preset is ⌀60 vs ⌀56) they are easy to mix up once printed. One small square tab on the inner rim
+// then the same flat hoop in different sizes, and on a shape whose openings are close (the barrel
+// preset is ⌀116 vs ⌀108) they are easy to mix up once printed. One small square tab on the inner rim
 // tells them apart at a glance. It reaches past the nominal opening by MARK_D - RING_FIT; that is
 // intended, the tab sits in the pasted layers at the rim. Kept narrow so it takes up as little of
 // the rim as possible — widen it and it stops being something you can tuck in. Don't "fix" it by
