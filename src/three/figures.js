@@ -725,8 +725,10 @@ function pasteBrush() {
   const br = solid(new THREE.BoxGeometry(120, 34, 17));
   br.position.y = -17;
   g.add(br);
-  // The block's own bottom-front edge: y = -17 - 17 (half height), z = half depth.
-  g.add(bristleFringe(-52, 52, -34, 8.4, 9, 9));
+  // The block's own bottom-front edge, exactly — its true front face is z = 17/2, and an inset from
+  // that (drawn further back) reads as a strip of bare block hanging below the bristles instead of
+  // the bristles hanging past the block.
+  g.add(bristleFringe(-52, 52, -34, 8.5, 9, 9));
   return g;
 }
 
@@ -750,7 +752,12 @@ function smoothBrush() {
   br.rotateX(-Math.PI / 2);
   br.translate(0, -18, 0);                // spans y -18..0
   g.add(solid(br));
-  g.add(bristleFringe(-58, 58, -18, 17, 8, 11));
+  // The pad's bottom-front edge, exactly. `x = -56..56` is the STRAIGHT run between the two rounded
+  // ends (stadium(150, 38): half-width 19, so the arcs centre at x = ±(150/2 - 19) = ±56) — inside
+  // that span the front face sits at a constant z = 19 (the half-width), which is what makes a flat
+  // xMin..xMax fringe line up with it at all. Past x = ±56 the front face curves inward with the
+  // rounded end, and a straight fringe drawn there would run ahead of the block instead of along it.
+  g.add(bristleFringe(-56, 56, -18, 19, 8, 11));
   return g;
 }
 
