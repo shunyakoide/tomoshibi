@@ -454,6 +454,12 @@ function lightHang(p, smooth) {
   );
   cord.position.y = yTop - CORD_DIP + len / 2;
   g.add(cord);
+  // The hanger. What carries the shade is not the lamp: the lamp hangs on the cord INSIDE, and the
+  // shade hangs on one wire laid across the opening with the cord through the loop in its middle —
+  // see the foot of this file. A figure without it is a shade hanging on nothing.
+  const hanger = hangPlaced(p, false);      // the ring is already in `litShade`, where the route decides it
+  hanger.position.y = yTop;
+  g.add(hanger);
   return g;
 }
 
@@ -921,7 +927,7 @@ const SOCKET_R = 17, SOCKET_H = 34;
  * claiming something about the reader's wiring. The cord is CORD_INK rather than white, also
  * matching that figure: a 3mm white tube draws nothing at all, and this is the same cord.
  */
-function pendantSocket() {
+function pendantSocket({ crop = false } = {}) {
   const g = new THREE.Group();
   // Short, because the frame is fitted to what is in it: every millimetre of cord is drawn at the
   // cost of the socket, and this figure sits in a small landscape well. Enough to read as hanging.
@@ -935,9 +941,14 @@ function pendantSocket() {
   const cap = solid(new THREE.CylinderGeometry(8, 13, 12, 32));      // the cord grip
   cap.position.y = 28;
   g.add(cap, silhouetteLines(8, 13, 34, 22));
-  const body = solid(new THREE.CylinderGeometry(SOCKET_R, SOCKET_R, SOCKET_H, 32));   // the shell
-  body.position.y = 5;
-  g.add(body, silhouetteLines(SOCKET_R, SOCKET_R, 22, -12));
+  // `crop` cuts the shell off short and leaves the skirt behind with it: where this is drawn to
+  // show what holds it — hanging in the hanger's U by its cap — a whole socket ⌀34 across in a
+  // ⌀38 opening is a figure of a socket with a ring somewhere behind it.
+  const bodyH = crop ? 16 : SOCKET_H, bodyTop = 22;
+  const body = solid(new THREE.CylinderGeometry(SOCKET_R, SOCKET_R, bodyH, 32));      // the shell
+  body.position.y = bodyTop - bodyH / 2;
+  g.add(body, silhouetteLines(SOCKET_R, SOCKET_R, bodyTop, bodyTop - bodyH));
+  if (crop) return g;
   // The skirt around the mouth the bulb screws into. Only just wider than the shell: the view
   // looks DOWN on this, so the mouth itself is on the far side and no amount of ring drawn there
   // is visible (it was drawn as an annulus first — the shell sits over the bore and hides it).
@@ -1274,6 +1285,128 @@ function legStood() {
   return g;
 }
 
+/**
+ * ---- Hanging it: one wire, and nothing else ----
+ *
+ * This started as the ready-made kits' own fitting, and it was too much: a bought cord stopper
+ * above the shade, three wires clamped under its nut between two packings, and a hook on each to
+ * catch the ring at the opening — a designed joint, three times over, to hold up a paper shade that
+ * weighs nothing. What replaced it is ONE wire, flat, with three bends in it:
+ *
+ * [The U] The middle is bent into a U — NOT a closed loop. Its gap passes the CORD and stops the
+ *   SOCKET: the holder hangs in the U by its own cap, and the shade hangs on the wire. That is what
+ *   the whole fitting is, and it is why the gap has a size worth stating (a few millimetres wider
+ *   than the cord, far narrower than the socket). Open rather than a closed eye, because the cord
+ *   is dropped in sideways with the lamp already wired; an eye has to be threaded from the free end
+ *   of the cord, and it was drawn that way first.
+ * [The arc] The wire is not a flat bar. It ARCS, and it arcs the way the shade's own shoulder does
+ *   — HIGHEST in the middle, falling away to the rim at both ends. It was drawn the other way up
+ *   first (a hammock, dipping in the middle) and that is a bowl sitting in the opening, not a
+ *   hanger spanning it. Before that it was flat, with two posts standing up out of it, which drew
+ *   a wire lying ON the ring.
+ * [The ends] They are not shaped at all — no hook, no turn: the arch simply keeps going, crossing
+ *   the rim at the opening and carrying on out past the ring, UNDER it. That is what holds the
+ *   shade up: the ends bear on the underside of the rim and the whole lantern hangs off them. They
+ *   are drawn long enough to come out the far side of the hoop, because an end that stops beneath
+ *   it is an end the ring hides, and then the figure cannot say where the wire goes. A terminal hook bent to fit the hoop was drawn twice and taken out twice, and so was
+ *   an end carried over the TOP of the ring. It is also why nothing here is route-specific: a rim
+ *   to catch from underneath is a rim either route has.
+ *
+ * The U sits off the wire's own line, so the whole wire is shifted by `HANG_OFF` to bring the
+ * bottom of that U onto the axis, where the cord is. The arms are then a CHORD rather than a
+ * diameter, and how far they reach is `armAt` — a chord half-length, not a
+ * radius. Get that wrong and the tips land inside the opening at one design and outside the paper
+ * at the next.
+ */
+const BOWL_W = 4.5, BOWL_Z = 8;      // the U: half its mouth, and how far it reaches from the line
+const HANG_OFF = BOWL_Z - CORD_R - WIRE_R;      // ...so the cord rests in the bottom of the U
+const ARC_HIGH = 0.42;               // x the opening radius: how far the middle stands above the rim
+                                     // (more than this and the arch reads as a peak, not an arc)
+const UNDER_RIM = 5;                 // how far past the opening the ends carry on, under the ring
+                                     // (the hoop's wall is 2mm, so this clears it and shows)
+
+/** Half-chord: how far along the wire's own line a point at `radius` from the axis sits. */
+const armAt = (radius) => Math.sqrt(Math.max(radius * radius - HANG_OFF * HANG_OFF, 1));
+
+
+/** The hanger: one wire, arcing down from the rim to the U in its middle and back up again. */
+function hangWire(radius) {
+  const rimX = armAt(radius), endX = armAt(radius + UNDER_RIM);
+  const high = radius * ARC_HIGH;
+  // The arch, as a parabola: `high` above the rim in the middle, back down through the rim's own
+  // level exactly at the opening, and on below and beyond it — the part that runs under the ring
+  // and out the other side. The curve steepens as it goes, which is roughly the angle the shade's
+  // own shoulder falls away at, so the ends lie along the paper rather than across it. Level at
+  // the apex, which is what lets the U lie flat in one plane the way a hand actually bends it.
+  const arc = (x) => high * (1 - (x / rimX) ** 2);
+  // z is NEGATED, so the U detours TOWARDS the camera. It is a horizontal bend, and a horizontal
+  // bend away from an isometric camera projects UP the page: drawn the other way round the U came
+  // out as a hump and the wire read as an M. Towards the reader it projects down, and a U is what
+  // it looks like. (The cord then passes a couple of millimetres behind the bend, which is the
+  // right way round as well — you can see it sitting in there.)
+  const v = (x, y, z) => new THREE.Vector3(x, y, -(z + HANG_OFF));
+  const bowlY = arc(BOWL_W);
+  ARC_APEX_Y = bowlY;
+  const pts = [];
+  for (const sgn of [1, -1]) {
+    const STATIONS = [endX, rimX, rimX * 0.78, rimX * 0.52, rimX * 0.28];
+    if (sgn > 0) {                               // up one arm, from the end to the U
+      for (const u of STATIONS) pts.push(v(u, arc(u), 0));
+      pts.push(v(BOWL_W, bowlY, 0), v(BOWL_W, bowlY, -BOWL_Z * 0.7), v(0, bowlY, -BOWL_Z));
+    } else {                                     // out of the U and down the other arm
+      pts.push(v(-BOWL_W, bowlY, -BOWL_Z * 0.7), v(-BOWL_W, bowlY, 0));
+      for (const u of [...STATIONS].reverse()) pts.push(v(-u, arc(u), 0));
+    }
+  }
+  const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 6, WIRE_R, 8, false);
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: HI, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+  })));
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 24), new THREE.LineBasicMaterial({ color: INK })));
+  // A quarter turn off the camera's own bearing, which lays the arms across the view: along the
+  // world axes they run diagonally, and the U — the only thing either figure is about — is then
+  // read end-on between two receding arms.
+  g.rotation.y = Math.PI / 4;
+  return g;
+}
+
+// Where the U ends up, in the ring's frame — `hangSet` hangs the socket from it. Set by `hangWire`
+// on every call, which is fine because one figure builds one wire and reads it back at once.
+let ARC_APEX_Y = 0;
+
+/** The hanger where it goes: the arch over the opening, its ends past the rim. */
+function hangPlaced(p, rings = true) {
+  const g = new THREE.Group();
+  if (rings) {
+    const ring = part(ringGeometry(p, true), false);
+    ring.rotation.x = -Math.PI / 2;
+    g.add(ring);                                 // at y = 0, the hoop standing above it
+  }
+  g.add(hangWire(openingR(p, true)));           // drawn in the ring's own frame: no offset needed
+  return g;
+}
+
+/** (2a) The wire on its own, bent to shape. */
+function hangBend() {
+  const g = new THREE.Group();
+  g.add(hangWire(19));                           // a middling opening: this figure is the shape
+  return g;
+}
+
+/**
+ * (2b) In place: the ring, the arch over it, and the SOCKET hanging in the U by its cap. That last
+ * part is the whole mechanism, so it is drawn rather than described — a bare cord passing through
+ * says the wire holds the cord, which is not what holds anything up.
+ */
+function hangSet(p) {
+  const g = hangPlaced(p);
+  const socket = pendantSocket({ crop: true });   // the kit card's holder, cut off below its cap
+  socket.position.y = ARC_APEX_Y - 34;           // its cap's top (local y = 34) up against the U
+  g.add(socket);
+  return g;
+}
+
 const SCENES = {
   // Parts, one at a time, for the parts list.
   rib: (p, sm) => part(ribGeo(p, 0, sm), false),
@@ -1337,6 +1470,8 @@ const SCENES = {
   legBend: () => legBend(),
   legStack: () => legStack(),
   legStood: () => legStood(),
+  hangBend: () => hangBend(),
+  hangSet: (p) => hangSet(p),
 };
 // The view direction inside the mold's OWN frame once it is lying in the stand. The group is turned
 // a quarter turn about Z there, so world (x,y,z) reads as local (y,-x,z).
