@@ -283,18 +283,14 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   margin: 40px 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
   color: var(--head); border-bottom: 1px solid var(--edge); padding-bottom: 8px;
 }
-/* The design's numbers. A row of them rather than a table: five short facts read faster across than
-   down, and they wrap to two lines on a phone without becoming a scrollable grid. */
-.guide-spec { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 22px 0 0; }
-.guide-spec dt { font-size: 11px; color: var(--fine); margin-bottom: 2px; }
-.guide-spec dd { margin: 0; font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text); }
-
 .guide-parts {
   list-style: none; margin: 0; padding: 0;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px;
 }
 .guide-parts > li { padding: 10px 12px 12px; }
 .guide-part-name { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13.5px; }
+/* The count — or, on the rib, the words that stand in for one (see PARTS). Mono because it is
+   usually "x2"; a CJK phrase falls through to the system mono and still sits on the same line. */
 .guide-part-name > span { font-family: var(--mono); font-size: 12px; color: var(--sub); }
 .guide-part-dim { margin-top: 2px; font-family: var(--mono); font-size: 11px; color: var(--fine); }
 

@@ -64,7 +64,6 @@ const EN = {
   "定番サイズ": "Common size",
   "カスタム": "Custom",
   "配置": "Layout",
-  "竹ひご": "Bamboo",
   // ---- Preset names ----
   "たまご": "Egg",
   "球": "Sphere",
@@ -200,11 +199,12 @@ const EN = {
   "組立説明書": "Assembly guide",
   "3Dプリントで型をつくる": "Build the mold by 3D printing",
   "段ボールで型をつくる": "Build the mold from cardboard",
-  "型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図と数値はいま画面にある設計そのものです。":
-    "Assemble the mold, wind the bamboo, paste the washi, and pull the mold once it is dry. Every figure and every number here is the design currently on screen.",
-  "高さ": "Height",
-  "段ボール厚": "Cardboard",
-  "枚": "pcs",
+  // The figures draw one representative lantern and the page prints no dimensions at all, so the
+  // lead says so — a reader who counts eight ribs in every picture has to be told they are not a
+  // specification. See the GuidePage header.
+  "型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図は一例で、大きさや枚数は設計によって変わります。":
+    "Assemble the mold, wind the bamboo, paste the washi, and pull the mold once it is dry. The figures show one example — sizes and counts follow your own design.",
+  "設計した枚数": "per your design",
   "部品": "Parts",
   "手順": "Steps",
   "支柱": "Post",
@@ -256,10 +256,13 @@ const EN = {
   "材料と道具": "Materials and tools",
   "材料": "Materials",
   "道具": "Tools",
+  // One entry serves the inspector's section heading and the kit card both: the dictionary is keyed
+  // by the Japanese, so a word cannot have two translations. (It had two — "Bamboo" for the panel,
+  // "Bamboo ribs" for the card — and the second silently retranslated the first. See check:i18n.)
   "竹ひご": "Bamboo ribs",
   "ワイヤー": "Wire",
   "任意": "optional",
-  "⌀2mm · 脚を付けるか吊るす場合": "⌀2mm, for the legs or for hanging it",
+  "脚を付けるか吊るす場合": "for the legs or for hanging it",
   "ワイヤーを曲げる": "for bending the wire",
   "のり": "Paste",
   "でんぷんのり、または木工用ボンド": "starch paste or wood glue",
@@ -270,6 +273,10 @@ const EN = {
   "紙を張るブラシ": "Brush for laying the paper",
   "靴磨き用など": "a shoe brush, or similar",
   "ペンチ": "Pliers",
+  "カミソリ": "Razor blade",
+  "はみ出した和紙を切る": "trims the washi that overhangs",
+  "ライト": "Lamp",
+  "熱を持ちにくい LED のもの": "an LED one, so it stays cool",
   "置いたライトに被せる": "Cover a lamp you stand on the floor",
   "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。":
     "Stand an LED lamp on the floor and drop the shade over it. No legs, no fittings. Pick a lamp that fits through the bottom opening.",

@@ -307,7 +307,7 @@ export default function TomoshibiStudio() {
 
       {/* The build guide: also a document over the idle canvas, and also drawn from this design. */}
       {view === "guide" && (
-        <GuidePage p={p} route={route} matT={matT} onGoPrint={() => setView("print")} />
+        <GuidePage route={route} onGoPrint={() => setView("print")} />
       )}
 
       {glError && (

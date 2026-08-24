@@ -1,24 +1,31 @@
 /**
  * ============================================================================
- * GUIDE PAGE — how to build the lantern, for the design on screen
+ * GUIDE PAGE — how to build the lantern
  * ============================================================================
  * A document, not a view of the model: it takes the whole window (no inspector) and scrolls, the way
  * an assembly sheet reads. It overlays the idle WebGL canvas exactly as the section editor and the
  * cardboard route's print preview do.
  *
- * **Every number and every figure comes from the design.** The parts list counts the ribs this
- * design has and measures the parts this design makes (`three/figures.js` draws them from the same
- * geometry.js the STL is written from), so the page can never describe a different mold from the one
- * in the download. A guide with "rib ×8" printed on it is wrong for half its readers the moment the
- * app has a rib-count control at all.
+ * **The page is generic, and its figures are always the same drawing.** It used to be built from the
+ * design on screen: every dimension measured off the geometry the STL is written from, every figure
+ * rebuilt when a slider moved. That cost eleven WebGL scenes on every edit and bought numbers nobody
+ * needs — winding bamboo onto a mold and pasting paper over it is the same job at ⌀140 as at ⌀400.
+ * So the drawings come from ONE fixed design (`GUIDE_P`), are built at most once per session and
+ * kept, and no measurement is printed anywhere on the page.
  *
- * [Every step is drawn] A figure is drawn when the answer depends on the design — which parts, how
- *   many, what shape — and on this page every step turns out to be one: how many turns of bamboo and
- *   which way they run, how many washi panels and where their seams fall, which rib comes out of the
- *   opening and how far it has to come in to get there, what the thing looks like lit and on its
- *   legs. Steps that are pure technique used to take a **photograph** from `public/photos/`, with a
- *   slot naming the file it wanted; nothing is waiting on a photograph any more, so that mechanism
- *   is gone rather than left behind unused. Bring it back with the step that needs it.
+ * What that gives up is the guarantee the old page had — that it could not describe a mold the
+ * download does not contain — so nothing here may state a QUANTITY the design decides. The rib's
+ * line reads "as many as your design has" rather than "×8" for exactly that reason: a fixed picture
+ * of eight ribs is an illustration, but a printed 8 is a claim. What still follows the app is the
+ * ROUTE, because that changes which parts exist at all, not how big they are.
+ *
+ * [Every step is drawn] Every step gets a figure, because every one of them is easier to see than to
+ *   read: which way the bamboo runs, where the washi seams fall, which rib comes out of the opening
+ *   and how far in it has to come to get there, what the thing looks like lit and on its legs. They
+ *   draw one representative lantern, not the reader's. Steps that are pure technique used to take a
+ *   **photograph** from `public/photos/`, with a slot naming the file it wanted; nothing is waiting
+ *   on a photograph any more, so that mechanism is gone rather than left behind unused. Bring it
+ *   back with the step that needs it.
  * [Route] The cardboard route builds the same mold out of a different material and has no stand and
  *   no printed rings, so those steps are filtered rather than reworded.
  * [Print] The page carries print styles (index.css): the browser's own "Save as PDF" is the paper
@@ -26,27 +33,41 @@
  * ============================================================================
  */
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, maxRadius, ringLegs,
-} from "./geometry.js";
+import { ringLegs } from "./geometry.js";
+import { DEFAULTS } from "./config.js";
 import { paperP } from "./papercraft.js";
 import { figureImage, disposeFigures } from "./three/figures.js";
 import { UI, accent, useT } from "./ui/theme.js";
 
-// The parts this design makes. `geo` is measured for the size line and drawn for the thumbnail;
-// `n` counts them. The cardboard route cuts only the mold itself (see paperParts) — no stand, and no
-// rings, which are printed parts of the finished lantern rather than of the template.
+/**
+ * The lantern every figure on this page is drawn from — the app's own starting design, not the one
+ * being edited. See the header: the page explains a method, and a method does not change shape.
+ *
+ * The cardboard route keeps its own copy, because that route cuts a genuinely different mold: a
+ * smooth outer edge, no lightening windows, no tab dent (`paperP`). That is a fact about the route,
+ * not about anyone's measurements, so it is taken at a representative thickness rather than at the
+ * `matT` the user measured — which is also why this page no longer asks for it.
+ */
+const GUIDE_MAT_T = 3;                                    // mm, ordinary single-wall cardboard
+const GUIDE_P = { stl: DEFAULTS, paper: paperP(DEFAULTS, GUIDE_MAT_T) };
+
+// The parts the mold is made of. `n` is how many, and it is either a CONSTANT or it is not printed
+// at all: two koma, two posts, one base and one ring at each end are facts about the mold, while how
+// many ribs it takes is the reader's own decision — so that one says so in words rather than naming
+// a number this page cannot know. The cardboard route cuts only the mold itself (see paperParts) —
+// no stand, and no rings, which are printed parts of the finished lantern rather than of the
+// template.
 const PARTS = [
-  { id: "rib", name: "羽根板", geo: (p) => ribGeometry(p, 0), n: (p) => p.boards },
-  { id: "koma", name: "コマ", geo: komaGeometry, n: () => 2 },
-  { id: "column", name: "支柱", geo: standGeometry, n: () => 2, stl: true },
-  { id: "base", name: "土台", geo: boardGeometry, n: () => 1, stl: true },
-  { id: "ringBottom", name: "口輪(下)", geo: (p) => ringGeometry(p, false), n: () => 1, stl: true },
-  { id: "ringTop", name: "口輪(上)", geo: (p) => ringGeometry(p, true), n: () => 1, stl: true },
+  { id: "rib", name: "羽根板", note: "設計した枚数" },
+  { id: "koma", name: "コマ", n: 2 },
+  { id: "column", name: "支柱", n: 2, stl: true },
+  { id: "base", name: "土台", n: 1, stl: true },
+  { id: "ringBottom", name: "口輪(下)", n: 1, stl: true },
+  { id: "ringTop", name: "口輪(上)", n: 1, stl: true },
 ];
 
-// The build, in order. `fig` is drawn from the design; `stl` marks a step the cardboard route does
-// not have. Bodies are i18n keys like every other string.
+// The build, in order. `fig` names a scene in three/figures.js; `stl` marks a step the cardboard
+// route does not have. Bodies are i18n keys like every other string.
 const STEPS = [
   {
     id: "make", title: "部品をつくる",
@@ -140,12 +161,16 @@ const STEPS = [
  * **Plain strings, no numbers.** Nothing here is derived and nothing should be: a wire gauge, a
  * brush and a pot of paste are not things the design decides. (A bamboo length summed over the
  * grooves was tried and taken straight back out — arithmetic nobody asked for, on a list whose job
- * is to be read in a shop.) The wire is just wire: steel is not required, so it is not specified.
+ * is to be read in a shop.) The wire is just wire — not a gauge, not a material: it has to bend by
+ * hand and hold a socket, and every note here that tried to be more specific than that came back
+ * out. A note says WHEN you need the thing, not what to ask for at the counter.
  *
  * Order is by how much it matters, not by category: the paste is the one thing a bad choice of
  * which ruins the lantern, so it comes before the wire. `opt` marks what you may not need at all —
  * the wire and its pliers are only for the two lighting methods that fix something to an opening,
- * and the brushes are a preference. Only the bamboo and the paste are not optional.
+ * and the brushes are a preference. Everything else is unconditional: without bamboo, washi, paste,
+ * something to hold the bamboo while it dries, a blade to trim the paper and a lamp to put inside
+ * it, there is no lantern at the end.
  *
  * The drawings are the one thing here that is not a string: `fig` names a scene in figures.js, and
  * those scenes are the only ones in that file that are not made of this design (see "THE KIT"
@@ -154,11 +179,16 @@ const STEPS = [
 const KIT = [
   { id: "materials", title: "材料", items: [
     { name: "竹ひご", fig: "kitHigo" },
+    { name: "和紙", fig: "kitWashi" },
     { name: "のり", fig: "kitPaste", note: "でんぷんのり、または木工用ボンド" },
     // One line, one drawing: anything that holds the bamboo while the paste dries will do, and a
     // card each for the two examples is the list saying the same thing twice.
     { name: "テープや糸など", fig: "kitStick", note: "竹ひごを留める" },
-    { name: "ワイヤー", fig: "kitWire", opt: true, note: "⌀2mm · 脚を付けるか吊るす場合" },
+    // A blade sits among the materials rather than the tools because that is where it was asked
+    // for; it is also the one tool on the page you use up.
+    { name: "カミソリ", fig: "kitRazor", note: "はみ出した和紙を切る" },
+    { name: "ライト", fig: "kitLight", note: "熱を持ちにくい LED のもの" },
+    { name: "ワイヤー", fig: "kitWire", opt: true, note: "脚を付けるか吊るす場合" },
   ] },
   { id: "tools", title: "道具", items: [
     { name: "のりを塗るはけ", fig: "kitPasteBrush", opt: true, note: "障子貼り用の糊刷毛など" },
@@ -185,46 +215,50 @@ function Fig({ src, t, part }) {
   );
 }
 
-/** W × H × T of a part in mm, measured from the geometry the STL is written from. */
-function dims(geo) {
-  geo.computeBoundingBox();
-  const b = geo.boundingBox;
-  const v = [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z].map((n) => Math.round(n * 10) / 10);
-  geo.dispose();
-  return v;
+/** Small wells for the two grids of thumbnails, a big one for a step. */
+const sizeOf = (id) => (PARTS.some((q) => q.id === id) || KIT_FIGS.includes(id)
+  ? { width: 300, height: 220 }
+  : { width: 620, height: 460 });
+
+/**
+ * Every figure ever rendered, for the life of the tab. Nothing they are drawn from can change any
+ * more (see the header), so a figure is built at most once per route per session: leaving the guide
+ * and coming back is free, where it used to be another second of WebGL and a rebuilt geometry for
+ * each of two dozen scenes. `null` — the drawing failed — is cached too; retrying it would fail the
+ * same way, and the well says so either way.
+ */
+const CACHE = new Map();
+const cacheKey = (id, smooth) => `${id}|${smooth ? "paper" : "stl"}`;
+const drawn = (id, smooth) => CACHE.has(cacheKey(id, smooth));
+function figure(id, smooth) {
+  const key = cacheKey(id, smooth);
+  if (!CACHE.has(key)) {
+    CACHE.set(key, figureImage(smooth ? GUIDE_P.paper : GUIDE_P.stl, id, { ...sizeOf(id), smooth }));
+  }
+  return CACHE.get(key);
 }
 
-export default function GuidePage({ p: design, route, matT, onGoPrint }) {
+export default function GuidePage({ route, onGoPrint }) {
   const t = useT();
   const stl = route !== "paper";
   const steps = STEPS.filter((s) => stl || !s.stl);
   const parts = PARTS.filter((s) => stl || !s.stl);
-  // On cardboard the guide describes the mold that route MAKES, not the one being edited: the
-  // material thickness becomes the board thickness, and thick material clamps the rib count. A page
-  // built from the design on screen would count ribs the template does not cut and print a 2mm
-  // thickness on a part cut from 5mm board. Same reason washiPDF is handed paperP (papercraft.js).
-  const p = useMemo(() => (stl ? design : paperP(design, matT)), [stl, design, matT]);
+  const p = stl ? GUIDE_P.stl : GUIDE_P.paper;
 
-  // The options a step actually offers HERE. An option can need something this design or this route
-  // does not have — the legs go in the bottom ring's sockets, and cardboard prints no rings — and
-  // drawing it anyway would put a legless lantern under the words "add legs".
+  // The options a step actually offers HERE. An option can need something the route does not have —
+  // the legs go in the bottom ring's sockets, and cardboard prints no rings — and drawing it anyway
+  // would put a legless lantern under the words "add legs".
   const options = useMemo(
     () => Object.fromEntries(STEPS.filter((s) => s.options)
       .map((s) => [s.id, s.options.filter((o) => !o.needs || o.needs(p, stl))])),
     [p, stl],
   );
 
-  // Sizes are cheap; figures are not. The list is measured up front, the drawings arrive after.
-  const sizes = useMemo(
-    () => Object.fromEntries(parts.map((q) => [q.id, dims(q.geo(p))])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `parts` is derived from route
-    [p, route],
-  );
-
-  // Figures are rendered ONE AT A TIME, into state, rather than in a memo: eleven of them is a
+  // Figures are rendered ONE AT A TIME, into state, rather than in a memo: two dozen of them is a
   // second of geometry building, and doing that inside a render freezes the page before it has
-  // painted a word of the text — which is the part someone can start reading. `cancelled` matters
-  // more than usual here: a slider drag re-enters this before the previous pass is done.
+  // painted a word of the text — which is the part someone can start reading. Once they are in the
+  // cache none of that applies, so a return visit fills the whole page in one pass instead of
+  // yielding twenty-odd times to hand back images it already has.
   const [figs, setFigs] = useState({});
   useEffect(() => {
     let cancelled = false;
@@ -232,20 +266,23 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
       ...steps.flatMap((s) => (s.options
         ? options[s.id].flatMap((o) => [o.fig, ...(o.detail ?? []).map((d) => d.fig)])
         : s.fig ? [s.fig] : []))].filter(Boolean);
+    if (ids.every((id) => drawn(id, !stl))) {
+      setFigs(Object.fromEntries(ids.map((id) => [id, figure(id, !stl)])));
+      return undefined;
+    }
     (async () => {
       const out = {};
       for (const id of ids) {
         if (cancelled) return;
-        const small = PARTS.some((q) => q.id === id) || KIT_FIGS.includes(id);
-        const size = small ? { width: 300, height: 220 } : { width: 620, height: 460 };
-        out[id] = figureImage(p, id, { ...size, smooth: !stl });
+        const fresh = !drawn(id, !stl);
+        out[id] = figure(id, !stl);
         setFigs({ ...out });
-        await new Promise((r) => setTimeout(r, 0));   // yield, so scrolling stays alive meanwhile
+        if (fresh) await new Promise((r) => setTimeout(r, 0));   // yield, so scrolling stays alive
       }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- parts/steps/stl are derived from route
-  }, [p, route, options]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- parts/steps are derived from route
+  }, [route, stl, options]);
   // The renderer holds a WebGL context; the guide is the only thing that uses it.
   useEffect(() => disposeFigures, []);
 
@@ -256,18 +293,8 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
         <p className="guide-kicker">{t("組立説明書")}</p>
         <h1 className="guide-h1">{t(stl ? "3Dプリントで型をつくる" : "段ボールで型をつくる")}</h1>
         <p className="guide-lead">
-          {t("型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図と数値はいま画面にある設計そのものです。")}
+          {t("型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図は一例で、大きさや枚数は設計によって変わります。")}
         </p>
-
-        {/* The design's own numbers, so the page is about the mold you are actually holding. */}
-        <dl className="guide-spec">
-          {[["高さ", `${Math.round(p.height)} mm`], ["最大径", `⌀${Math.round(maxRadius(p) * 2)} mm`],
-            // The rib's overall length is its own measurement, not a formula repeated here.
-            ["羽根板", `${p.boards} ${t("枚")}`], ["羽根板の全長", `${sizes.rib ? Math.round(sizes.rib[1]) : "—"} mm`],
-            [stl ? "板厚" : "段ボール厚", `${p.boardT} mm`]].map(([k, v]) => (
-              <div key={k}><dt>{t(k)}</dt><dd>{v}</dd></div>
-            ))}
-        </dl>
 
         <h2 className="guide-h2">{t("部品")}</h2>
         <ul className="guide-parts">
@@ -277,9 +304,9 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
                 {figs[q.id] ? <img src={figs[q.id]} alt="" /> : <span />}
               </div>
               <div className="guide-part-name">
-                <strong>{t(q.name)}</strong><span>×{q.n(p)}</span>
+                {/* A count, or the reason there isn't one — never a number this page cannot know. */}
+                <strong>{t(q.name)}</strong><span>{q.n ? `×${q.n}` : t(q.note)}</span>
               </div>
-              <div className="guide-part-dim">{sizes[q.id]?.join(" × ")} mm</div>
             </li>
           ))}
         </ul>
