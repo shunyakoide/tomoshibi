@@ -115,17 +115,16 @@ const STEPS = [
     // would tell the reader to do all three. `options` is what makes a step render as sections, and
     // each option carries its own figure, because the difference between the three IS the picture.
     //
-    // `wip`: the step is not settled, and the badge says so where someone reads it rather than in a
-    // commit message. It used to read "the lamp fitting", for all three ways at once; the legs now
-    // carry a fixing worked out in full below, so the badge names the ONE way still open — leaving
-    // it broad would have hung a draft label over three drawn sub-steps. Way (1) fixes nothing to
-    // anything, so hanging is what is left. The step also used to offer a ⌀65 lamp-holder base to
-    // print (`tomoshibi_socket_base.stl`); a printable file is a decision and this step has not
-    // made that one, so it says what the light has to be and no more. Note the wording avoids
-    // "口輪": the cardboard route prints no rings, and a step must not name a part its own route
-    // never makes.
+    // This step carried a `wip` draft badge until all three ways had a fixing. They do now — (1)
+    // fixes nothing to anything, (3) clamps its legs under the socket's nut and (2) hangs the shade
+    // from a cord stopper — so the badge is gone rather than left standing over eleven drawn
+    // sub-figures. The mechanism is still there for the next unsettled step: `wip` on a step draws
+    // the badge beside its title and prints the field's own one-line reason under the body. If one
+    // comes back here, keep the wording clear of "口輪" — the cardboard route prints no rings, and
+    // a step must not name a part its own route never makes. The step also used to offer a ⌀65
+    // lamp-holder base to print (`tomoshibi_socket_base.stl`); a printable file is a decision, and
+    // this one has been made the other way: the fittings here are all things you buy.
     id: "light", title: "灯りをつける",
-    wip: "吊るす場合の固定方法はまだ検討中です。",
     body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
     options: [
       {
@@ -134,12 +133,28 @@ const STEPS = [
       },
       {
         id: "hang", fig: "lightHang", title: "上から吊るす",
-        body: "ペンダントライトのソケットを大きいほうの開口から入れ、コードを上の開口から出します。ソケットは針金などで開口に留めます。",
-        // Empty slots, on purpose: the wire has to be bent to shape with pliers and that shape is
-        // not designed yet. The slots hold the place — and the count — so the step reads as
-        // unfinished rather than as finished and thin. Fill in `title`/`body`/`fig` as each is
-        // settled; a slot with a `fig` draws it, one without keeps the empty well.
-        detail: [{ id: "wire1" }, { id: "wire2" }],
+        // What carries the shade is NOT the lamp — the lamp hangs on its own cord inside it. The
+        // text used to say the socket is fixed to an opening "with wire or the like", which was the
+        // sentence standing in for a method nobody had worked out.
+        //
+        // Two slots, not the three the legs take, because there is less to it: bend one wire, lay
+        // it on. It went the other way first — a bought cord stopper, three wires clamped under its
+        // nut, a hook on each for the opening's ring — and that was three joints too many for a
+        // paper shade. Nothing here is clamped and nothing is hooked onto the ring, so nothing here
+        // is route-specific either: both routes have an opening with an edge to rest on, which is
+        // why this option needs no `paperBody` where the legs do.
+        body: "ソケットを大きいほうの開口から入れ、コードを上の開口から出します。吊り線1本のUにコードを入れてソケットを引っ掛け、両端を上の開口の縁の下に入れます。",
+        // The one thing this fitting cannot promise. It is held by nothing but its own shape against
+        // the rim, so how well it sits depends on how big that opening is — and the opening is the
+        // reader's own design, which this page no longer knows anything about (see the header). It
+        // says so once, as a footnote at the foot of this way (see the JSX).
+        note: "上の開口の大きさによっては安定しないことがあります。長さや曲げ方は現物に合わせて調整してください。",
+        detail: [
+          { id: "wire1", fig: "hangBend", title: "吊り線を曲げる",
+            body: "ワイヤーの中央をUの字に曲げます。間はコードが通ってソケットが通らない幅に。中央が高くなるようゆるい弧に曲げ、両端は上の開口の縁の下を通って外まで出る長さに伸ばします。" },
+          { id: "wire2", fig: "hangSet", title: "ソケットを引っ掛ける",
+            body: "Uにコードを入れると、ソケットが引っ掛かります。両端は上の開口の縁の下に入れます。" },
+        ],
       },
       {
         // Needs the leg sockets: they are where the legs go. Without them the figure would draw a
@@ -414,6 +429,12 @@ export default function GuidePage({ route, onGoPrint }) {
                             </ol>
                           </div>
                         )}
+                        {/* A caveat about the way itself rather than a step in it, so it is a
+                            FOOTNOTE: last in the block, marked with an asterisk, in the same voice
+                            the step-level `wip` note uses. Above the figure it read as another
+                            sentence of the body — as a condition on doing this at all, which it is
+                            not: you do it, and then you may have to adjust it. */}
+                        {o.note && <p className="guide-note">*{t(o.note)}</p>}
                       </li>
                     ))}
                   </ul>
