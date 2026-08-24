@@ -74,7 +74,7 @@ anything older, so on Node 18 the install fails rather than degrading.
 - **Right panel** — pick a preset, then drag the section's control points to reshape; open the accordions (Frame, Bamboo, Print bed…) for finer settings.
 - **Preview** — drag to orbit, wheel / pinch to zoom.
 - **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `config.json` backup of your design. (STL compresses well: a default kit is about 190 KB zipped.)
-- **If you're lost** — a card on your first visit says what the object on screen actually is (the mold, not the lantern); the **?** in the panel header reopens it any time. The legend at the bottom-left of the section view redraws the ◇ marks themselves, and follows the edit mode you are in.
+- **If you're lost** — a card on your first visit says what the object on screen actually is (the mold, not the lantern); the **?** in the panel header reopens it any time. The legend at the top-right of the section view redraws the ◇ marks themselves, and follows the edit mode you are in.
 
 ### From print to lantern
 
