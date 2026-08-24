@@ -786,22 +786,28 @@ function smoothBrush() {
 }
 
 // One arm, tip at the origin and the handle running away down-right; the other is this mirrored in
-// y. Two arms crossing at a pin is the whole of what makes a pair of pliers read as one.
+// y. Two arms crossing at a pin is the whole of what makes a pair of pliers read as one. Long-nose
+// (ラジオペンチ) rather than the short, flat-jawed shape this replaced: the jaw tapers smoothly all
+// the way to a fine point over ~100mm, since that taper — not the handle — is what a long-nose
+// plier is recognised by in silhouette.
 const PLIER_ARM = [
-  [0, 5.5], [24, 7.5], [38, 12.5], [50, 12], [64, 5], [150, -13], [160, -19],
-  [156, -25], [143, -22], [70, -2], [52, 1.5], [40, 0.4], [24, 0.3], [0, 0.3],
+  [0, 1.2], [20, 2.0], [40, 3.2], [60, 4.6], [80, 6.4], [96, 9],   // jaw: tip to pivot, tapering wide
+  [180, -15],                                                      // handle, outer edge
+  [190, -21], [186, -27], [173, -24],                               // the handle's rounded end
+  [100, -4], [80, -1.2], [60, -0.2], [40, 0.1], [20, 0.15], [0, 0.15],  // handle + jaw, inner edge
 ];
 /**
  * Grip texture, drawn the same way `bristleFringe` draws bristles: not modeled, just short lines at
- * the face a line-art solid otherwise has nothing to show there. A few ticks knurl the jaw's flat
- * gripping tip, and one line marks where a rubber handle grip would start — the two features that
- * actually tell a WIRE plier apart from a plain pair of pliers in silhouette. `z` is the arm's own
- * front face (its translate offset + the extrude depth), the same one its own solid was built on.
+ * the face a line-art solid otherwise has nothing to show there. A few ticks knurl the jaw partway
+ * along its length (the reference photo's teeth sit back from the point, not at it — the very tip
+ * stays a smooth, sharp taper), and one line marks where a rubber handle grip would start. `z` is
+ * the arm's own front face (its translate offset + the extrude depth), the same one its solid was
+ * built on.
  */
 function plierMarks(sign, z) {
   const pts = [];
-  for (const x of [4, 9, 14]) pts.push(x, sign * 1.2, z, x, sign * 6.3, z);
-  pts.push(108, sign * -4.6, z, 108, sign * -13, z);
+  for (const x of [45, 58, 71]) pts.push(x, sign * 0.5, z, x, sign * 4.5, z);
+  pts.push(150, sign * -6, z, 150, sign * -17, z);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
   return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: INK }));
@@ -818,7 +824,7 @@ function pliers() {
   g.add(plierMarks(1, -0.2), plierMarks(-1, 5.2));
   const pin = new THREE.CylinderGeometry(4, 4, 13, 16);
   pin.rotateX(Math.PI / 2);
-  pin.translate(46, 0, -2.5);
+  pin.translate(98, 0, -2.5);
   g.add(solid(pin));
   return g;
 }

@@ -269,7 +269,7 @@ const EN = {
   "障子貼り用の糊刷毛など": "a paste brush for shoji paper, or similar",
   "紙を張るブラシ": "Brush for laying the paper",
   "靴磨き用など": "a shoe brush, or similar",
-  "ワイヤーペンチ": "Wire pliers",
+  "ペンチ": "Pliers",
   "置いたライトに被せる": "Cover a lamp you stand on the floor",
   "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。":
     "Stand an LED lamp on the floor and drop the shade over it. No legs, no fittings. Pick a lamp that fits through the bottom opening.",

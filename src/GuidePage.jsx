@@ -163,7 +163,7 @@ const KIT = [
   { id: "tools", title: "道具", items: [
     { name: "のりを塗るはけ", fig: "kitPasteBrush", opt: true, note: "障子貼り用の糊刷毛など" },
     { name: "紙を張るブラシ", fig: "kitBrush", opt: true, note: "靴磨き用など" },
-    { name: "ワイヤーペンチ", fig: "kitPliers", opt: true, note: "ワイヤーを曲げる" },
+    { name: "ペンチ", fig: "kitPliers", opt: true, note: "ワイヤーを曲げる" },
   ] },
 ];
 
