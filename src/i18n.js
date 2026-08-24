@@ -67,7 +67,6 @@ const EN = {
   "竹ひご": "Bamboo",
   // ---- Preset names ----
   "たまご": "Egg",
-  "球": "Sphere",
   "たる": "Barrel",
   // ---- Labels (scrub / stepper / input) ----
   "火袋の高さ": "Body height",
