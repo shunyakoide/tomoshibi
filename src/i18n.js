@@ -268,7 +268,7 @@ const EN = {
   "のりを塗るはけ": "Brush for the paste",
   "障子貼り用の糊刷毛など": "a paste brush for shoji paper, or similar",
   "紙を張るブラシ": "Brush for laying the paper",
-  "靴磨き用のもので足りる": "a shoe brush does the job",
+  "靴磨き用など": "a shoe brush, or similar",
   "ペンチ": "Pliers",
   "置いたライトに被せる": "Cover a lamp you stand on the floor",
   "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。":
