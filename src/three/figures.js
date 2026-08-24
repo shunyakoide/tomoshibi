@@ -573,10 +573,20 @@ function lightLegs(p, smooth) {
  * given a colour of their own: a kit item and a mold part sit in the same card, in the same well,
  * and a kit rendered in fill colour would read as "this is a different kind of drawing" instead of
  * "this is a different kind of object", which is the wrong sentence for a page that is otherwise
- * all one visual language. What a coloured fill used to buy — telling a round, edge-less lid apart
- * from the tub under it — a shared white loses nothing: each remains its own `part()`, so it keeps
- * its own outline, and two outlines meeting at a rim reads exactly as it does everywhere else in
- * this file (the koma sitting on the stand, a rib in the bundle).
+ * all one visual language.
+ *
+ * A round PART in this app is always a flat plate — a koma, a rib, a ring — with its curve lying IN
+ * the face the camera mostly looks at and a thickness of a few millimetres at most. `EdgesGeometry`
+ * draws the whole curve there regardless of how finely it is sampled, because that edge sits between
+ * a flat cap and a near-vertical wall (roughly a right angle) rather than between two neighbouring
+ * points ON the curve (a shallow angle that only clears the 24deg threshold if the curve is coarse).
+ * So the app's parts never needed a low-poly trick, and giving the kit's tall round volumes one —
+ * a tub, a roll of tape, a spool — read as faceted where nothing in the mold ever is. Reverted: they
+ * stay smooth (a plain cylinder radial count, no lower than a part ever uses), and where a shape is
+ * tall enough that its own SIDE would otherwise vanish (see below), it gets two straight lines
+ * instead of a polygon — the classic technical-drawing cylinder, two rims plus the pair of verticals
+ * where the surface is tangent to the eye. `coil()` is the one exception: an open tube has no cap to
+ * anchor a rim edge at all, so it still leans on facets — see its own comment.
  *
  * A BRUSH is the one shape white cannot carry on its own: its whole identity is the bristles, and a
  * block of bristles is just another flat-faced solid — indistinguishable from the handle above it
@@ -606,6 +616,27 @@ function bristleFringe(xMin, xMax, y, z, len, n) {
   return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: INK }));
 }
 
+/**
+ * The two straight lines that stand in for a tall round volume's side wall: at the pair of points
+ * where the curve runs tangent to the eye, connecting the top rim to the bottom rim (they may be
+ * different radii — a tapered tub). Every OTHER point on a smooth cylinder's wall is receding away
+ * from the camera and is exactly the surface a real line drawing leaves bare; only the tangent pair
+ * reads as an edge to begin with. `view` is `VIEW_DIR` expressed in whatever local frame the solid's
+ * axis actually stands in — for a group rotated a quarter turn about Z, that is `(y,-x,z)`, the same
+ * swap `DIR_ON_STAND` already does for the mold lying in its stand.
+ */
+function silhouetteLines(rTop, rBot, yTop, yBot, view = VIEW_DIR, cx = 0, cz = 0) {
+  const az = Math.atan2(view.z, view.x);
+  const pts = [];
+  for (const a of [az + Math.PI / 2, az - Math.PI / 2]) {
+    const ct = Math.cos(a), st = Math.sin(a);
+    pts.push(cx + rTop * ct, yTop, cz + rTop * st, cx + rBot * ct, yBot, cz + rBot * st);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: INK }));
+}
+
 /** A helix that opens out as it climbs — a coil of rod, which is how both bamboo and wire are sold. */
 class CoilCurve extends THREE.Curve {
   constructor(r0, dr, turns, rise) { super(); Object.assign(this, { r0, dr, turns, rise }); }
@@ -615,27 +646,23 @@ class CoilCurve extends THREE.Curve {
     return target.set(r * Math.cos(a), this.rise * (t - 0.5), r * Math.sin(a));
   }
 }
-// Every round kit shape shares this segment count, not a normal cylinder's 16+: white-on-white, a
-// smooth curve has nothing to draw but its own two cut-end rings (see "THE KIT" above — this is the
-// coloured fill's old job). At 45deg the facets clear the 24deg edge threshold, so every facet seam
-// draws, and a coil, a tub or a roll reads as faceted the same way a rib's curved edge reads as a
-// curve: by enough short lines. Used for every radial/curveSegments count below this point.
-const KIT_FACETS = 8;
-// `ExtrudeGeometry`'s curveSegments turns out to mean segments-per-QUARTER-turn for an EllipseCurve
-// (three.js doubles it internally), so the stadium's 180deg ends get `curveSegments * 2` facets —
-// KIT_FACETS's own 8 gave 16 facets there (11.25deg each), well under the 24deg threshold, which is
-// why they drew as a smooth curve with no gaps AND no visible facets. 3 gives 6 facets at 30deg.
-const KIT_FACETS_HALF = 3;
+// 8 radial segments, not a round tube's usual 16+: unlike everything else in this section, an OPEN
+// tube has no flat cap to anchor a rim edge at all (see "THE KIT" above) — white-on-white it would
+// have nothing to draw but its two cut ends. At 45deg the facets clear the 24deg edge threshold, so
+// the coil reads as a wound, faceted rod the same way a rib's curved edge reads as a curve: by
+// enough short lines.
 const coil = (rod, r0, dr, turns, rise) => solid(
-  new THREE.TubeGeometry(new CoilCurve(r0, dr, turns, rise), Math.ceil(turns * 48), rod, KIT_FACETS, false));
+  new THREE.TubeGeometry(new CoilCurve(r0, dr, turns, rise), Math.ceil(turns * 48), rod, 8, false));
 
 /** A tub with its lid on: starch paste. (Wood glue comes in a bottle; the tub is the first-named.) */
 function pasteTub() {
   const g = new THREE.Group();
-  g.add(solid(new THREE.CylinderGeometry(32, 30, 44, KIT_FACETS)));
-  const lid = solid(new THREE.CylinderGeometry(34, 34, 13, KIT_FACETS));
+  g.add(solid(new THREE.CylinderGeometry(32, 30, 44, 32)));
+  g.add(silhouetteLines(32, 30, 22, -22));
+  const lid = solid(new THREE.CylinderGeometry(34, 34, 13, 32));
   lid.position.y = 26.5;                  // over the rim, not level with it
   g.add(lid);
+  g.add(silhouetteLines(34, 34, 33, 20));
   return g;
 }
 
@@ -643,7 +670,7 @@ function pasteTub() {
 function rollGeo(rOut, rIn, h) {
   const s = new THREE.Shape().absarc(0, 0, rOut, 0, Math.PI * 2, false);
   s.holes.push(new THREE.Path().absarc(0, 0, rIn, 0, Math.PI * 2, true));
-  const geo = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: KIT_FACETS });
+  const geo = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 32 });
   geo.rotateX(-Math.PI / 2);              // extruded along +z; stand it up
   geo.translate(0, -h / 2, 0);
   return geo;
@@ -665,12 +692,18 @@ function tapeAndThread() {
   const across = new THREE.Vector3(1, 0, -1).normalize();
   const back = new THREE.Vector3(1, 0, 1).normalize();
   const roll = solid(rollGeo(30, 15, 16));
+  roll.add(silhouetteLines(30, 30, 8, -8));       // the outer wall
+  roll.add(silhouetteLines(15, 15, 8, -8));       // and the bore, the same height
   roll.position.copy(across).multiplyScalar(-18).setY(-8);      // both standing on the same ground
   g.add(roll);
   const spool = new THREE.Group();
-  spool.add(solid(new THREE.CylinderGeometry(11, 11, 26, KIT_FACETS)));
+  spool.add(solid(new THREE.CylinderGeometry(11, 11, 26, 32)));
+  // The spool is laid on its side below (rotation.z), so its own axis reads VIEW_DIR the same
+  // quarter turn away DIR_ON_STAND does for the mold lying in its stand — the local view is
+  // (y,-x,z), not VIEW_DIR itself.
+  spool.add(silhouetteLines(11, 11, 13, -13, DIR_ON_STAND));
   for (const y of [-14.5, 14.5]) {
-    const f = solid(new THREE.CylinderGeometry(16, 16, 3, KIT_FACETS));
+    const f = solid(new THREE.CylinderGeometry(16, 16, 3, 32));
     f.position.y = y;
     spool.add(f);
   }
@@ -710,10 +743,10 @@ function stadium(len, wid) {
 /** The brush for laying the paper down: a shoe brush, bristles over its whole underside. */
 function smoothBrush() {
   const g = new THREE.Group();
-  const body = new THREE.ExtrudeGeometry(stadium(160, 46), { depth: 20, bevelEnabled: false, curveSegments: KIT_FACETS_HALF });
+  const body = new THREE.ExtrudeGeometry(stadium(160, 46), { depth: 20, bevelEnabled: false, curveSegments: 16 });
   body.rotateX(-Math.PI / 2);             // spans y 0..20
   g.add(solid(body));
-  const br = new THREE.ExtrudeGeometry(stadium(150, 38), { depth: 18, bevelEnabled: false, curveSegments: KIT_FACETS_HALF });
+  const br = new THREE.ExtrudeGeometry(stadium(150, 38), { depth: 18, bevelEnabled: false, curveSegments: 16 });
   br.rotateX(-Math.PI / 2);
   br.translate(0, -18, 0);                // spans y -18..0
   g.add(solid(br));
@@ -736,7 +769,7 @@ function pliers() {
     return solid(geo);
   };
   g.add(arm(1, -5.2), arm(-1, 0.2));
-  const pin = new THREE.CylinderGeometry(4, 4, 13, KIT_FACETS);
+  const pin = new THREE.CylinderGeometry(4, 4, 13, 16);
   pin.rotateX(Math.PI / 2);
   pin.translate(46, 0, -2.5);
   g.add(solid(pin));
