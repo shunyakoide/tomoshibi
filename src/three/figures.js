@@ -599,6 +599,14 @@ function lightLegs(p, smooth) {
 /** A kit object: `part()`'s own white face + outline, reused so a kit item looks like a part. */
 const solid = (geo) => part(geo, false);
 
+/** Loose ink strokes: a flat [x,y,z, x,y,z, …] of segment endpoints. Every drawn fact in this
+ * section that is not a solid — a bristle, a silhouette, a knurl — is one of these. */
+function inkLines(pts) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: INK }));
+}
+
 /**
  * A fringe of bristle strokes hanging off a block's front-bottom edge — the one thing a flat white
  * solid cannot say for itself. `xs` are strand positions along the edge; each hangs straight down
@@ -611,9 +619,7 @@ function bristleFringe(xMin, xMax, y, z, len, n) {
     const x = xMin + ((xMax - xMin) * i) / (n - 1);
     pts.push(x, y, z, x, y - len, z);
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-  return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: INK }));
+  return inkLines(pts);
 }
 
 /**
@@ -632,9 +638,26 @@ function silhouetteLines(rTop, rBot, yTop, yBot, view = VIEW_DIR, cx = 0, cz = 0
     const ct = Math.cos(a), st = Math.sin(a);
     pts.push(cx + rTop * ct, yTop, cz + rTop * st, cx + rBot * ct, yBot, cz + rBot * st);
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-  return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: INK }));
+  return inkLines(pts);
+}
+
+/**
+ * The same job for a SPHERE: its outline is a circle of the same radius, lying in the plane the
+ * camera looks straight down. Needed for the same reason `silhouetteLines` is — a smooth ball's
+ * facets are far under the 24deg edge threshold, so white on white it draws nothing at all — and
+ * the alternative, faceting it until the facets draw, is the one that was tried and reverted.
+ */
+function silhouetteCircle(r, cx, cy, cz, view = VIEW_DIR, n = 64) {
+  const a = new THREE.Vector3().crossVectors(view, new THREE.Vector3(0, 1, 0)).normalize();
+  const b = new THREE.Vector3().crossVectors(view, a).normalize();
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    for (const k of [i, i + 1]) {
+      const th = ((k % n) / n) * Math.PI * 2, c = Math.cos(th), sn = Math.sin(th);
+      pts.push(cx + r * (a.x * c + b.x * sn), cy + r * (a.y * c + b.y * sn), cz + r * (a.z * c + b.z * sn));
+    }
+  }
+  return inkLines(pts);
 }
 
 /** A helix that opens out as it climbs — a coil of rod, which is how both bamboo and wire are sold. */
@@ -818,9 +841,7 @@ function plierMarks(sign, z) {
   const pts = [];
   for (const x of [-72, -60, -48, -36]) pts.push(x, sign * 0.6, z, x, sign * 3.6, z);
   pts.push(45, sign * -14, z, 45, sign * -32, z);
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-  return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: INK }));
+  return inkLines(pts);
 }
 function pliers() {
   const g = new THREE.Group();
@@ -850,6 +871,215 @@ function pliers() {
  * What each figure shows. Keys are the guide's step ids; the value builds the group — every step on
  * the page has one, from the first koma to the lantern lit on its cord.
  */
+/**
+ * The razor: a 長柄カミソリ — the flat plastic handle with a guarded blade in its head, which is
+ * what a lantern actually gets trimmed with. (A loose double-edge blade was drawn here first. It
+ * is the more iconic object, but nobody trims a wet edge holding a bare blade in their fingers.)
+ *
+ * The shape is all in the outline: a slim stick, a SHOULDER a third of the way down where the head
+ * widens out of the grip, and a slanted cut at the tail. On top of the head sits the guard rail,
+ * and across it the comb teeth — the same kind of short INK stroke `bristleFringe` uses, and here
+ * for the same reason: white on white, the rail alone is one more rectangle, and the teeth are
+ * what say which end cuts.
+ */
+const RAZOR_L = 180, RAZOR_HW = 11, RAZOR_GW = 8.5, RAZOR_T = 5;
+function razorBlade() {
+  const g = new THREE.Group();
+  const hw = RAZOR_HW, gw = RAZOR_GW, x1 = RAZOR_L / 2;
+  const s = new THREE.Shape([
+    [-x1 + 6, -gw], [28, -gw], [36, -hw], [x1 - 4, -hw],   // grip, shoulder, head
+    [x1, -hw + 8], [x1, hw - 2], [x1 - 4, hw],             // the head's cut-off top corner
+    [36, hw], [28, gw], [-x1, gw],                         // back down the blade side; the last
+  ].map(([x, y]) => new THREE.Vector2(x, y)));             // edge closes as the slanted tail
+  const geo = new THREE.ExtrudeGeometry(s, { depth: RAZOR_T, bevelEnabled: false });
+  geo.rotateX(-Math.PI / 2);              // extruded along +z; lay it down (spans y 0..T, z = -sy)
+  g.add(solid(geo));
+
+  const rail = solid(new THREE.BoxGeometry(46, 1.6, 3.6));   // the guard, along the head's edge
+  rail.position.set(61, RAZOR_T + 0.8, -(hw - 1.8));
+  g.add(rail);
+  const teeth = [];
+  for (let x = 41; x <= 81; x += 5) teeth.push(x, RAZOR_T + 1.62, -hw, x, RAZOR_T + 1.62, -hw + 3.6);
+  g.add(inkLines(teeth));
+  // The seam where the two halves of the handle meet — one line, and the only mark on the grip.
+  g.add(inkLines([-6, RAZOR_T + 0.02, -gw, -6, RAZOR_T + 0.02, gw]));
+  return g;
+}
+
+/**
+ * The pendant lamp holder — the cord-and-socket that ways (2) and (3) hang the lamp from. It is
+ * NOT a card of its own: on its own it is a fitting, and the list is a list of things you need in
+ * front of you, so it is drawn with a bulb screwed into it and both are "a lamp" (see `lamps()`).
+ *
+ * Hanging, cord up, and the cord is simply CUT OFF at the top: the same convention the `lightHang`
+ * figure uses for "this continues", and for the same reason — a plug or a ceiling rose would be
+ * claiming something about the reader's wiring. The cord is CORD_INK rather than white, also
+ * matching that figure: a 3mm white tube draws nothing at all, and this is the same cord.
+ */
+function pendantSocket() {
+  const g = new THREE.Group();
+  // Short, because the frame is fitted to what is in it: every millimetre of cord is drawn at the
+  // cost of the socket, and this figure sits in a small landscape well. Enough to read as hanging.
+  const cordLen = 26;
+  const cord = new THREE.Mesh(
+    new THREE.CylinderGeometry(CORD_R, CORD_R, cordLen, 12),
+    new THREE.MeshBasicMaterial({ color: CORD_INK }),
+  );
+  cord.position.y = 34 + cordLen / 2;
+  g.add(cord);
+  const cap = solid(new THREE.CylinderGeometry(8, 13, 12, 32));      // the cord grip
+  cap.position.y = 28;
+  g.add(cap, silhouetteLines(8, 13, 34, 22));
+  const body = solid(new THREE.CylinderGeometry(17, 17, 34, 32));    // the shell
+  body.position.y = 5;
+  g.add(body, silhouetteLines(17, 17, 22, -12));
+  // The skirt around the mouth the bulb screws into. Only just wider than the shell: the view
+  // looks DOWN on this, so the mouth itself is on the far side and no amount of ring drawn there
+  // is visible (it was drawn as an annulus first — the shell sits over the bore and hides it).
+  // Any more overhang than this and the socket reads as a pot standing on a saucer.
+  const lip = solid(new THREE.CylinderGeometry(18.5, 18.5, 5, 32));
+  lip.position.y = -14.5;
+  g.add(lip, silhouetteLines(18.5, 18.5, -12, -17));
+  return g;
+}
+
+/**
+ * The washi itself: four sheets, each turned a little off the one under it. Squared up they are one
+ * white block with a box's outline; fanned, the corners cross and it reads as loose paper. The
+ * sheets are 1.4mm thick, which no washi is — but a sheet drawn at its real thickness has no side
+ * to draw, and a stack of nothing is nothing.
+ */
+function washiStack() {
+  const g = new THREE.Group();
+  // yaw, dx, dz, bottom sheet first — irregular, because even spacing reads as a fan someone laid
+  // out on purpose. The TOP sheet is the square one and the ones under it are the turned ones: the
+  // top sheet is the only one drawn whole, so anything it does not cover has to be a corner.
+  const SHEETS = [[0.22, -7, 6], [-0.15, 5, -4], [0.09, -3, 5], [0.00, 0, 0]];
+  SHEETS.forEach(([a, dx, dz], i) => {
+    const sheet = solid(new THREE.BoxGeometry(150, 1.4, 106));
+    sheet.rotation.y = a;
+    sheet.position.set(dx, i * 1.5, dz);
+    g.add(sheet);
+  });
+  return g;
+}
+
+/**
+ * The bulb. Its globe is a smooth sphere with a `silhouetteCircle` for its outline, and the cap's
+ * three raised bands are the screw thread — which is what stops the whole thing reading as a
+ * doorknob. See `lamps()` below for why it is not the only thing on that card.
+ *
+ * `view` is VIEW_DIR expressed in whatever frame the bulb ends up standing in, exactly as
+ * `silhouetteLines` documents: EVERY line here is a silhouette, and a silhouette is a fact about
+ * where the camera is, not about the solid. Hang the bulb upside down without it and the globe's
+ * outline circle comes out tilted — drawn as an ellipse across the glass.
+ */
+const BULB_FOOT = 25;            // mm below the origin: where the cap ends, so it can be stood up
+function ledBulb(view = VIEW_DIR) {
+  const g = new THREE.Group();
+  const globe = solid(new THREE.SphereGeometry(30, 32, 16));
+  globe.position.y = 34;
+  g.add(globe, silhouetteCircle(30, 0, 34, 0, view));
+  const neck = solid(new THREE.CylinderGeometry(26, 14, 28, 32));   // globe down to the cap
+  neck.position.y = 13;
+  g.add(neck, silhouetteLines(26, 14, 27, -1, view));
+  const cap = solid(new THREE.CylinderGeometry(14, 12.5, 24, 32));
+  cap.position.y = -13;
+  g.add(cap, silhouetteLines(14, 12.5, -1, -25, view));
+  for (const y of [-6, -12, -18]) {                                 // the thread
+    const band = solid(new THREE.CylinderGeometry(15, 15, 2.4, 32));
+    band.position.y = y;
+    g.add(band, silhouetteLines(15, 15, y + 1.2, y - 1.2, view));
+  }
+  return g;
+}
+
+/**
+ * The other kind of lamp: the flat USB puck you set on the floor and drop the shade over.
+ *
+ * Two shallow discs — the foot it stands on and the lens over it — because one cylinder is a hockey
+ * puck, and the seam between them is what makes it a fitting. The lens is widest at its FOOT and
+ * narrows going up, which is the whole read: it is the light that overhangs, not the base. The port
+ * housing sticks out of the rim, and the lead ends in a PLUG rather than being cut off — a USB
+ * light comes with its cable, where the pendant's cord runs to a ceiling and never ends in frame.
+ *
+ * Its own proportion is a real one (IKEA's KAPPLAKE is 35mm across and 10mm high, so 3.5:1), but
+ * it is drawn LARGER than true scale beside the bulb: at ⌀35 against a 110mm bulb it is a dot in a
+ * 300px well, and the card's job is to show two shapes, not to compare their sizes.
+ */
+const PUCK_R = 38, PUCK_FOOT_H = 7, PUCK_LENS_H = 15;    // 76 across, 22 high = the real 3.5:1
+function puckLight() {
+  const g = new THREE.Group();
+  const foot = solid(new THREE.CylinderGeometry(PUCK_R - 4, PUCK_R - 6, PUCK_FOOT_H, 48));
+  foot.position.y = PUCK_FOOT_H / 2;
+  g.add(foot, silhouetteLines(PUCK_R - 4, PUCK_R - 6, PUCK_FOOT_H, 0));
+  // Straight-sided, and wider than the foot: the overhang is then one clean step. Tapering it as
+  // well (the real lens is slightly domed) put a bulge at its foot and the two discs read as a
+  // pair of stacked bowls.
+  const lens = solid(new THREE.CylinderGeometry(PUCK_R, PUCK_R, PUCK_LENS_H, 48));
+  lens.position.y = PUCK_FOOT_H + PUCK_LENS_H / 2;
+  g.add(lens, silhouetteLines(PUCK_R, PUCK_R, PUCK_FOOT_H + PUCK_LENS_H, PUCK_FOOT_H));
+  const port = solid(new THREE.BoxGeometry(13, 7, 16));
+  port.position.set(-PUCK_R + 4, 5.5, 0);
+  g.add(port);
+  const lead = 34;
+  const cord = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.6, 1.6, lead, 12),
+    new THREE.MeshBasicMaterial({ color: CORD_INK }),
+  );
+  cord.rotation.z = Math.PI / 2;                         // out of the port, along -x
+  cord.position.set(-PUCK_R - 3 - lead / 2, 5.5, 0);
+  g.add(cord);
+  const plug = solid(new THREE.BoxGeometry(15, 6, 11));  // USB-A
+  plug.position.set(-PUCK_R - 3 - lead - 7, 5.5, 0);
+  g.add(plug);
+  return g;
+}
+
+// VIEW_DIR for a solid that has been turned upside down (a half turn about x) — the flipped-over
+// cousin of DIR_ON_STAND, and needed by everything in that solid that draws a silhouette.
+const DIR_UPSIDE_DOWN = new THREE.Vector3(VIEW_DIR.x, -VIEW_DIR.y, -VIEW_DIR.z);
+
+/** The holder with a bulb screwed into it: one lamp, hanging, rather than two things to buy. */
+function pendantLamp() {
+  const g = new THREE.Group();
+  const socket = pendantSocket();
+  socket.position.y = 17;                      // its mouth down on y = 0
+  g.add(socket);
+  const bulb = ledBulb(DIR_UPSIDE_DOWN);
+  bulb.rotation.x = Math.PI;                   // screwed in: cap up, INTO the mouth
+  bulb.position.y = 5;                         // 6mm of cap inside it, hidden by the shell
+  g.add(bulb);
+  return g;
+}
+
+/**
+ * BOTH lamps on one card, the way the tape and the thread share one. The three lighting ways want
+ * different fittings — one stands a lamp on the floor, two hang a bulb in a socket — so rather
+ * than picking one, the card says what the light has to BE: a bulb on a cord, or a flat USB one.
+ *
+ * Set side by side ACROSS the view, which is the one offset that does not stack them, and kept
+ * clear of each other in plan so that only the drawing overlaps. That is `tapeAndThread`'s rule,
+ * for its reason: overlapping on the page is what makes both of them big.
+ */
+function lamps() {
+  const g = new THREE.Group();
+  const across = new THREE.Vector3(1, 0, -1).normalize();
+  const back = new THREE.Vector3(1, 0, 1).normalize();
+  const hang = pendantLamp();
+  // Lifted so the glass ends just above the floor the puck stands on. It hangs and the puck sits,
+  // so they share no ground line — but the eye still wants them to end at the same height.
+  hang.position.copy(across).multiplyScalar(-52).setY(62);
+  g.add(hang);
+  const puck = puckLight();
+  // Turned so its lead runs AWAY from the lamp. Built pointing -x, which projects left — straight
+  // at the glass, where the plug read as something stuck to it.
+  puck.rotation.y = Math.PI;
+  puck.position.copy(across).multiplyScalar(44).addScaledVector(back, 26);
+  g.add(puck);
+  return g;
+}
+
 const SCENES = {
   // Parts, one at a time, for the parts list.
   rib: (p, sm) => part(ribGeo(p, 0, sm), false),
@@ -905,6 +1135,9 @@ const SCENES = {
   kitPasteBrush: () => pasteBrush(),
   kitBrush: () => smoothBrush(),
   kitPliers: () => pliers(),
+  kitWashi: () => washiStack(),
+  kitRazor: () => razorBlade(),
+  kitLight: () => lamps(),
 };
 // The view direction inside the mold's OWN frame once it is lying in the stand. The group is turned
 // a quarter turn about Z there, so world (x,y,z) reads as local (y,-x,z).
