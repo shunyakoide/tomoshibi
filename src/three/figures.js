@@ -408,42 +408,149 @@ function pullScene(p, smooth) {
 }
 
 /**
- * The finished lantern, lit and on its legs — the one figure with no mold in it at all.
+ * The finished lantern, lit — the figures with no mold in them at all. There is one per way of
+ * lighting it, because the lamp is the one part of this build the app does not make: you supply it,
+ * and the three ways of doing that give three different objects.
  *
  * **Warm, not white.** The rest of the page is a white-parts drawing and the pasted washi is ivory;
  * a lit shade is the same paper with light behind it, so it is drawn the colour the lit view's own
- * emissive gives it. That, and the legs, is the whole of "the light is on" — no rays: this page is a
- * set of technical drawings, and a starburst is the one mark on it that would be decoration.
- *
- * **The legs are the lit view's legs** (`scenes.js` buildLit — same 0.42·height drop and 0.35·drop
- * splay), rooted in the bottom ring's SOCKETS rather than on the rim: `ringLegs` gives the pad
- * centres, so a design with the sockets switched off — or an opening too small to hold them — draws
- * a lantern standing on its own rim instead of one balanced on legs that have nothing to push into.
- * Cardboard prints no rings at all, so it never has them either.
- *
- * Rods rather than parts: they are drawn as a plain coloured mesh like the bamboo and the bands,
- * because you supply them (the socket takes a ⌀6 rod and you cut it to the height you want). An
- * outlined cylinder is no help anyway — 12 facets draw as a hatched tube, 24 draw as nothing at all.
+ * emissive gives it. That is the whole of "the light is on" — no rays: this page is a set of
+ * technical drawings, and a starburst is the one mark on it that would be decoration.
  */
 const LIT_FACE = 0xf9d9a3;       // the lit view's warm emissive, as a flat fill
-const LEG_INK = 0x8f949c;        // a metal rod, light enough not to out-weigh the ink outlines
-function litScene(p, smooth) {
-  const g = new THREE.Group();
-  // No mold: the shade, the bamboo inside it, and the rings glued into its openings.
-  g.add(moldPieces(p, {
+const CORD_INK = 0x5c574f;       // lamp flex: dark, but the ink family rather than black
+const LAMP_INK = 0x8f949c;       // the lamp's own body: a grey, light enough not to out-weigh the ink
+
+/** The lantern itself, at its own coordinates: shade, the bamboo in it, and the rings in its mouths. */
+function litShade(p, smooth) {
+  return moldPieces(p, {
     ribs: false, komaBot: false, komaTop: false, smooth, rings: !smooth, higo: true, washi: "lit",
-  }));
-  const legs = smooth ? null : ringLegs(p);
-  if (!legs) return g;
+  });
+}
+
+/**
+ * (2) Hung from a pendant cord, fixed at the top.
+ *
+ * Two things about the cord are deliberate: it is on the AXIS, and it enters by the TOP opening
+ * whichever of the two openings is the wider — a hanging shade has an up, and it is the design's own
+ * up, not its bigger mouth. It dips `CORD_DIP` below the rim so it meets the opening instead of
+ * floating over it, and runs `CORD_UP` of the body height above the shade: far enough to read as
+ * hanging, short enough not to eat the frame (the view fits the bounding box, cord included). Its
+ * top is simply cut off — the drawing convention for "this continues" — rather than ending in a
+ * ceiling rose, which would claim the lamp is wired in when it plugs into a socket.
+ */
+const CORD_R = 1.6;              // mm — a lamp cord, thin enough to draw as a line, not a pipe
+const CORD_DIP = 6;              // mm below the opening rim, so the cord meets the ring
+const CORD_UP = 0.42;            // x body height above the shade
+function lightHang(p, smooth) {
+  const g = new THREE.Group();
+  g.add(litShade(p, smooth));
+  const yTop = fukuroRange(p).hi * p.height;       // the top opening = where the cord goes in
+  const len = p.height * CORD_UP + CORD_DIP;
+  const cord = new THREE.Mesh(
+    new THREE.CylinderGeometry(CORD_R, CORD_R, len, 12),
+    new THREE.MeshBasicMaterial({ color: CORD_INK }),
+  );
+  cord.position.y = yTop - CORD_DIP + len / 2;
+  g.add(cord);
+  return g;
+}
+
+/**
+ * (1) No legs: a lamp stood on the floor and the shade dropped over it.
+ *
+ * **Drawn EXPLODED — the shade lifted clear of the lamp — because the method is the whole point of
+ * the figure and the shade is opaque.** Set down, this way of doing it looks exactly like the other
+ * two with their fittings cropped off: a lit shade on a surface. Lifted, it says put the lamp there
+ * and cover it, which is the entire instruction. The floor is a thin disc, and it is what makes
+ * "stood on the floor" different from "floating": without it the lamp reads as hanging too.
+ *
+ * The lamp is generic on purpose — a base and a dome, no socket and no bulb thread — because this
+ * route takes whatever you own that stands up and glows. It is sized off the BOTTOM opening it has
+ * to pass through (`LAMP_FIT` of that radius), so a design whose mouth is too small to swallow a
+ * lamp does not get drawn one that could never go in.
+ */
+const LAMP_FIT = 0.62;           // x the bottom opening radius: it has to pass through the mouth
+const LAMP_MAX = 38;             // mm — beyond this it is a floor lamp, not something you cover
+const LAMP_LIFT = 0.48;          // x body height: the exploded gap above the lamp
+function lightSet(p, smooth) {
+  const g = new THREE.Group();
+  const y0 = fukuroRange(p).lo * p.height;         // where the shade would come to rest = the floor
+  const rL = Math.min(openingR(p, false) * LAMP_FIT, LAMP_MAX);
+  const hL = rL * 0.7;
+  const mat = new THREE.MeshBasicMaterial({ color: LAMP_INK });
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(rL, rL, hL, 24), mat);
+  base.position.y = y0 + hL / 2;
+  g.add(base);
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(rL * 0.62, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: LIT_FACE }),
+  );
+  dome.position.y = y0 + hL;
+  g.add(dome);
+  const fR = maxRadius(p) * 1.05;
+  const floor = part(new THREE.CylinderGeometry(fR, fR, 1, 64), false);   // outlined: an unlined
+  floor.position.y = y0 - 0.5;                                            // white disc is invisible
+  g.add(floor);
+  const shade = litShade(p, smooth);
+  shade.position.y = hL + p.height * LAMP_LIFT;    // exploded: lifted clear, straight up the axis
+  g.add(shade);
+  return g;
+}
+/**
+ * (3) Stood on legs, with the lamp fixed up into the bottom opening.
+ *
+ * The legs are the lit view's legs (`scenes.js` buildLit: 0.42·height drop, 0.35·drop splay) rooted
+ * in the bottom ring's SOCKETS — `ringLegs` gives the pad centres — because that is the one place
+ * this app actually makes for them. It returns null when the sockets are off and when the opening
+ * is too small to hold them; the guide drops this option entirely in that case rather than drawing
+ * a legless lantern under the words "add legs". It does NOT depend on the route: cardboard prints
+ * no ring, but the finished lantern has one either way and the step says so in its own words.
+ *
+ * What makes it method (3) rather than (2) upside down: the socket is fixed UP INTO the bottom
+ * mouth and the cord leaves DOWNWARDS, between the legs, which is the whole reason the lantern
+ * needs the clearance the legs give it. The cord is cut off below the feet — it goes on to a plug.
+ * Rods and socket rather than parts: you supply them, and an outlined cylinder is no help anyway
+ * (12 facets draw as a hatched tube, 24 draw as nothing at all).
+ */
+const LEG_DROP = 0.42;           // x body height, and the splay is 0.35 of that: the lit view's own
+function lightLegs(p, smooth) {
+  const g = new THREE.Group();
+  g.add(litShade(p, smooth));
+  // Legs on BOTH routes. `ringLegs` is a question about the opening, not about a printed part, so
+  // it answers on cardboard too — that route simply prints no ring for the pads to be in, and the
+  // step's own cardboard text says the hoop is yours to make. Drawing the legs anyway is right: the
+  // finished lantern has an opening ring either way; only who supplies it changes.
+  const legs = ringLegs(p);
   const y0 = fukuroRange(p).lo * p.height;         // the bottom opening = where the ring seats
-  const drop = p.height * 0.42, splay = drop * 0.35;
-  const mat = new THREE.MeshBasicMaterial({ color: LEG_INK });
+  const ink = new THREE.MeshBasicMaterial({ color: LAMP_INK });
+  // No socket is drawn. The view looks DOWN on the lantern, so anything sitting in the bottom mouth
+  // is behind the paper — a socket here draws nothing at all, and one dropped far enough to clear
+  // the rim would be inventing a fitting this step has not designed. The cord coming out from under
+  // the shade says the lamp is up there; the text says what holds it.
+  const drop = p.height * LEG_DROP, splay = drop * 0.35;
+  // The cord leaves the socket, drops, and TURNS OUT of the frame. The turn is the whole point: a
+  // dark line straight down between three legs is read as a fourth leg, which is what it looked
+  // like. It runs out along screen-right (world +x−z projects horizontally) so the bend is square
+  // to the reader instead of foreshortened into a kink.
+  const cordMat = new THREE.MeshBasicMaterial({ color: CORD_INK });
+  const yB = y0, dropLen = drop * 0.62;
+  const down = new THREE.Mesh(new THREE.CylinderGeometry(CORD_R, CORD_R, dropLen, 12), cordMat);
+  down.position.y = yB - dropLen / 2;
+  g.add(down);
+  const runLen = maxRadius(p) * 1.3;
+  const run = new THREE.Mesh(new THREE.CylinderGeometry(CORD_R, CORD_R, runLen, 12), cordMat);
+  run.rotation.z = -Math.PI / 2;
+  run.rotation.y = Math.PI / 4;                  // (1, 0, -1)/√2 = straight right on screen
+  run.position.set((runLen / 2) * Math.SQRT1_2, yB - dropLen, -(runLen / 2) * Math.SQRT1_2);
+  g.add(run);
+  if (!legs) return g;
   for (let i = 0; i < legs.n; i++) {
     const a = (i / legs.n) * Math.PI * 2;
     const top = new THREE.Vector3(legs.Rc * Math.cos(a), y0, legs.Rc * Math.sin(a));
     const foot = new THREE.Vector3((legs.Rc + splay) * Math.cos(a), y0 - drop, (legs.Rc + splay) * Math.sin(a));
     const v = new THREE.Vector3().subVectors(foot, top);
-    const rod = new THREE.Mesh(new THREE.CylinderGeometry(legs.bore, legs.bore, v.length(), 20), mat);
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(legs.bore, legs.bore, v.length(), 20), ink);
     rod.position.copy(top).addScaledVector(v, 0.5);
     rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().normalize());
     g.add(rod);
@@ -452,8 +559,185 @@ function litScene(p, smooth) {
 }
 
 /**
+ * ============================================================================
+ * THE KIT — the only figures here that are not this design
+ * ============================================================================
+ * Everything above is `p` made visible. These are not. A pot of paste, a roll of tape and a brush
+ * are things you buy, and nothing about them is decided by the lantern — the same reason `KIT` in
+ * GuidePage is plain strings with no numbers in them. So they are constants, and their dimensions
+ * are PROPORTIONS rather than measurements: the frame is fitted per figure, so only the ratios
+ * survive. Where a real one has a standard size, that is where the ratio comes from — a 糊刷毛 is
+ * about 130mm wide with 30mm of bristle, a shoe brush about 160x45 with 20mm.
+ *
+ * They are drawn exactly like a printed part — white face, `part()`'s own outline — rather than
+ * given a colour of their own: a kit item and a mold part sit in the same card, in the same well,
+ * and a kit rendered in fill colour would read as "this is a different kind of drawing" instead of
+ * "this is a different kind of object", which is the wrong sentence for a page that is otherwise
+ * all one visual language. What a coloured fill used to buy — telling a round, edge-less lid apart
+ * from the tub under it — a shared white loses nothing: each remains its own `part()`, so it keeps
+ * its own outline, and two outlines meeting at a rim reads exactly as it does everywhere else in
+ * this file (the koma sitting on the stand, a rib in the bundle).
+ *
+ * A BRUSH is the one shape white cannot carry on its own: its whole identity is the bristles, and a
+ * block of bristles is just another flat-faced solid — indistinguishable from the handle above it
+ * without a fill to separate them. So a brush also gets `bristleFringe()`: short lines hung off the
+ * bristle block's front-bottom edge, the same INK as every other line here. Not a texture, not a
+ * colour — one more small fact drawn the way this file draws every fact, with a line.
+ * ============================================================================
+ */
+
+/** A kit object: `part()`'s own white face + outline, reused so a kit item looks like a part. */
+const solid = (geo) => part(geo, false);
+
+/**
+ * A fringe of bristle strokes hanging off a block's front-bottom edge — the one thing a flat white
+ * solid cannot say for itself. `xs` are strand positions along the edge; each hangs straight down
+ * by `len` from (x, y, z). Real bristles fan out and blur together; four or five evenly spaced
+ * strokes read as "there are bristles here" without pretending to count them.
+ */
+function bristleFringe(xMin, xMax, y, z, len, n) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const x = xMin + ((xMax - xMin) * i) / (n - 1);
+    pts.push(x, y, z, x, y - len, z);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: INK }));
+}
+
+/** A helix that opens out as it climbs — a coil of rod, which is how both bamboo and wire are sold. */
+class CoilCurve extends THREE.Curve {
+  constructor(r0, dr, turns, rise) { super(); Object.assign(this, { r0, dr, turns, rise }); }
+  getPoint(t, target = new THREE.Vector3()) {
+    const a = t * this.turns * Math.PI * 2;
+    const r = this.r0 + this.dr * t;
+    return target.set(r * Math.cos(a), this.rise * (t - 0.5), r * Math.sin(a));
+  }
+}
+// 8 radial segments, not a round tube's usual 16+: a smooth rod stays white-on-white with nothing
+// to draw but its two cut-end rings (see "THE KIT" above — this is the coloured fill's old job).
+// At 45deg the facets clear the 24deg edge threshold, so every facet seam draws, and the coil reads
+// as a wound, faceted rod the same way a rib's curved edge reads as a curve: by enough short lines.
+const coil = (rod, r0, dr, turns, rise) => solid(
+  new THREE.TubeGeometry(new CoilCurve(r0, dr, turns, rise), Math.ceil(turns * 48), rod, 8, false));
+
+/** A tub with its lid on: starch paste. (Wood glue comes in a bottle; the tub is the first-named.) */
+function pasteTub() {
+  const g = new THREE.Group();
+  g.add(solid(new THREE.CylinderGeometry(32, 30, 44, 24)));
+  const lid = solid(new THREE.CylinderGeometry(34, 34, 13, 24));
+  lid.position.y = 26.5;                  // over the rim, not level with it
+  g.add(lid);
+  return g;
+}
+
+/** A roll: a prism with a bore, stood on its axis so the bore is what you see. */
+function rollGeo(rOut, rIn, h) {
+  const s = new THREE.Shape().absarc(0, 0, rOut, 0, Math.PI * 2, false);
+  s.holes.push(new THREE.Path().absarc(0, 0, rIn, 0, Math.PI * 2, true));
+  const geo = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 32 });
+  geo.rotateX(-Math.PI / 2);              // extruded along +z; stand it up
+  geo.translate(0, -h / 2, 0);
+  return geo;
+}
+
+/**
+ * Tape and thread, in one figure. They are one line on the list — either will hold the bamboo while
+ * the paste dries — so they are one drawing; two cards saying the same thing is the list padding
+ * itself. Set side by side ACROSS the view (`(1,0,-1)` projects horizontally), which is the only
+ * offset that does not stack one behind the other, and set close enough to OVERLAP: the frame is
+ * fitted to what is in it, so every millimetre of gap between them is drawn at the cost of both.
+ * The reel is TIPPED OVER and set in front, its axis running diagonally. Two upright cylinders side
+ * by side is one silhouette read twice, and the near one drawn upright ran into the roll rather
+ * than in front of it — overlapping on the page is the point, intersecting in space is not, so the
+ * two stay clear of each other in plan and let the projection do the overlapping.
+ */
+function tapeAndThread() {
+  const g = new THREE.Group();
+  const across = new THREE.Vector3(1, 0, -1).normalize();
+  const back = new THREE.Vector3(1, 0, 1).normalize();
+  const roll = solid(rollGeo(30, 15, 16));
+  roll.position.copy(across).multiplyScalar(-18).setY(-8);      // both standing on the same ground
+  g.add(roll);
+  const spool = new THREE.Group();
+  spool.add(solid(new THREE.CylinderGeometry(11, 11, 26, 24)));
+  for (const y of [-14.5, 14.5]) {
+    const f = solid(new THREE.CylinderGeometry(16, 16, 3, 24));
+    f.position.y = y;
+    spool.add(f);
+  }
+  spool.rotation.z = Math.PI / 2;                               // laid on its side, axis along x —
+  spool.position.copy(across).multiplyScalar(20)                // which is 45 degrees on screen
+    .addScaledVector(back, 56).setY(0);                         // resting on the same ground
+  g.add(spool);
+  return g;
+}
+
+/** The paste brush: a wide flat slab of a handle over a band of bristle. */
+function pasteBrush() {
+  const g = new THREE.Group();
+  const s = new THREE.Shape();
+  s.moveTo(-60, 0); s.lineTo(60, 0); s.lineTo(46, 70); s.lineTo(-46, 70); s.closePath();
+  const geo = new THREE.ExtrudeGeometry(s, { depth: 13, bevelEnabled: false });
+  geo.translate(0, 0, -6.5);
+  g.add(solid(geo));
+  const br = solid(new THREE.BoxGeometry(120, 34, 17));
+  br.position.y = -17;
+  g.add(br);
+  // The block's own bottom-front edge: y = -17 - 17 (half height), z = half depth.
+  g.add(bristleFringe(-52, 52, -34, 8.4, 9, 9));
+  return g;
+}
+
+/** A rectangle with round ends — the plan of a shoe brush. */
+function stadium(len, wid) {
+  const r = wid / 2, x = len / 2 - r;
+  const s = new THREE.Shape();
+  s.absarc(x, 0, r, -Math.PI / 2, Math.PI / 2, false);
+  s.absarc(-x, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+  s.closePath();
+  return s;
+}
+
+/** The brush for laying the paper down: a shoe brush, bristles over its whole underside. */
+function smoothBrush() {
+  const g = new THREE.Group();
+  const body = new THREE.ExtrudeGeometry(stadium(160, 46), { depth: 20, bevelEnabled: false, curveSegments: 16 });
+  body.rotateX(-Math.PI / 2);             // spans y 0..20
+  g.add(solid(body));
+  const br = new THREE.ExtrudeGeometry(stadium(150, 38), { depth: 18, bevelEnabled: false, curveSegments: 16 });
+  br.rotateX(-Math.PI / 2);
+  br.translate(0, -18, 0);                // spans y -18..0
+  g.add(solid(br));
+  g.add(bristleFringe(-58, 58, -18, 17, 8, 11));
+  return g;
+}
+
+// One arm, tip at the origin and the handle running away down-right; the other is this mirrored in
+// y. Two arms crossing at a pin is the whole of what makes a pair of pliers read as one.
+const PLIER_ARM = [
+  [0, 5.5], [24, 7.5], [38, 12.5], [50, 12], [64, 5], [150, -13], [160, -19],
+  [156, -25], [143, -22], [70, -2], [52, 1.5], [40, 0.4], [24, 0.3], [0, 0.3],
+];
+function pliers() {
+  const g = new THREE.Group();
+  const arm = (sign, z) => {
+    const s = new THREE.Shape(PLIER_ARM.map(([x, y]) => new THREE.Vector2(x, sign * y)));
+    const geo = new THREE.ExtrudeGeometry(s, { depth: 5, bevelEnabled: false });
+    geo.translate(0, 0, z);
+    return solid(geo);
+  };
+  g.add(arm(1, -5.2), arm(-1, 0.2));
+  const pin = new THREE.CylinderGeometry(4, 4, 13, 20);
+  pin.rotateX(Math.PI / 2);
+  pin.translate(46, 0, -2.5);
+  g.add(solid(pin));
+  return g;
+}
+/**
  * What each figure shows. Keys are the guide's step ids; the value builds the group — every step on
- * the page has one, from the first koma to the lantern lit on its legs.
+ * the page has one, from the first koma to the lantern lit on its cord.
  */
 const SCENES = {
   // Parts, one at a time, for the parts list.
@@ -498,8 +782,18 @@ const SCENES = {
   dry: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, washi: "all" }),
   // Pulling it out — see `pullScene`.
   pull: (p, sm) => pullScene(p, sm),
-  // Lit, on its legs — see `litScene`.
-  light: (p, sm) => litScene(p, sm),
+  // Lit — one per way of supplying the lamp; see `litShade` and the scenes under it.
+  lightSet: (p, sm) => lightSet(p, sm),
+  lightHang: (p, sm) => lightHang(p, sm),
+  lightLegs: (p, sm) => lightLegs(p, sm),
+  // What you supply yourself — see "THE KIT" above. These are the only scenes that ignore `p`.
+  kitHigo: () => coil(2.5, 52, 8, 3.2, 16),
+  kitPaste: () => pasteTub(),
+  kitStick: () => tapeAndThread(),
+  kitWire: () => coil(1.4, 34, 4, 4.5, 26),
+  kitPasteBrush: () => pasteBrush(),
+  kitBrush: () => smoothBrush(),
+  kitPliers: () => pliers(),
 };
 // The view direction inside the mold's OWN frame once it is lying in the stand. The group is turned
 // a quarter turn about Z there, so world (x,y,z) reads as local (y,-x,z).
