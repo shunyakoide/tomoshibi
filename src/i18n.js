@@ -213,6 +213,13 @@ const EN = {
   "口輪(上)": "Ring (top)",
   "編集中": "draft",
   "図を描けませんでした": "Figure unavailable",
+  // The folded detail block (GuidePage's `more`). "In detail" rather than "More": what is inside is
+  // the same step gone into further, not extra material — and the summary sits under a body that
+  // has already said what to do.
+  "詳しく": "In detail",
+  // The well while the photograph has not been taken. It names the file it is waiting for beside
+  // this word, so the word carries no colon or ellipsis of its own.
+  "写真": "Photo",
   "段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。":
     "The cardboard mold has no posts, base or rings — the template cuts the mold itself. Hold it in your hands as you turn it, or rest it on a box.",
   "「印刷」ビューへ →": "Go to the Print view →",
@@ -236,6 +243,8 @@ const EN = {
   "竹ひごを巻く": "Wind the bamboo",
   "羽根板の外縁の溝に竹ひごを沿わせ、下から上へ巻いていきます。溝が受けるので滑り落ちません。「螺旋巻き」で設計した型なら、溝が段ごとにずれていて1本の連続した螺旋になります。":
     "Lay the bamboo into the grooves on the ribs' outer edges and wind upward from the bottom. The grooves hold it, so it cannot slip. If you designed with spiral winding, they step round rib by rib and the bamboo becomes one continuous helix.",
+  "溝は等間隔に切ってあるので、巻きながら間隔を測る必要はありません。溝の返しは胴の中央を向いているので、竹ひごは中央へ寄せるように押しつけると座ります。螺旋巻きの型は羽根板ごとに溝がずれています。羽根板に刻まれた通し番号の順に組んであれば、そのまま1本の連続した螺旋になります。":
+    "The grooves are cut evenly spaced, so there is nothing to measure as you wind. Each barb leans toward the middle of the body, so press the bamboo towards the middle and it seats. On a spiral mold the grooves step round from rib to rib — assemble them in the order of the serial numbers cut into them and the winding falls into one continuous helix on its own.",
   "和紙を貼る": "Paste the washi",
   "でんぷん糊を竹ひごに置き、和紙をのせて刷毛で撫でて密着させます。羽根板と羽根板の間を1面ずつ、1つ飛ばしに。一周したら戻って間を埋めます — 縁を重ねる相手が濡れていない面になります。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。":
     "Dab starch paste onto the bamboo, lay the washi over it and stroke it down with a brush. Work one rib-to-rib panel at a time, skipping every other bay; go round once, then come back and fill the gaps — each overlap then lands on a panel that is no longer wet. Cut the paper first with the washi template in the ZIP — trimming it wet is the fiddly part.",
