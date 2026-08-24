@@ -937,17 +937,34 @@ export function figureImage(p, id, { width = 620, height = 460, smooth = false }
     cam.position.copy(c).addScaledVector(VIEW_DIR, reach * 2);
     cam.lookAt(c);
     cam.updateMatrixWorld();
-    // Fit the frustum to the box AS PROJECTED, not to its largest side: a rib is long and thin, and
-    // sizing the view by its length leaves the drawing a fifth of the well with white all round it.
-    // The eight corners bound the projection exactly, so this fills the frame whatever the part is.
-    let ex = 0, ey = 0;
-    const v = new THREE.Vector3();
-    for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
-      v.set(x, y, z).applyMatrix4(cam.matrixWorldInverse);
-      ex = Math.max(ex, Math.abs(v.x)); ey = Math.max(ey, Math.abs(v.y));
-    }
-    const half = Math.max(ey, ex / aspect, 1) * 1.06;      // 6%: room for the edge lines themselves
-    cam.top = half; cam.bottom = -half; cam.right = half * aspect; cam.left = -half * aspect;
+    // Fit the frustum to what is actually DRAWN, as projected: every vertex of every mesh and line
+    // in the group, through the view matrix. Not to the largest dimension — a rib is long and thin,
+    // and sizing by its length leaves the drawing a fifth of the well — and not to the eight corners
+    // of the bounding box either, which is what this did first: those bound the projection, but only
+    // tightly for a solid that fills its box. An open pair of pliers is a diagonal Y whose box
+    // corners are all empty, and it came out at 44% of the frame's width where a shoe brush filled
+    // 77%. The frustum is then centred on the drawing rather than on the box, since those two
+    // coincide about as often.
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const v = new THREE.Vector3(), mv = new THREE.Matrix4();
+    group.updateMatrixWorld(true);
+    group.traverse((o) => {
+      const pos = o.geometry?.attributes?.position;
+      if (!pos) return;
+      mv.multiplyMatrices(cam.matrixWorldInverse, o.matrixWorld);
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(mv);
+        if (v.x < minX) minX = v.x;
+        if (v.x > maxX) maxX = v.x;
+        if (v.y < minY) minY = v.y;
+        if (v.y > maxY) maxY = v.y;
+      }
+    });
+    if (!(maxX > minX)) { minX = -1; maxX = 1; minY = -1; maxY = 1; }   // nothing drawn: don't divide by 0
+    const half = Math.max((maxY - minY) / 2, (maxX - minX) / 2 / aspect, 1) * 1.06;  // 6%: the lines' own width
+    const midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
+    cam.top = midY + half; cam.bottom = midY - half;
+    cam.right = midX + half * aspect; cam.left = midX - half * aspect;
     cam.updateProjectionMatrix();
 
     gl.setClearAlpha(0);
