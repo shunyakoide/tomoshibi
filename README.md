@@ -94,11 +94,13 @@ supply yourself (bamboo, washi, paste, a razor, a lamp) drawn beside it. The dra
 example lantern rather than of your design: the method does not change with the shape, and the
 sizes and counts are the ones you set in the app. The last step gives the **three ways to light it** — cover a lamp
 stood on the floor, hang it from a pendant cord, or add legs and fix the lamp in from below — each
-drawn, and the third only where the bottom ring has the leg sockets to take it. The legs one is
-worked through in three sub-steps of its own — bend a loop in the end of each wire, stack the three
-on the lamp holder's threaded stem, tighten its fixing nut — and needs nothing you have to print.
-**The step is still marked a draft** for the hanging way, where how the fitting attaches is not
-settled.
+drawn, and the third only where the bottom ring has the leg sockets to take it. The two that need a
+fitting are worked through in sub-steps of their own, and neither needs anything you have to print —
+a length of wire does both. On legs: bend a loop in the end of three wires, stack them on the lamp
+holder's threaded stem and tighten its nut, and the lamp and its legs come off the bench as one
+piece. Hanging: bow one wire into a shallow arch with a U in the middle, drop the cord into the U — its
+gap passes the cord and stops the socket — and run the wire's two ends under the rim of the top
+opening and out past it.
 
 ### No 3D printer? Use cardboard (beta)
 

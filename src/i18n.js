@@ -212,7 +212,6 @@ const EN = {
   "口輪(下)": "Ring (bottom)",
   "口輪(上)": "Ring (top)",
   "編集中": "draft",
-  "吊るす場合の固定方法はまだ検討中です。": "How the fitting attaches when you hang it is still being worked out.",
   "図を描けませんでした": "Figure unavailable",
   "段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。":
     "The cardboard mold has no posts, base or rings — the template cuts the mold itself. Hold it in your hands as you turn it, or rest it on a box.",
@@ -281,8 +280,21 @@ const EN = {
   "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。":
     "Stand an LED lamp on the floor and drop the shade over it. No legs, no fittings. Pick a lamp that fits through the bottom opening.",
   "上から吊るす": "Hang it from above",
-  "ペンダントライトのソケットを大きいほうの開口から入れ、コードを上の開口から出します。ソケットは針金などで開口に留めます。":
-    "Put the pendant socket in through the wider opening and bring the cord out of the top one, then tie the socket to the opening with wire.",
+  // Hanging. One wire, bowed into an arch over the top opening: the SOCKET hangs in the U bent
+  // into its middle (the gap passes the cord and stops the socket) and the shade hangs on the
+  // wire, whose ends drape over the rim. 「吊り線」 is that wire once it is bent for the job — the
+  // material is 「ワイヤー」 on the kit list, and the two words have to stay in their places or the
+  // page is naming one thing twice.
+  "ソケットを大きいほうの開口から入れ、コードを上の開口から出します。吊り線1本のUにコードを入れてソケットを引っ掛け、両端を上の開口の縁の下に入れます。":
+    "Put the socket in through the wider opening and bring the cord out of the top one. Drop the cord into the U of one hanger so the socket catches in it, and tuck the hanger's two ends under the rim of the top opening.",
+  "上の開口の大きさによっては安定しないことがあります。長さや曲げ方は現物に合わせて調整してください。":
+    "Depending on how big the top opening is, it may not sit steadily. Adjust the length and the bends to suit the lantern you have made.",
+  "吊り線を曲げる": "Bend the hanger",
+  "ワイヤーの中央をUの字に曲げます。間はコードが通ってソケットが通らない幅に。中央が高くなるようゆるい弧に曲げ、両端は上の開口の縁の下を通って外まで出る長さに伸ばします。":
+    "Bend the middle of the wire into a U, its gap wide enough to pass the cord and narrow enough to stop the socket. Bow the wire into a shallow arch, highest in the middle, and leave the two ends long enough to pass under the rim of the top opening and out the other side.",
+  "ソケットを引っ掛ける": "Hang the socket in it",
+  "Uにコードを入れると、ソケットが引っ掛かります。両端は上の開口の縁の下に入れます。":
+    "Drop the cord into the U and the socket catches in it. Tuck the two ends under the rim of the top opening.",
   "脚を付けて下から留める": "Add legs and fix it from below",
   "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。":
     "The cardboard route prints no opening ring. Make one from card, glue it into the bottom opening and pierce three holes in it for the leg ends. The rest is the same: take the lamp with its legs on it in through the bottom opening to stand it up, and run the cord out between the legs.",
