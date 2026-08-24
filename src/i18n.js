@@ -212,7 +212,7 @@ const EN = {
   "口輪(下)": "Ring (bottom)",
   "口輪(上)": "Ring (top)",
   "編集中": "draft",
-  "灯具の固定方法はまだ検討中です。": "How the lamp fitting attaches is still being worked out.",
+  "吊るす場合の固定方法はまだ検討中です。": "How the fitting attaches when you hang it is still being worked out.",
   "図を描けませんでした": "Figure unavailable",
   "段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。":
     "The cardboard mold has no posts, base or rings — the template cuts the mold itself. Hold it in your hands as you turn it, or rest it on a box.",
@@ -284,10 +284,25 @@ const EN = {
   "ペンダントライトのソケットを大きいほうの開口から入れ、コードを上の開口から出します。ソケットは針金などで開口に留めます。":
     "Put the pendant socket in through the wider opening and bring the cord out of the top one, then tie the socket to the opening with wire.",
   "脚を付けて下から留める": "Add legs and fix it from below",
-  "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、そこに脚を留めて立てます。あとは同じで、下の開口にペンダントライトのソケットを留め、コードは脚のあいだから逃がします。":
-    "The cardboard route prints no opening ring. Make one from card, glue it into the bottom opening and fix the legs to that to stand it up. The rest is the same: fix the pendant socket into the bottom opening and run the cord out between the legs.",
-  "下の口輪の脚ソケットに脚を挿して立て、下の開口にペンダントライトのソケットを留めます。コードは脚のあいだから逃がします。":
-    "Push legs into the bottom ring's leg sockets to stand it up, fix the pendant socket into the bottom opening, and run the cord out between the legs.",
+  "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。":
+    "The cardboard route prints no opening ring. Make one from card, glue it into the bottom opening and pierce three holes in it for the leg ends. The rest is the same: take the lamp with its legs on it in through the bottom opening to stand it up, and run the cord out between the legs.",
+  "脚を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。コードは脚のあいだから下へ逃がします。":
+    "Take the lamp with its legs on it in through the bottom opening and push the leg ends into the bottom ring's leg sockets to stand it up. The cord runs down and out between the legs.",
+  // The wire work under that one. ネジ is the socket's threaded stem and ナット the fixing nut
+  // that runs on it — one pair of words, so the three sub-steps have to keep calling them the same
+  // thing in both languages or the reader loses which part is which between figures.
+  // Not 「ワイヤーを曲げる」 for this one: that is already the pliers' line on the kit list, where
+  // it reads "for bending the wire" — a note about when you need the tool, not an instruction.
+  // The dictionary is keyed by the Japanese, so one wording cannot carry both (check:i18n).
+  "脚を曲げる": "Bend the legs",
+  "ペンチで先端を輪に曲げます。輪はソケットのネジが通る大きさに。残りは外へ渡してから下へ折り、床に届く長さにします。3本とも同じ形に。":
+    "Bend a loop in one end with the pliers, big enough to pass over the socket's threaded stem. Take the rest outward, then turn it down and cut it long enough to reach the floor. All three the same shape.",
+  "ネジに通す": "Onto the stem",
+  "ソケットの固定ナットを外し、3本の輪をネジに重ねて通します。脚が120°ずつ開くように向きを揃えてください。":
+    "Take the socket's fixing nut off and stack the three loops on the stem. Set them so the legs come out 120° apart.",
+  "ナットで締める": "Tighten the nut",
+  "ナットを戻して締めます。これでライトと3本の脚が1つになります。":
+    "Run the nut back up and tighten it. The lamp and its three legs are now one piece.",
 };
 
 // Return the translation function for language `lang`. t(key, params?): for English, look up EN
