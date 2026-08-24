@@ -531,12 +531,12 @@ export default function TomoshibiStudio() {
             the opening and has nothing to set; the bottom one's leg sockets do. */}
         <div style={{ marginBottom: 20 }}>
           <SectionLabel title="開口リング" hint="完成品に残る輪" />
-          <Checkbox checked={p.legSockets ?? true} label="脚ソケット(下)"
-            onToggle={() => setP((o) => ({ ...o, legSockets: !(o.legSockets ?? true) }))} />
+          <Checkbox checked={!!p.legSockets} label="脚ソケット(下)"
+            onToggle={() => setP((o) => ({ ...o, legSockets: !o.legSockets }))} />
           {/* Said here, not on the part: the way out of it is a control on this panel, and a socket
               that silently is not there is one you find out about with the print in your hand. It
               only appears when the design ASKED for sockets — otherwise it is not news. */}
-          {(p.legSockets ?? true) && !legsFit && (
+          {p.legSockets && !legsFit && (
             <div className="hint">
               {t("この開口には脚ソケットが入りません(下の輪のみになります)。開口を広げると入ります")}
             </div>

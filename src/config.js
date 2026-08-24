@@ -35,7 +35,10 @@ export const DEFAULTS = {
   spiral: false, // make the bamboo-rib grooves spiral (shift each rib's grooves downward so all ribs form one continuous spiral). Default is horizontal rings.
   // Leg sockets on the BOTTOM opening ring — the finished lantern's stand, not the mold's. Present
   // or absent, nothing more: the pad and bore dimensions are constants in geometry/ring.js.
-  legSockets: true,
+  // OFF by default: standing the finished lantern on legs is one of three ways to light it, and the
+  // other two want a plain hoop. A ring printed with three pads in it is a decision made for someone
+  // who has not made it yet — where the checkbox is one tick away.
+  legSockets: false,
 };
 
 // How far the lamp body may be stretched, in mm — body height, and any control point's radius.
