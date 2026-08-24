@@ -714,21 +714,45 @@ function tapeAndThread() {
   return g;
 }
 
-/** The paste brush: a wide flat slab of a handle over a band of bristle. */
+/** N points evenly around a circle — the same construction ring.js's own `circlePts` uses for a
+ * hole in a Shape (a cap-plane curve, smooth at any resolution — see "THE KIT" above). */
+function circlePts(r, n, cx = 0, cy = 0) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    pts.push(new THREE.Vector2(cx + r * Math.cos(a), cy + r * Math.sin(a)));
+  }
+  return pts;
+}
+
+/**
+ * The paste brush: not a plain trapezoid, but the shape a real 糊刷毛 actually is — a narrow grip
+ * with a hanging hole, flaring into a wide wood paddle, a metal ferrule clamped around its base
+ * (a separate solid, so it keeps its own outline the way a real seam would), and the bristles
+ * fanning out below it as wide as the ferrule.
+ */
 function pasteBrush() {
   const g = new THREE.Group();
+
   const s = new THREE.Shape();
-  s.moveTo(-60, 0); s.lineTo(60, 0); s.lineTo(46, 70); s.lineTo(-46, 70); s.closePath();
-  const geo = new THREE.ExtrudeGeometry(s, { depth: 13, bevelEnabled: false });
-  geo.translate(0, 0, -6.5);
+  s.moveTo(-13, 100); s.lineTo(-13, 60);    // the grip, straight-sided
+  s.lineTo(-65, 6); s.lineTo(-65, 0);       // flaring into the paddle
+  s.lineTo(65, 0); s.lineTo(65, 6);
+  s.lineTo(13, 60); s.lineTo(13, 100);
+  s.absarc(0, 100, 13, 0, Math.PI, false);  // the grip's rounded top
+  s.closePath();
+  s.holes.push(new THREE.Path(circlePts(5, 16, 0, 88)));   // the hanging hole
+  const geo = new THREE.ExtrudeGeometry(s, { depth: 12, bevelEnabled: false, curveSegments: 12 });
+  geo.translate(0, 0, -6);
   g.add(solid(geo));
-  const br = solid(new THREE.BoxGeometry(120, 34, 17));
-  br.position.y = -17;
-  g.add(br);
-  // The block's own bottom-front edge, exactly — its true front face is z = 17/2, and an inset from
-  // that (drawn further back) reads as a strip of bare block hanging below the bristles instead of
-  // the bristles hanging past the block.
-  g.add(bristleFringe(-52, 52, -34, 8.5, 9, 9));
+
+  const band = solid(new THREE.BoxGeometry(130, 7, 14));
+  band.position.y = -3.5;
+  g.add(band);
+  g.add(bristleFringe(-58, 58, -1.5, 7.1, 2, 9));           // the ferrule's row of rivets
+  // The ferrule's own bottom-front edge, exactly (depth 14, so half = 7) — see the note this
+  // replaced, on lining a fringe up with the solid it hangs from.
+  g.add(bristleFringe(-62, 62, -7, 7, 28, 13));
   return g;
 }
 
