@@ -615,18 +615,25 @@ class CoilCurve extends THREE.Curve {
     return target.set(r * Math.cos(a), this.rise * (t - 0.5), r * Math.sin(a));
   }
 }
-// 8 radial segments, not a round tube's usual 16+: a smooth rod stays white-on-white with nothing
-// to draw but its two cut-end rings (see "THE KIT" above — this is the coloured fill's old job).
-// At 45deg the facets clear the 24deg edge threshold, so every facet seam draws, and the coil reads
-// as a wound, faceted rod the same way a rib's curved edge reads as a curve: by enough short lines.
+// Every round kit shape shares this segment count, not a normal cylinder's 16+: white-on-white, a
+// smooth curve has nothing to draw but its own two cut-end rings (see "THE KIT" above — this is the
+// coloured fill's old job). At 45deg the facets clear the 24deg edge threshold, so every facet seam
+// draws, and a coil, a tub or a roll reads as faceted the same way a rib's curved edge reads as a
+// curve: by enough short lines. Used for every radial/curveSegments count below this point.
+const KIT_FACETS = 8;
+// `ExtrudeGeometry`'s curveSegments turns out to mean segments-per-QUARTER-turn for an EllipseCurve
+// (three.js doubles it internally), so the stadium's 180deg ends get `curveSegments * 2` facets —
+// KIT_FACETS's own 8 gave 16 facets there (11.25deg each), well under the 24deg threshold, which is
+// why they drew as a smooth curve with no gaps AND no visible facets. 3 gives 6 facets at 30deg.
+const KIT_FACETS_HALF = 3;
 const coil = (rod, r0, dr, turns, rise) => solid(
-  new THREE.TubeGeometry(new CoilCurve(r0, dr, turns, rise), Math.ceil(turns * 48), rod, 8, false));
+  new THREE.TubeGeometry(new CoilCurve(r0, dr, turns, rise), Math.ceil(turns * 48), rod, KIT_FACETS, false));
 
 /** A tub with its lid on: starch paste. (Wood glue comes in a bottle; the tub is the first-named.) */
 function pasteTub() {
   const g = new THREE.Group();
-  g.add(solid(new THREE.CylinderGeometry(32, 30, 44, 24)));
-  const lid = solid(new THREE.CylinderGeometry(34, 34, 13, 24));
+  g.add(solid(new THREE.CylinderGeometry(32, 30, 44, KIT_FACETS)));
+  const lid = solid(new THREE.CylinderGeometry(34, 34, 13, KIT_FACETS));
   lid.position.y = 26.5;                  // over the rim, not level with it
   g.add(lid);
   return g;
@@ -636,7 +643,7 @@ function pasteTub() {
 function rollGeo(rOut, rIn, h) {
   const s = new THREE.Shape().absarc(0, 0, rOut, 0, Math.PI * 2, false);
   s.holes.push(new THREE.Path().absarc(0, 0, rIn, 0, Math.PI * 2, true));
-  const geo = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 32 });
+  const geo = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: KIT_FACETS });
   geo.rotateX(-Math.PI / 2);              // extruded along +z; stand it up
   geo.translate(0, -h / 2, 0);
   return geo;
@@ -661,9 +668,9 @@ function tapeAndThread() {
   roll.position.copy(across).multiplyScalar(-18).setY(-8);      // both standing on the same ground
   g.add(roll);
   const spool = new THREE.Group();
-  spool.add(solid(new THREE.CylinderGeometry(11, 11, 26, 24)));
+  spool.add(solid(new THREE.CylinderGeometry(11, 11, 26, KIT_FACETS)));
   for (const y of [-14.5, 14.5]) {
-    const f = solid(new THREE.CylinderGeometry(16, 16, 3, 24));
+    const f = solid(new THREE.CylinderGeometry(16, 16, 3, KIT_FACETS));
     f.position.y = y;
     spool.add(f);
   }
@@ -703,10 +710,10 @@ function stadium(len, wid) {
 /** The brush for laying the paper down: a shoe brush, bristles over its whole underside. */
 function smoothBrush() {
   const g = new THREE.Group();
-  const body = new THREE.ExtrudeGeometry(stadium(160, 46), { depth: 20, bevelEnabled: false, curveSegments: 16 });
+  const body = new THREE.ExtrudeGeometry(stadium(160, 46), { depth: 20, bevelEnabled: false, curveSegments: KIT_FACETS_HALF });
   body.rotateX(-Math.PI / 2);             // spans y 0..20
   g.add(solid(body));
-  const br = new THREE.ExtrudeGeometry(stadium(150, 38), { depth: 18, bevelEnabled: false, curveSegments: 16 });
+  const br = new THREE.ExtrudeGeometry(stadium(150, 38), { depth: 18, bevelEnabled: false, curveSegments: KIT_FACETS_HALF });
   br.rotateX(-Math.PI / 2);
   br.translate(0, -18, 0);                // spans y -18..0
   g.add(solid(br));
@@ -729,7 +736,7 @@ function pliers() {
     return solid(geo);
   };
   g.add(arm(1, -5.2), arm(-1, 0.2));
-  const pin = new THREE.CylinderGeometry(4, 4, 13, 20);
+  const pin = new THREE.CylinderGeometry(4, 4, 13, KIT_FACETS);
   pin.rotateX(Math.PI / 2);
   pin.translate(46, 0, -2.5);
   g.add(solid(pin));
