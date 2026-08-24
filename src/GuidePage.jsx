@@ -161,7 +161,7 @@ const KIT = [
     { name: "ワイヤー", fig: "kitWire", opt: true, note: "⌀2mm · 脚を付けるか吊るす場合" },
   ] },
   { id: "tools", title: "道具", items: [
-    { name: "のりを塗るブラシ", fig: "kitPasteBrush", opt: true, note: "障子貼り用の糊刷毛など" },
+    { name: "のりを塗るはけ", fig: "kitPasteBrush", opt: true, note: "障子貼り用の糊刷毛など" },
     { name: "紙を張るブラシ", fig: "kitBrush", opt: true, note: "靴磨き用のもので足りる" },
     { name: "ペンチ", fig: "kitPliers", opt: true, note: "ワイヤーを曲げる" },
   ] },

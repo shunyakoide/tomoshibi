@@ -265,7 +265,7 @@ const EN = {
   "でんぷんのり、または木工用ボンド": "starch paste or wood glue",
   "テープや糸など": "Tape, thread, or the like",
   "竹ひごを留める": "holds the bamboo in place",
-  "のりを塗るブラシ": "Brush for the paste",
+  "のりを塗るはけ": "Brush for the paste",
   "障子貼り用の糊刷毛など": "a paste brush for shoji paper, or similar",
   "紙を張るブラシ": "Brush for laying the paper",
   "靴磨き用のもので足りる": "a shoe brush does the job",
