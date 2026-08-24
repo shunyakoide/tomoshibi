@@ -67,7 +67,7 @@ export function openingR(p, top) { return outerR(p, top ? 1 : 0); }
 // about with the print in your hand. Both the ring geometry and the UI read THIS function, so they
 // cannot disagree about whether a given design has sockets.
 export function ringLegs(p) {
-  if ((p.legSockets ?? true) === false) return null;
+  if (!p.legSockets) return null;                  // absent = off (DEFAULTS ships them off)
   const bore = LEG_D / 2 + RING_FIT;               // leg bore = leg rod radius + fit clearance
   const inner = openingR(p, false) + RING_FIT;
   // Pad center: with the vertex pointing inward, the outward-facing edge's midpoint sits at Rc + TRI_R/2.
