@@ -785,29 +785,39 @@ function smoothBrush() {
   return g;
 }
 
-// One arm, tip at the origin and the handle running away down-right; the other is this mirrored in
-// y. Two arms crossing at a pin is the whole of what makes a pair of pliers read as one. Long-nose
-// (ラジオペンチ) rather than the short, flat-jawed shape this replaced: the jaw tapers smoothly all
-// the way to a fine point over ~100mm, since that taper — not the handle — is what a long-nose
-// plier is recognised by in silhouette.
-const PLIER_ARM = [
-  [0, 1.2], [20, 2.0], [40, 3.2], [60, 4.6], [80, 6.4], [96, 9],   // jaw: tip to pivot, tapering wide
-  [180, -15],                                                      // handle, outer edge
-  [190, -21], [186, -27], [173, -24],                               // the handle's rounded end
-  [100, -4], [80, -1.2], [60, -0.2], [40, 0.1], [20, 0.15], [0, 0.15],  // handle + jaw, inner edge
-];
 /**
- * Grip texture, drawn the same way `bristleFringe` draws bristles: not modeled, just short lines at
- * the face a line-art solid otherwise has nothing to show there. A few ticks knurl the jaw partway
- * along its length (the reference photo's teeth sit back from the point, not at it — the very tip
- * stays a smooth, sharp taper), and one line marks where a rubber handle grip would start. `z` is
- * the arm's own front face (its translate offset + the extrude depth), the same one its solid was
- * built on.
+ * One arm, in the PIVOT's own frame: the pivot at the origin, the jaw running out to x = -95 and
+ * the handle away to x = +115. Pivot-relative rather than tip-relative because the arms are then
+ * opened by simply rotating each about z — which is what a pair of pliers physically does, and it
+ * gets the whole linkage right for free: one arm's jaw rises exactly as its own handle drops, and
+ * the two handles splay by the same angle the jaws do.
+ *
+ * The shape is one lever, drawn for the arm whose jaw sits ABOVE the axis; the other is this
+ * mirrored in y. The gripping face is the near-flat run along y ~ 0.3, so at zero rotation the two
+ * faces meet and the jaws are shut.
+ */
+const PLIER_ARM = [
+  [-95, 2.4], [-77, 3.8], [-55, 5.8], [-33, 8.4], [-15, 11.2], [-3, 14.5],  // jaw, back edge
+  [9, 13], [19, 6], [25, -2],                                               // the neck, past the head
+  [45, -14], [70, -27], [95, -40], [112, -49],                              // handle, outer edge
+  [122, -55], [123, -64], [113, -69], [102, -65],                           // the handle's rounded end
+  [88, -57], [68, -45], [46, -32], [30, -21], [20, -12],                    // handle, inner edge
+  [13, -6], [5, -4],                                                        // back under the head
+  [-3, 0.4], [-25, 0.35], [-50, 0.3], [-75, 0.3], [-95, 0.3],               // the gripping face
+];
+// Half the jaw opening. Pliers are drawn OPEN: shut, the two arms' gripping faces coincide and the
+// pair reads as one flat tapered blade — a pair of tweezers, or a knife. The gap is the tool.
+const PLIER_OPEN = (10 * Math.PI) / 180;
+/**
+ * Marks, drawn the same way `bristleFringe` draws bristles: not modeled, just short lines on the
+ * face a line-art solid otherwise has nothing to show there. Ticks serrate the jaw's gripping edge
+ * partway along (a real long-nose's teeth sit back from the point, which stays smooth), and one
+ * line across the handle marks where its rubber grip starts. `z` is the arm's own front face.
  */
 function plierMarks(sign, z) {
   const pts = [];
-  for (const x of [45, 58, 71]) pts.push(x, sign * 0.5, z, x, sign * 4.5, z);
-  pts.push(150, sign * -6, z, 150, sign * -17, z);
+  for (const x of [-72, -60, -48, -36]) pts.push(x, sign * 0.6, z, x, sign * 3.6, z);
+  pts.push(45, sign * -14, z, 45, sign * -32, z);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
   return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: INK }));
@@ -815,16 +825,24 @@ function plierMarks(sign, z) {
 function pliers() {
   const g = new THREE.Group();
   const arm = (sign, z) => {
+    const a = new THREE.Group();
     const s = new THREE.Shape(PLIER_ARM.map(([x, y]) => new THREE.Vector2(x, sign * y)));
     const geo = new THREE.ExtrudeGeometry(s, { depth: 5, bevelEnabled: false });
     geo.translate(0, 0, z);
-    return solid(geo);
+    a.add(solid(geo), plierMarks(sign, z + 5));
+    a.rotation.z = -sign * PLIER_OPEN;      // jaw up, handle down — and mirrored for the other arm
+    return a;
   };
   g.add(arm(1, -5.2), arm(-1, 0.2));
-  g.add(plierMarks(1, -0.2), plierMarks(-1, 5.2));
-  const pin = new THREE.CylinderGeometry(4, 4, 13, 16);
+  // The head. Both arms are lapped to half thickness through the joint on a real plier, and what
+  // you see of it is one lens — so it is drawn as one disc spanning the full thickness, covering
+  // the crossing rather than showing it. Its two rim circles are cap-plane curves and draw at any
+  // resolution (see "THE KIT"), so it needs no silhouette lines of its own.
+  const head = new THREE.CylinderGeometry(14, 14, 10.4, 32);
+  head.rotateX(Math.PI / 2);
+  g.add(solid(head));
+  const pin = new THREE.CylinderGeometry(3.5, 3.5, 11.6, 16);
   pin.rotateX(Math.PI / 2);
-  pin.translate(98, 0, -2.5);
   g.add(solid(pin));
   return g;
 }
