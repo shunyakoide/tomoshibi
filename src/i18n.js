@@ -68,6 +68,7 @@ const EN = {
   // ---- Preset names ----
   "たまご": "Egg",
   "たる": "Barrel",
+  "平丸": "Flat round",
   // ---- Labels (scrub / stepper / input) ----
   "火袋の高さ": "Body height",
   "羽根板の枚数": "Rib count",
