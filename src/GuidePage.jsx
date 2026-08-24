@@ -116,13 +116,16 @@ const STEPS = [
     // each option carries its own figure, because the difference between the three IS the picture.
     //
     // `wip`: the step is not settled, and the badge says so where someone reads it rather than in a
-    // commit message. The three ways are settled; what holds the lamp to the paper in any of them
-    // is not. It used to offer a ⌀65 lamp-holder base to print (`tomoshibi_socket_base.stl`); a
-    // printable file is a decision and this step has not made it, so it says what the light has to
-    // be and no more. Note the wording avoids "口輪": the cardboard route prints no rings, and a
-    // step must not name a part its own route never makes.
+    // commit message. It used to read "the lamp fitting", for all three ways at once; the legs now
+    // carry a fixing worked out in full below, so the badge names the ONE way still open — leaving
+    // it broad would have hung a draft label over three drawn sub-steps. Way (1) fixes nothing to
+    // anything, so hanging is what is left. The step also used to offer a ⌀65 lamp-holder base to
+    // print (`tomoshibi_socket_base.stl`); a printable file is a decision and this step has not
+    // made that one, so it says what the light has to be and no more. Note the wording avoids
+    // "口輪": the cardboard route prints no rings, and a step must not name a part its own route
+    // never makes.
     id: "light", title: "灯りをつける",
-    wip: "灯具の固定方法はまだ検討中です。",
+    wip: "吊るす場合の固定方法はまだ検討中です。",
     body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
     options: [
       {
@@ -144,9 +147,29 @@ const STEPS = [
         // need the 3D route, though — the cardboard one prints no ring, but the finished lantern
         // has one either way, so that route gets the same option with the hoop left to the builder.
         id: "legs", fig: "lightLegs", title: "脚を付けて下から留める", needs: (q) => !!ringLegs(q),
-        body: "下の口輪の脚ソケットに脚を挿して立て、下の開口にペンダントライトのソケットを留めます。コードは脚のあいだから逃がします。",
-        paperBody: "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、そこに脚を留めて立てます。あとは同じで、下の開口にペンダントライトのソケットを留め、コードは脚のあいだから逃がします。",
-        detail: [{ id: "wire1" }, { id: "wire2" }, { id: "wire3" }],
+        // The lamp and the legs go in as ONE piece — that is what the sub-steps below build, and the
+        // text used to describe two fixings (legs into the sockets, and the socket "fixed into the
+        // opening" by nothing named). There is one fixing: the nut. The cardboard line has to say
+        // where the leg ends go too, since a hoop cut from card has no bores in it.
+        body: "脚を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。コードは脚のあいだから下へ逃がします。",
+        paperBody: "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。",
+        // The wire work, and it is the one fixing on this page that is actually settled: a pendant
+        // holder's cord leaves through a threaded stem with a nut on it, so a loop bent in the
+        // wire's end stacks on that stem and the nut clamps all three at once. Nothing is printed
+        // for it and nothing is invented — it is how the ready-made lantern kits do it.
+        //
+        // The three read the same on BOTH routes on purpose. They stop at the bench: what the legs
+        // are then pushed into is the opening's ring, which is a printed part on one route and cut
+        // from card on the other, and the option's own body/paperBody above already says which.
+        // (A slot has no `paperBody` of its own, and should not need one.)
+        detail: [
+          { id: "wire1", fig: "legBend", title: "脚を曲げる",
+            body: "ペンチで先端を輪に曲げます。輪はソケットのネジが通る大きさに。残りは外へ渡してから下へ折り、床に届く長さにします。3本とも同じ形に。" },
+          { id: "wire2", fig: "legStack", title: "ネジに通す",
+            body: "ソケットの固定ナットを外し、3本の輪をネジに重ねて通します。脚が120°ずつ開くように向きを揃えてください。" },
+          { id: "wire3", fig: "legStood", title: "ナットで締める",
+            body: "ナットを戻して締めます。これでライトと3本の脚が1つになります。" },
+        ],
       },
     ],
   },
@@ -215,10 +238,17 @@ function Fig({ src, t, part }) {
   );
 }
 
-/** Small wells for the two grids of thumbnails, a big one for a step. */
-const sizeOf = (id) => (PARTS.some((q) => q.id === id) || KIT_FIGS.includes(id)
-  ? { width: 300, height: 220 }
-  : { width: 620, height: 460 });
+/**
+ * Small wells for the two grids of thumbnails and for the sub-steps inside an option — those sit in
+ * a 150px column (`.guide-detail` in index.css), where a step's own 620px figure is four times the
+ * pixels the page will ever show. A big one for a step.
+ */
+const SMALL_FIGS = new Set([
+  ...PARTS.map((q) => q.id),
+  ...KIT_FIGS,
+  ...STEPS.flatMap((s) => (s.options ?? []).flatMap((o) => (o.detail ?? []).map((d) => d.fig))),
+].filter(Boolean));
+const sizeOf = (id) => (SMALL_FIGS.has(id) ? { width: 300, height: 220 } : { width: 620, height: 460 });
 
 /**
  * Every figure ever rendered, for the life of the tab. Nothing they are drawn from can change any
