@@ -44,6 +44,7 @@ opening**. This app generates that mold as 3D-printable split parts.
 ### Features
 
 - **Direct-manipulation section editor** — drag control points to sculpt the silhouette; 3D preview and STL stay in exact agreement.
+- **A mold that comes back out** — a deep body on a small opening makes ribs too wide to pull out of the lantern they shaped, and every part still prints, fits the bed and is watertight. The app measures it and says so while you are still shaping the silhouette.
 - **Bamboo-rib grooves** — evenly spaced V-notches with barbs so the bamboo seats and won't slip.
 - **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
 - **Cardboard papercraft mode** (beta) — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the ribs and koma hubs from cardboard. Notch widths follow the thickness you measured, so the parts still mesh.
