@@ -23,7 +23,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   maxRadius, outerR, standBoardLength, maxBoards,
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit,
+  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit,
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.js";
 import { exportZip, zipBundle, downloadFile } from "./stl.js";
@@ -59,6 +59,24 @@ const VIEWS = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit"
 // functions as the printed parts and are covered by check:paper, but the route has had far less
 // real-world building behind it than the STL one.
 const ROUTES = [["stl", "3Dプリント", null], ["paper", "段ボール", "beta"]];
+
+// One viewport alert: a warning line, and usually a "→ do this instead" line under it. Three of
+// them now share the bottom-right corner, and they were three copies of one style attribute before
+// the third arrived. The corner itself — position, stacking, gap — belongs to the column that holds
+// them, not to the card, so an alert cannot decide to sit somewhere else.
+function Alert({ children }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
+      borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
+      fontSize: 12.5, color: UI.text, textAlign: "left",
+    }}>
+      <span style={{ fontSize: 15 }}>⚠️</span>
+      <span>{children}</span>
+    </div>
+  );
+}
 
 // Restore from localStorage once at startup (module top level, so a lazy initializer can't parse twice).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
@@ -174,8 +192,8 @@ export default function TomoshibiStudio() {
   // CJK glyphs, so a Japanese label is dropped rather than drawn (see paperPDF / winAnsi).
   const downloadPaperKit = () => zipBundle({
     "tomoshibi_katagami_a4.pdf": paperPDF(p, matT, undefined, makeT("en")),
-    // washiSrc, not p: on this route the panel follows the possibly-clamped rib count.
-    [WASHI_PDF]: washiPDF(washiSrc, washiOpts, undefined, makeT("en")),
+    // moldSrc, not p: on this route the panel follows the possibly-clamped rib count.
+    [WASHI_PDF]: washiPDF(moldSrc, washiOpts, undefined, makeT("en")),
   }, "tomoshibi_katagami.zip");
 
   // Export the design as JSON. localStorage is a volatile cache; this file is the backup you can
@@ -272,10 +290,15 @@ export default function TomoshibiStudio() {
   const thinWall = fit && fit.wall < fit.thin;
   // Stable identity, so the preview's memo isn't invalidated by every unrelated render.
   const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
-  // The design the washi template is cut from. On cardboard that is `paperP`, not the design on
-  // screen: thick material can clamp the rib count, and the panel is one rib-to-rib bay wide — so the
-  // sheet has to describe the mold this route makes rather than the one being edited.
-  const washiSrc = useMemo(() => (route === "paper" ? paperP(p, matT) : p), [route, p, matT]);
+  // The mold this route actually makes. On cardboard that is `paperP`, not the design on screen:
+  // thick material can clamp the rib count and sets the board thickness. The washi panel is one
+  // rib-to-rib bay wide, so its sheet has to be cut for the mold the route makes rather than for the
+  // one being edited — and the pull-out check below has to ask about that same mold.
+  const moldSrc = useMemo(() => (route === "paper" ? paperP(p, matT) : p), [route, p, matT]);
+  // Can the ribs still come out once the paste has dried? A deep body on a small mouth traps them
+  // inside the shade, and nothing else in the app notices: every part prints, fits the bed and is
+  // watertight. It is not a route question — a cardboard mold has to come out of the same hole.
+  const pull = useMemo(() => ribPullFit(moldSrc), [moldSrc]);
   const chip = chipStyle(isLit);
 
   // ============ Left: viewport ============
@@ -354,47 +377,48 @@ export default function TomoshibiStudio() {
         ⌀{maxDia} × H{p.height} mm
       </div>
 
-      {/* The two viewport alerts below share the bottom-RIGHT corner. Bottom-left is the section
-          editor's legend, which either of them used to cover; and they can never collide with each
-          other, being gated on opposite routes (bed = 3D print, koma wall = cardboard).
+      {/* The viewport alerts share the bottom-RIGHT corner as a COLUMN. The first two are gated on
+          opposite routes (bed = 3D print, koma wall = cardboard) and could never have collided, but
+          the pull-out warning belongs to both routes, so stacking them is the only arrangement that
+          does not overprint. Bottom-left is the lit-mode hint's.
           Bed-overflow warning. Each part lies along a different axis, so the bed is width×depth.
           Gated on the whole 3D-print ROUTE, not just the print view: on the cardboard route there is no
           machine to overflow — a part wider than A4 continues onto the next page, butt-joined — so
           telling that person to shorten the body would be shrinking a design for a limit they don't have. */}
-      {!isLit && bedRules && overParts.length > 0 && (
+      {!isLit && (
         <div style={{
-          position: "absolute", bottom: 20, right: 20, display: "flex", alignItems: "center", gap: 10,
-          padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
-          borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
-          fontSize: 12.5, color: UI.text, textAlign: "left", maxWidth: "60%",
+          position: "absolute", bottom: 20, right: 20, maxWidth: "60%",
+          display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10,
         }}>
-          <span style={{ fontSize: 15 }}>⚠️</span>
-          <span>
-            {t("{parts} がベッド {w}×{d}mm を超過", { parts: overParts.join(" · "), w: bedW, d: bedD })}
-            {/* The height hint only applies to the length-driven parts (rib / base); skip it when only
-                a height-independent part (ring / koma / post) overflows, or when no height is small enough. */}
-            {ribBaseOver && heightLimit >= LIMITS.height[0] && (
-              <><br /><span style={{ color: UI.sub }}>{t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit })}</span></>
-            )}
-          </span>
-        </div>
-      )}
+          {bedRules && overParts.length > 0 && (
+            <Alert>
+              {t("{parts} がベッド {w}×{d}mm を超過", { parts: overParts.join(" · "), w: bedW, d: bedD })}
+              {/* The height hint only applies to the length-driven parts (rib / base); skip it when only
+                  a height-independent part (ring / koma / post) overflows, or when no height is small enough. */}
+              {ribBaseOver && heightLimit >= LIMITS.height[0] && (
+                <><br /><span style={{ color: UI.sub }}>{t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit })}</span></>
+              )}
+            </Alert>
+          )}
 
-      {/* Cardboard: the koma's notches are cut to the material thickness, so thick material eats the
-          wall between them until it tears when cut by hand. Shares the bed warning's corner, which is
-          safe because that one is gated on the 3D-print route and this one on cardboard. */}
-      {!isLit && thinWall && (
-        <div style={{
-          position: "absolute", bottom: 20, right: 20, display: "flex", alignItems: "center", gap: 10,
-          padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
-          borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
-          fontSize: 12.5, color: UI.text, textAlign: "left", maxWidth: "60%",
-        }}>
-          <span style={{ fontSize: 15 }}>⚠️</span>
-          <span>
-            {t("コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです", { wall: fit.wall.toFixed(1) })}
-            <br /><span style={{ color: UI.sub }}>{t("→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる")}</span>
-          </span>
+          {/* Cardboard: the koma's notches are cut to the material thickness, so thick material eats the
+              wall between them until it tears when cut by hand. */}
+          {thinWall && (
+            <Alert>
+              {t("コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです", { wall: fit.wall.toFixed(1) })}
+              <br /><span style={{ color: UI.sub }}>{t("→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる")}</span>
+            </Alert>
+          )}
+
+          {/* The mold has to come back out of the shade it made. This is the one warning here about a
+              design that cannot be BUILT rather than one that cannot be printed or cut, so it is the
+              last thing anyone would find out on their own — with a dry lantern in their hands. */}
+          {!pull.ok && (
+            <Alert>
+              {t("羽根板の幅 {w}mm — 開口 ⌀{d}mm から抜けません", { w: Math.round(pull.band), d: Math.round(2 * pull.openR) })}
+              <br /><span style={{ color: UI.sub }}>{t("→ 断面図で開口を広げる / ふくらみを抑える")}</span>
+            </Alert>
+          )}
         </div>
       )}
 

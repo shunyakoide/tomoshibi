@@ -45,7 +45,7 @@ export {
 export { equatorY, grooveOuterPts, grooveR, grooveList, higoSpiralPath } from "./geometry/groove.js";
 
 // ---- Parts ----
-export { ribInnerX, ribOutline2D, lightenHoles2D, ribNumberHoles2D, ribShape, ribGeometry } from "./geometry/rib.js";
+export { ribInnerX, ribOutline2D, ribPullFit, lightenHoles2D, ribNumberHoles2D, ribShape, ribGeometry } from "./geometry/rib.js";
 export { komaShape, komaGeometry } from "./geometry/koma.js";
 export { openingR, ringGeometry, ringLegs, ringLegsFit } from "./geometry/ring.js";
 export {
