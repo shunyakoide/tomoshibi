@@ -48,7 +48,7 @@ opening**. This app generates that mold as 3D-printable split parts.
 - **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
 - **Cardboard papercraft mode** (beta) — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the ribs and koma hubs from cardboard. Notch widths follow the thickness you measured, so the parts still mesh.
 - **Washi template (和紙の型紙)** (beta) — the paper skin itself, developed flat: one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. Includes the side overlap, the cover allowance past the openings, and dashed guides for the rib lines and bamboo positions. It ships with whichever output you choose, as its own PDF inside that download.
-- **Assembly guide** — a step-by-step page for **your** design: the parts list counts the ribs you are printing and measures the parts you are printing, and the figures are drawn from the same geometry the STLs are written from. It runs past the mold, too — winding the bamboo, pasting the washi, pulling the mold, and putting a light in it. Print it from the browser if you want it on paper.
+- **Assembly guide** — a step-by-step page for **your** design: the parts list counts the ribs you are printing and measures the parts you are printing, and the figures are drawn from the same geometry the STLs are written from. It runs past the mold, too — winding the bamboo, pasting the washi, pulling the mold, and putting a light in it — and it lists what you supply yourself (bamboo, paste, something to hold the bamboo, brushes), each one drawn. Print it from the browser if you want it on paper.
 - **English / Japanese UI** — toggle in the top bar. Both templates print in the language the app is showing.
 - **Watertight by construction** — every exported part is a closed manifold, verified by an automated sweep (see [CONTRIBUTING](CONTRIBUTING.md)).
 
@@ -90,8 +90,11 @@ anything older, so on Node 18 the install fails rather than degrading.
 > 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を貼る → 照明化。
 
 The app says the same thing in the **Guide** view, with the figures and the part counts of the
-design you are actually holding. **The last step is marked a draft**: how the legs and the lamp
-fitting attach is still being worked out, so the guide says what the light has to be and no more.
+design you are actually holding. The last step gives the **three ways to light it** — cover a lamp
+stood on the floor, hang it from a pendant cord, or add legs and fix the lamp in from below — each
+drawn, and the third only where the bottom ring has the leg sockets to take it. **That step is
+marked a draft**: how the lamp fitting attaches is still being worked out, so the guide says what
+the light has to be and no more.
 
 ### No 3D printer? Use cardboard (beta)
 

@@ -212,7 +212,7 @@ const EN = {
   "口輪(下)": "Ring (bottom)",
   "口輪(上)": "Ring (top)",
   "編集中": "draft",
-  "脚と灯具の固定方法はまだ検討中です。": "How the legs and the lamp fitting attach is still being worked out.",
+  "灯具の固定方法はまだ検討中です。": "How the lamp fitting attaches is still being worked out.",
   "図を描けませんでした": "Figure unavailable",
   "段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。":
     "The cardboard mold has no posts, base or rings — the template cuts the mold itself. Hold it in your hands as you turn it, or rest it on a box.",
@@ -250,8 +250,37 @@ const EN = {
   "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。":
     "Slip a ring over each opening. Their bore follows the opening, so they drop onto the ribs' outer edge. Nothing holds either the rings or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the rings when you paste, which is why they stay in the lantern after the mold comes out. The one with the leg sockets is the bottom.",
   "灯りをつける": "Put a light in it",
-  "下の開口から明かりを入れます。電球は和紙のすぐ内側に来るので、熱を持ちにくい LED を選んでください。":
-    "Light it through the bottom opening. The bulb sits just inside the washi, so use an LED rather than a filament bulb.",
+  "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。":
+    "There are {n} ways to light it. Whichever you pick, the bulb sits just inside the washi, so use an LED rather than a filament bulb.",
+  "未記入": "Not written yet",
+  "材料と道具": "Materials and tools",
+  "材料": "Materials",
+  "道具": "Tools",
+  "竹ひご": "Bamboo ribs",
+  "ワイヤー": "Wire",
+  "任意": "optional",
+  "⌀2mm · 脚を付けるか吊るす場合": "⌀2mm, for the legs or for hanging it",
+  "ワイヤーを曲げる": "for bending the wire",
+  "のり": "Paste",
+  "でんぷんのり、または木工用ボンド": "starch paste or wood glue",
+  "テープや糸など": "Tape, thread, or the like",
+  "竹ひごを留める": "holds the bamboo in place",
+  "のりを塗るブラシ": "Brush for the paste",
+  "障子貼り用の糊刷毛など": "a paste brush for shoji paper, or similar",
+  "紙を張るブラシ": "Brush for laying the paper",
+  "靴磨き用のもので足りる": "a shoe brush does the job",
+  "ペンチ": "Pliers",
+  "置いたライトに被せる": "Cover a lamp you stand on the floor",
+  "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。":
+    "Stand an LED lamp on the floor and drop the shade over it. No legs, no fittings. Pick a lamp that fits through the bottom opening.",
+  "上から吊るす": "Hang it from above",
+  "ペンダントライトのソケットを大きいほうの開口から入れ、コードを上の開口から出します。ソケットは針金などで開口に留めます。":
+    "Put the pendant socket in through the wider opening and bring the cord out of the top one, then tie the socket to the opening with wire.",
+  "脚を付けて下から留める": "Add legs and fix it from below",
+  "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、そこに脚を留めて立てます。あとは同じで、下の開口にペンダントライトのソケットを留め、コードは脚のあいだから逃がします。":
+    "The cardboard route prints no opening ring. Make one from card, glue it into the bottom opening and fix the legs to that to stand it up. The rest is the same: fix the pendant socket into the bottom opening and run the cord out between the legs.",
+  "下の口輪の脚ソケットに脚を挿して立て、下の開口にペンダントライトのソケットを留めます。コードは脚のあいだから逃がします。":
+    "Push legs into the bottom ring's leg sockets to stand it up, fix the pendant socket into the bottom opening, and run the cord out between the legs.",
 };
 
 // Return the translation function for language `lang`. t(key, params?): for English, look up EN

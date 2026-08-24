@@ -27,7 +27,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, maxRadius,
+  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, maxRadius, ringLegs,
 } from "./geometry.js";
 import { paperP } from "./papercraft.js";
 import { figureImage, disposeFigures } from "./three/figures.js";
@@ -90,16 +90,100 @@ const STEPS = [
     body: "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。",
   },
   {
-    // `wip`: this step is not settled yet, and the badge says so where someone reads it rather than
-    // in a commit message. How the legs and the lamp fitting attach is not designed — the figure's
-    // legs are one answer, not the answer — so the step says what the light has to be and no more.
-    // It used to offer a ⌀65 lamp-holder base to print (`tomoshibi_socket_base.stl`); that fitting
-    // is one of the things being reconsidered, so it is not offered while it is undecided.
-    id: "light", title: "灯りをつける", fig: "light",
-    wip: "脚と灯具の固定方法はまだ検討中です。",
-    body: "下の開口から明かりを入れます。電球は和紙のすぐ内側に来るので、熱を持ちにくい LED を選んでください。",
+    // Three ways, three SECTIONS — not three steps. They are alternatives: numbering them 11/12/13
+    // would tell the reader to do all three. `options` is what makes a step render as sections, and
+    // each option carries its own figure, because the difference between the three IS the picture.
+    //
+    // `wip`: the step is not settled, and the badge says so where someone reads it rather than in a
+    // commit message. The three ways are settled; what holds the lamp to the paper in any of them
+    // is not. It used to offer a ⌀65 lamp-holder base to print (`tomoshibi_socket_base.stl`); a
+    // printable file is a decision and this step has not made it, so it says what the light has to
+    // be and no more. Note the wording avoids "口輪": the cardboard route prints no rings, and a
+    // step must not name a part its own route never makes.
+    id: "light", title: "灯りをつける",
+    wip: "灯具の固定方法はまだ検討中です。",
+    body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
+    options: [
+      {
+        id: "set", fig: "lightSet", title: "置いたライトに被せる",
+        body: "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。",
+      },
+      {
+        id: "hang", fig: "lightHang", title: "上から吊るす",
+        body: "ペンダントライトのソケットを大きいほうの開口から入れ、コードを上の開口から出します。ソケットは針金などで開口に留めます。",
+        // Empty slots, on purpose: the wire has to be bent to shape with pliers and that shape is
+        // not designed yet. The slots hold the place — and the count — so the step reads as
+        // unfinished rather than as finished and thin. Fill in `title`/`body`/`fig` as each is
+        // settled; a slot with a `fig` draws it, one without keeps the empty well.
+        detail: [{ id: "wire1" }, { id: "wire2" }],
+      },
+      {
+        // Needs the leg sockets: they are where the legs go. Without them the figure would draw a
+        // legless lantern under the words "add legs", so the option is dropped instead. It does not
+        // need the 3D route, though — the cardboard one prints no ring, but the finished lantern
+        // has one either way, so that route gets the same option with the hoop left to the builder.
+        id: "legs", fig: "lightLegs", title: "脚を付けて下から留める", needs: (q) => !!ringLegs(q),
+        body: "下の口輪の脚ソケットに脚を挿して立て、下の開口にペンダントライトのソケットを留めます。コードは脚のあいだから逃がします。",
+        paperBody: "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、そこに脚を留めて立てます。あとは同じで、下の開口にペンダントライトのソケットを留め、コードは脚のあいだから逃がします。",
+        detail: [{ id: "wire1" }, { id: "wire2" }, { id: "wire3" }],
+      },
+    ],
   },
 ];
+
+/**
+ * What you supply yourself. The printed (or cut) parts are the list above this one; everything here
+ * you buy, and the page is no use standing at a shop counter unless it says so. It is laid out like
+ * that parts list, wells and all, because it answers the same question — what do I need in front of
+ * me — and two different shapes for one question is two things to learn.
+ *
+ * **Plain strings, no numbers.** Nothing here is derived and nothing should be: a wire gauge, a
+ * brush and a pot of paste are not things the design decides. (A bamboo length summed over the
+ * grooves was tried and taken straight back out — arithmetic nobody asked for, on a list whose job
+ * is to be read in a shop.) The wire is just wire: steel is not required, so it is not specified.
+ *
+ * Order is by how much it matters, not by category: the paste is the one thing a bad choice of
+ * which ruins the lantern, so it comes before the wire. `opt` marks what you may not need at all —
+ * the wire and its pliers are only for the two lighting methods that fix something to an opening,
+ * and the brushes are a preference. Only the bamboo and the paste are not optional.
+ *
+ * The drawings are the one thing here that is not a string: `fig` names a scene in figures.js, and
+ * those scenes are the only ones in that file that are not made of this design (see "THE KIT"
+ * there). An item with no `fig` keeps an empty well rather than a ragged card.
+ */
+const KIT = [
+  { id: "materials", title: "材料", items: [
+    { name: "竹ひご", fig: "kitHigo" },
+    { name: "のり", fig: "kitPaste", note: "でんぷんのり、または木工用ボンド" },
+    // One line, one drawing: anything that holds the bamboo while the paste dries will do, and a
+    // card each for the two examples is the list saying the same thing twice.
+    { name: "テープや糸など", fig: "kitStick", note: "竹ひごを留める" },
+    { name: "ワイヤー", fig: "kitWire", opt: true, note: "⌀2mm · 脚を付けるか吊るす場合" },
+  ] },
+  { id: "tools", title: "道具", items: [
+    { name: "のりを塗るブラシ", fig: "kitPasteBrush", opt: true, note: "障子貼り用の糊刷毛など" },
+    { name: "紙を張るブラシ", fig: "kitBrush", opt: true, note: "靴磨き用のもので足りる" },
+    { name: "ペンチ", fig: "kitPliers", opt: true, note: "ワイヤーを曲げる" },
+  ] },
+];
+
+/** Every kit drawing, in page order. They are small figures, like the parts they sit under. */
+const KIT_FIGS = KIT.flatMap((g) => g.items.map((i) => i.fig).filter(Boolean));
+
+/**
+ * The figure well. It keeps its box whether the drawing has arrived, has failed, or neither exists:
+ * a step that reflows when its image loads is a step you lose your place in. `null` (not undefined)
+ * means the drawing FAILED rather than not having arrived, and saying so beats an empty well — a
+ * figure that silently vanishes is a gap nobody reads as a bug. It cost an hour here once.
+ */
+function Fig({ src, t, part }) {
+  return (
+    <div className={part ? "guide-fig guide-fig--part" : "guide-fig"}>
+      {src && <img src={src} alt="" />}
+      {src === null && <span className="guide-slot">{t("図を描けませんでした")}</span>}
+    </div>
+  );
+}
 
 /** W × H × T of a part in mm, measured from the geometry the STL is written from. */
 function dims(geo) {
@@ -121,6 +205,15 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
   // thickness on a part cut from 5mm board. Same reason washiPDF is handed paperP (papercraft.js).
   const p = useMemo(() => (stl ? design : paperP(design, matT)), [stl, design, matT]);
 
+  // The options a step actually offers HERE. An option can need something this design or this route
+  // does not have — the legs go in the bottom ring's sockets, and cardboard prints no rings — and
+  // drawing it anyway would put a legless lantern under the words "add legs".
+  const options = useMemo(
+    () => Object.fromEntries(STEPS.filter((s) => s.options)
+      .map((s) => [s.id, s.options.filter((o) => !o.needs || o.needs(p, stl))])),
+    [p, stl],
+  );
+
   // Sizes are cheap; figures are not. The list is measured up front, the drawings arrive after.
   const sizes = useMemo(
     () => Object.fromEntries(parts.map((q) => [q.id, dims(q.geo(p))])),
@@ -135,12 +228,15 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
   const [figs, setFigs] = useState({});
   useEffect(() => {
     let cancelled = false;
-    const ids = [...parts.map((q) => q.id), ...steps.filter((s) => s.fig).map((s) => s.fig)];
+    const ids = [...parts.map((q) => q.id), ...KIT_FIGS,
+      ...steps.flatMap((s) => (s.options
+        ? options[s.id].flatMap((o) => [o.fig, ...(o.detail ?? []).map((d) => d.fig)])
+        : s.fig ? [s.fig] : []))].filter(Boolean);
     (async () => {
       const out = {};
       for (const id of ids) {
         if (cancelled) return;
-        const small = PARTS.some((q) => q.id === id);
+        const small = PARTS.some((q) => q.id === id) || KIT_FIGS.includes(id);
         const size = small ? { width: 300, height: 220 } : { width: 620, height: 460 };
         out[id] = figureImage(p, id, { ...size, smooth: !stl });
         setFigs({ ...out });
@@ -149,7 +245,7 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- parts/steps/stl are derived from route
-  }, [p, route]);
+  }, [p, route, options]);
   // The renderer holds a WebGL context; the guide is the only thing that uses it.
   useEffect(() => disposeFigures, []);
 
@@ -193,21 +289,35 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
           </p>
         )}
 
+        <h2 className="guide-h2">{t("材料と道具")}</h2>
+        {KIT.map((g) => (
+          <div key={g.id} className="guide-kit">
+            <h3>{t(g.title)}</h3>
+            <ul className="guide-parts">
+              {g.items.map((it) => (
+                <li key={it.name} style={card}>
+                  <Fig src={it.fig ? figs[it.fig] : undefined} t={t} part />
+                  <div className="guide-part-name">
+                    <strong>{t(it.name)}</strong>
+                    {/* Right-aligned, where the parts list puts its ×N: the same line answering the
+                        same question — how much of this do I need, and do I need it at all. */}
+                    {it.opt && <em className="badge">{t("任意")}</em>}
+                  </div>
+                  {it.note && <div className="guide-part-dim">{t(it.note)}</div>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+
         <h2 className="guide-h2">{t("手順")}</h2>
         <ol className="guide-steps">
           {steps.map((s, i) => (
             <li key={s.id} style={card}>
               {/* No well when the step has nothing to show — an empty box reads as a figure that
-                  failed to load, which is exactly what it looks like next to ten that did. */}
-              {s.fig && (
-                <div className="guide-fig">
-                  {figs[s.fig] && <img src={figs[s.fig]} alt="" />}
-                  {/* null (not undefined) means the drawing FAILED rather than not having arrived.
-                      Saying so beats an empty well: a figure that silently vanishes is a gap nobody
-                      reads as a bug — it cost an hour here once. */}
-                  {figs[s.fig] === null && <span className="guide-slot">{t("図を描けませんでした")}</span>}
-                </div>
-              )}
+                  failed to load, which is exactly what it looks like next to ten that did. A step
+                  with `options` puts its figures in the sections instead, one per way of doing it. */}
+              {s.fig && <Fig src={figs[s.fig]} t={t} />}
               <div>
                 <h3>
                   <span className="guide-num" style={{ background: accent }}>{i + 1}</span>
@@ -215,8 +325,42 @@ export default function GuidePage({ p: design, route, matT, onGoPrint }) {
                       words instead of taking the h3's 10px gap as well. */}
                   <span>{t(s.title)}{s.wip && <em className="badge">{t("編集中")}</em>}</span>
                 </h3>
-                <p>{t(!stl && s.paperBody ? s.paperBody : s.body)}</p>
+                {/* The count comes from the options actually offered here, not from the list: one
+                    of them needs the leg sockets, and "three ways" over two sections is a lie the
+                    reader can see. */}
+                <p>{t(!stl && s.paperBody ? s.paperBody : s.body, s.options && { n: options[s.id].length })}</p>
                 {s.wip && <p className="guide-note">{t(s.wip)}</p>}
+                {s.options && (
+                  <ul className="guide-opts">
+                    {options[s.id].map((o) => (
+                      // The title sits ABOVE the figure, spanning both columns: that is what
+                      // separates one way from the next. Beside the figure it is just the first
+                      // line of a paragraph in a column of paragraphs.
+                      <li key={o.id}>
+                        <h4>{t(o.title)}</h4>
+                        <p>{t(!stl && o.paperBody ? o.paperBody : o.body)}</p>
+                        <Fig src={figs[o.fig]} t={t} />
+                        {o.detail && (
+                          <div>
+                            <ol className="guide-detail">
+                              {o.detail.map((d) => (
+                                <li key={d.id}>
+                                  <Fig src={d.fig ? figs[d.fig] : undefined} t={t} />
+                                  <div>
+                                    {d.title && <h5>{t(d.title)}</h5>}
+                                    <p className={d.body ? undefined : "guide-note"}>
+                                      {d.body ? t(d.body) : t("未記入")}
+                                    </p>
+                                  </div>
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {s.id === "make" && (
                   <button className="btn btn--ghost" onClick={onGoPrint}>{t("「印刷」ビューへ →")}</button>
                 )}
