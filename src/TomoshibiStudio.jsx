@@ -462,10 +462,12 @@ export default function TomoshibiStudio() {
 
         {/* The lit chip is derived from p.pts inside PresetChips, so it goes dark as soon as the
             curve is edited — picking a preset stores no "which one was clicked" flag. rTop/rBot go
-            along because geometry.js falls back to them when pts is empty. */}
+            along because geometry.js falls back to them when pts is empty. A preset may also carry a
+            `height`, and only one does: a shape whose identity is a RATIO cannot be handed the height
+            that happened to be on screen (see config.js). Everything else about the design is kept. */}
         <PresetChips p={p} onPick={(pr) => {
           setSel(null);
-          setP((o) => ({ ...o, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })) }));
+          setP((o) => ({ ...o, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })), ...(pr.height ? { height: pr.height } : {}) }));
         }} />
 
         {view === "2d" && (
