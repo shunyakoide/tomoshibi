@@ -375,11 +375,16 @@ export default function TomoshibiStudio() {
       {/* The two viewport alerts below share the bottom-RIGHT corner. Bottom-left is the section
           editor's legend, which either of them used to cover; and they can never collide with each
           other, being gated on opposite routes (bed = 3D print, koma wall = cardboard).
+          Both are gated on `solo`, not on `isLit`: they are about the design you are EDITING, and
+          the guide is neither a place you can act on one — every way out of either is a control in
+          the inspector, which that page does not have — nor a page that is about your design at all,
+          since its figures are drawn from one fixed example. A card floating over a document you are
+          reading at a bench, warning about numbers the page never mentions, is noise twice over.
           Bed-overflow warning. Each part lies along a different axis, so the bed is width×depth.
           Gated on the whole 3D-print ROUTE, not just the print view: on the cardboard route there is no
           machine to overflow — a part wider than A4 continues onto the next page, butt-joined — so
           telling that person to shorten the body would be shrinking a design for a limit they don't have. */}
-      {!isLit && bedRules && overParts.length > 0 && (
+      {!solo && bedRules && overParts.length > 0 && (
         <div style={{
           position: "absolute", bottom: 20, right: 20, display: "flex", alignItems: "center", gap: 10,
           padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
@@ -401,7 +406,7 @@ export default function TomoshibiStudio() {
       {/* Cardboard: the koma's notches are cut to the material thickness, so thick material eats the
           wall between them until it tears when cut by hand. Shares the bed warning's corner, which is
           safe because that one is gated on the 3D-print route and this one on cardboard. */}
-      {!isLit && thinWall && (
+      {!solo && thinWall && (
         <div style={{
           position: "absolute", bottom: 20, right: 20, display: "flex", alignItems: "center", gap: 10,
           padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
