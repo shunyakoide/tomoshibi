@@ -49,8 +49,8 @@ const LEG_OVERLAP = 0.6; // how far the pad's outer edge overlaps into the hoop 
 const PAD_CORE = 1;      // material the inner vertex must leave around the ring's axis, mm
 const PAD_GAP = 1.5;     // clear air required between two neighbouring pads, mm
 // Bottom-ring marker, for when there are no leg sockets to tell the pair apart. The two rings are
-// then the same flat hoop in different sizes, and on a shape whose openings are close (the sphere
-// preset is ⌀60 vs ⌀56) they are easy to mix up once printed. One small square tab on the inner rim
+// then the same flat hoop in different sizes, and on a shape whose openings are close (the barrel
+// preset is ⌀116 vs ⌀108) they are easy to mix up once printed. One small square tab on the inner rim
 // tells them apart at a glance. It reaches past the nominal opening by MARK_D - RING_FIT; that is
 // intended, the tab sits in the pasted layers at the rim. Kept narrow so it takes up as little of
 // the rim as possible — widen it and it stops being something you can tuck in. Don't "fix" it by
@@ -67,7 +67,7 @@ export function openingR(p, top) { return outerR(p, top ? 1 : 0); }
 // about with the print in your hand. Both the ring geometry and the UI read THIS function, so they
 // cannot disagree about whether a given design has sockets.
 export function ringLegs(p) {
-  if ((p.legSockets ?? true) === false) return null;
+  if (!p.legSockets) return null;                  // absent = off (DEFAULTS ships them off)
   const bore = LEG_D / 2 + RING_FIT;               // leg bore = leg rod radius + fit clearance
   const inner = openingR(p, false) + RING_FIT;
   // Pad center: with the vertex pointing inward, the outward-facing edge's midpoint sits at Rc + TRI_R/2.
