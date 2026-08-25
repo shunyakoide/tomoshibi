@@ -66,8 +66,8 @@ const EN = {
   "配置": "Layout",
   // ---- Preset names ----
   "たまご": "Egg",
-  "球": "Sphere",
   "たる": "Barrel",
+  "平丸": "Flat round",
   // ---- Labels (scrub / stepper / input) ----
   "火袋の高さ": "Body height",
   "羽根板の枚数": "Rib count",
@@ -134,6 +134,10 @@ const EN = {
   "→ 火袋の高さを {h}mm 以下に": "→ Reduce body height to {h}mm or less",
   "コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです": "Only {wall}mm of koma left between notches — thin enough to tear when hand-cut",
   "→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる": "→ Fewer ribs / thinner material / widen the opening in the section view",
+  // The rib has to come back out of the shade it shaped, through one of the two openings. "抜けません"
+  // is about the finished lantern, not about the print, so the English says come out rather than fit.
+  "羽根板の幅 {w}mm — 開口 ⌀{d}mm から抜けません": "The rib is {w}mm wide — it cannot come out of the ⌀{d}mm opening",
+  "→ 断面図で開口を広げる / ふくらみを抑える": "→ Widen the opening in the section view / flatten the bulge",
   "鑑賞モード — 編集はタブで「断面」へ": "Viewing mode — switch to the Section tab to edit",
   // ---- Section editor (SectionEditor) ----
   "羽根板": "Rib",

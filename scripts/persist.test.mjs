@@ -86,18 +86,28 @@ t("legacy neckOn preserved", P.loadSaved().p.neckOn === false);
 
 // ---- bottom-ring leg sockets (legSockets) ----
 // One flag, but it decides which of two solids the bottom ring is, so both have to survive the
-// round-trip watertight — and a design saved before the flag existed has to come back with sockets.
+// round-trip watertight. Neither state can be left to DEFAULTS here: the default is OFF now, so a
+// test that only saved the default would stop exercising the socketed ring the day it flipped.
 P.saveState({ p: { ...DEFAULTS, legSockets: false }, bedW: 256, bedD: 256, printRibs: 1 });
 r = P.loadSaved();
 t("legSockets off preserved", r.p.legSockets === false);
 t("legSockets off → no sockets cut", G.ringLegs(r.p) === null);
 t("legSockets off → watertight", manifoldOK(r.p) === true);
 
+P.saveState({ p: { ...DEFAULTS, legSockets: true }, bedW: 256, bedD: 256, printRibs: 1 });
+r = P.loadSaved();
+t("legSockets on preserved", r.p.legSockets === true);
+t("legSockets on → sockets cut", G.ringLegs(r.p) !== null);
+t("legSockets on → watertight", manifoldOK(r.p) === true);
+
+// A save from before the flag existed carries no key at all, so it comes back as whatever DEFAULTS
+// says. That is OFF — the same reading `ringLegs` gives a missing flag, which is the point: absent
+// means off in the sanitizer and in the geometry, or a restored design and its ring disagree.
 const noLegs = { ...DEFAULTS };
 delete noLegs.legSockets;
 P.saveState({ p: noLegs, bedW: 256, bedD: 256, printRibs: 1 });
 r = P.loadSaved();
-t("pre-flag save → sockets on", r.p.legSockets === true && G.ringLegs(r.p) !== null);
+t("pre-flag save → sockets off", r.p.legSockets === false && G.ringLegs(r.p) === null);
 t("pre-flag save → watertight", manifoldOK(r.p) === true);
 
 // A tiny opening has no room for pads; the ring must fall back to a hoop rather than fold up, and

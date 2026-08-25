@@ -62,6 +62,29 @@ export function ribInnerX(p) {
   };
 }
 
+// ============ Pulling the ribs out ============
+// Once the paste has dried the koma come off and the ribs leave through an opening, one at a time.
+// A rib is fed out lengthwise, so the mouth's plane cuts ACROSS the plate: what has to pass through
+// is the plate's BAND — outer edge minus hollowed inner edge — and not its distance from the axis.
+// That band is exactly what the hollow inner edge exists to narrow (see ribInnerX above), and a
+// deep body on a small mouth is the one shape this app will happily draw that cannot be taken
+// apart again. The tabs are never the binding part: they span Ri..kR, and kR is at most the
+// SMALLER opening, so they clear any mouth this band clears.
+//
+// The cut is a boardT-wide rectangle rather than a line, so what the plate actually gets is the
+// chord at its own half-thickness, 2√(R²−(t/2)²). PULL_CLEAR is what is left over for it to turn
+// in: the band is curved, so it rotates as it goes, and a rib exactly as wide as the chord binds.
+const PULL_CLEAR = 2;   // mm of slack left for the plate to turn as it comes out
+export function ribPullFit(p) {
+  const h = p.height, innerX = ribInnerX(p);
+  let band = 0;
+  for (let y = 0; y <= h; y += 0.5) band = Math.max(band, outerR(p, y / h) - innerX(y));
+  // Out of the WIDER of the two mouths — nothing makes a rib leave by one end rather than the other.
+  const R = Math.max(outerR(p, 0), outerR(p, 1));
+  const chord = 2 * Math.sqrt(Math.max(0, R * R - (p.boardT / 2) ** 2));
+  return { band, chord, openR: R, ok: band + PULL_CLEAR <= chord };
+}
+
 // Returns the rib's outline point list (shared by the 2D cross-section drawing and the 3D rib
 // geometry = the two always match). k = rib index. Normally all ribs have the same shape (grooves
 // are horizontal rings), but with spiral winding (p.spiral), grooveList shifts the grooves by k, so

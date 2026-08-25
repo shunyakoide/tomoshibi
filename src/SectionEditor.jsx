@@ -344,10 +344,14 @@ export default function SectionEditor({ p, setP, accent, drag, setDrag, sel = nu
         ))}
       </svg>
 
-      {/* Operation legend (bottom-left). The ◇ handles are the least discoverable part of the app, so
+      {/* Operation legend (top-right). The ◇ handles are the least discoverable part of the app, so
           the marks are redrawn here at the same colors/shapes as on the canvas rather than described
           in words. Content follows editMode: in curve-adjust mode the + ghosts are hidden and the point
-          itself doesn't move, which reads as a bug unless it is said out loud. */}
+          itself doesn't move, which reads as a bug unless it is said out loud.
+          It sits top-right rather than bottom-left because a wide, low body fills the bottom of the
+          frame and the legend covered the very drawing it explains. Here it is clear of the section
+          (which grows from the axis at the left), tucked under the dimension chip, and mirrors the
+          route chip on the other side at the same height. */}
       <Legend accent={accent} editMode={editMode} t={t} />
     </div>
   );
@@ -412,7 +416,7 @@ function Legend({ accent, editMode, t }) {
   const g = LEGEND[editMode] || LEGEND.move;
   return (
     <div style={{
-      position: "absolute", bottom: 14, left: 14, pointerEvents: "none",
+      position: "absolute", top: 62, right: 16, pointerEvents: "none",
       fontFamily: "'IBM Plex Sans JP',sans-serif", maxWidth: 300,
       background: "rgba(255,253,248,0.82)", border: `1px solid ${C.faint}`, borderRadius: 10,
       padding: "9px 12px 10px", backdropFilter: "blur(2px)",

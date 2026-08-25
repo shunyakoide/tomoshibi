@@ -39,11 +39,12 @@ opening**. This app generates that mold as 3D-printable split parts.
 | **Rib (羽根板)** | The radial boards that form the mold surface (N of them, like orange segments). The outer edge carries the lamp-body curve and V-notch grooves for the bamboo ribs; both ends have tabs. |
 | **Koma / hub (コマ)** | Two identical gear-like hubs (top & bottom). Notches around the rim hold the rib tabs; the stand cradles them. |
 | **Stand (土台)** | A base that holds the assembled mold off the table with two U-shaped saddles, so it can be rotated while you work. |
-| **Opening rings (口輪)** | Thin flat hoops for the finished lantern's openings, which have no koma left in them, so the openings keep their shape. The **bottom one can carry leg sockets** — three flat pads inside the hoop, each with a 6mm bore, for standing the finished lantern on legs of your own. Where the opening is too small for them it falls back to a plain hoop with a small tab on its inner rim, which tells the two apart once printed. |
+| **Opening rings (口輪)** | Thin flat hoops for the finished lantern's openings, which have no koma left in them, so the openings keep their shape. The **bottom one can carry leg sockets** (a checkbox, off by default) — three flat pads inside the hoop, each with a 6mm bore, for standing the finished lantern on legs of your own. Where the opening is too small for them it falls back to a plain hoop with a small tab on its inner rim, which tells the two apart once printed. |
 
 ### Features
 
 - **Direct-manipulation section editor** — drag control points to sculpt the silhouette; 3D preview and STL stay in exact agreement.
+- **A mold that comes back out** — a deep body on a small opening makes ribs too wide to pull out of the lantern they shaped, and every part still prints, fits the bed and is watertight. The app measures it and says so while you are still shaping the silhouette.
 - **Bamboo-rib grooves** — evenly spaced V-notches with barbs so the bamboo seats and won't slip.
 - **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
 - **Cardboard papercraft mode** (beta) — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the ribs and koma hubs from cardboard. Notch widths follow the thickness you measured, so the parts still mesh.
@@ -75,7 +76,7 @@ anything older, so on Node 18 the install fails rather than degrading.
 - **Right panel** — pick a preset, then drag the section's control points to reshape; open the accordions (Frame, Bamboo, Print bed…) for finer settings.
 - **Preview** — drag to orbit, wheel / pinch to zoom.
 - **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `config.json` backup of your design. (STL compresses well: a default kit is about 190 KB zipped.)
-- **If you're lost** — a card on your first visit says what the object on screen actually is (the mold, not the lantern); the **?** in the panel header reopens it any time. The legend at the bottom-left of the section view redraws the ◇ marks themselves, and follows the edit mode you are in.
+- **If you're lost** — a card on your first visit says what the object on screen actually is (the mold, not the lantern); the **?** in the panel header reopens it any time. The legend at the top-right of the section view redraws the ◇ marks themselves, and follows the edit mode you are in.
 
 ### From print to lantern
 
@@ -83,7 +84,7 @@ anything older, so on Node 18 the install fails rather than degrading.
 2. Set the assembly on the stand.
 3. Wind bamboo ribs into the outer-edge grooves; paste washi paper over them.
 4. Let it dry, then pull the koma out (toward the tab side) and slip the ribs out through the openings.
-5. Glue the opening rings into the top & bottom openings — the one with the leg sockets is the bottom.
+5. Glue the opening rings into the top & bottom openings — the bottom one is the one with the leg sockets, or, if you left those off, the one with the small tab on its inner rim.
    Then fit your own light.
 
 > **制作フロー**: 印刷 → コマ2枚のノッチに羽根板を差し込む → 溝に竹ひごを巻く → 糊＋和紙を
