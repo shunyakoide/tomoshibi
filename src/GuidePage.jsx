@@ -57,9 +57,17 @@ import { UI, accent, mono, useT } from "./ui/theme.js";
  * smooth outer edge, no lightening windows, no tab dent (`paperP`). That is a fact about the route,
  * not about anyone's measurements, so it is taken at a representative thickness rather than at the
  * `matT` the user measured — which is also why this page no longer asks for it.
+ *
+ * **The leg sockets are pinned ON here, whatever `DEFAULTS` says.** They are a checkbox for someone
+ * designing a lantern, and DEFAULTS turned them off — at which point `needs()` quietly dropped the
+ * whole third way of lighting it, figure and all, off a page whose only job is to show the ways.
+ * That is the hazard of drawing a document from a settings object: a default that is right for the
+ * app can delete a section of the manual. Anything else this page must SHOW belongs in this
+ * override too, and `needs()` stays exactly as it is — it is what would catch the next one.
  */
 const GUIDE_MAT_T = 3;                                    // mm, ordinary single-wall cardboard
-const GUIDE_P = { stl: DEFAULTS, paper: paperP(DEFAULTS, GUIDE_MAT_T) };
+const GUIDE_BASE = { ...DEFAULTS, legSockets: true };
+const GUIDE_P = { stl: GUIDE_BASE, paper: paperP(GUIDE_BASE, GUIDE_MAT_T) };
 
 // The parts the mold is made of. `n` is how many, and it is either a CONSTANT or it is not printed
 // at all: two koma, two posts, one base and one ring at each end are facts about the mold, while how
