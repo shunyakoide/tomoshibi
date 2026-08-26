@@ -197,8 +197,8 @@ const STEPS = [
         // text used to describe two fixings (legs into the sockets, and the socket "fixed into the
         // opening" by nothing named). There is one fixing: the nut. The cardboard line has to say
         // where the leg ends go too, since a hoop cut from card has no bores in it.
-        body: "脚を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。コードは脚のあいだから下へ逃がします。",
-        paperBody: "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。",
+        body: "脚と枠を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは脚のあいだから下へ逃がします。",
+        paperBody: "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚と枠を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。",
         // The wire work, and it is the one fixing on this page that is actually settled: a pendant
         // holder's cord leaves through a threaded stem with a nut on it, so a loop bent in the
         // wire's end stacks on that stem and the nut clamps all three at once. Nothing is printed
@@ -211,10 +211,24 @@ const STEPS = [
         detail: [
           { id: "wire1", fig: "legBend", title: "脚を曲げる",
             body: "ペンチで先端を輪に曲げます。輪はソケットのネジが通る大きさに。残りは外へ渡してから下へ折り、床に届く長さにします。3本とも同じ形に。" },
+          // The frame is the part that keeps the shade at its full height — a paper bag with a ring
+          // at each end and nothing between them sags shut. It is bent from the same wire and fixed
+          // by the same nut as the legs, which is why it belongs in this way rather than beside it,
+          // and why its own step sits between bending the legs and going onto the stem.
+          //
+          // Its size is stated as a RELATION, never as a number: it follows the shade the reader
+          // built, and this page knows nothing about that shade (see the header). "Clear of the bulb
+          // and the socket" and "a little proud of the top opening" are things you can offer up and
+          // check. Clearing the LAMP is the one real constraint on the shape — the frame's foot sits
+          // directly under the socket, which sits directly under the bulb — and the nut is its only
+          // fixing: it presses nothing at the bottom, and holding the top out against a foot that
+          // cannot move is what puts the shade in tension.
+          { id: "wire4", fig: "frameBend", title: "枠を曲げる",
+            body: "もう1本を輪に曲げます。下は両端を合わせて脚と同じ大きさの輪にし、そこから電球とソケットに当たらないよう外へ開いて立ち上げます。上の端は小さな輪に。高さは、その輪が上の開口から少し出るくらいに。" },
           { id: "wire2", fig: "legStack", title: "ネジに通す",
-            body: "ソケットの固定ナットを外し、3本の輪をネジに重ねて通します。脚が120°ずつ開くように向きを揃えてください。" },
+            body: "ソケットの固定ナットを外し、3本の脚と枠の輪をネジに重ねて通します。脚が120°ずつ開くように向きを揃えてください。" },
           { id: "wire3", fig: "legStood", title: "ナットで締める",
-            body: "ナットを戻して締めます。これでライトと3本の脚が1つになります。" },
+            body: "ナットを戻して締めます。これでライトと脚と枠が1つになります。" },
         ],
         more: { photo: "light-legs.jpg" },
       },

@@ -108,7 +108,14 @@ function bands(p, hot) {
  * template's ticks, which are these same heights: nothing here branches on the route.
  */
 const HIGO_OFF = 0xbfa06a;      // bamboo tan, once the step has moved on (see `bands` for why muted)
-function higoWinding(p, hot) {
+// `near` draws only the half of each ring that faces the camera. It is for the one see-through
+// figure: the bamboo is UNDER the paper, so the far side of the winding is inside the shade and no
+// wall can hide it — eight far rings crossing eight near ones turned a paper lantern into a rattan
+// basket, and it is the near half you would actually read as ribbing anyway. The arc ends exactly
+// at the silhouette, where a ring runs tangent to the eye, so the outline keeps its bamboo.
+// (A SPIRAL winding is left whole: it is one continuous path, and cutting it into arcs is a
+// different problem. This page's design has horizontal rings, so it cannot arise here.)
+function higoWinding(p, hot, near = false) {
   const g = new THREE.Group();
   const r = p.higoD / 2;
   const mat = () => new THREE.MeshBasicMaterial({ color: hot ? HI : HIGO_OFF });
@@ -121,8 +128,18 @@ function higoWinding(p, hot) {
     }
   } else {
     for (const y of grooveList(p, grooveR(p))) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(outerR(p, y / p.height), r, 8, 96), mat());
-      ring.rotation.x = Math.PI / 2;
+      const geo = near
+        ? new THREE.TorusGeometry(outerR(p, y / p.height), r, 8, 64, Math.PI)
+        : new THREE.TorusGeometry(outerR(p, y / p.height), r, 8, 96);
+      // The half-arc is aimed by turning the GEOMETRY in its own plane before laying it down, not by
+      // a second Euler angle on the mesh: composed with the quarter turn that lays the ring flat, a
+      // `rotation.y` tilts the ring out of the horizontal instead of spinning it about its axis, and
+      // every ring came out as a straight diagonal band across the shade. A torus's arc starts at
+      // its own 0 and spans `arc`, so its midpoint sits a quarter turn on; -45° lands that midpoint
+      // on the camera's own bearing once rotateX has mapped plane-angle to azimuth.
+      if (near) geo.rotateZ(-Math.PI / 4);
+      geo.rotateX(Math.PI / 2);
+      const ring = new THREE.Mesh(geo, mat());
       ring.position.y = y;
       g.add(ring);
     }
@@ -178,17 +195,33 @@ function washiProfile(p) {
   }
   return out;
 }
-function washiSkin(p, bays, hotBay, face = WASHI_FACE) {
+function washiSkin(p, bays, hotBay, face = WASHI_FACE, opacity = 1) {
   const g = new THREE.Group();
   const prof = washiProfile(p);
   const d = (Math.PI * 2) / p.boards;
   for (const k of bays) {
     const hot = k === hotBay;
     const geo = new THREE.LatheGeometry(prof, 16, ribPhi(k, d), d);
-    g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      color: hot ? HI_FACE : face, side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
-    })));
+    // A see-through shade is drawn in TWO passes, and the second one is what makes it a drawing
+    // rather than a wash. Pass one is the FAR wall — back faces only, opaque, writing depth, drawn
+    // first: it hides everything behind the lantern, which on a wound shade means the bamboo on the
+    // far side. (One pass with DoubleSide and no depth write leaves that showing, and eight rings of
+    // it crossing the near eight turns a paper lantern into a rattan basket — it was the first thing
+    // this was tried as.) Pass two is the NEAR wall, front faces, translucent and writing no depth,
+    // drawn last, so the fitting inside is already on the canvas when the paper tints over it. The
+    // bamboo on the NEAR side stays crisp: it is in front of that wall, so the wall fails the depth
+    // test where it lies and never paints over it.
+    const skin = (side, o, order) => {
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        color: hot ? HI_FACE : face, side,
+        transparent: o < 1, opacity: o, depthWrite: o >= 1,
+        polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+      }));
+      m.renderOrder = order;
+      return m;
+    };
+    if (opacity < 1) g.add(skin(THREE.BackSide, 1, -1), skin(THREE.FrontSide, opacity, 2));
+    else g.add(skin(THREE.DoubleSide, 1, 0));
     g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 24),
       new THREE.LineBasicMaterial({ color: hot ? HI : INK })));
   }
@@ -227,10 +260,10 @@ function washiYaw(p, dir) {
  *
  * Nothing is highlighted: the step adds no part, it waits.
  */
-function washiWhole(p, face) {
+function washiWhole(p, face, opacity = 1) {
   const bays = [];
   for (let k = 0; k < p.boards; k++) bays.push(k);
-  return washiSkin(p, bays, null, face);
+  return washiSkin(p, bays, null, face, opacity);
 }
 function washiPieces(p) {
   const d = (Math.PI * 2) / p.boards;
@@ -253,11 +286,11 @@ function faceOnRib(p, dir) {
   return ((k % p.boards) + p.boards) % p.boards;
 }
 
-function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false, band = false, higo = false, washi = null, pull = null } = {}) {
+function moldPieces(p, { ribs = true, komaBot = true, komaTop = true, hot = null, smooth = false, rings = false, band = false, higo = false, washi = null, washiOpacity = 1, pull = null } = {}) {
   const g = new THREE.Group();
   if (band) g.add(bands(p, hot === "bands"));
-  if (higo) g.add(higoWinding(p, hot === "higo"));
-  if (washi === "all" || washi === "lit") g.add(washiWhole(p, washi === "lit" ? LIT_FACE : WASHI_FACE));
+  if (higo) g.add(higoWinding(p, hot === "higo", washiOpacity < 1));
+  if (washi === "all" || washi === "lit") g.add(washiWhole(p, washi === "lit" ? LIT_FACE : WASHI_FACE, washiOpacity));
   else if (washi) g.add(washiPieces(p));
   if (rings) {
     const { lo: t0, hi: t1 } = fukuroRange(p);
@@ -423,9 +456,10 @@ const CORD_INK = 0x5c574f;       // lamp flex: dark, but the ink family rather t
 const LAMP_INK = 0x8f949c;       // the lamp's own body: a grey, light enough not to out-weigh the ink
 
 /** The lantern itself, at its own coordinates: shade, the bamboo in it, and the rings in its mouths. */
-function litShade(p, smooth) {
+function litShade(p, smooth, opacity = 1) {
   return moldPieces(p, {
     ribs: false, komaBot: false, komaTop: false, smooth, rings: !smooth, higo: true, washi: "lit",
+    washiOpacity: opacity,
   });
 }
 
@@ -521,27 +555,58 @@ function lightSet(p, smooth) {
  * (12 facets draw as a hatched tube, 24 draw as nothing at all).
  */
 const LEG_DROP = 0.42;           // x body height, and the splay is 0.35 of that: the lit view's own
+const LIT_THRU = 0.45;           // how much of the shade you see through, in this one figure
+
+/**
+ * (3) Stood on legs, with the lamp fixed up into the bottom mouth.
+ *
+ * **The shade is translucent here and nowhere else.** Every other figure on the page draws paper as
+ * paper — opaque, and the thing behind it hidden, which is the honest drawing of a finished lantern.
+ * This one has to explain a fitting that is entirely INSIDE the lantern: a socket, three legs and a
+ * frame, worked through in three panels beside it, all of them behind the paper. Drawn opaque, the
+ * figure showed a shade with legs under it and said nothing about any of it. So the skin drops to
+ * `LIT_THRU` and the whole assembly is drawn inside — which is also what a lit paper shade actually
+ * looks like, the bulb showing through as a shape.
+ *
+ * The parts inside are drawn WHITE, exactly as they are in the three close-ups, so the reader can
+ * match them across; the legs stay the lantern-scale grey they always were. Nothing here is a new
+ * object — the socket is `lampHolder`, the bulb is `ledBulb`, the frame is bent from the same
+ * `frameSide` as the close-up's, sized to this lantern rather than redrawn.
+ */
 function lightLegs(p, smooth) {
   const g = new THREE.Group();
-  g.add(litShade(p, smooth));
+  g.add(litShade(p, smooth, LIT_THRU));
   // Legs on BOTH routes. `ringLegs` is a question about the opening, not about a printed part, so
   // it answers on cardboard too — that route simply prints no ring for the pads to be in, and the
   // step's own cardboard text says the hoop is yours to make. Drawing the legs anyway is right: the
   // finished lantern has an opening ring either way; only who supplies it changes.
   const legs = ringLegs(p);
   const y0 = fukuroRange(p).lo * p.height;         // the bottom opening = where the ring seats
-  const ink = new THREE.MeshBasicMaterial({ color: LAMP_INK });
-  // No socket is drawn. The view looks DOWN on the lantern, so anything sitting in the bottom mouth
-  // is behind the paper — a socket here draws nothing at all, and one dropped far enough to clear
-  // the rim would be inventing a fitting this step has not designed. The cord coming out from under
-  // the shade says the lamp is up there; the text says what holds it.
-  const drop = p.height * LEG_DROP, splay = drop * 0.35;
+  const yTop = fukuroRange(p).hi * p.height;       // and the top one, where the frame's peak shows
+  // The lamp, on the axis with its shell in the bottom mouth: the stem (and the stack of eyes on it)
+  // hangs below the opening, the bulb stands inside the shade. This is the fitting the three panels
+  // beside this figure build, so it is drawn at this scale rather than described.
+  const holder = lampHolder(false);
+  holder.position.y = y0;
+  g.add(holder);
+  const bulb = ledBulb();
+  bulb.position.y = y0 + SOCKET_H + BULB_FOOT - 8;
+  g.add(bulb);
+  // The frame, sized to THIS lantern: its eye on the stem with the legs', its peak half out of the
+  // top opening. Wide enough to clear the bulb, and well inside the paper — a relation, like the
+  // step's own wording, not a measurement.
+  const yEye = y0 + LOOP_Y - 3 * STACK_GAP;
+  const frame = frameWire(Math.max(SOCKET_R + 18, maxRadius(p) * 0.55), yTop + 6 - yEye);
+  frame.rotation.y = FRAME_YAW;
+  frame.position.y = yEye;
+  g.add(frame);
   // The cord leaves the socket, drops, and TURNS OUT of the frame. The turn is the whole point: a
   // dark line straight down between three legs is read as a fourth leg, which is what it looked
   // like. It runs out along screen-right (world +x−z projects horizontally) so the bend is square
   // to the reader instead of foreshortened into a kink.
+  const drop = p.height * LEG_DROP, splay = drop * 0.35;
   const cordMat = new THREE.MeshBasicMaterial({ color: CORD_INK });
-  const yB = y0, dropLen = drop * 0.62;
+  const yB = y0 - STEM_H, dropLen = drop * 0.62;
   const down = new THREE.Mesh(new THREE.CylinderGeometry(CORD_R, CORD_R, dropLen, 12), cordMat);
   down.position.y = yB - dropLen / 2;
   g.add(down);
@@ -552,15 +617,22 @@ function lightLegs(p, smooth) {
   run.position.set((runLen / 2) * Math.SQRT1_2, yB - dropLen, -(runLen / 2) * Math.SQRT1_2);
   g.add(run);
   if (!legs) return g;
+  // Each leg now starts where it is actually fixed — the eye on the stem — instead of at the ring
+  // with nothing above it. With the shade see-through, a leg that began in mid-air at the rim was
+  // the one thing in the figure that contradicted the panels beside it.
   for (let i = 0; i < legs.n; i++) {
     const a = (i / legs.n) * Math.PI * 2;
-    const top = new THREE.Vector3(legs.Rc * Math.cos(a), y0, legs.Rc * Math.sin(a));
-    const foot = new THREE.Vector3((legs.Rc + splay) * Math.cos(a), y0 - drop, (legs.Rc + splay) * Math.sin(a));
-    const v = new THREE.Vector3().subVectors(foot, top);
-    const rod = new THREE.Mesh(new THREE.CylinderGeometry(legs.bore, legs.bore, v.length(), 20), ink);
-    rod.position.copy(top).addScaledVector(v, 0.5);
-    rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().normalize());
-    g.add(rod);
+    const pts = [
+      new THREE.Vector3(LOOP_R * Math.cos(a), yEye, LOOP_R * Math.sin(a)),
+      new THREE.Vector3(legs.Rc * 0.55 * Math.cos(a), yEye + (y0 - yEye) * 0.7, legs.Rc * 0.55 * Math.sin(a)),
+      new THREE.Vector3(legs.Rc * Math.cos(a), y0, legs.Rc * Math.sin(a)),
+      new THREE.Vector3((legs.Rc + splay * 0.45) * Math.cos(a), y0 - drop * 0.45, (legs.Rc + splay * 0.45) * Math.sin(a)),
+      new THREE.Vector3((legs.Rc + splay) * Math.cos(a), y0 - drop, (legs.Rc + splay) * Math.sin(a)),
+    ];
+    // The same accent rod with the same outline as the close-ups beside this figure, and as the
+    // hanger in way (2)'s: once the shade is see-through, the wire in here is the wire being
+    // explained, and it should not be a different colour from the panel explaining it.
+    g.add(wireTube(pts, { rod: legs.bore }));
   }
   return g;
 }
@@ -1285,15 +1357,29 @@ function legWire(arm, drop, splay) {
 // exactly what it cost. So: legs on 0/120/240, gaps on 60/180/300 — see the cord for what uses them.
 const LEG_PHASE = 0;
 
+// The stack is FOUR eyes now, not three: the frame's goes on with the legs' and under the same nut.
+// It is placed last — lowest — for the drawing's sake: its arms are the only ones that rise, and
+// from the top of the stack they would climb straight through the three legs' loops.
+const STACK_GAP = 3.4;                  // between eyes: a wire thickness and a little daylight
+const stackEnd = (n) => LOOP_Y - (n - 1) * STACK_GAP - WIRE_R;   // where a tightened nut comes to
+
 /** The three loops stacked on the stem, each turned a third of a turn on from the last. */
 function legLoops(g, arm, drop, splay) {
   for (let i = 0; i < 3; i++) {
     const w = legWire(arm, drop, splay);
     w.rotation.y = LEG_PHASE + (i / 3) * Math.PI * 2;
-    w.position.y = LOOP_Y - i * 3.4;    // stacked, a wire thickness apart and a little daylight
+    w.position.y = LOOP_Y - i * STACK_GAP;
     g.add(w);
   }
-  return LOOP_Y - 2 * 3.4 - WIRE_R;     // where the stack ends = where a tightened nut comes to
+  return stackEnd(3);
+}
+
+/** The frame's eye, added to the bottom of that stack, with its arms cropped at `top`. */
+function frameOnStem(g, top) {
+  const f = frameFoot(top);
+  f.position.y = LOOP_Y - 3 * STACK_GAP;
+  g.add(f);
+  return stackEnd(4);
 }
 
 /**
@@ -1323,11 +1409,122 @@ function legBend() {
   return g;
 }
 
+/** The wire's own material, shared by every bend in this group: a filled accent rod with its own
+ * outline over 8 facets. See `legWire` for why it is not the plain filled tube the option's main
+ * figure uses — stacked turns of one colour merge into a blob without the lines. */
+function wireTube(pts, { seg = 3, closed = false, rod = WIRE_R } = {}) {
+  const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, closed), pts.length * seg, rod, 8, closed);
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: HI, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+  })));
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 24), new THREE.LineBasicMaterial({ color: INK })));
+  return g;
+}
+
+/**
+ * The FRAME (枠): the one wire that holds the shade out to its full height. It stands in a vertical
+ * plane — a tall closed hoop rising from a small eye, bellying out low and drawn in at the shoulders
+ * to a small loop at the peak — with the SAME eye at its foot that the legs have, so it stacks on
+ * the same stem under the same nut. The nut is its ONLY fixing: it presses nothing at the bottom,
+ * and holding the top out against a foot that cannot move is what puts the shade in tension.
+ *
+ * **The belly is the whole shape, and it is not decoration.** The frame's foot sits directly under
+ * the socket, which is directly under the bulb, so a hoop with the flat bottom bar and straight
+ * sides a photograph of one shows would rise past both with millimetres to spare — it clears by
+ * accident rather than by design. Leaving the eye upward AND outward puts the lamp in the clear
+ * from the first bend, which is the actual constraint on this wire; everything above it is free.
+ *
+ * Two things about the path are deliberate. The eye lies FLAT (in xz) while everything else stands
+ * in xy, because the eye has to drop over a vertical stem and the hoop has to stand up; the wire
+ * twists a quarter turn between them, which is what a real one does. And the curve is CLOSED — it
+ * is a hoop, and an open curve butted end to end left a visible kink at the shoulder where the two
+ * tangents disagreed. The eye still steps down slightly through its turn so the wire does not lie
+ * on top of itself; that step lives inside the path, not at the join.
+ */
+const FRAME_W = 44, FRAME_H = 150;     // half-width at the belly, and overall height
+// One side, foot to shoulder: up and OUT off the eye, clear of the lamp, then in again at the top.
+const frameSide = (sx, y0, W, H) => [
+    new THREE.Vector3(sx * LOOP_R * 1.5, y0 + 3, 0),
+    new THREE.Vector3(sx * W * 0.55, H * 0.045, 0),
+    // Out to full width LOW and standing up by a fifth of the height. The flare has one job — clear
+    // the socket and the bulb — and a gentler one that was still opening at the crop height left the
+    // two stem figures showing a pair of arms splaying outward, read as two more legs.
+    new THREE.Vector3(sx * W * 0.92, H * 0.11, 0),
+    new THREE.Vector3(sx * W, H * 0.20, 0),
+    new THREE.Vector3(sx * W, H * 0.34, 0),
+    new THREE.Vector3(sx * W, H * 0.48, 0),
+    new THREE.Vector3(sx * W * 0.88, H * 0.64, 0),
+    new THREE.Vector3(sx * W * 0.55, H * 0.83, 0),
+    new THREE.Vector3(sx * W * 0.24, H * 0.94, 0),
+];
+// The eye at the foot: one flat turn about the stem's axis, entered from -x and left towards +x,
+// stepping down through the turn so the wire does not lie on itself. `y0` is where it starts.
+function frameEye(y0) {
+  const pts = [];
+  const N = 30;
+  for (let i = 1; i < N; i++) {
+    const a = Math.PI - (i / N) * Math.PI * 2;
+    pts.push(new THREE.Vector3(LOOP_R * Math.cos(a), y0 - (i / N) * 2 * y0, LOOP_R * Math.sin(a)));
+  }
+  return pts;
+}
+function frameWire(W = FRAME_W, H = FRAME_H) {
+  const side = (sx, y0) => frameSide(sx, y0, W, H);
+  const pts = [...side(-1, 0.9).reverse()];
+  pts.push(...frameEye(0.9));
+  pts.push(...side(1, -0.9));
+  // The peak: a small loop, the size of a fingertip's bend, entered low on one side and left low on
+  // the other. It is what the top ring bears on, and the only part of the frame you can see once the
+  // shade is on, so it is not decoration.
+  const R = 7, C = H - R, M = 26;
+  for (let i = 0; i <= M; i++) {
+    const a = (-60 + (300 * i) / M) * (Math.PI / 180);
+    pts.push(new THREE.Vector3(R * Math.cos(a), C + R * Math.sin(a), 0.9 - (1.8 * i) / M));
+  }
+  return wireTube(pts, { closed: true });
+}
+
+// A flat hoop is ALL outline, so it is the one thing in this file that has to face the camera: on
+// the world axes the isometric view takes it at 45deg and the near side foreshortens into the far
+// one, which reads as a bent hoop rather than a flat one. A quarter turn puts its plane square to
+// the view's bearing (`hangBend` turns for the mirror-image reason — to lay its arms ACROSS the
+// view). The camera's own elevation still tips it, which is what keeps it a drawing and not a
+// diagram, and the eye at the foot then shows as an ellipse rather than as a line.
+const FRAME_YAW = Math.PI / 4;
+
+/** (3b') The frame on its own, bent to shape. */
+function frameBend() {
+  const g = new THREE.Group();
+  const w = frameWire();
+  w.rotation.y = FRAME_YAW;
+  g.add(w);
+  return g;
+}
+
+/**
+ * The frame's FOOT: its eye and the first `top` mm of both arms, cut off. The two figures about the
+ * stem are about the stem, and a 150mm hoop in either of them shrinks the socket to a detail — so
+ * the frame is cropped there exactly as `pendantSocket` and the pendant cord are, the cut end being
+ * this file's way of saying "this continues". It has to be the SAME wire, though, so it is bent from
+ * the same `frameSide` the whole hoop is: crop the drawing, never redraw the object.
+ */
+function frameFoot(top) {
+  const side = (sx, y0) => frameSide(sx, y0, FRAME_W, FRAME_H).filter((v) => v.y <= top);
+  const pts = [...side(-1, 0.9).reverse(), ...frameEye(0.9), ...side(1, -0.9)];
+  const g = new THREE.Group();
+  const w = wireTube(pts);
+  w.rotation.y = FRAME_YAW;
+  g.add(w);
+  return g;
+}
+
 /** (3b) The loops on the stem, nut off — a close-up, so the shell is cropped and the legs are cut. */
 function legStack() {
   const g = new THREE.Group();
   g.add(lampHolder(true));
   legLoops(g, 24, 15, 7);               // the legs cut short: this frame is about the stem
+  frameOnStem(g, 26);                   // and the frame cut shorter still, for the same reason
   const nut = hexNut();
   nut.position.y = -STEM_H - 9;         // clear of the thread, waiting on the cord: the nut is OFF
   g.add(nut);
@@ -1342,8 +1539,9 @@ function legStood() {
   const bulb = ledBulb();
   bulb.position.y = SOCKET_H + BULB_FOOT - 8;          // 8mm of cap screwed into the mouth
   g.add(bulb);
-  const yEnd = legLoops(g, ...LEG);
-  const nut = hexNut();
+  legLoops(g, ...LEG);
+  const yEnd = frameOnStem(g, 64);                     // cropped: a 150mm hoop here shrinks the nut
+  const nut = hexNut();                                // this step is about to a detail
   nut.position.y = yEnd - NUT_H / 2;                   // run up tight under the stack
   g.add(nut);
   lampCord(g, -STEM_H, 24, 28);
@@ -1534,6 +1732,7 @@ const SCENES = {
   // Fixing the lamp — the sub-steps under way (3). Like the kit's, these ignore `p`: what holds a
   // lamp to the paper is hardware you buy, not something the mold decides.
   legBend: () => legBend(),
+  frameBend: () => frameBend(),
   legStack: () => legStack(),
   legStood: () => legStood(),
   hangBend: () => hangBend(),

@@ -311,10 +311,10 @@ const EN = {
   "Uにコードを入れると、ソケットが引っ掛かります。両端は上の開口の縁の下に入れます。":
     "Drop the cord into the U and the socket catches in it. Tuck the two ends under the rim of the top opening.",
   "脚を付けて下から留める": "Add legs and fix it from below",
-  "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。":
-    "The cardboard route prints no opening ring. Make one from card, glue it into the bottom opening and pierce three holes in it for the leg ends. The rest is the same: take the lamp with its legs on it in through the bottom opening to stand it up, and run the cord out between the legs.",
-  "脚を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。コードは脚のあいだから下へ逃がします。":
-    "Take the lamp with its legs on it in through the bottom opening and push the leg ends into the bottom ring's leg sockets to stand it up. The cord runs down and out between the legs.",
+  "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚と枠を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。":
+    "The cardboard route prints no opening ring. Make one from card, glue it into the bottom opening and pierce three holes in it for the leg ends. The rest is the same: take the lamp with its legs and its frame on it in through the bottom opening to stand it up, and run the cord out between the legs.",
+  "脚と枠を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは脚のあいだから下へ逃がします。":
+    "Take the lamp with its legs and its frame on it in through the bottom opening and push the leg ends into the bottom ring's leg sockets to stand it up. The frame runs up inside the body and shows a little of itself at the top opening, holding the body taut between the two ends. The cord runs down and out between the legs.",
   // The wire work under that one. ネジ is the socket's threaded stem and ナット the fixing nut
   // that runs on it — one pair of words, so the three sub-steps have to keep calling them the same
   // thing in both languages or the reader loses which part is which between figures.
@@ -324,12 +324,17 @@ const EN = {
   "脚を曲げる": "Bend the legs",
   "ペンチで先端を輪に曲げます。輪はソケットのネジが通る大きさに。残りは外へ渡してから下へ折り、床に届く長さにします。3本とも同じ形に。":
     "Bend a loop in one end with the pliers, big enough to pass over the socket's threaded stem. Take the rest outward, then turn it down and cut it long enough to reach the floor. All three the same shape.",
+  // 枠 is the hoop that holds the shade out to its height, not the mold's rib boards — "frame" in
+  // the lampshade sense, the wire a shade is built on.
+  "枠を曲げる": "Bend the frame",
+  "もう1本を輪に曲げます。下は両端を合わせて脚と同じ大きさの輪にし、そこから電球とソケットに当たらないよう外へ開いて立ち上げます。上の端は小さな輪に。高さは、その輪が上の開口から少し出るくらいに。":
+    "Bend a second length into a hoop. At the bottom, bring both ends together into a loop the same size as the legs'; from there open it outward, clear of the bulb and the socket, before taking it up. A small loop at the top end. Make it tall enough that the loop stands a little proud of the top opening.",
   "ネジに通す": "Onto the stem",
-  "ソケットの固定ナットを外し、3本の輪をネジに重ねて通します。脚が120°ずつ開くように向きを揃えてください。":
-    "Take the socket's fixing nut off and stack the three loops on the stem. Set them so the legs come out 120° apart.",
+  "ソケットの固定ナットを外し、3本の脚と枠の輪をネジに重ねて通します。脚が120°ずつ開くように向きを揃えてください。":
+    "Take the socket's fixing nut off and stack the three legs' loops and the frame's on the stem. Set them so the legs come out 120° apart.",
   "ナットで締める": "Tighten the nut",
-  "ナットを戻して締めます。これでライトと3本の脚が1つになります。":
-    "Run the nut back up and tighten it. The lamp and its three legs are now one piece.",
+  "ナットを戻して締めます。これでライトと脚と枠が1つになります。":
+    "Run the nut back up and tighten it. The lamp, its legs and its frame are now one piece.",
 };
 
 // Return the translation function for language `lang`. t(key, params?): for English, look up EN
