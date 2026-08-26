@@ -284,6 +284,8 @@ const EN = {
   "障子貼り用の糊刷毛など": "a paste brush for shoji paper, or similar",
   "紙を張るブラシ": "Brush for laying the paper",
   "靴磨き用など": "a shoe brush, or similar",
+  "霧吹き": "Spray bottle",
+  "貼るときと、貼ったあとに": "As you paste, and again after",
   "ペンチ": "Pliers",
   "カミソリ": "Razor blade",
   "はみ出した和紙を切る": "trims the washi that overhangs",

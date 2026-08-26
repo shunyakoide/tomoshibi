@@ -981,6 +981,71 @@ function washiStack() {
 }
 
 /**
+ * A trigger sprayer — the plant-mister kind, the one thing on this list that holds water.
+ *
+ * Three facts have to survive white-on-white: it is a bottle, it has a head you screw on, and you
+ * work it with a trigger. So the bottle is three stacked round volumes with `silhouetteLines` on
+ * each (a straight base, the shoulder that narrows, the neck), the collar is one short cylinder
+ * WIDER than the neck it sits on — the only mark that says the head comes off — and the head is a
+ * single extruded profile, a wedge tall at the back and dropping to the nozzle. The trigger is a
+ * second extrusion hanging under it, tapered and reaching PAST the nozzle, which is where a real
+ * one reaches: drawn short it reads as a spout, and the object stops being a sprayer.
+ *
+ * Proportions are a 500ml sprayer's (⌀70 bottle, about 175 tall over all), not measurements — see
+ * "THE KIT" above. Nothing about it is decided by the lantern.
+ */
+const SPRAY_R = 35;              // bottle radius: ⌀70, a 500ml sprayer
+function sprayBottle() {
+  const g = new THREE.Group();
+  // The bottle, bottom up. Each segment gets its own pair of tangent lines, because a smooth wall
+  // draws nothing by itself and three rim circles floating in a column is not a bottle.
+  const base = solid(new THREE.CylinderGeometry(SPRAY_R, SPRAY_R, 66, 32));
+  base.position.y = 33;
+  g.add(base, silhouetteLines(SPRAY_R, SPRAY_R, 66, 0));
+  const shoulder = solid(new THREE.CylinderGeometry(23, SPRAY_R, 56, 32));
+  shoulder.position.y = 94;
+  g.add(shoulder, silhouetteLines(23, SPRAY_R, 122, 66));
+  const neck = solid(new THREE.CylinderGeometry(18, 18, 14, 24));
+  neck.position.y = 129;
+  g.add(neck, silhouetteLines(18, 18, 136, 122));
+  const collar = solid(new THREE.CylinderGeometry(22, 22, 13, 24));   // wider than the neck: it screws off
+  collar.position.y = 132;
+  g.add(collar, silhouetteLines(22, 22, 138.5, 125.5));
+
+  // The head, as one profile in x (forward) and y (up), extruded across z. Origin at the collar's
+  // top, so the whole assembly moves with one position below.
+  const head = new THREE.Group();
+  const prof = [
+    [-24, 0], [34, 0], [45, 7],        // underside, then up the nozzle end
+    [45, 20], [30, 28],                // the nozzle boss and the top's forward slope
+    [-6, 30], [-24, 18],               // over the top and down the back
+  ];
+  const hs = new THREE.Shape(prof.map(([x, y]) => new THREE.Vector2(x, y)));
+  const hg = new THREE.ExtrudeGeometry(hs, { depth: 34, bevelEnabled: false });
+  hg.translate(0, 0, -17);             // extruded along +z from the profile plane; centre it
+  head.add(solid(hg));
+  const nozzle = solid(new THREE.CylinderGeometry(8, 8, 15, 24));
+  nozzle.rotation.z = -Math.PI / 2;    // lay it along +x
+  nozzle.position.set(51, 14, 0);
+  head.add(nozzle);
+  const cap = solid(new THREE.CylinderGeometry(10, 10, 7, 24));
+  cap.rotation.z = -Math.PI / 2;
+  cap.position.set(61, 14, 0);
+  head.add(cap);
+  // The trigger: pivoted under the head, HANGING rather than reaching — the first version ran out
+  // at the nozzle's own angle and the sprayer read as having two spouts. It has to leave the head
+  // steeply enough that no projection of the two can line them up, and only then swing forward.
+  const ts = new THREE.Shape([[15, 1], [29, 1], [56, -50], [46, -56]]
+    .map(([x, y]) => new THREE.Vector2(x, y)));
+  const tg = new THREE.ExtrudeGeometry(ts, { depth: 12, bevelEnabled: false });
+  tg.translate(0, 0, -6);
+  head.add(solid(tg));
+  head.position.y = 142;                 // clear of the collar, so a sliver of it still shows
+  g.add(head);
+  return g;
+}
+
+/**
  * The bulb. Its globe is a smooth sphere with a `silhouetteCircle` for its outline, and the cap's
  * three raised bands are the screw thread — which is what stops the whole thing reading as a
  * doorknob. See `lamps()` below for why it is not the only thing on that card.
@@ -1465,6 +1530,7 @@ const SCENES = {
   kitWashi: () => washiStack(),
   kitRazor: () => razorBlade(),
   kitLight: () => lamps(),
+  kitSpray: () => sprayBottle(),
   // Fixing the lamp — the sub-steps under way (3). Like the kit's, these ignore `p`: what holds a
   // lamp to the paper is hardware you buy, not something the mold decides.
   legBend: () => legBend(),

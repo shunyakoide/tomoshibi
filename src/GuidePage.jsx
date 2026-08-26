@@ -230,7 +230,10 @@ const STEPS = [
  * Order is by how much it matters, not by category: the paste is the one thing a bad choice of
  * which ruins the lantern, so it comes before the wire. `opt` marks what you may not need at all —
  * the wire and its pliers are only for the two lighting methods that fix something to an opening,
- * and the brushes are a preference. Everything else is unconditional: without bamboo, washi, paste,
+ * and the brushes and the mister are things you can finish a lantern without. (The mister sits with
+ * the brushes rather than after the pliers because it belongs to the same moment they do — the
+ * pasting — and this list is ordered by the work, not by the shelf it came off.) Everything else is
+ * unconditional: without bamboo, washi, paste,
  * something to hold the bamboo while it dries, a blade to trim the paper and a lamp to put inside
  * it, there is no lantern at the end.
  *
@@ -255,6 +258,17 @@ const KIT = [
   { id: "tools", title: "道具", items: [
     { name: "のりを塗るはけ", fig: "kitPasteBrush", opt: true, note: "障子貼り用の糊刷毛など" },
     { name: "紙を張るブラシ", fig: "kitBrush", opt: true, note: "靴磨き用など" },
+    // Sits with the brushes rather than at the end: it belongs to the same moment they do, the
+    // pasting, where the pliers belong to two of the lighting ways.
+    //
+    // The note names TWO moments because the craft uses it at two. A chochin maker damps the sheet
+    // with it as she lays it (三国提灯いとや: 「和紙を貼る時に霧吹きで湿らせるのですが、力を入れすぎると薄く」),
+    // and the standard shoji finish is to mist the whole thing once it is pasted and let it dry out
+    // of the sun, where the paper shrinks and pulls taut. Neither is a mechanism this line explains
+    // — it says when you reach for the thing, like every other note here — but "after" alone, which
+    // is what this first said, describes only the second of the two and would have sent a reader
+    // past the moment the paper is hardest to handle.
+    { name: "霧吹き", fig: "kitSpray", opt: true, note: "貼るときと、貼ったあとに" },
     { name: "ペンチ", fig: "kitPliers", opt: true, note: "ワイヤーを曲げる" },
   ] },
 ];
