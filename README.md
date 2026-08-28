@@ -64,8 +64,9 @@ npm run build      # production build into dist/
 npm run preview    # preview the built output on http://localhost:8174
 ```
 
-Requires **Node.js 20.19+** (or 22.13+, or 24+). Vite 8 and ESLint 10 both refuse
-anything older, so on Node 18 the install fails rather than degrading.
+Requires **Node.js 22.18+** (or 24+). The check scripts are TypeScript run directly by
+`node`, which strips types without a flag from that version on; Node 20 reached end of
+life in April 2026. An older Node fails at `npm install` rather than degrading.
 
 ---
 
@@ -128,8 +129,8 @@ are English, since a self-contained PDF can't carry a Japanese font.
 
 ## Tech stack
 
-Minimal by design — Vite + React 19 + three.js, plus fflate for the export ZIP (plain
-JS/JSX, no TypeScript). The geometry is pure functions returning three.js
+Minimal by design — Vite + React 19 + three.js, plus fflate for the export ZIP, written
+in TypeScript. The geometry is pure functions returning three.js
 `Shape`/`ExtrudeGeometry`, shared by both the 2D section drawing and the STL export, so
 what you see is exactly what you print.
 
