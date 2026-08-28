@@ -15,18 +15,23 @@
  *
  * Deliberately absent: `eslint:recommended`. Without it `no-undef` never runs, which is what lets
  * us skip a `globals` dependency for `window` / `document` / `localStorage` — the build already
- * fails on a genuinely undefined identifier.
+ * fails on a genuinely undefined identifier. Same for typescript-eslint's own rule sets: `tsc` is
+ * the type check, and it runs in `npm run build`. What the parser is here for is that ESLint cannot
+ * READ a .ts/.tsx file without it — and a config whose `files` no longer matches anything reports
+ * "0 problems" exactly as loudly as a clean one. That silence is the failure mode this guards.
  *
  * Run:  npm run lint          (part of the verification gates; warnings are errors)
  * ============================================================================
  */
 import reactHooks from "eslint-plugin-react-hooks";
+import tseslint from "typescript-eslint";
 
 export default [
   {
-    files: ["src/**/*.{js,jsx}"],
+    files: ["src/**/*.{ts,tsx}"],
     plugins: { "react-hooks": reactHooks },
     languageOptions: {
+      parser: tseslint.parser,
       ecmaVersion: 2022,
       sourceType: "module",
       parserOptions: { ecmaFeatures: { jsx: true } },
