@@ -8,7 +8,7 @@
    in the panel responded to the pointer before it was clicked.
 
    The custom properties (--accent, --text, --card-edge, --accent-40 …) are published
-   at startup by ui/theme.js, which is where the palette is defined. It lives in JS
+   at startup by ui/theme.ts, which is where the palette is defined. It lives in JS
    because SVG presentation attributes need a real colour, not a var().
    ============================================================================ */
 
@@ -265,7 +265,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 }
 .pages-note > span { font-weight: 400; }
 
-/* ---- crash screen (main.jsx error boundary) ---- */
+/* ---- crash screen (main.tsx error boundary) ---- */
 /* Its own dark palette rather than the panel tokens: whatever went wrong may well be in the theme,
    so this screen must not depend on anything the app sets up at startup. */
 .crash {

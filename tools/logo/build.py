@@ -1,4 +1,4 @@
-"""Builds every 灯 mark in public/, plus src/ui/Logo.jsx.
+"""Builds every 灯 mark in public/, plus src/ui/Logo.tsx.
 
 Run this instead of editing the SVGs: the wordmark's letterspacing and its optical centring
 against the kanji's ink box are computed, so hand-nudging one file puts it out of step with the
@@ -111,13 +111,13 @@ for k, v in A.items():
     open(os.path.join(OUT, f"{k}.svg"), "w").write(v)
 json.dump(A, open(os.path.join(HERE, "assets.json"), "w"))
 
-# ---------------------------------------------------------------- Logo.jsx
+# ---------------------------------------------------------------- Logo.tsx
 def js(parts):
     return "[\n" + "".join(f'  {{ d: "{d}", t: "{t}" }},\n' for d, t in parts) + "]"
 
 fw, fh, fink, ftag = full_parts()
 cw, ch, cink, _ = compact_parts()
-jsx = f'''/**
+tsx = f'''/**
  * ============================================================================
  * LOGO — 灯 TOMOSHIBI
  * ============================================================================
@@ -132,7 +132,8 @@ jsx = f'''/**
  * dark ground; only the tagline carries its own colour.
  * ============================================================================
  */
-import {{ accent }} from "./theme.js";
+import type {{ SVGProps }} from "react";
+import {{ accent }} from "./theme.ts";
 
 const FULL = {{ w: {fw:.0f}, h: {fh:.0f}, ink: {js(fink)}, tag: {js(ftag)} }};
 
@@ -143,7 +144,14 @@ const COMPACT = {{ w: {cw:.0f}, h: {ch:.0f}, ink: {js(cink)}, tag: [] }};
  * the lockup's proportions. `tagColour` exists for the one case the accent cannot serve: a dark
  * ground, where the base orange sits too close to the ink brown to read.
  */
-export default function Logo({{ variant = "compact", height = 30, tagColour = accent, ...rest }}) {{
+type LogoProps = {{
+  /** "full" is the lockup with the tagline; "compact" is the mark and wordmark alone. */
+  variant?: "full" | "compact";
+  height?: number;
+  tagColour?: string;
+}} & SVGProps<SVGSVGElement>;
+
+export default function Logo({{ variant = "compact", height = 30, tagColour = accent, ...rest }}: LogoProps) {{
   const L = variant === "full" ? FULL : COMPACT;
   return (
     <svg viewBox={{`0 0 ${{L.w}} ${{L.h}}`}} height={{height}} width={{(height * L.w) / L.h}}
@@ -154,8 +162,8 @@ export default function Logo({{ variant = "compact", height = 30, tagColour = ac
   );
 }}
 '''
-open(os.path.join(HERE, "..", "..", "src", "ui", "Logo.jsx"), "w").write(jsx)
+open(os.path.join(HERE, "..", "..", "src", "ui", "Logo.tsx"), "w").write(tsx)
 
 for k, v in A.items():
     print(f"  public/{k}.svg  {v.split('viewBox=\"')[1].split('\"')[0]}")
-print(f"  src/ui/Logo.jsx  full={fw:.0f}x{fh:.0f} compact={cw:.0f}x{ch:.0f}")
+print(f"  src/ui/Logo.tsx  full={fw:.0f}x{fh:.0f} compact={cw:.0f}x{ch:.0f}")
