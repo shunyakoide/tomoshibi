@@ -6,7 +6,7 @@
   "description": "灯 Tomoshibi — browser generator for the 3D-printable forming mold used to build washi paper lanterns (paper lamps).",
   "license": "MIT",
   "engines": {
-    "node": "^20.19.0 || ^22.13.0 || >=24"
+    "node": "^22.18.0 || >=24"
   },
   "author": "Shunya Koide",
   "keywords": [
@@ -26,13 +26,14 @@
   },
   "scripts": {
     "dev": "vite --host",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
-    "check:manifold": "node scripts/manifold.mjs",
-    "check:hash": "node scripts/hash.mjs",
-    "check:persist": "node scripts/persist.test.mjs",
-    "check:paper": "node scripts/paper.test.mjs",
-    "check:i18n": "node scripts/i18n.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "check:manifold": "node scripts/manifold.mts",
+    "check:hash": "node scripts/hash.mts",
+    "check:persist": "node scripts/persist.test.mts",
+    "check:paper": "node scripts/paper.test.mts",
+    "check:i18n": "node scripts/i18n.test.mts",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
@@ -42,9 +43,15 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@types/node": "^26.4.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^6.0.5",
     "eslint": "^10.8.1",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.68.0",
     "vite": "^8.2.1"
   }
 }

@@ -27,9 +27,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The two ends of the range package.json's `engines` claims. The floor is the one that
-        # actually breaks: Vite 8 and ESLint 10 both refuse anything below 20.19.
-        node: ['20.19', '22']
+        # The two ends of the range package.json's `engines` claims. The floor is now set by the
+        # check scripts rather than by the build: they are TypeScript and are run by `node` directly,
+        # which strips types unflagged from 22.18 (and does NOT resolve a `.js` specifier onto a
+        # `.ts` file — hence the real extensions in their imports). Node 20 went end-of-life in
+        # April 2026, so nothing is left behind by starting here.
+        node: ["22.18", "24"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -50,7 +53,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: "22.18"
           cache: npm
       - run: npm ci
       # Sweeps 3 presets x height/higo/pitch/thickness/tolerance/rib-count and inspects every part.
