@@ -20,13 +20,13 @@ The mark is the single kanji **灯** ("a light / a lamp") — the same character
 
 ## Colours
 
-Taken from `src/ui/theme.js`, not invented here — the logo and the app share one palette.
+Taken from `src/ui/theme.ts`, not invented here — the logo and the app share one palette.
 
 | Token | Hex | Role |
 | --- | --- | --- |
 | ink | `#3b342b` | Mark and wordmark |
 | washi | `#fbf8f1` | Primary ground |
-| accent | `#D95B18` | Tagline (`accent` in `theme.js` — "the orange of washi lamplight") |
+| accent | `#D95B18` | Tagline (`accent` in `theme.ts` — "the orange of washi lamplight") |
 | accent (dark ground) | `#E8834A` | Tagline on ink |
 | muted | `#8a7c66` | Tagline in the mono lockup |
 
@@ -44,7 +44,7 @@ silently fall back to whatever mincho the viewer happens to have.
 | tagline | IBM Plex Mono 400 | SIL OFL 1.1 |
 
 Both families are OFL, which permits deriving artwork from their outlines. IBM Plex is already the
-app's typeface (`src/ui/theme.js`), so the wordmark and the UI are the same voice.
+app's typeface (`src/ui/theme.ts`), so the wordmark and the UI are the same voice.
 
 ## Regenerating
 

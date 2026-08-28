@@ -1,0 +1,57 @@
+{
+  // ============================================================================
+  // TypeScript — one config for the app, the check scripts and the Vite config
+  // ============================================================================
+  // The standard Vite React template splits this into tsconfig.app.json +
+  // tsconfig.node.json because its "node" half (the Vite config) and its "app" half run in
+  // different places. Here they don't: the check scripts under scripts/ import the very same
+  // modules the browser does, and any of them running under different lib/target settings than
+  // the app is exactly how a check ends up passing on something the build rejects. One file, one
+  // answer — the same reason LIMITS and innerRi are single definitions.
+  //
+  // Two settings carry more weight than the rest, so they are spelled out:
+  //
+  //   allowImportingTsExtensions — relative imports inside src/ are written WITH their `.ts` /
+  //     `.tsx` extension. Vite would happily resolve them without one, but the check scripts are
+  //     run by plain `node` (>=22.18, type stripping on by default), and Node does not rewrite a
+  //     `.js` specifier onto a `.ts` file — it throws ERR_MODULE_NOT_FOUND. Writing the real
+  //     extension is what lets one set of source files serve both. `noEmit` is its precondition
+  //     (tsc must not emit files whose imports point at .ts), and this project never emits:
+  //     Vite builds the app, Node strips types for the scripts.
+  //
+  //   verbatimModuleSyntax — Vite (and Node's stripper) transpile one file at a time, so a
+  //     type-only import that looks like a value import is a runtime import of a module that
+  //     may not exist at runtime. This forces `import type` where it is meant, which is the
+  //     form both transpilers need.
+  //
+  // Deliberately NOT enabled: noUncheckedIndexedAccess. The geometry is written as index
+  // arithmetic over point arrays (`d[i - 1]`, `P[i + 1].t`, `op[i][0]`), where the loop bounds are
+  // the proof that the index is in range. Turning it on adds a `!` to a few hundred expressions
+  // that are already correct and hides the handful of genuinely optional values behind the noise.
+  // ============================================================================
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "preserve",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    // `vite/client` for the CSS side-effect import and import.meta.env; `node` for the check
+    // scripts, which are part of this same compilation (see the note above). Listing them is what
+    // gives every file in `include` the same globals — the alternative, the template's split
+    // app/node tsconfigs, buys a narrower DOM-vs-node separation for a second place to keep in step.
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src", "scripts", "vite.config.ts"]
+}
