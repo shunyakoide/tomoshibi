@@ -154,9 +154,16 @@ if (missing.length) {
 // ---- 2. Orphaned dictionary entries --------------------------------------------------------
 // The EN dict is not exported (it is an implementation detail of makeT), so read its keys off the
 // source. Only the keys are needed, and they are plain literals at one indent level.
+// The declaration is matched by a pattern rather than by its exact text, and a miss is fatal rather
+// than empty: anchoring on the literal `const EN: Record<string, string> = {` meant that retyping
+// the annotation would leave EN_KEYS empty, and BOTH gates below would then pass over nothing at
+// all — a check that silently stops checking is worse than no check.
 const i18nSrc = fs.readFileSync("src/i18n.ts", "utf8");
-const dictBody = i18nSrc.slice(i18nSrc.indexOf("const EN: Record<string, string> = {"), i18nSrc.indexOf("\n};"));
+const dictAt = i18nSrc.search(/^const EN\b[^=]*=\s*\{$/m);
+if (dictAt < 0) { bad("cannot find the EN dictionary declaration in src/i18n.ts"); process.exit(1); }
+const dictBody = i18nSrc.slice(dictAt, i18nSrc.indexOf("\n};", dictAt));
 const EN_KEYS = [...dictBody.matchAll(/^\s{2}"((?:[^"\\]|\\.)*)":/gm)].map((m) => unescape_(m[1]));
+if (!EN_KEYS.length) { bad("read 0 keys out of the EN dictionary — the scraper has drifted"); process.exit(1); }
 
 const orphans = EN_KEYS.filter((k) => !where.has(k));
 if (orphans.length) {
