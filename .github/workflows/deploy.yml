@@ -13,8 +13,8 @@ on:
 
 permissions:
   contents: read
-  pages: write        # publish the artifact
-  id-token: write     # deploy-pages authenticates by OIDC, not a token in a secret
+  pages: write # publish the artifact
+  id-token: write # deploy-pages authenticates by OIDC, not a token in a secret
 
 # One deployment at a time, and never cancel one in flight: a cancelled deploy can leave the site
 # on a half-published state, which is worse than briefly serving the previous commit.
@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: "22.18"
           cache: npm
       - run: npm ci
       # Only the build runs here. The correctness gates (lint / manifold / paper / persist / i18n)
@@ -40,8 +40,8 @@ jobs:
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          # vite.config.js sets base: "./", so the output is position-independent — the same
-          # artifact works at a user-site root or under /Lamp-Kit-Generator/ with no rebuild.
+          # vite.config.ts sets base: "./", so the output is position-independent — the same
+          # artifact works at a user-site root or under /tomoshibi/ with no rebuild.
           path: dist
 
   deploy:
