@@ -1,12 +1,12 @@
 # PDF glyph outlines
 
-Rebuilds `src/pdf-glyphs.js` — the characters `src/pdf.js` draws when WinAnsi cannot encode them
+Rebuilds `src/pdf-glyphs.ts` — the characters `src/pdf.ts` draws when WinAnsi cannot encode them
 (the Japanese, the arrows). Run it whenever a template starts printing a word it did not print
 before; `npm run check:glyphs` is what tells you that day has come.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install fonttools brotli
-.venv/bin/python build.py            # writes ../../src/pdf-glyphs.js
+.venv/bin/python build.py            # writes ../../src/pdf-glyphs.ts
 ```
 
 ## Why outlines and not a font
@@ -24,7 +24,7 @@ label on a sheet you are about to cut up, that is not a cost worth a font for.
 
 `build.py` reads the string literals of the modules in `SOURCES` (comments stripped) and takes every
 character above U+00FF. Latin-1 stays with Helvetica, where it is real text at a tenth of the bytes.
-`scripts/glyphs.test.mjs` runs the same collection against the committed table and fails both ways —
+`scripts/glyphs.test.mts` runs the same collection against the committed table and fails both ways —
 a character with no outline, and an outline nothing prints any more (the fingerprint of a reworded
 label, the same drift `check:i18n` hunts in the dictionary).
 
