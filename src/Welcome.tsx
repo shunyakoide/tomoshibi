@@ -107,34 +107,42 @@ export default function Welcome({ route = null, onPick, onClose }: {
 
   return (
     <div onClick={onClose} style={{
-      position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center",
+      position: "fixed", inset: 0, zIndex: 50, display: "flex", justifyContent: "center",
       padding: 20, background: "rgba(43,36,26,0.42)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)",
       overflowY: "auto",
     }}>
       <div role="dialog" aria-modal="true" aria-label={t("はじめかた")} onClick={(e) => e.stopPropagation()}
+        className="welcome"
         style={{
           // 560 rather than 520: below that the three step captions wrap onto a second line with a
           // single character stranded on it in Japanese.
+          // `margin: auto` centres this, NOT the overlay's align-items — and that is the whole
+          // point. Centred by align-items, a card taller than the window overflows in BOTH
+          // directions, and a scroll container cannot reach what is above its start edge: at
+          // 375x667 the card is 720px and the logo was cut off with no way to scroll up to it.
+          // An auto margin resolves to 0 once the free space goes negative, so the card starts at
+          // the padding edge and the whole of it scrolls into reach.
+          margin: "auto",
           width: "min(560px, 100%)", background: ui.panel, color: ui.text, fontFamily: "var(--sans)",
-          borderRadius: 16, padding: "26px 26px 22px", boxShadow: "0 18px 50px rgba(43,36,26,0.3)",
-          border: `1px solid ${ui.edge}`,
+          borderRadius: 16, boxShadow: "0 18px 50px rgba(43,36,26,0.3)",
+          border: `1px solid ${ui.edge}`, position: "relative",
         }}>
-        <Logo variant="full" height={62} style={{ color: ui.head }} />
+        {/* The only way out that is not also a choice. It replaced a 「とりあえず見る」 button on the
+            footer row, which cost a full row and read like a third option beside the two routes —
+            the escape from a modal is chrome, not an alternative to the thing it is asking. */}
+        <button className="welcome-x" onClick={onClose} title={t("閉じる")} aria-label={t("閉じる")}>×</button>
+        <Logo variant="full" className="welcome-logo" style={{ color: ui.head }} />
         <div style={{ fontSize: 13, color: ui.sub, marginTop: 8 }}>{t("和紙提灯の「張型」をつくる")}</div>
 
         {/* The three steps, with arrows between them: design → output → build by hand */}
-        <div style={{ display: "flex", alignItems: "stretch", gap: 4, margin: "20px 0 18px" }}>
+        <div className="welcome-steps">
           {STEPS.map(([kind, title, caption], i) => (
             <React.Fragment key={kind}>
-              {i > 0 && <div aria-hidden="true" style={{ alignSelf: "center", color: ui.faintest, fontSize: 17, padding: "0 2px" }}>→</div>}
-              <div style={{
-                flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                textAlign: "center", background: ui.card, border: `1px solid ${ui.cardEdge}`,
-                borderRadius: 12, padding: "13px 8px 12px",
-              }}>
+              {i > 0 && <div aria-hidden="true" className="welcome-arrow">→</div>}
+              <div className="welcome-step">
                 <StepIcon kind={kind} />
-                <div style={{ fontSize: 12.5, fontWeight: 700 }}>{t(title)}</div>
-                <div style={{ fontSize: 10.5, color: ui.sub, lineHeight: 1.45 }}>{t(caption)}</div>
+                <div className="welcome-step-t">{t(title)}</div>
+                <div className="welcome-step-c">{t(caption)}</div>
               </div>
             </React.Fragment>
           ))}
@@ -172,12 +180,8 @@ export default function Welcome({ route = null, onPick, onClose }: {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 14 }}>
-          <div style={{ fontSize: 11, color: ui.faint, lineHeight: 1.6 }}>
-            {t("上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。")}
-          </div>
-          {/* Neither route chosen: close and keep whatever was saved (3D print on a first visit). */}
-          <button className="btn btn--ghost" onClick={onClose} style={{ flex: "none" }}>{t("とりあえず見る")}</button>
+        <div style={{ fontSize: 11, color: ui.faint, lineHeight: 1.6, marginTop: 14 }}>
+          {t("上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。")}
         </div>
       </div>
     </div>
