@@ -33,6 +33,7 @@ const EN: Record<string, string> = {
   "点灯": "Lit",
   // ---- Header ----
   // ---- Welcome / onboarding (first run, reopened from the "?" in the header) ----
+  "閉じる": "Close",
   "はじめかた": "Getting started",
   "和紙提灯の「張型」をつくる": "Design the forming mold for a washi paper lantern",
   "断面を決める": "Draw the section",
@@ -53,7 +54,6 @@ const EN: Record<string, string> = {
   "3Dプリンタ": "3D printer",
   "STL 一式をダウンロード": "Download the STL set",
   "A4 原寸の型紙を印刷 · 大きさの制限なし": "Print the A4 1:1 template · no size limit",
-  "とりあえず見る": "Just look around",
   // ---- Toolbar ----
   "元に戻す": "Undo",
   "やり直し": "Redo",
