@@ -321,6 +321,13 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
   align-content: start; gap: 14px;
+  /* A row is as tall as the sheet standing in it — say so, because `auto` does not. An auto row in
+     a grid whose own height is DEFINITE (this pane is a flex item with a fixed height) gets sized
+     against that height rather than against its contents: with the inspector sheet pulled up over a
+     tall design the four rows came out 8.5px each while every page still rendered 243px, so each
+     sheet was drawn straight through the three below it. The sheets are the one thing here whose
+     size is not ours to choose — the SVG carries A4's ratio — so the track has to follow them. */
+  grid-auto-rows: max-content;
   /* The top pad clears the two floating chip rows drawn over this canvas — without enough of it the
      first page slides under them. The route row is the lower one: top 62px + its own height (a
      .tab's 7px padding twice around a ~17px line box, the badge being the tallest thing in it, plus
@@ -333,14 +340,27 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   border: 1px solid rgba(59,52,43,0.14); box-shadow: 0 3px 12px rgba(59,52,43,0.16);
 }
 
-/* Narrow: the pane is only 44vh tall here, so a page's height is the binding constraint rather than
-   its width. A smaller track keeps two sheets side by side instead of one filling the phone's width
-   and running several screens deep. Matches useNarrow(860). */
+/* Narrow: a page's height is the binding constraint here rather than its width. Matches useNarrow(860). */
 @media (max-width: 860px) {
   .pages {
-    padding: 118px 12px 10px; gap: 10px;   /* same chips, so the same clearance, minus the slack */
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    /* No clearance to leave here: on a phone the mode/route chips are a bar ABOVE this pane
+       (chipBar in TomoshibiStudio), not floating over it, so the first sheet has nothing to slide
+       under. */
+    padding: 12px 10px 10px;
+    /* ONE COLUMN, AND THE SHEETS TOUCH. Both halves are the document's own structure rather than a
+       small-screen accommodation: the template packs its parts into a layout that is one column
+       wide, and consecutive sheets are BUTT-JOINED — cut both on the blue trim box, put the cut
+       edges together, tape from behind. So the pages are a strip you scroll, in the order you will
+       tape them, and a gap between two sheets would draw a join that the finished template does not
+       have. This pane used to be a 2-up grid of 150px tracks, from back when it was 40vh tall and a
+       full-width sheet ran several screens deep; the sheet is now the whole phone at rest, so that
+       traded a readable 355px page for two thumbnails nothing could be read on. */
+    gap: 0;
+    grid-template-columns: 1fr;
   }
+  /* A strip, not a stack of cards: between two touching sheets the drop shadow is a dark band down
+     the seam, which is the one place the eye should read continuity. */
+  .pages .pg { box-shadow: none; }
 }
 /* Full --text, not the muted --sub/--faint the inspector's notes use: this bar sits on the viewport
    over a grey canvas rather than on the panel, and at 11px the browns were washed out. The two
