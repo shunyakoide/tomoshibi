@@ -144,6 +144,50 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 }
 .tab[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 700; }
 
+/* Narrow: `.tab` is not styled here, because there are no tabs here — the six chips are two
+   `<select>`s in the bar above the viewport (chipBar in TomoshibiStudio). Tightening their padding
+   was the previous attempt at the same problem and it only ever half-worked: even at 7px the eight
+   labels wrapped to two rows in English, and the labels are the app's top-level navigation, so
+   shortening them was never an option. `.badge` stays: the welcome card renders one. Matches
+   useNarrow(860). */
+@media (max-width: 860px) {
+  .badge { margin-left: 3px; }
+}
+
+/* A view/route chooser as a native <select>, used by the narrow chip bar. Native because on a phone
+   it opens the OS picker: a better touch target than anything hand-rolled, with keyboard and
+   screen-reader behaviour already right and no outside-click or focus-trap code to own. Only the
+   closed state is styled — the open list is the platform's, which is the point.
+   `--on` is the mode chooser (this is where you ARE, so it reads like the pressed tab it replaced);
+   plain is the route chooser, which is a setting rather than a location. */
+.tab-sel { position: relative; display: inline-flex; }
+.tab-sel > select {
+  -webkit-appearance: none; appearance: none;
+  min-height: 38px; padding: 0 26px 0 11px; border-radius: 9px;
+  font-family: var(--sans); font-size: 12.5px; font-weight: 700; line-height: 1;
+  background: var(--card); color: var(--text); border: 1px solid var(--card-edge); cursor: pointer;
+}
+.tab-sel--on > select { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* The caret is a sibling, not a background image: it has to take the fill colour of whichever
+   variant it sits in, and pointer-events:none keeps the click on the select underneath it. */
+.tab-sel > span {
+  position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+  pointer-events: none; font-size: 9px; color: var(--sub);
+}
+.tab-sel--on > span { color: #fff; }
+/* The export manifest's disclosure (KitNote). A row, not a button that looks like one: what it
+   reveals is reference material, so it should read as a quiet label with a caret rather than compete
+   with the CTA directly above it. 36px tall, so it is still a touch target on a phone. */
+.note-toggle {
+  display: flex; align-items: center; gap: 5px; min-height: 36px; margin-top: 2px;
+  padding: 0; background: none; border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 11.5px; font-weight: 600; color: var(--sub);
+}
+.note-toggle:hover { color: var(--accent); }
+.note-toggle > span { font-size: 9px; color: var(--faint); }
+.note-list { margin: 2px 0 0; padding: 0; list-style: none; }
+.note-list > li { padding: 1.5px 0; }
+
 /* Header affordances: the "?" that reopens the intro, and the language toggle */
 .icon-btn, .lang-btn {
   background: var(--card); color: var(--sub); border: 1px solid var(--card-edge);
@@ -275,3 +319,52 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 }
 .crash > b { display: block; margin-bottom: 8px; color: #e0a060; font-weight: 600; }
 .crash > pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+
+/* ---- Touch targets in the inspector (narrow) ------------------------------------------------
+   Placed at the END of the file on purpose: a media query adds no specificity, so every rule here
+   would lose to the plain `.icon-btn` / `.val-btn` / `.scrub-row` definitions above if it came
+   first. That is not hypothetical — it is how this block was written the first time, and only the
+   two rules that happened to out-specify their base (`.scrub-row input[type=range]`) took effect.
+   Matches useNarrow(860). */
+@media (max-width: 860px) {
+  /* ---- Touch targets in the inspector -------------------------------------------------------
+     Measured on a 375x812 phone, every control in the panel was mouse-sized: the ± squares 26px,
+     the value buttons 62x24, the sliders a 24px strip, and the header's "?" — the ONLY way back to
+     the onboarding card — twenty-two pixels across. Against the 44px both platform guidelines ask
+     for, this is the same failure the section editor's ◇ had, in the half of the app that is
+     nothing but controls.
+
+     What makes it nearly free is that the space is ALREADY RESERVED: `.scrub-row` is min-height 44
+     and `.row` comes out at 40, and the controls inside simply were not filling their own row. So
+     these rules grow the HIT AREA and leave the layout where it is — the same separation the
+     section editor draws between a handle's glyph and its hit circle. Panel height is the scarce
+     resource here (1216px of controls through a ~260px window), so a rule that costs rows is a
+     rule that has to earn it: only the header's two buttons do, at +6px once. */
+
+  /* Fill the row that is already 44px tall. Dropping the padding does not change the row's height
+     — min-height was already doing that — it just hands the content box the same 44px. */
+  .scrub-row { padding: 0; }
+  .scrub-row input[type="range"] { height: 44px; }
+  .val-btn { align-self: stretch; padding-top: 0; padding-bottom: 0; }
+
+  /* The ± squares stay 26px to look at and become 40x44 to hit. An overlay rather than a bigger
+     box because the box is what the row's spacing is built from: `.step-group`'s 10px gap and the
+     44px `.step-val` between the pair absorb the horizontal growth, and the vertical stays inside
+     `.row`'s own 7px padding, so neither square reaches its neighbour or the value between them. */
+  .step-btn { position: relative; }
+  .step-btn::after { content: ""; position: absolute; inset: -7px -9px; }
+
+  /* The two header buttons are the one place that cannot be paid for out of reserved space — they
+     sit in a 48px header with nothing above or below to borrow from, and they are 10px apart, so an
+     overlay would put one button's hit area on top of the other's. They grow for real, and the
+     header goes 48px -> 54px. The "?" is worth its 6px: once the welcome card is dismissed it never
+     auto-opens again, so this button is the only way back to it. */
+  .icon-btn { width: 36px; height: 36px; font-size: 15px; }
+  /* Height comes from min-height and NOT from padding + line-height: the label is "EN" in one
+     language and "日本語" in the other, and CJK glyphs take a taller line box — which made the whole
+     chip bar 16px taller in English than in Japanese, for the same one row of controls. */
+  .lang-btn {
+    display: inline-flex; align-items: center; min-height: 36px;
+    padding: 0 11px; font-size: 11px; line-height: 1;
+  }
+}

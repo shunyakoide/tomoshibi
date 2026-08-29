@@ -106,9 +106,10 @@ const EN: Record<string, string> = {
     "This output is still in development. Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Measure your material's real thickness, and check the printed 50 mm scale bar with a ruler.",
   "材料の厚み": "Material thickness",
   "型紙 ZIP をダウンロード (A4 原寸)": "Download the template ZIP (A4, 1:1)",
-  "プリンタの設定は「実際のサイズ / 100%」にしてください(「用紙に合わせる」は不可)。":
-    "Set your printer to \"Actual size / 100%\" (never \"fit to page\").",
-  " は別 PDF として同梱されます(そのまま原寸で印刷)。": " is bundled as a separate PDF (print it at 100% as-is).",
+  // The one line that stays out in the open under the cardboard CTA: a PDF is already A4 at exact
+  // size, so the printer's own scaling is the only way left to lose that.
+  "原寸 100% で印刷": "Print at 100%",
+  "(「用紙に合わせる」は不可)": " — never \"fit to page\"",
   // The PDF's own title line. English on purpose: base-14 Helvetica cannot draw Japanese (see paperPDF).
   "TOMOSHIBI 段ボール型紙 {name} 原寸": "TOMOSHIBI cardboard template {name} (full scale)",
   // Printed on every sheet, so it has to survive winAnsi() — plain Latin-1 only (the arrow folds).
@@ -117,16 +118,22 @@ const EN: Record<string, string> = {
   "最大径": "Max diameter",
   "羽根板の全長": "Rib length",
   "上下の開口(半径)": "Openings (radius)",
+  "開口": "Openings",   // compact footer: the short form of 上下の開口(半径)
+  "設定パネル": "Settings panel",   // the bottom sheet's grabber, on a phone
+  "表示": "View",              // aria-label of the narrow chip bar's view <select>
+  "つくりかた": "How to make",   // aria-label of the narrow chip bar's route <select>
   // ---- CTA / export ----
   "STL 書き出し": "Export STL",
   "印刷・書き出しへ進む →": "Go to print / export →",
-  "コマ・柱は上下同一のため各1つ入っています。スライサーで":
-    "Koma and columns are identical top & bottom, so one of each is included. In your slicer, ",
+  // Miss this one and you print half a mold, so it is the line that is not folded away.
+  "コマ・柱は各1つ。スライサーで": "One koma and one column only — in your slicer, ",
   "2つに複製": "duplicate to two",
-  "して印刷してください。設定は ": " and print them. Settings are bundled as ",
-  " として同梱されます(バックアップ用)。": " (for backup).",
-  "和紙の型紙 ": "The washi template ",
-  " も同梱されます(そのまま原寸で印刷)。": " is bundled too (print it at 100% as-is).",
+  // The export's manifest, folded behind a disclosure and opened when the download happens.
+  "同梱物": "In the ZIP",
+  " — 型紙": " — the template",
+  " — 和紙の型紙(原寸で印刷)": " — washi template (print at 100%)",
+  " — 羽根板・コマ・土台・口輪": " — ribs, koma, stand, opening rings",
+  " — 設計のバックアップ": " — design backup",
   // ---- Warnings / status ----
   "⚠ 3Dプレビューを初期化できませんでした": "⚠ Could not initialize the 3D preview",
   "お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。":
