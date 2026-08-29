@@ -254,6 +254,7 @@ Fixed points:
 ## Conventions
 
 - **Comments are in English** (match the existing style). Write units and intent for formulas and dimensions.
+- **`<html lang>` follows the dictionary** (`useLang`). `index.html` can only ship one value and the app restores Japanese from localStorage, so without the effect the document claims to be English while showing Japanese. Not cosmetic on a phone: `lang` is what a mobile browser picks a CJK font fallback from and what a screen reader picks a voice from.
 - **UI strings are Japanese, and the Japanese IS the dictionary key** (`i18n.ts`). So **editing any user-facing wording means editing `EN` in the same commit** — the old key does not warn, it just stops matching. Run `npm run check:i18n`; it fails on both halves of that mistake (the new wording with no translation, and the old entry left stranded).
 - Keep `geometry.ts` as **pure functions** (don't bring in React/DOM). Otherwise the section view and STL will drift.
 - So the shape matches across views, always draw the section view (SectionEditor) using `geometry.ts`'s functions (**including the dimensional constants** — don't reimplement them yourself). The groove half-width is consolidated into `grooveR(p)` (this used to be split between `higoD/2+0.15` and `+0.25`, and the section view drew a thinner groove than the STL).

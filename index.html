@@ -12,6 +12,9 @@
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="./favicon-32.png" sizes="32x32" type="image/png" />
     <link rel="apple-touch-icon" href="./favicon-180-apple-touch.png" />
+    <!-- Both spellings on purpose: the standard one is what Chrome reads (it logs a deprecation
+         warning for the apple- prefix alone), and the apple- one is still what iOS Safari reads. -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.webmanifest" />
