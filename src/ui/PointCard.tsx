@@ -12,52 +12,34 @@
  */
 import React from "react";
 import { LIMITS } from "../config.ts";
-import { bakeBezierHandles } from "../geometry.ts";
 import { clamp } from "../util.ts";
 import { UI, useT } from "./theme.ts";
 import { SectionLabel, NumInput, SegButton } from "./controls.tsx";
-import type { Design, Pt } from "../types.ts";
+import { pointOps, makeSetMode } from "./pointEdit.ts";
+import type { EditMode } from "./pointEdit.ts";
+import type { Design } from "../types.ts";
 
-/** Which gesture the ◇ handles perform: move the point, or pull its Bézier tangents. */
-export type EditMode = "move" | "curve";
-
-export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode }: {
+export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode, compact = false }: {
   p: Design;
   setP: React.Dispatch<React.SetStateAction<Design>>;
   sel: number | null;
   setSel: (i: number | null) => void;
   editMode: EditMode;
   setEditMode: (m: EditMode) => void;
+  /** On a phone the contextual bar (ui/PointBar.tsx) already carries most of this — see below. */
+  compact?: boolean;
 }) {
   const t = useT();
-  const pt = sel != null && p.pts?.[sel] ? p.pts[sel] : null;
-  const isEnd = pt && (sel === 0 || sel === p.pts.length - 1);
-  const canDelete = p.pts.length > 2;
+  // Shared with the phone's contextual bar — see ui/pointEdit.ts for why these are not written twice.
+  const { pt, isEnd, canDelete, patch, setHeightMm, del } = pointOps(p, setP, sel, setSel);
+  const setMode = makeSetMode(setP, setEditMode);
 
-  const patch = (fields: Partial<Pt>) => setP((o) => {
-    const pts = o.pts.map((q) => ({ ...q }));
-    pts[sel!] = { ...pts[sel!], ...fields };   // only rendered while a point is selected
-    return { ...o, pts };
-  });
-  // Height is typed in mm; neighbours cap it so the points stay in ascending t order.
-  const setHeightMm = (mm: number) => setP((o) => {
-    const pts = o.pts.map((q) => ({ ...q }));
-    const lo = sel! > 0 ? pts[sel! - 1].t + 0.04 : 0.01;
-    const hi = sel! < pts.length - 1 ? pts[sel! + 1].t - 0.04 : 0.99;
-    pts[sel!] = { ...pts[sel!], t: clamp(lo, hi, mm / p.height) };
-    return { ...o, pts };
-  });
-  const del = () => {
-    if (!canDelete) return;
-    setP((o) => ({ ...o, pts: o.pts.filter((_, j) => j !== sel) }));
-    setSel(null);
-  };
-  // Entering curve mode with no handles yet bakes them from the current Hermite curve, which leaves
-  // the shape untouched; from then on outerR evaluates as Bézier and the angles are editable.
-  const enterCurve = () => {
-    setEditMode("curve");
-    setP((o) => (o.pts.some((q) => q.ho || q.hi) ? o : { ...o, pts: bakeBezierHandles(o.pts) }));
-  };
+  // Not rendered at all on a phone. Every control that was left here after the contextual bar took
+  // over (ui/PointBar.tsx) was either already in that bar or reachable by dragging the ◇ itself: the
+  // radius is set by the app's primary gesture and printed live beside the mark, so a field for it
+  // bought exact entry and nothing else, at the price of a section in a list you have to pull a
+  // sheet up and scroll to reach. Delete moved into the bar unconditionally instead.
+  if (compact) return null;
 
   return (
     <div style={{ marginBottom: 20 }}>
@@ -65,10 +47,10 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode 
       {pt ? (
         <div style={{ border: `1px solid ${UI.cardEdge}`, borderRadius: 10, background: UI.card, padding: "12px 12px 10px" }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            <SegButton label="✥ 点を動かす" active={editMode === "move"} onClick={() => setEditMode("move")} />
-            <SegButton label="◠ カーブ調整" active={editMode === "curve"} onClick={enterCurve} />
+            <SegButton label="✥ 点を動かす" active={editMode === "move"} onClick={() => setMode("move")} />
+            <SegButton label="◠ カーブ調整" active={editMode === "curve"} onClick={() => setMode("curve")} />
           </div>
-          <NumInput label="張り出し(半径)" value={Math.round(pt.r)} min={LIMITS.r[0]} max={LIMITS.r[1]}
+          <NumInput label="半径" value={Math.round(pt.r)} min={LIMITS.r[0]} max={LIMITS.r[1]}
             onChange={(v) => patch({ r: clamp(...LIMITS.r, v) })} />
           <NumInput label="高さ位置" value={Math.round(pt.t * p.height)} min={1} max={p.height}
             onChange={setHeightMm} />

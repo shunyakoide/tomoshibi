@@ -20,7 +20,7 @@
  *   pull the ribs out through the openings → lamp body done → mount on three legs as a lamp.
  * ============================================================================
  */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as THREE from "three";
 import {
   maxRadius, outerR, standBoardLength, maxBoards,
@@ -30,6 +30,7 @@ import {
 import { exportZip, zipBundle, downloadFile } from "./stl.ts";
 import { paperPDF, washiPDF, paperFit, paperP } from "./papercraft.ts";
 import { fitOnBed } from "./bed.ts";
+import { clamp } from "./util.ts";
 import { useViewport } from "./three/viewport.ts";
 import { buildScene } from "./three/scenes.ts";
 import { useAutosave, useLang, useNarrow, useUndoRedo } from "./hooks.ts";
@@ -42,13 +43,16 @@ import PagePreview from "./PagePreview.tsx";
 import Welcome from "./Welcome.tsx";
 import { DEFAULTS, LIMITS, SIL_ROWS } from "./config.ts";
 import { makeT } from "./i18n.ts";
+import type { T } from "./i18n.ts";
 import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.ts";
 import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note } from "./ui/controls.tsx";
 import PresetChips from "./ui/PresetChips.tsx";
 import PointCard from "./ui/PointCard.tsx";
+import PointBar from "./ui/PointBar.tsx";
 import Toolbar from "./ui/Toolbar.tsx";
+import OverflowMenu, { type MenuItem } from "./ui/Menu.tsx";
 import Logo from "./ui/Logo.tsx";
-import type { EditMode } from "./ui/PointCard.tsx";
+import type { EditMode } from "./ui/pointEdit.ts";
 import type { Part } from "./stl.ts";
 import type { Design, Route } from "./types.ts";
 
@@ -58,6 +62,33 @@ type View = "2d" | "mold" | "print" | "lit";
 type WelcomeCard = "first" | "help" | null;
 
 const PANEL = 336;          // inspector width (px)
+// Where the two floating chip rows sit on the viewport. One table because three things have to agree
+// about it — the two rows themselves and `.pages`' top padding (index.css), which is the clearance
+// the cardboard preview leaves so its first sheet does not slide underneath. Wide only: on a phone
+// the chips are not floating at all but a bar above the viewport (see `chipBar`), so there is no
+// position to share and nothing to leave clearance for.
+const CHIP = { top: 16, left: 16, row2: 62 } as const;
+// ---- The narrow layout's bottom sheet ----------------------------------------------------------
+// On a phone the inspector is not a panel below the viewport any more but a sheet you pull up over
+// it, so the section editor gets the screen. Three stops: `peek` (the sheet's own header — the live
+// summary and the CTA — and nothing else), and these two fractions of the window. `full` stops at
+// 85% rather than covering everything, because the drawing you are editing should never leave the
+// screen entirely: the sheet is a set of controls FOR it, and losing sight of the thing you are
+// changing is what makes a full-screen settings page feel like a different app.
+// `half` is a fraction of the height the sheet SHARES WITH THE VIEWPORT, not of the window, and
+// `full` is that budget minus a fixed sliver left for the drawing. Measuring from the window looks
+// equivalent and is not: the chip bar above the two of them is one row in Japanese and two in
+// English, so a window-relative `full` handed English a 37px section view where Japanese got 76.
+// A budget-relative one gives both exactly MIN_VIEW.
+const SHEET = { half: 0.45 } as const;
+// The drawing never leaves the screen, at any stop. The sheet is a set of controls FOR it, and
+// losing sight of the thing you are changing is what makes a settings page feel like another app.
+const MIN_VIEW = 140;
+type SheetStop = "peek" | "half" | "full";
+const SHEET_ORDER: SheetStop[] = ["peek", "half", "full"];
+// Under this much travel a drag is a tap, and a tap cycles to the next stop. 6px is about the slop
+// a finger puts into a deliberate press; more than that and the sheet follows the finger instead.
+const SHEET_TAP = 6;
 // The washi template's filename, in one place because it is written into two ZIPs and printed in two
 // notes. `_beta` is part of it on purpose: the file outlives the app screen it came from — it gets
 // mailed, reprinted months later, handed to someone else — and the caveat has to travel with it.
@@ -73,7 +104,51 @@ const ROUTES: [Route, string, string | null][] = [["stl", "3Dプリント", null
 // them now share the bottom-right corner, and they were three copies of one style attribute before
 // the third arrived. The corner itself — position, stacking, gap — belongs to the column that holds
 // them, not to the card, so an alert cannot decide to sit somewhere else.
-function Alert({ children }: { children?: React.ReactNode }) {
+/**
+ * What comes out of the export, under its CTA: one line of what you must not get wrong, and the
+ * contents of the ZIP folded behind it.
+ *
+ * All of this used to be a paragraph pinned under the button — five lines on a phone, about 95px of
+ * a sheet whose whole job is to leave room for the drawing. It was also the wrong shape for what it
+ * says: **none of it helps you decide to press the button**. "Duplicate the koma in your slicer",
+ * "set the printer to 100%", "a config.json rides along" are things that matter once you HAVE the
+ * file, in another application. Pinning them above the button is Apple HIG's overwhelm-upfront in
+ * miniature (`progressive-disclosure`).
+ *
+ * So the split is by consequence, not by length. Louder: the one step that ruins the output if it
+ * is missed — printing at anything but 100%, or printing one koma where two are needed. Quieter:
+ * the manifest, which is reference material and folds behind a disclosure.
+ *
+ * But the same argument goes one step further than that, and this is the whole shape of it now:
+ * **every word here is about the file you already have**, in your slicer or at your printer. None
+ * of it is a reason to press the button, and until you press it there is nothing to say. So the
+ * block renders NOTHING until the export has actually run, and appears — manifest open — as the
+ * download's own confirmation (`success-feedback`). That is worth more than a paragraph nobody
+ * reads on the way past, and it hands the pinned footer back ~60px at every sheet stop.
+ *
+ * `state` is therefore three-valued and not a boolean: `null` = no export yet (draw nothing),
+ * "open" / "shut" = the manifest's fold. Two booleans would allow "folded but never downloaded",
+ * which is a state this has no drawing for.
+ */
+function KitNote({ warn, state, onToggle, t, children }: {
+  warn: React.ReactNode; state: null | "open" | "shut"; onToggle: () => void; t: T; children: React.ReactNode;
+}) {
+  if (state === null) return null;
+  const open = state === "open";
+  return (
+    <div style={{ marginTop: 9 }}>
+      <div className="note">{warn}</div>
+      <button className="note-toggle" aria-expanded={open} onClick={onToggle}>
+        {t("同梱物")}<span aria-hidden="true">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && <ul className="note note-list">{children}</ul>}
+    </div>
+  );
+}
+
+// `head` is what is wrong, `hint` is what to do about it — two fields rather than free children so
+// that the narrow strip can quote the first line of an alert without rendering the whole card.
+function Alert({ head, hint }: { head: string; hint?: string }) {
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 10,
@@ -82,7 +157,7 @@ function Alert({ children }: { children?: React.ReactNode }) {
       fontSize: 12.5, color: UI.text, textAlign: "left",
     }}>
       <span style={{ fontSize: 15 }}>⚠️</span>
-      <span>{children}</span>
+      <span>{head}{hint && <><br /><span style={{ color: UI.sub }}>{hint}</span></>}</span>
     </div>
   );
 }
@@ -110,6 +185,20 @@ export default function TomoshibiStudio() {
   const [washiEnd, setWashiEnd] = useState(SAVED?.washiEnd ?? WASHI_END);
   const [sel, setSel] = useState<number | null>(null);             // selected control point in the section editor (transient)
   const [editMode, setEditMode] = useState<EditMode>("move"); // section editor: "move" points / "curve" tangent handles
+  const [alertsOpen, setAlertsOpen] = useState(false);             // narrow only: the alert strip, folded (see alertBar)
+  // null until an export has actually run: the notes are all about the file you already have,
+  // so before the download there is nothing to say (see KitNote).
+  const [kitNote, setKitNote] = useState<null | "open" | "shut">(null);
+  const [sheet, setSheet] = useState<SheetStop>("peek");           // narrow only: the inspector sheet's stop
+  const [sheetH, setSheetH] = useState<number | null>(null);       // px while a drag is in progress, else null
+  const barRef = useRef<HTMLDivElement>(null);                     // the sheet's grabber + summary bar
+  const asideRef = useRef<HTMLElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  // The design-JSON picker. It lives here rather than in the menu because a menu row unmounts the
+  // moment it is clicked, and an <input> that is gone cannot open its own dialog.
+  const designFile = useRef<HTMLInputElement>(null);
+  const [peekH, setPeekH] = useState(44);                          // measured: the bar = the `peek` height
+  const [budgetH, setBudgetH] = useState(0);                       // measured: viewport + sheet, the height they share
   const [glError, setGlError] = useState<string | null>(null);
 
   const narrow = useNarrow(860);
@@ -123,7 +212,7 @@ export default function TomoshibiStudio() {
   // first-time visitor who merely reloads already has saved state and would never see the card,
   // which is exactly the person it is for. The cost is that an existing user meets it once.
   // Which card it is, not just whether one is open: "first" = auto-opened on the first visit,
-  // "help" = reopened from the "?" (null = closed). The two differ in one way — the first-run card
+  // "help" = reopened from the ☰ menu (null = closed). The two differ in one way — the first-run card
   // marks NEITHER route, because "stl" there is a default nobody chose and colouring it would answer
   // the question the card is asking ("どちらでつくりますか?"). Once past that, the card is a place to
   // switch, so the route in effect is marked. No second persisted flag: the mode carries it.
@@ -308,20 +397,296 @@ export default function TomoshibiStudio() {
   // inside the shade, and nothing else in the app notices: every part prints, fits the bed and is
   // watertight. It is not a route question — a cardboard mold has to come out of the same hole.
   const pull = useMemo(() => ribPullFit(moldSrc), [moldSrc]);
+
+  // ---- The sheet's geometry -----------------------------------------------------------------
+  // `peek` is the grabber bar and nothing else — measured rather than assumed, because the summary
+  // it carries wraps to two lines on a narrow enough screen. It used to include the CTA as well,
+  // which made it 128px; at that size the sheet is 16% of the phone doing nothing but resting, and
+  // the section editor is what that space is for. The CTA is one tap away and, now that the view is
+  // a dropdown in the bar above, the one it shows outside the print view was navigation the bar
+  // already offers. Measured the same way and for the same reason as the section editor's pane: a
+  // layout read to seed it (an observer stays silent for an element the browser is not laying out)
+  // and a ResizeObserver to keep it in step as the language changes the text inside it.
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const read = () => setPeekH((h) => {
+      const next = Math.round(bar.getBoundingClientRect().height);
+      return next > 0 && next !== h ? next : h;
+    });
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(bar);
+    return () => ro.disconnect();
+  }, [narrow, lang]);
+
+  // The budget the viewport and the sheet share. Their SUM is what is invariant here — one grows
+  // exactly as the other shrinks — so observing both and adding them gives a number that does not
+  // move while the sheet animates, and the guard below keeps the transition from re-rendering on
+  // every frame. What it excludes is what neither of them controls: the chip bar and the alert strip.
+  useEffect(() => {
+    const a = asideRef.current, m = mainRef.current;
+    if (!a || !m) return;
+    const read = () => setBudgetH((b) => {
+      const next = Math.round(a.getBoundingClientRect().height + m.getBoundingClientRect().height);
+      return next > 0 && Math.abs(next - b) >= 1 ? next : b;
+    });
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(a); ro.observe(m);
+    return () => ro.disconnect();
+  }, [narrow, isLit]);
+
+  // The three stops, in px. `peek` can be the tallest of them on a very short screen, so every stop
+  // is floored at it rather than assumed to be above it.
+  const sheetStops = useMemo(() => ({
+    peek: peekH,
+    half: Math.max(peekH, Math.round(budgetH * SHEET.half)),
+    full: Math.max(peekH, budgetH - MIN_VIEW),
+  }), [peekH, budgetH]);
+  const cycleSheet = useCallback(
+    () => setSheet((st) => SHEET_ORDER[(SHEET_ORDER.indexOf(st) + 1) % SHEET_ORDER.length]),
+    [],
+  );
+
+  // Drag on the sheet's header. Only the header — the scroll area below it keeps its own gesture,
+  // because arbitrating "is this finger scrolling the list or pulling the sheet" is the one genuinely
+  // hard part of a bottom sheet and it is not worth writing until someone misses it. A drag shorter
+  // than SHEET_TAP is a tap, so the whole header is also the button.
+  const dragRef = useRef<{ y0: number; h0: number; moved: boolean } | null>(null);
+  const onSheetDown = useCallback((e: React.PointerEvent) => {
+    // Let the two real buttons in the header (? and the language toggle) be pressed normally.
+    if ((e.target as HTMLElement).closest("button")) return;
+    const el = e.currentTarget.parentElement as HTMLElement | null;
+    if (!el) return;
+    dragRef.current = { y0: e.clientY, h0: el.getBoundingClientRect().height, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, []);
+  const onSheetMove = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dy = d.y0 - e.clientY;                       // up is bigger
+    if (!d.moved && Math.abs(dy) < SHEET_TAP) return;  // still inside the tap slop
+    d.moved = true;
+    setSheetH(clamp(sheetStops.peek, sheetStops.full, d.h0 + dy));
+  }, [sheetStops]);
+  const onSheetUp = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    if (!d) return;
+    if (!d.moved) { cycleSheet(); return; }            // never travelled: it was a press
+    const at = sheetH ?? d.h0;
+    // Snap to whichever stop the sheet was left nearest to.
+    const best = SHEET_ORDER.reduce((x, y) =>
+      (Math.abs(sheetStops[y] - at) < Math.abs(sheetStops[x] - at) ? y : x));
+    setSheet(best);
+    setSheetH(null);
+  }, [cycleSheet, sheetStops, sheetH]);
+
+  // What the sheet is actually as tall as. During a drag that is a px number and the transition is
+  // off, so it tracks the finger; otherwise it is the current stop and the transition animates.
+  const sheetHeight = `${Math.round(sheetH ?? sheetStops[sheet])}px`;
   const chip = chipStyle(isLit);
+  // The floating chip's shell, minus where it sits — the same box twice, and it used to be the same
+  // eight declarations twice.
+  const chipBox: React.CSSProperties = {
+    position: "absolute", display: "flex", gap: 2, padding: 4, borderRadius: 10, background: chip.bg,
+    backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+    border: `1px solid ${chip.edge}`, boxShadow: "0 2px 10px rgba(59,52,43,0.07)",
+  };
+  const modeTabs = VIEWS.map(([k, l]) => (
+    <button key={k} className="tab" aria-pressed={view === k} onClick={() => setView(k)}>{t(l)}</button>
+  ));
+  const routeTabs = ROUTES.map(([k, l, badge]) => (
+    <button key={k} className="tab" aria-pressed={route === k} onClick={() => setRoute(k)}>
+      {t(l)}{badge && <em className="badge">{badge}</em>}
+    </button>
+  ));
+
+  // Everything that acts on the APP or on the design AS A FILE, behind one "☰". On a wide screen it
+  // sits beside the wordmark in the panel header; on a phone there is no panel header, so it sits at
+  // the top RIGHT of the chip bar — the one strip that is on screen in every view and at every stop
+  // of the sheet, including lit (where the whole inspector is hidden and the intro card used to be
+  // unreachable altogether).
+  //
+  // It replaced a "?" and a language toggle standing in the row itself. Both are secondary by
+  // nature, and in Japanese they were the difference between a chip bar that fits and one that has
+  // nothing left: 99 + 144 + 88 + 24 of gaps + 20 of padding is 375 on the nose. See ui/Menu.tsx for
+  // why the glyph is a "☰" when none of the contents is navigation, and for what stayed out of it.
+  const menuItems: MenuItem[] = [
+    { kind: "item", label: t("はじめかた"), onClick: () => setWelcome("help") },
+    // A setting, not a verb, so it reads as one: the row names the thing and the right-hand side
+    // shows what it would become. (The old control was a button captioned with its own opposite.)
+    { kind: "item", label: t("言語"), value: lang === "ja" ? "English" : "日本語", onClick: toggleLang },
+    { kind: "sep" },
+    { kind: "item", label: t("バックアップを保存"), onClick: exportDesign },
+    { kind: "item", label: t("バックアップから復元"), onClick: () => designFile.current?.click() },
+    { kind: "sep" },
+    // Separated and captioned with its consequence, which is what a destructive action in a menu
+    // needs and what a `title=` tooltip could never give a phone.
+    { kind: "item", label: t("初期化"), hint: t("すべての設定を初期状態に戻す"), danger: true, onClick: resetAll },
+  ];
+  const headerBtns = <OverflowMenu label={t("メニュー")} items={menuItems} />;
+
+  // ============ Narrow: the chips move OUT of the viewport, and become dropdowns ============
+  // Floating over the canvas, the two rows were ~100px of a 357px pane — 28% of it, laid straight
+  // over the top of the silhouette, which is exactly where the top opening's ◇ is. In a bar above
+  // the pane they stopped covering anything, but eight chips still wrapped to two rows (85px) in
+  // English, and the labels are the app's top-level navigation so shortening them was never on.
+  //
+  // As dropdowns the same two choices cost ONE row in every language, and the row has space left
+  // over for the header menu — which is where it now lives, out of the sheet's bar.
+  // They are NATIVE `<select>`s, deliberately: on a phone that opens the OS picker, which is a
+  // better touch target than anything hand-rolled here, arrives with keyboard and screen-reader
+  // behaviour already correct, and costs no focus-trap or outside-click machinery. The `beta` badge
+  // becomes text in the option, because an <option> cannot carry markup.
+  const modeSelect = (
+    <span className="tab-sel tab-sel--on">
+      <select value={view} aria-label={t("表示")} onChange={(e) => setView(e.target.value as View)}>
+        {VIEWS.map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}
+      </select>
+      <span aria-hidden="true">▾</span>
+    </span>
+  );
+  const routeSelect = (
+    <span className="tab-sel">
+      <select value={route} aria-label={t("つくりかた")} onChange={(e) => setRoute(e.target.value as Route)}>
+        {ROUTES.map(([k, l, badge]) => (
+          <option key={k} value={k}>{t(l)}{badge ? ` (${badge})` : ""}</option>
+        ))}
+      </select>
+      <span aria-hidden="true">▾</span>
+    </span>
+  );
+  const chipBar = narrow ? (
+    <nav style={{
+      flex: "none", display: "flex", alignItems: "center", gap: 8,
+      padding: "6px 10px", background: UI.panel, borderBottom: `1px solid ${UI.edge}`,
+    }}>
+      {modeSelect}
+      {/* Lit drops the route control for the same reason it drops the whole inspector — it is a
+          viewing mode. The view control stays: in lit the panel is hidden, so this bar is the only
+          way back out of it. */}
+      {!isLit && routeSelect}
+      <span style={{ flex: "1 1 auto" }} />
+      {headerBtns}
+    </nav>
+  ) : null;
+
+  // ---- Narrow: the selected ◇, in flow above the sheet -----------------------------------------
+  // Only in the section view — it is the only place a ◇ exists to select, and `sel` outlives a view
+  // change. See ui/PointBar.tsx for the measurements that put it here rather than in the sheet.
+  const pointBar = narrow && view === "2d" && sel != null ? (
+    <PointBar p={p} setP={setP} sel={sel} setSel={setSel}
+      editMode={editMode} setEditMode={setEditMode} />
+  ) : null;
+
+  // ---- Viewport alerts ----------------------------------------------------------------------
+  // The three of them are one COLUMN, wherever it is placed. The first two are gated on opposite
+  // routes (bed = 3D print, koma wall = cardboard) and could never have collided, but the pull-out
+  // warning belongs to both routes, so stacking them is the only arrangement that does not overprint.
+  //
+  // They are built as DATA rather than as markup, because the narrow layout has to count them and
+  // quote one headline, and a fragment cannot be asked either question. (It also retires the
+  // separate `hasAlert` predicate that a fragment needed — a fragment is truthy even when every
+  // card inside it is false, so gating on it rendered an empty bordered band.)
+  //
+  // WHERE the column goes is the responsive part. On a wide screen it floats in the canvas's
+  // bottom-right, as it always has (bottom-left is the lit-mode hint's). On a phone it cannot: a
+  // three-line card is a quarter of a 357px-tall pane, and it lands squarely on the bottom opening's
+  // ◇ — an alert reading "widen the opening in the section view" while sitting on top of the handle
+  // that widens it. There it goes in flow between the viewport and the panel instead: never over a
+  // handle, always on screen, and adjacent both to the drawing it is about and to the controls that
+  // answer it.
+  const alerts: { key: string; head: string; hint?: string }[] = [];
+  if (!isLit) {
+    // Bed-overflow. Each part lies along a different axis, so the bed is width×depth. Gated on the
+    // whole 3D-print ROUTE, not just the print view: on the cardboard route there is no machine to
+    // overflow — a part wider than A4 continues onto the next page, butt-joined — so telling that
+    // person to shorten the body would be shrinking a design for a limit they don't have.
+    if (bedRules && overParts.length > 0) alerts.push({
+      key: "bed",
+      head: t("{parts} がベッド {w}×{d}mm を超過", { parts: overParts.join(" · "), w: bedW, d: bedD }),
+      // The height hint only applies to the length-driven parts (rib / base); skip it when only a
+      // height-independent part (ring / koma / post) overflows, or when no height is small enough.
+      hint: ribBaseOver && heightLimit >= LIMITS.height[0]
+        ? t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit }) : undefined,
+    });
+    // Cardboard: the koma's notches are cut to the material thickness, so thick material eats the
+    // wall between them until it tears when cut by hand.
+    if (thinWall) alerts.push({
+      key: "wall",
+      head: t("コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです", { wall: fit.wall.toFixed(1) }),
+      hint: t("→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる"),
+    });
+    // The mold has to come back out of the shade it made. This is the one warning here about a
+    // design that cannot be BUILT rather than one that cannot be printed or cut, so it is the last
+    // thing anyone would find out on their own — with a dry lantern in their hands.
+    if (!pull.ok) alerts.push({
+      key: "pull",
+      head: t("羽根板の幅 {w}mm — 開口 ⌀{d}mm から抜けません", { w: Math.round(pull.band), d: Math.round(2 * pull.openR) }),
+      hint: t("→ 断面図で開口を広げる / ふくらみを抑える"),
+    });
+  }
+  const alertCards = alerts.map((a) => <Alert key={a.key} head={a.head} hint={a.hint} />);
+
+  // ============ Narrow: the alert column is a strip you tap open ============
+  // In flow, an expanded alert costs 115px and two cost ~200 — out of the SAME budget as the
+  // inspector, which is the scarce half (1216px of controls). Measured on a 375×812 phone, one
+  // open alert cut the panel's scroll window from 261px to 146, and in the print view — where the
+  // footer is taller and the koma-wall warning fires on the default cardboard design — to 88px.
+  // That is 7% of the controls visible at once: the exact "every control exists and there is no
+  // room to reach one" failure this whole layout was written to remove, reappearing through the
+  // thing meant to help.
+  //
+  // So on a phone the column folds to one line — the same tap-open shape as the section editor's
+  // legend — and costs ~36px instead. Collapsed still SAYS it: the strip keeps the alert tint,
+  // the ⚠, and the first alert's headline (the sentence that names what is wrong; the "→ do this"
+  // hint is what the tap is for), plus a count when more than one is waiting. Do not make it open
+  // by default to be safe — that is just the 115px band again, and it takes the panel with it.
+  const alertBar = narrow && alerts.length > 0 ? (
+    <div style={{ flex: "none", background: UI.panel, borderTop: `1px solid ${UI.edge}` }}>
+      <button onClick={() => setAlertsOpen((v) => !v)} aria-expanded={alertsOpen} style={{
+        display: "flex", alignItems: "center", gap: 8, width: "100%", minHeight: 36,
+        padding: "6px 12px", background: accentA(0.07), border: "none", borderLeft: `3px solid ${accentA(0.5)}`,
+        cursor: "pointer", font: "inherit", fontSize: 12, color: UI.text, textAlign: "left",
+      }}>
+        <span style={{ fontSize: 14, flex: "none" }}>⚠️</span>
+        {/* minWidth 0 is what lets the ellipsis happen at all: a flex item's automatic minimum size
+            is its content, so without it the headline pushes the count and caret off the strip. */}
+        <span style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {alerts[0].head}
+        </span>
+        {alerts.length > 1 && (
+          <span style={{ flex: "none", fontFamily: mono, fontSize: 11, color: UI.sub }}>+{alerts.length - 1}</span>
+        )}
+        <span aria-hidden="true" style={{ flex: "none", color: UI.faint }}>{alertsOpen ? "▾" : "▸"}</span>
+      </button>
+      {alertsOpen && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 10px 8px" }}>
+          {alertCards}
+        </div>
+      )}
+    </div>
+  ) : null;
 
   // ============ Left: viewport ============
   const viewport = (
-    <main style={{
+    <main ref={mainRef} style={{
       position: "relative", minWidth: 0, minHeight: 0,
-      flex: narrow ? "0 0 auto" : "1 1 auto",
-      height: narrow ? "44vh" : "auto",
+      // The pane no longer has a share of the screen — it has everything the sheet is not using. On
+      // a phone the inspector is a bottom sheet resting at `peek` (its bar and the CTA, ~110px), so
+      // the section editor gets roughly 600px of a 812px screen instead of the 325px a fixed 40vh
+      // gave it, and pulling the sheet up trades that back a stop at a time. Lit was already the
+      // exception for the same reason and now needs no exception at all.
+      flex: "1 1 auto", height: "auto",
     }}>
       <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg(isLit), transition: "background 0.3s" }} />
       {/* Section view: the direct-manipulation editor, overlaid on the WebGL canvas */}
       {view === "2d" && (
         <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag}
-          sel={sel} setSel={setSel} editMode={editMode} t={t} />
+          sel={sel} setSel={setSel} editMode={editMode} compact={narrow} t={t} />
       )}
 
       {/* Print view, cardboard route: the output is a document, so the preview is one — the
@@ -342,17 +707,9 @@ export default function TomoshibiStudio() {
         </div>
       )}
 
-      {/* Mode tabs */}
-      <div style={{
-        position: "absolute", top: 16, left: 16, display: "flex", gap: 2, padding: 4,
-        borderRadius: 10, background: chip.bg,
-        backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
-        border: `1px solid ${chip.edge}`, boxShadow: "0 2px 10px rgba(59,52,43,0.07)",
-      }}>
-        {VIEWS.map(([k, l]) => (
-          <button key={k} className="tab" aria-pressed={view === k} onClick={() => setView(k)}>{t(l)}</button>
-        ))}
-      </div>
+      {/* Mode tabs. Floating over the canvas on a wide screen; in the bar above it on a phone —
+          see `chipBar` below for why. */}
+      {!narrow && <div style={{ ...chipBox, top: CHIP.top, left: CHIP.left }}>{modeTabs}</div>}
 
       {/* The route switch lives here, on the viewport, and not in the panel: it changes what this
           whole view IS (print plates vs template pages), and buried at the bottom of the inspector's
@@ -363,71 +720,30 @@ export default function TomoshibiStudio() {
           the SECTION view. Leaving the switch behind in the print view put the effect on one screen
           and its cause on another — someone shortening a body to fit a bed they don't own. Lit is
           excluded because it is a viewing mode (the whole inspector is hidden there too). */}
-      {!isLit && (
-        <div style={{
-          position: "absolute", top: 62, left: 16, display: "flex", gap: 2, padding: 4,
-          borderRadius: 10, background: chip.bg,
-          backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
-          border: `1px solid ${chip.edge}`, boxShadow: "0 2px 10px rgba(59,52,43,0.07)",
-        }}>
-          {ROUTES.map(([k, l, badge]) => (
-            <button key={k} className="tab" aria-pressed={route === k} onClick={() => setRoute(k)}>
-              {t(l)}{badge && <em className="badge">{badge}</em>}
-            </button>
-          ))}
-        </div>
+      {!isLit && !narrow && (
+        <div style={{ ...chipBox, top: CHIP.row2, left: CHIP.left }}>{routeTabs}</div>
       )}
 
-      {/* Dimension chip (always live) */}
+      {/* Dimension chip (always live). On a phone it drops to the SECOND row, beside the route
+          chip: at 375px the four mode tabs reach across two thirds of the width and the readout was
+          printing straight through "点灯". Right-aligned either way, so it still reads as a status
+          line rather than as another control. */}
       <div style={{
-        position: "absolute", top: 24, right: 24, fontSize: 12, color: chip.txt,
+        position: "absolute", top: narrow ? 10 : 24, right: narrow ? 12 : 24,
+        fontSize: narrow ? 11 : 12, color: chip.txt,
         fontFamily: mono, letterSpacing: "0.05em", textAlign: "right", pointerEvents: "none",
       }}>
         ⌀{maxDia} × H{p.height} mm
       </div>
 
-      {/* The viewport alerts share the bottom-RIGHT corner as a COLUMN. The first two are gated on
-          opposite routes (bed = 3D print, koma wall = cardboard) and could never have collided, but
-          the pull-out warning belongs to both routes, so stacking them is the only arrangement that
-          does not overprint. Bottom-left is the lit-mode hint's.
-          Bed-overflow warning. Each part lies along a different axis, so the bed is width×depth.
-          Gated on the whole 3D-print ROUTE, not just the print view: on the cardboard route there is no
-          machine to overflow — a part wider than A4 continues onto the next page, butt-joined — so
-          telling that person to shorten the body would be shrinking a design for a limit they don't have. */}
-      {!isLit && (
+      {/* The alert column, floating in the canvas's bottom-right (declared above; on a phone it is
+          a strip below the viewport instead — see `alertBar`). */}
+      {!narrow && alerts.length > 0 && (
         <div style={{
           position: "absolute", bottom: 20, right: 20, maxWidth: "60%",
           display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10,
         }}>
-          {bedRules && overParts.length > 0 && (
-            <Alert>
-              {t("{parts} がベッド {w}×{d}mm を超過", { parts: overParts.join(" · "), w: bedW, d: bedD })}
-              {/* The height hint only applies to the length-driven parts (rib / base); skip it when only
-                  a height-independent part (ring / koma / post) overflows, or when no height is small enough. */}
-              {ribBaseOver && heightLimit >= LIMITS.height[0] && (
-                <><br /><span style={{ color: UI.sub }}>{t("→ 火袋の高さを {h}mm 以下に", { h: heightLimit })}</span></>
-              )}
-            </Alert>
-          )}
-
-          {/* Cardboard: the koma's notches are cut to the material thickness, so thick material eats the
-              wall between them until it tears when cut by hand. */}
-          {thinWall && (
-            <Alert>
-              {t("コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです", { wall: fit.wall.toFixed(1) })}
-              <br /><span style={{ color: UI.sub }}>{t("→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる")}</span>
-            </Alert>
-          )}
-
-          {/* The mold has to come back out of the shade it made. This is the one warning here about a
-              design that cannot be BUILT rather than one that cannot be printed or cut, so it is the
-              last thing anyone would find out on their own — with a dry lantern in their hands. */}
-          {!pull.ok && (
-            <Alert>
-              {t("羽根板の幅 {w}mm — 開口 ⌀{d}mm から抜けません", { w: Math.round(pull.band), d: Math.round(2 * pull.openR) })}
-              <br /><span style={{ color: UI.sub }}>{t("→ 断面図で開口を広げる / ふくらみを抑える")}</span>
-            </Alert>
-          )}
+          {alertCards}
         </div>
       )}
 
@@ -444,30 +760,104 @@ export default function TomoshibiStudio() {
 
   // ============ Right: inspector (hidden in lit mode) ============
   const inspector = isLit ? null : (
-    <aside style={{
+    <aside ref={asideRef} style={{
       display: "flex", flexDirection: "column",
-      width: narrow ? "auto" : PANEL, flex: narrow ? "1 1 auto" : `0 0 ${PANEL}px`,
+      width: narrow ? "auto" : PANEL,
+      // As a sheet the panel is sized, not flexed: its height IS the stop it is parked at, and the
+      // viewport takes whatever is left. The transition is off mid-drag so it tracks the finger.
+      flex: narrow ? "none" : `0 0 ${PANEL}px`,
+      height: narrow ? sheetHeight : undefined,
+      transition: narrow && sheetH == null ? "height 0.22s cubic-bezier(0.32,0.72,0,1)" : undefined,
       minHeight: 0, background: UI.panel, color: UI.text,
       borderLeft: narrow ? "none" : `1px solid ${UI.edge}`,
       borderTop: narrow ? `1px solid ${UI.edge}` : "none",
+      borderRadius: narrow ? "14px 14px 0 0" : undefined,
+      boxShadow: narrow ? "0 -6px 22px rgba(59,52,43,0.13)" : undefined,
+      // At `peek` the sheet is only as tall as its bar, so the pinned CTA below the (zero-height)
+      // scroll area sits past the sheet's own bottom edge. Clip it rather than let it hang there.
+      overflow: narrow ? "hidden" : undefined,
     }}>
+      {/* ---- The sheet's header: the grabber, the live summary, and the two icon buttons ----
+          Everything above the fold at `peek`. It is the drag surface and, for a press that never
+          travels, the button that cycles to the next stop. `touchAction: none` so the browser does
+          not claim the vertical gesture before the pointer handlers see it. */}
+      {narrow && (
+        <div ref={barRef} onPointerDown={onSheetDown} onPointerMove={onSheetMove}
+          onPointerUp={onSheetUp} onPointerCancel={onSheetUp}
+          style={{
+            flex: "none", position: "relative", padding: "14px 14px 9px", touchAction: "none",
+            cursor: "grab", display: "flex", alignItems: "center",
+            borderBottom: `1px solid ${UI.edge}`,
+          }}>
+          {/* The grabber pill is positioned against the BAR, not laid out inside the row: centred in
+              the row it would be centred on everything except the two buttons, landing at 37% of the
+              sheet and reading as a mistake rather than as a handle. */}
+          <span aria-hidden="true" style={{
+            position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)",
+            width: 38, height: 4, borderRadius: 2, background: UI.edge,
+          }} />
+          {/* The grabber is a div with role=button, not a <button>, and that is not a shortcut: the
+              drag has to be able to start ON it, and `onSheetDown` bails out of anything inside a
+              real <button> so that any button in the bar stays pressable. A <button> here
+              would therefore be the one part of the bar you could not pull — which is exactly what
+              it was, since the summary text sits inside it. It also cannot contain those two real
+              buttons, so it is the left part of the bar rather than the whole of it.
+              The pointer path already treats a press that never travels as a tap (see onSheetUp),
+              so this only has to add the keyboard. */}
+          <div role="button" tabIndex={0} aria-label={t("設定パネル")} title={t("設定パネル")}
+            aria-expanded={sheet !== "peek"}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cycleSheet(); } }}
+            style={{
+              flex: "1 1 auto", display: "flex", alignItems: "center", justifyContent: "center",
+              minHeight: 20, cursor: "pointer",
+            }}>
+            {/* The summary the pinned footer used to carry. It is the readout you watch while
+                dragging a ◇, so it is the whole of what the sheet shows at rest. Centred now that
+                the header controls have moved to the chip bar: with them in the row it
+                would have been centred on everything except them, i.e. on nothing. */}
+            <span style={{
+              display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0 12px",
+              fontFamily: mono, fontSize: 11, color: UI.faint,
+            }}>
+              <span>⌀{maxDia}</span>
+              <span style={{ color: !bedRules || ribFits ? UI.faint : UI.warn }}>{t("羽根板")} {ribLen}</span>
+              <span>{t("開口")} {topOpen}/{botOpen}</span>
+              <span>mm</span>
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       {/* alignItems is center, not baseline: the wordmark is an outline, and an SVG's baseline is
-          its bottom edge, which would hang the buttons off the tagline instead of the letters. */}
-      <div style={{ padding: "20px 20px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          its bottom edge, which would hang the buttons off the tagline instead of the letters.
+          Not rendered on a phone: the two buttons moved to the sheet's bar above, and the wordmark
+          moved into the scroll area — pure identity is the one thing that can wait for a pull. */}
+      {!narrow && (
+      <div style={{
+        padding: "20px 20px 14px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
         <Logo variant="full" height={44} style={{ color: UI.head }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Reopens the onboarding card. Once dismissed it never auto-opens again, so this is the
-              only way back to "what is this app" — keep it next to the language toggle. */}
-          <button className="icon-btn" onClick={() => setWelcome("help")} title={t("はじめかた")} aria-label={t("はじめかた")}>?</button>
-          <button className="lang-btn" onClick={toggleLang} title="Language / 言語">{lang === "ja" ? "EN" : "日本語"}</button>
-        </div>
+        {headerBtns}
       </div>
+      )}
 
-      {/* Scroll area */}
-      <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "6px 20px 16px", touchAction: "pan-y" }}>
-        <Toolbar undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo}
-          onReset={resetAll} onExport={exportDesign} onImport={importDesign} />
+      {/* Scroll area — between the bar and the pinned CTA, on both layouts. That is what makes
+          `peek` work without reordering anything: at rest the sheet is exactly bar + CTA tall, so
+          this collapses to zero, and every stop above it grows this and only this. */}
+      <div style={{
+        flex: "1 1 auto", minHeight: 0, overflowY: "auto", touchAction: "pan-y",
+        // No VERTICAL padding on a phone: `min-height: 0` floors the border box at padding + border,
+        // so 4+14 of it is 18px this element cannot shrink past — and `peek` is measured as bar + CTA,
+        // which then overflowed the sheet by exactly that and cut the bottom off the CTA. The spacing
+        // it was buying is given back by the wordmark block at the end of the list.
+        padding: narrow ? "0 14px" : "6px 20px 16px",
+        // iOS momentum scrolling stops dead at the last row without this; the panel is the only
+        // scrollable thing on the page (body is touch-action: none).
+        overscrollBehavior: "contain",
+      }}>
+        <Toolbar undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
 
         {/* The lit chip is derived from p.pts inside PresetChips, so it goes dark as soon as the
             curve is edited — picking a preset stores no "which one was clicked" flag. rTop/rBot go
@@ -480,7 +870,8 @@ export default function TomoshibiStudio() {
         }} />
 
         {view === "2d" && (
-          <PointCard p={p} setP={setP} sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode} />
+          <PointCard p={p} setP={setP} sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode}
+            compact={narrow} />
         )}
 
         {/* Silhouette */}
@@ -645,10 +1036,34 @@ export default function TomoshibiStudio() {
             )}
           </div>
         )}
+        {/* The wordmark, on a phone only, and at the END of the scroll rather than the top of it.
+            The panel header it used to sit in is gone here (its two buttons moved to the sheet's
+            bar), and putting it back at the top would spend the first 40px of every pull — the most
+            expensive space in the app — on identity, for someone who pulled the sheet up to reach a
+            control. At the bottom it is a signature: still there, costs nothing at any stop. */}
+        {narrow && (
+          <div style={{ padding: "22px 0 14px", opacity: 0.5 }}>
+            <Logo variant="full" height={26} style={{ color: UI.head }} />
+          </div>
+        )}
       </div>
 
-      {/* Summary (pinned to the bottom) + the CTA for the current mode */}
-      <div style={{ padding: "16px 20px 18px", borderTop: `1px solid ${UI.edge}` }}>
+      {/* Summary + the CTA for the current mode — the pinned footer, at the BOTTOM on both layouts.
+          It was briefly moved above the scroll area on a phone, to be part of what `peek` shows; that
+          put a full-width button between the drag handle and the first control, and left the list
+          sliding under it with no boundary — a half-cut row reads as a rendering fault. Pinning it at
+          the bottom shows it at `peek` just the same (the scroll area between them is zero tall
+          there), keeps it where a next-step action belongs and where the thumb is, and gives the list
+          the edge to disappear behind that it always had.
+          The summary is dropped here on a phone because the sheet's bar carries it. `ctaRef` is half
+          of the `peek` measurement (the bar is the other half), so the resting height follows the
+          note the print view adds rather than clipping it. */}
+      <div style={{
+        flex: "none",
+        padding: narrow ? "10px 14px 12px" : "16px 20px 18px",
+        borderTop: `1px solid ${UI.edge}`,
+      }}>
+        {!narrow && (
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 5, columnGap: 12, fontSize: 12, marginBottom: 14 }}>
           <span style={{ color: UI.faint }}>{t("最大径")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>⌀{maxDia} mm</span>
@@ -659,27 +1074,33 @@ export default function TomoshibiStudio() {
           <span style={{ color: UI.faint }}>{t("上下の開口(半径)")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>{topOpen} / {botOpen} mm</span>
         </div>
+        )}
 
         {view !== "print" ? (
           <CTA label="印刷・書き出しへ進む →" outline onClick={() => setView("print")} />
         ) : route === "paper" ? (
           <>
-            <CTA label="型紙 ZIP をダウンロード (A4 原寸)" onClick={downloadPaperKit} />
-            {/* The one thing left to say. A PDF is already A4 at exact size, so the only way to lose
-                that is the printer's own scaling — everything else the old HTML page explained was
-                about making an HTML print at 1:1 in the first place. */}
-            <Note>
-              {t("プリンタの設定は「実際のサイズ / 100%」にしてください(「用紙に合わせる」は不可)。")}
-              <br />{t("和紙の型紙 ")}<span style={{ fontFamily: mono }}>{WASHI_PDF}</span>{t(" は別 PDF として同梱されます(そのまま原寸で印刷)。")}
-            </Note>
+            <CTA label="型紙 ZIP をダウンロード (A4 原寸)" onClick={() => { downloadPaperKit(); setKitNote("open"); }} />
+            {/* A PDF is already A4 at exact size, so the only way to lose that is the printer's own
+                scaling — which is why this one line stays out in the open. Everything else the old
+                HTML page explained was about making an HTML print at 1:1 in the first place. */}
+            <KitNote warn={<><strong style={{ color: UI.text }}>{t("原寸 100% で印刷")}</strong>{t("(「用紙に合わせる」は不可)")}</>}
+              state={kitNote} onToggle={() => setKitNote((v) => (v === "open" ? "shut" : "open"))} t={t}>
+              <li><span style={{ fontFamily: mono }}>tomoshibi_katagami_a4.pdf</span>{t(" — 型紙")}</li>
+              <li><span style={{ fontFamily: mono }}>{WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
+            </KitNote>
           </>
         ) : (
           <>
-            <CTA label="STL 書き出し" onClick={downloadKit} />
-            <Note>
-              {t("コマ・柱は上下同一のため各1つ入っています。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong>{t("して印刷してください。設定は ")}<span style={{ fontFamily: mono }}>tomoshibi_config.json</span>{t(" として同梱されます(バックアップ用)。")}
-              <br />{t("和紙の型紙 ")}<span style={{ fontFamily: mono }}>{WASHI_PDF}</span>{t(" も同梱されます(そのまま原寸で印刷)。")}
-            </Note>
+            <CTA label="STL 書き出し" onClick={() => { downloadKit(); setKitNote("open"); }} />
+            {/* Miss this one and you print half a mold: the koma and the posts are identical top and
+                bottom, so the kit carries one of each. */}
+            <KitNote warn={<>{t("コマ・柱は各1つ。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong></>}
+              state={kitNote} onToggle={() => setKitNote((v) => (v === "open" ? "shut" : "open"))} t={t}>
+              <li><span style={{ fontFamily: mono }}>tomoshibi_*.stl</span>{t(" — 羽根板・コマ・土台・口輪")}</li>
+              <li><span style={{ fontFamily: mono }}>{WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
+              <li><span style={{ fontFamily: mono }}>tomoshibi_config.json</span>{t(" — 設計のバックアップ")}</li>
+            </KitNote>
           </>
         )}
       </div>
@@ -693,8 +1114,13 @@ export default function TomoshibiStudio() {
         height: "100%", overflow: "hidden",
         background: "#f2ecdf", color: UI.text, fontFamily: sans,
       }}>
+        {chipBar}
         {viewport}
+        {pointBar}
+        {alertBar}
         {inspector}
+        <input ref={designFile} type="file" accept=".json,application/json" style={{ display: "none" }}
+          onChange={(e) => { importDesign(e.target.files?.[0]); e.target.value = ""; }} />
         {welcome && (
           <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome}
             onPick={(r) => { setRoute(r); closeWelcome(); }} />

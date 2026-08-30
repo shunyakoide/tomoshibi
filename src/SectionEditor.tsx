@@ -17,11 +17,11 @@
  * (preserveAspectRatio).
  * ============================================================================
  */
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterPts, komaR, innerRi, maxRadius, ribOutline2D, lightenHoles2D } from "./geometry.ts";
 import { LIMITS } from "./config.ts";
 import { clamp } from "./util.ts";
-import type { EditMode } from "./ui/PointCard.tsx";
+import type { EditMode } from "./ui/pointEdit.ts";
 import type { T } from "./i18n.ts";
 import type { Design, NumericDesignKey, Pt2 } from "./types.ts";
 
@@ -35,8 +35,44 @@ type Handle = {
   lx: number; ly: number; anchor: "start" | "middle" | "end";
 };
 
-// SVG logical coordinates (fixed). Center axis cx, baseline y0. Display scales uniformly to fit the container.
+// SVG logical coordinates. Center axis cx, baseline y0. CX/Y0 are fixed — every X()/Y() below is
+// written in terms of them — but the FRAME around them is not: see `viewBox` in the component.
 const VBW = 860, VBH = 780, CX = 430, Y0 = 710;
+
+// ---- Compact (phone) mode --------------------------------------------------------------------
+// On a wide screen the drawing sits in the fixed 860×780 frame with generous margins, and the
+// handles are mouse-sized. Neither survives a 375px-wide viewport: the frame is more than twice the
+// width the drawing actually uses, so the whole thing renders at 0.44× — which put every ◇ hit
+// target at ELEVEN pixels across, against the 44px both platform guidelines ask for. You could see
+// the editor perfectly well and not operate one control of it.
+//
+// So `compact` changes two things and nothing else about the shape:
+//   1. the viewBox is fitted to the CONTENT instead of being the fixed frame, which is a no-op on a
+//      wide screen (the drawing is height-bound there, and cropping unused width changes no scale)
+//      and roughly doubles it on a phone — which is why it is applied on the narrow path only,
+//      where it is the difference between usable and not;
+//   2. the hit circles are sized from the measured on-screen scale rather than being constants in
+//      SVG units, so a target stays a target however far the drawing has been scaled down.
+// Everything the app PRINTS is untouched: this file draws, it does not generate geometry.
+const HIT_PT = 30;      // control point / height handle / tangent grab — CSS px, diameter
+const HIT_ADD = 20;     // the "+" ghost: a secondary action, and it sits at the MIDPOINT between two
+                        // points, so it can never be given the same target without swallowing them
+// The MARKS, in CSS px across — the same treatment as the hit circles above, and for a reason that
+// only shows up once the two diverge. A glyph written as a constant in SVG units renders smaller the
+// further the drawing is scaled down: 11 units is 11.6px on a 1440px desktop and 8.6px on a phone,
+// so the touch surface got bigger while the thing you are aiming at got smaller. Worse, the legend
+// **redraws these marks at legend size** to say "this is what you are looking for", so a canvas mark
+// half the size of its own legend entry reads as a broken UI rather than as a small one.
+const GLYPH_PT = 16;    // the control point ◇ / □
+const GLYPH_H = 15;     // the body-height handle ●
+const GLYPH_ADD = 22;   // the "+" ghost
+const GLYPH_TAN = 13;   // a tangent handle, in curve-adjust mode
+// Room kept around the content when the frame is fitted to it (SVG units). The right side is wider
+// because that is where every point's "84 mm" label goes — reserved unconditionally, so the drawing
+// does not jump a step sideways the moment a label appears or a mark grows. It covers the label's
+// own width plus the gap the mark pushes it out by (`rPt + 9.5`), which is larger on a phone because
+// the marks are drawn at a constant CSS size there.
+const FIT_PAD = { l: 26, r: 78, t: 22, b: 22 };
 
 const C = {
   axis: "#b8a888", outline: "#c4b492", higo: "#c9b593", spine: "#d8c7a3",
@@ -46,7 +82,7 @@ const C = {
 };
 
 export default function SectionEditor({
-  p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", t = (s) => s,
+  p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", compact = false, t = (s) => s,
 }: {
   p: Design;
   setP: React.Dispatch<React.SetStateAction<Design>>;
@@ -56,9 +92,32 @@ export default function SectionEditor({
   sel?: number | null;
   setSel?: (i: number | null) => void;
   editMode?: EditMode;
+  /** Phone-sized frame: fit the viewBox to the drawing and size the hit targets for a finger. */
+  compact?: boolean;
   t?: T;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  // The pane's size in CSS px. Needed only in compact mode, but measured unconditionally: a hook
+  // cannot be conditional, and a ResizeObserver on one element costs nothing.
+  const [pane, setPane] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    // Seed from a layout read rather than waiting for the observer's first callback. Not belt and
+    // braces: a ResizeObserver only delivers for an element the browser is actually laying out, so a
+    // tab that is hidden, throttled or being captured off-screen can leave it silent — and the
+    // fallback (`pane.w === 0` ⇒ scale 1) is the one that hands a phone the small hit targets this
+    // whole path exists to get rid of. The observer's job is to keep it in step afterwards.
+    const read = () => {
+      const r = el.getBoundingClientRect();
+      setPane((q) => (q.w === r.width && q.h === r.height ? q : { w: r.width, h: r.height }));
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const H = p.height;
   // mm → SVG units. Fit BOTH axes: height alone set the scale while the radius was capped at
@@ -74,17 +133,37 @@ export default function SectionEditor({
   const Y = (t: number) => Y0 - t * H * s;
 
   // Client coordinates → SVG user coordinates (absorbs preserveAspectRatio letterboxing)
-  const toSvg = (clientX: number, clientY: number) => {
+  /**
+   * The screen→model mapping, frozen at the instant a drag starts.
+   *
+   * Both halves of that mapping depend on the design being dragged. `s` (mm → SVG units) shrinks as
+   * `maxRadius` grows, and in COMPACT mode the viewBox is fitted to the drawing, so the SVG→screen
+   * half stretches as the silhouette widens too. Read live on every move, that closes a positive
+   * feedback loop: the shape grows → the mapping stretches → the same finger movement buys more
+   * millimetres → the shape grows faster. Measured on a phone, dragging one control point 40px to
+   * the right took the design from ⌀192 to ⌀392 — the handle simply left the finger behind.
+   *
+   * Freezing makes the gesture linear: millimetres per pixel is whatever it was when you touched
+   * down, for as long as you hold. The wide path barely showed this (its viewBox is fixed, and `s`
+   * is pinned at 2.0 until the body passes ~200mm radius), which is exactly why it arrived with the
+   * content-fitted frame and has to be fixed here rather than left to the next person to find.
+   */
+  const freezeMap = () => {
     const el = svgRef.current;
     const m = el && el.getScreenCTM && el.getScreenCTM();
-    if (!m) return { x: 0, y: 0 };
-    const inv = m.inverse();
-    return { x: inv.a * clientX + inv.c * clientY + inv.e, y: inv.b * clientX + inv.d * clientY + inv.f };
-  };
-  // Client coordinates → model coordinates (t, r). Used for absolute handle positioning.
-  const toModel = (clientX: number, clientY: number) => {
-    const c = toSvg(clientX, clientY);
-    return { t: (Y0 - c.y) / (H * s), r: (c.x - CX) / s };
+    const inv = m ? m.inverse() : null;
+    const at = (clientX: number, clientY: number) => (inv
+      ? { x: inv.a * clientX + inv.c * clientY + inv.e, y: inv.b * clientX + inv.d * clientY + inv.f }
+      : { x: 0, y: 0 });
+    return {
+      s,
+      toSvg: at,
+      // Client coordinates → model coordinates (t, r). Used for absolute handle positioning.
+      toModel: (clientX: number, clientY: number) => {
+        const c = at(clientX, clientY);
+        return { t: (Y0 - c.y) / (H * s), r: (c.x - CX) / s };
+      },
+    };
   };
 
   // ---- Silhouette sampling (reflects the groove serrations at their actual depth; matches geometry) ----
@@ -140,11 +219,12 @@ export default function SectionEditor({
     e.preventDefault();
     e.stopPropagation();
     const start = p[cfg.key];
-    const s0 = toSvg(e.clientX, e.clientY);
+    const f = freezeMap();
+    const s0 = f.toSvg(e.clientX, e.clientY);
     startDrag(cfg.key, (ev) => {
-      const c = toSvg(ev.clientX, ev.clientY);
+      const c = f.toSvg(ev.clientX, ev.clientY);
       const dSvg = cfg.axis === "y" ? s0.y - c.y : c.x - s0.x; // up/right direction is positive
-      setP((o) => ({ ...o, [cfg.key]: clamp(cfg.min, cfg.max, Math.round(start + dSvg / s)) }));
+      setP((o) => ({ ...o, [cfg.key]: clamp(cfg.min, cfg.max, Math.round(start + dSvg / f.s)) }));
     });
   };
 
@@ -165,20 +245,21 @@ export default function SectionEditor({
     setSel(i);
     const start = { ...p.pts[i] };
     const sx = e.clientX, sy = e.clientY;
-    const s0 = toSvg(sx, sy);
+    const f = freezeMap();
+    const s0 = f.toSvg(sx, sy);
     let moved = false;
     startDrag("pt" + i, (ev) => {
       if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) moved = true;
       if (!moved) return;
       if (editMode === "curve") return;   // in curve-adjust mode the point doesn't move (only the handles do)
-      const c = toSvg(ev.clientX, ev.clientY);
+      const c = f.toSvg(ev.clientX, ev.clientY);
       setP((o) => {
         const pts = o.pts.map((q) => ({ ...q }));
         // The outermost control points can move all the way to the end (they set the neck height). Inner ones stay between their neighbors.
         const lo = i > 0 ? pts[i - 1].t + 0.04 : 0.01;
         const hi = i < pts.length - 1 ? pts[i + 1].t - 0.04 : 0.99;
-        pts[i].r = clamp(...LIMITS.r, start.r + (c.x - s0.x) / s);
-        pts[i].t = clamp(lo, hi, start.t + (s0.y - c.y) / (H * s));
+        pts[i].r = clamp(...LIMITS.r, start.r + (c.x - s0.x) / f.s);
+        pts[i].t = clamp(lo, hi, start.t + (s0.y - c.y) / (H * f.s));
         return { ...o, pts };
       });
     });
@@ -202,8 +283,9 @@ export default function SectionEditor({
   const beginDragHandle = (e: React.PointerEvent, i: number, which: "ho" | "hi") => {
     e.preventDefault();
     e.stopPropagation();
+    const f = freezeMap();
     startDrag("h" + i + which, (ev) => {
-      const m = toModel(ev.clientX, ev.clientY);
+      const m = f.toModel(ev.clientX, ev.clientY);
       setP((o) => {
         const pts = o.pts.map((q) => ({ ...q, ho: q.ho ? { ...q.ho } : undefined, hi: q.hi ? { ...q.hi } : undefined }));
         const a = pts[i], dt = m.t - a.t, dr = m.r - a.r;
@@ -242,13 +324,67 @@ export default function SectionEditor({
   const spineY = Math.min(Y(tnB), Y(1 - tnT));
   const spineH = Math.abs(Y(tnB) - Y(1 - tnT));
 
+  // ---- Frame and hit sizing ----------------------------------------------------------------
+  // The content's own extent, in SVG units. Every term is something actually drawn below, so a mark
+  // that moves takes the frame with it: the silhouette (maxR), the rib's tabs (which stick out past
+  // the body at both ends), and the axis stub. Compact mode drops the region labels and the per-point
+  // mm readouts (see below), which is why the padding is this small — with them the drawing would be
+  // squeezed back down by its own annotations, the very thing that made it unreadable on a phone.
+  const cx0 = Math.min(Xm(maxR), CX - 60) - FIT_PAD.l;
+  const cx1 = Math.max(X(maxR), X(kR)) + FIT_PAD.r;
+  const cy0 = Math.min(topY - 34, Ymm(H + p.tabLen)) - FIT_PAD.t;
+  const cy1 = Math.max(Y0 + 34, Ymm(-p.tabLen)) + FIT_PAD.b;
+  // CSS px per SVG unit, as the browser will actually render it (preserveAspectRatio="meet" = the
+  // smaller of the two fits). Falls back to the wide-frame value before the first measurement.
+  const fitW = compact ? cx1 - cx0 : VBW, fitH = compact ? cy1 - cy0 : VBH;
+  const k = pane.w > 0 ? Math.min(pane.w / fitW, pane.h / fitH) : 1;
+  // Widen the fitted box to the pane's aspect so the drawing is centred rather than left-aligned in
+  // whichever axis has slack (preserveAspectRatio would centre it anyway; doing it here keeps the
+  // coordinates honest for anything that reads the viewBox).
+  const vbW = k > 0 && pane.w > 0 ? pane.w / k : fitW;
+  const vbH = k > 0 && pane.h > 0 ? pane.h / k : fitH;
+  const viewBox = compact
+    ? `${((cx0 + cx1) / 2 - vbW / 2).toFixed(1)} ${((cy0 + cy1) / 2 - vbH / 2).toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}`
+    : `0 0 ${VBW} ${VBH}`;
+  // A hit radius in SVG units that lands on the wanted size in CSS px. The floors are the old
+  // constants, so a wide screen keeps exactly the targets it had.
+  const hitPt = compact ? Math.max(13, HIT_PT / 2 / k) : 13;
+  const hitAdd = compact ? Math.max(11, HIT_ADD / 2 / k) : 11;
+  // Mark radii in SVG units that land on the wanted CSS px. Floored at the wide constants, so the
+  // wide path draws exactly what it always drew. `markStroke` scales the outline with them — a
+  // 2-unit stroke on a 16px mark is the same weight the 2 was on an 11px one.
+  const u = (px: number, floor: number) => (compact ? Math.max(floor, px / 2 / k) : floor);
+  const rPt = u(GLYPH_PT, 5.5);          // half-side of the control-point square
+  const rRing = u(GLYPH_PT + 10, 13);    // the selection ring around it
+  const rH = u(GLYPH_H, 6.5);            // body-height handle
+  const rAdd = u(GLYPH_ADD, 11);         // "+" ghost
+  const rTan = u(GLYPH_TAN, 5.5);        // tangent handle
+  const markStroke = (2 * rPt / 5.5).toFixed(2);   // stroke weight, in step with the marks
+  // Compact hides the NAMES, never the NUMBERS. The names are read at leisure on a wide screen —
+  // the region bands (首/火袋/首, which the colours already say), the "羽根板" caption, the
+  // "開口/首" tag, the "火袋の高さ" caption — and on a phone they are what squeezes the drawing:
+  // the region ones hang off the LEFT of the widest part of the body, which `cx0` reserves nothing
+  // for, so they would be clipped as well as costly.
+  //
+  // The mm readouts stay. They are the answer to "how big is this", which is the question the
+  // drawing exists to answer, and they cost the frame **nothing**: `FIT_PAD.r` already reserves the
+  // width of one label on the right so the drawing does not jump sideways when a point is selected,
+  // and every point's label lands inside that same reservation. The height readout sits left of the
+  // axis at `CX - 22`, inside the `CX - 60` floor `cx0` already applies.
+  const showLabels = !compact;
+  // The legend has to earn its corner. Pulled up to its tallest stop the sheet leaves the drawing a
+  // 140px sliver, and a 34px pill parked in it is a fifth of what is left — sitting on the very
+  // drawing it explains, for someone who is plainly working in the panel rather than on the canvas.
+  // Below this the drawing is context, not a work surface, so the legend steps out of the way.
+  const showLegend = !compact || pane.h === 0 || pane.h >= 220;
+
   return (
-    <div onPointerDown={() => setSel(null)} style={{
+    <div ref={wrapRef} onPointerDown={() => setSel(null)} style={{
       position: "absolute", inset: 0, overflow: "hidden",
       background: "radial-gradient(ellipse at 45% 40%, #f7f2e6 0%, #efe7d6 60%, #e9dfc9 100%)",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
-      <svg ref={svgRef} viewBox={`0 0 ${VBW} ${VBH}`} preserveAspectRatio="xMidYMid meet"
+      <svg ref={svgRef} viewBox={viewBox} preserveAspectRatio="xMidYMid meet"
         style={{ width: "100%", height: "100%", display: "block", touchAction: "none" }}>
         <defs>
           <linearGradient id="washiGrad" x1="0" y1="0" x2="1" y2="0">
@@ -281,9 +417,9 @@ export default function SectionEditor({
         {/* Rib (right side = the actual printed cross-section). Tab tongue, core (Ri), and lightening windows are visible */}
         <path d={ribD} fillRule="evenodd" fill={C.board} fillOpacity="0.42" stroke={C.boardLine}
           strokeWidth="1.2" strokeLinejoin="round" style={{ pointerEvents: "none" }} />
-        <text x={(X(kR) + 9).toFixed(1)} y={(Ymm(H + p.tabLen) + 3).toFixed(1)}
+        {showLabels && <text x={(X(kR) + 9).toFixed(1)} y={(Ymm(H + p.tabLen) + 3).toFixed(1)}
           fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="11" fontWeight="600"
-          fill={C.boardLine} style={{ pointerEvents: "none" }}>{t("羽根板")}</text>
+          fill={C.boardLine} style={{ pointerEvents: "none" }}>{t("羽根板")}</text>}
 
         {/* Neck ↔ lamp body boundary (= height of the outermost control point). Beyond here is the straight neck */}
         {[fr.lo, fr.hi].map((ty, i) => (ty > 0.001 && ty < 0.999) && (
@@ -291,12 +427,14 @@ export default function SectionEditor({
             stroke={C.bound} strokeWidth="1" strokeDasharray="4 4" opacity="0.7" style={{ pointerEvents: "none" }} />
         ))}
 
-        {/* Region labels (neck / lamp body / neck). Left side = doesn't collide with the ◇ value labels */}
-        <g style={{ pointerEvents: "none" }} fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="12.5" textAnchor="end">
+        {/* Region labels (neck / lamp body / neck). Left side = doesn't collide with the ◇ value labels.
+            Dropped in compact: they sit outside the widest point of the body, so on a phone they are
+            what sets the frame's width — the colour bands they name are still there. */}
+        {showLabels && <g style={{ pointerEvents: "none" }} fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="12.5" textAnchor="end">
           {fr.lo > 0.03 && <text x={Xm(maxR + 6).toFixed(1)} y={(Y(fr.lo / 2) + 4).toFixed(1)} fill={C.label} fontWeight="600">{t("首")}</text>}
           <text x={Xm(maxR + 6).toFixed(1)} y={(Y((fr.lo + fr.hi) / 2) + 4).toFixed(1)} fill={accent} fontWeight="700">{t("火袋")}</text>
           {fr.hi < 0.97 && <text x={Xm(maxR + 6).toFixed(1)} y={(Y((fr.hi + 1) / 2) + 4).toFixed(1)} fill={C.label} fontWeight="600">{t("首")}</text>}
-        </g>
+        </g>}
 
         {/* Bamboo ribs (higo) */}
         {higo && <path d={higo} stroke={C.higo} strokeWidth="1" fill="none" style={{ pointerEvents: "none" }} />}
@@ -315,12 +453,15 @@ export default function SectionEditor({
             <g key={h.key} onPointerDown={(e) => beginDrag(e, h)} style={{ cursor: h.cursor }}>
               <line x1={h.guide[0].toFixed(1)} y1={h.guide[1].toFixed(1)} x2={h.guide[2].toFixed(1)} y2={h.guide[3].toFixed(1)}
                 stroke={accent} strokeWidth="1" strokeDasharray="3 3" opacity={active ? 0.8 : 0} />
-              <circle cx={h.x.toFixed(1)} cy={h.y.toFixed(1)} r="14" fill="transparent" />
-              <circle cx={h.x.toFixed(1)} cy={h.y.toFixed(1)} r="6.5" fill={active ? accent : C.handleFill} stroke={accent} strokeWidth="2" />
-              <text x={h.lx.toFixed(1)} y={(h.ly - 6).toFixed(1)} textAnchor={h.anchor}
-                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="12" fill={C.label}>{t(h.label)}</text>
-              <text x={h.lx.toFixed(1)} y={(h.ly + 10).toFixed(1)} textAnchor={h.anchor}
-                fontFamily="'IBM Plex Mono',monospace" fontSize="13" fontWeight="600" fill={active ? accent : C.value}>{p[h.key]} mm</text>
+              <circle cx={h.x.toFixed(1)} cy={h.y.toFixed(1)} r={Math.max(14, hitPt).toFixed(1)} fill="transparent" />
+              <circle cx={h.x.toFixed(1)} cy={h.y.toFixed(1)} r={rH.toFixed(1)} fill={active ? accent : C.handleFill} stroke={accent} strokeWidth={markStroke} />
+              {showLabels && <text x={h.lx.toFixed(1)} y={(h.ly - 6).toFixed(1)} textAnchor={h.anchor}
+                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="12" fill={C.label}>{t(h.label)}</text>}
+              {/* The mm readout is never dropped: on a phone it is both the answer to "how tall is
+                  this" and the only feedback the drag has, since the inspector that would otherwise
+                  show it is behind the sheet. */}
+              {<text x={h.lx.toFixed(1)} y={(h.ly + 10).toFixed(1)} textAnchor={h.anchor}
+                fontFamily="'IBM Plex Mono',monospace" fontSize="13" fontWeight="600" fill={active ? accent : C.value}>{p[h.key]} mm</text>}
             </g>
           );
         })}
@@ -328,9 +469,12 @@ export default function SectionEditor({
         {/* Add-point ghost (+). Midpoint of adjacent points. Click to add a point and select it */}
         {ghosts.map((g, i) => (
           <g key={"gh" + i} onPointerDown={(e) => { e.stopPropagation(); addAtT(g.mt); }} style={{ cursor: "copy" }}>
-            <circle cx={g.x.toFixed(1)} cy={g.y.toFixed(1)} r="11" fill={C.handleFill} fillOpacity="0.85"
-              stroke={C.bound} strokeWidth="1.3" strokeDasharray="2.5 2.5" />
-            <path d={`M ${(g.x - 4).toFixed(1)} ${g.y.toFixed(1)} H ${(g.x + 4).toFixed(1)} M ${g.x.toFixed(1)} ${(g.y - 4).toFixed(1)} V ${(g.y + 4).toFixed(1)}`}
+            {/* Hit area and glyph are separate circles here: the "+" cannot be drawn any larger
+                without touching the two points it sits between, but its TARGET can be. */}
+            <circle cx={g.x.toFixed(1)} cy={g.y.toFixed(1)} r={hitAdd.toFixed(1)} fill="transparent" />
+            <circle cx={g.x.toFixed(1)} cy={g.y.toFixed(1)} r={rAdd.toFixed(1)} fill={C.handleFill} fillOpacity="0.85"
+              stroke={C.bound} strokeWidth={(1.3 * rAdd / 11).toFixed(2)} strokeDasharray="2.5 2.5" />
+            <path d={`M ${(g.x - rAdd * 4 / 11).toFixed(1)} ${g.y.toFixed(1)} H ${(g.x + rAdd * 4 / 11).toFixed(1)} M ${g.x.toFixed(1)} ${(g.y - rAdd * 4 / 11).toFixed(1)} V ${(g.y + rAdd * 4 / 11).toFixed(1)}`}
               stroke={C.bound} strokeWidth="1.6" style={{ pointerEvents: "none" }} />
           </g>
         ))}
@@ -339,20 +483,24 @@ export default function SectionEditor({
         {cps.map((c) => (
           <g key={c.i} onPointerDown={(e) => beginDragPt(e, c.i)} style={{ cursor: "move" }}>
             {c.selected && (
-              <circle cx={c.x.toFixed(1)} cy={c.y.toFixed(1)} r="13" fill="none"
-                stroke={C.bound} strokeWidth="1.6" strokeDasharray="3 3" style={{ pointerEvents: "none" }} />
+              <circle cx={c.x.toFixed(1)} cy={c.y.toFixed(1)} r={rRing.toFixed(1)} fill="none"
+                stroke={C.bound} strokeWidth={(1.6 * rPt / 5.5).toFixed(2)} strokeDasharray="3 3" style={{ pointerEvents: "none" }} />
             )}
-            <circle cx={c.x.toFixed(1)} cy={c.y.toFixed(1)} r="13" fill="transparent" />
-            <rect x={(c.x - 5.5).toFixed(1)} y={(c.y - 5.5).toFixed(1)} width="11" height="11" rx="2.5"
+            <circle cx={c.x.toFixed(1)} cy={c.y.toFixed(1)} r={hitPt.toFixed(1)} fill="transparent" />
+            <rect x={(c.x - rPt).toFixed(1)} y={(c.y - rPt).toFixed(1)} width={(rPt * 2).toFixed(1)} height={(rPt * 2).toFixed(1)}
+              rx={(2.5 * rPt / 5.5).toFixed(1)}
               transform={c.pt.sharp ? undefined : `rotate(45 ${c.x.toFixed(1)} ${c.y.toFixed(1)})`}
-              fill={c.active || c.selected || c.end ? accent : C.handleFill} stroke={accent} strokeWidth="2" />
-            {c.end && (
-              <text x={(c.x + 15).toFixed(1)} y={(c.y - 8).toFixed(1)}
+              fill={c.active || c.selected || c.end ? accent : C.handleFill} stroke={accent} strokeWidth={markStroke} />
+            {c.end && showLabels && (
+              <text x={(c.x + rPt + 9.5).toFixed(1)} y={(c.y - 8).toFixed(1)}
                 fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="10.5" fontWeight="600" fill={accent}>{t("開口/首")}</text>
             )}
-            <text x={(c.x + 15).toFixed(1)} y={(c.y + 4).toFixed(1)}
+            {/* Every point's radius, on both layouts. These are the sizes the section view is for,
+                and they ride inside the right-hand reservation `FIT_PAD.r` already makes, so showing
+                all of them costs the drawing no scale at all. */}
+            {<text x={(c.x + rPt + 9.5).toFixed(1)} y={(c.y + 4).toFixed(1)}
               fontFamily="'IBM Plex Mono',monospace" fontSize="12" fontWeight="600"
-              fill={c.active ? accent : C.label}>{Math.round(c.pt.r)} mm</text>
+              fill={c.active ? accent : C.label}>{Math.round(c.pt.r)} mm</text>}
           </g>
         ))}
 
@@ -361,10 +509,10 @@ export default function SectionEditor({
           <g key={"h" + i}>
             <line x1={h.ax.toFixed(1)} y1={h.ay.toFixed(1)} x2={h.hx.toFixed(1)} y2={h.hy.toFixed(1)}
               stroke={C.bound} strokeWidth="1.4" style={{ pointerEvents: "none" }} />
-            <circle cx={h.hx.toFixed(1)} cy={h.hy.toFixed(1)} r="13" fill="transparent"
+            <circle cx={h.hx.toFixed(1)} cy={h.hy.toFixed(1)} r={hitPt.toFixed(1)} fill="transparent"
               onPointerDown={(e) => beginDragHandle(e, sel!, h.which)} style={{ cursor: "move" }} />
-            <circle cx={h.hx.toFixed(1)} cy={h.hy.toFixed(1)} r="5.5" fill="#eef7f0" stroke={C.bound} strokeWidth="2"
-              style={{ pointerEvents: "none" }} />
+            <circle cx={h.hx.toFixed(1)} cy={h.hy.toFixed(1)} r={rTan.toFixed(1)} fill="#eef7f0" stroke={C.bound}
+              strokeWidth={(2 * rTan / 5.5).toFixed(2)} style={{ pointerEvents: "none" }} />
           </g>
         ))}
       </svg>
@@ -377,7 +525,7 @@ export default function SectionEditor({
           frame and the legend covered the very drawing it explains. Here it is clear of the section
           (which grows from the axis at the left), tucked under the dimension chip, and mirrors the
           route chip on the other side at the same height. */}
-      <Legend accent={accent} editMode={editMode} t={t} />
+      {showLegend && <Legend accent={accent} editMode={editMode} compact={compact} t={t} />}
     </div>
   );
 }
@@ -440,20 +588,53 @@ const LEGEND: Record<EditMode, { title: string; rows: [GlyphKind, string, string
   },
 };
 
-function Legend({ accent, editMode, t }: { accent: string; editMode: EditMode; t: T }) {
+function Legend({ accent, editMode, compact, t }: { accent: string; editMode: EditMode; compact: boolean; t: T }) {
   const g = LEGEND[editMode] || LEGEND.move;
+  // "→ 右パネルで編集" is a wide-layout fact. On a phone there is no right panel and no card in the
+  // sheet either — selecting a point raises the contextual bar under the drawing (ui/PointBar.tsx).
+  const rows: [GlyphKind, string, string][] = compact
+    ? g.rows.map(([k, v, d]) => [k, v, k === "sel" ? "選ぶ → 下のバーで編集" : d])
+    : g.rows;
+  // Compact: the card is 300px wide against a 375px screen, so on a phone it IS the drawing — and it
+  // landed on top of the route chips as well. Folded into a pill you tap open, and moved to the
+  // bottom: the marks it explains live on the silhouette, whose openings and neck are at the top.
+  // Closed by default, because the person who most needs it is on their first visit, and that visit
+  // starts with the welcome card saying the same thing in more words.
+  const [open, setOpen] = useState(false);
+  const shown = !compact || open;
+  const pos: React.CSSProperties = compact
+    ? { bottom: 10, left: 10, maxWidth: "calc(100% - 20px)" }
+    : { top: 62, right: 16, maxWidth: 300 };
+
   return (
     <div style={{
-      position: "absolute", top: 62, right: 16, pointerEvents: "none",
-      fontFamily: "'IBM Plex Sans JP',sans-serif", maxWidth: 300,
+      position: "absolute", pointerEvents: compact ? "auto" : "none", ...pos,
+      fontFamily: "'IBM Plex Sans JP',sans-serif",
       background: "rgba(255,253,248,0.82)", border: `1px solid ${C.faint}`, borderRadius: 10,
-      padding: "9px 12px 10px", backdropFilter: "blur(2px)",
+      padding: shown ? "9px 12px 10px" : 0, backdropFilter: "blur(2px)",
     }}>
-      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", color: C.label, marginBottom: 6 }}>
-        {t(g.title)}
-      </div>
+      {compact ? (
+        // The pill and the card's heading are the same element, so the title never moves when it
+        // opens — the rows simply appear under it. stopPropagation because the pane's own
+        // pointerdown clears the point selection.
+        <button onPointerDown={(e) => e.stopPropagation()} onClick={() => setOpen((v) => !v)}
+          aria-expanded={open} style={{
+            display: "flex", alignItems: "center", gap: 7, minHeight: 34, padding: shown ? "0 0 6px" : "0 12px",
+            background: "transparent", border: "none", cursor: "pointer",
+            fontFamily: "inherit", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", color: C.label,
+          }}>
+          <Glyph kind="pt" accent={accent} />
+          {t(g.title)}
+          <span aria-hidden="true" style={{ color: C.faint }}>{open ? "▾" : "▸"}</span>
+        </button>
+      ) : (
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", color: C.label, marginBottom: 6 }}>
+          {t(g.title)}
+        </div>
+      )}
+      {shown && (
       <div style={{ display: "grid", gridTemplateColumns: "18px auto 1fr", columnGap: 8, rowGap: 5, alignItems: "center" }}>
-        {g.rows.map(([kind, verb, desc]) => (
+        {rows.map(([kind, verb, desc]) => (
           <React.Fragment key={kind + verb}>
             <Glyph kind={kind} accent={accent} />
             <span style={{ fontSize: 10.5, fontWeight: 600, color: C.label, whiteSpace: "nowrap" }}>{t(verb)}</span>
@@ -461,6 +642,7 @@ function Legend({ accent, editMode, t }: { accent: string; editMode: EditMode; t
           </React.Fragment>
         ))}
       </div>
+      )}
     </div>
   );
 }
