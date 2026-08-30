@@ -48,10 +48,11 @@ import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui
 import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note } from "./ui/controls.tsx";
 import PresetChips from "./ui/PresetChips.tsx";
 import PointCard from "./ui/PointCard.tsx";
+import PointBar from "./ui/PointBar.tsx";
 import Toolbar from "./ui/Toolbar.tsx";
 import OverflowMenu, { type MenuItem } from "./ui/Menu.tsx";
 import Logo from "./ui/Logo.tsx";
-import type { EditMode } from "./ui/PointCard.tsx";
+import type { EditMode } from "./ui/pointEdit.ts";
 import type { Part } from "./stl.ts";
 import type { Design, Route } from "./types.ts";
 
@@ -573,6 +574,14 @@ export default function TomoshibiStudio() {
     </nav>
   ) : null;
 
+  // ---- Narrow: the selected ◇, in flow above the sheet -----------------------------------------
+  // Only in the section view — it is the only place a ◇ exists to select, and `sel` outlives a view
+  // change. See ui/PointBar.tsx for the measurements that put it here rather than in the sheet.
+  const pointBar = narrow && view === "2d" && sel != null ? (
+    <PointBar p={p} setP={setP} sel={sel} setSel={setSel}
+      editMode={editMode} setEditMode={setEditMode} />
+  ) : null;
+
   // ---- Viewport alerts ----------------------------------------------------------------------
   // The three of them are one COLUMN, wherever it is placed. The first two are gated on opposite
   // routes (bed = 3D print, koma wall = cardboard) and could never have collided, but the pull-out
@@ -861,7 +870,8 @@ export default function TomoshibiStudio() {
         }} />
 
         {view === "2d" && (
-          <PointCard p={p} setP={setP} sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode} />
+          <PointCard p={p} setP={setP} sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode}
+            compact={narrow} />
         )}
 
         {/* Silhouette */}
@@ -1106,6 +1116,7 @@ export default function TomoshibiStudio() {
       }}>
         {chipBar}
         {viewport}
+        {pointBar}
         {alertBar}
         {inspector}
         <input ref={designFile} type="file" accept=".json,application/json" style={{ display: "none" }}

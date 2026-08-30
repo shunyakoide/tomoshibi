@@ -21,7 +21,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterPts, komaR, innerRi, maxRadius, ribOutline2D, lightenHoles2D } from "./geometry.ts";
 import { LIMITS } from "./config.ts";
 import { clamp } from "./util.ts";
-import type { EditMode } from "./ui/PointCard.tsx";
+import type { EditMode } from "./ui/pointEdit.ts";
 import type { T } from "./i18n.ts";
 import type { Design, NumericDesignKey, Pt2 } from "./types.ts";
 
@@ -590,6 +590,11 @@ const LEGEND: Record<EditMode, { title: string; rows: [GlyphKind, string, string
 
 function Legend({ accent, editMode, compact, t }: { accent: string; editMode: EditMode; compact: boolean; t: T }) {
   const g = LEGEND[editMode] || LEGEND.move;
+  // "→ 右パネルで編集" is a wide-layout fact. On a phone there is no right panel and no card in the
+  // sheet either — selecting a point raises the contextual bar under the drawing (ui/PointBar.tsx).
+  const rows: [GlyphKind, string, string][] = compact
+    ? g.rows.map(([k, v, d]) => [k, v, k === "sel" ? "選ぶ → 下のバーで編集" : d])
+    : g.rows;
   // Compact: the card is 300px wide against a 375px screen, so on a phone it IS the drawing — and it
   // landed on top of the route chips as well. Folded into a pill you tap open, and moved to the
   // bottom: the marks it explains live on the silhouette, whose openings and neck are at the top.
@@ -629,7 +634,7 @@ function Legend({ accent, editMode, compact, t }: { accent: string; editMode: Ed
       )}
       {shown && (
       <div style={{ display: "grid", gridTemplateColumns: "18px auto 1fr", columnGap: 8, rowGap: 5, alignItems: "center" }}>
-        {g.rows.map(([kind, verb, desc]) => (
+        {rows.map(([kind, verb, desc]) => (
           <React.Fragment key={kind + verb}>
             <Glyph kind={kind} accent={accent} />
             <span style={{ fontSize: 10.5, fontWeight: 600, color: C.label, whiteSpace: "nowrap" }}>{t(verb)}</span>
