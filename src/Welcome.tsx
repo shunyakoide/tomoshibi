@@ -166,22 +166,21 @@ export default function Welcome({ route = null, onPick, onClose }: {
             <span style={{ fontSize: 11.5, color: ui.sub }}>{t("どちらでつくりますか?")}</span>
             <span style={{ fontSize: 10.5, color: ui.faintest }}>{t("後からいつでも変更できます")}</span>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          {/* Stacked, not side by side: full width, each one is unmistakably a button rather than a
+              tile, and the two captions stop wrapping to different heights for no reason. */}
+          <div className="route-btns">
             {ROUTES.map(([key, title, caption, badge], i) => (
               <button key={key} ref={i === 0 ? btnRef : null} className="route-btn"
                 aria-current={route === key ? "true" : undefined} onClick={() => onPick(key)}>
                 <b>
                   {t(title)}
                   {badge && <em className="badge">{badge}</em>}
+                  <span aria-hidden="true" className="route-go">→</span>
                 </b>
                 <i>{t(caption)}</i>
               </button>
             ))}
           </div>
-        </div>
-
-        <div style={{ fontSize: 11, color: ui.faint, lineHeight: 1.6, marginTop: 14 }}>
-          {t("上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。")}
         </div>
       </div>
     </div>

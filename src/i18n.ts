@@ -45,8 +45,6 @@ const EN: Record<string, string> = {
     "What you see is not the lantern itself — it is the mold the lantern is built on",
   "和紙の型紙(先に切っておく用・beta)は、どちらの出力にも付いてきます":
     "The washi template (beta) — for cutting the paper before pasting — comes with either output",
-  "上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。":
-    "The tabs above also show the assembly and the lantern lit. Reopen this with the \"?\" at the top right.",
   // ---- Welcome / the route choice (3D print vs cardboard) ----
   "どちらでつくりますか?": "How will you make it?",
   "後からいつでも変更できます": "Changeable at any time",

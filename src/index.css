@@ -98,16 +98,25 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   text-transform: uppercase; opacity: 0.72; vertical-align: 1px;
 }
 
-.route-btn {   /* welcome card: pick how you'll make the mold (3D print / cardboard) */
-  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: left;
+/* The card's only action, and it has to look like it. It used to wear the same faint card-edge as
+   the step blocks above, which made the one thing you must press the quietest thing on the card:
+   accent border, a lift, and a → that says pressing this goes somewhere. Both buttons weigh the
+   same — they are two equal answers to one question, not a recommendation and an alternative. */
+.route-btns { display: flex; flex-direction: column; gap: 8px; }
+.route-btn {
+  min-width: 0; display: flex; flex-direction: column; gap: 3px; text-align: left;
   padding: 12px 13px; border-radius: 11px; cursor: pointer;
-  background: var(--card); color: var(--text); border: 1px solid var(--card-edge);
-  font-family: var(--sans); transition: background 0.13s, border-color 0.13s;
+  background: var(--card); color: var(--text); border: 1px solid var(--accent-45);
+  box-shadow: 0 2px 8px var(--accent-08);
+  font-family: var(--sans); transition: background 0.13s, border-color 0.13s, box-shadow 0.13s;
 }
-.route-btn > b { font-size: 13px; font-weight: 700; }
+.route-btn > b { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; }
+/* Pushed to the far edge of the title row, so it is the last thing read on the line. */
+.route-btn .route-go { margin-left: auto; color: var(--accent); font-size: 14px; line-height: 1; }
 .route-btn > i { font-size: 10.5px; font-style: normal; line-height: 1.45; color: var(--sub); }
-.route-btn:hover { background: #fffaf5; border-color: var(--accent-55); }
-/* The saved route, when the card is reopened from the "?" — aria-current rather than aria-pressed,
+.route-btn:hover { background: #fffaf5; border-color: var(--accent); box-shadow: 0 4px 14px var(--accent-25); }
+.route-btn:active { box-shadow: 0 1px 4px var(--accent-25); transform: translateY(1px); }
+/* The saved route, when the card is reopened from the ☰ menu — aria-current rather than aria-pressed,
    because these are live actions that happen to mark the current setting, not a toggle; and a tint
    rather than the filled orange of .seg, for the same reason. */
 .route-btn[aria-current="true"] { background: var(--accent-06); border-color: var(--accent); }
@@ -192,12 +201,25 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 }
 .welcome-x:hover { background: var(--card); color: var(--text); }
 
-.welcome-steps { display: flex; align-items: stretch; gap: 4; margin: 20px 0 18px; }
+/* ONE white panel around all three, not three panels — that is the difference between "here are
+   the steps" and "here are three things to press". The card sits on --panel, so a single --card
+   ground reads as one block of explanation, and the → between the steps are what make it a
+   sequence. (Three separate cards with the same border as `.route-btn` below is exactly the false
+   affordance this replaced; see the Onboarding section of CLAUDE.md.) */
+.welcome-steps {
+  display: flex; align-items: stretch; gap: 4px; margin: 18px 0 16px;
+  background: var(--card); border: 1px solid var(--card-edge); border-radius: 14px;
+  padding: 14px 10px 13px;
+}
 .welcome-arrow { align-self: center; color: var(--faintest); font-size: 17px; padding: 0 2px; }
+/* NO card, NO border, NO radius — and that is the whole point. These carried the same white card
+   with a 1px edge and an 11px radius as `.route-btn` directly below them, so the three things you
+   cannot press looked exactly like the two you must, and they came first. An icon and two lines of
+   text read as content; anything with a box around it reads as a target. The flow is carried by the
+   → between them on a wide screen, and by the order alone once they stack. */
 .welcome-step {
   flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px;
-  text-align: center; background: var(--card); border: 1px solid var(--card-edge);
-  border-radius: 12px; padding: 13px 8px 12px;
+  text-align: center; padding: 4px 6px;
 }
 .welcome-step-t { font-size: 12.5px; font-weight: 700; }
 .welcome-step-c { font-size: 10.5px; color: var(--sub); line-height: 1.45; }
@@ -210,10 +232,17 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
      ↓ between the steps would spend the height the stacking just saved. */
   .welcome { padding: 18px 16px 16px; }
   .welcome-logo { height: 44px; }
-  .welcome-steps { flex-direction: column; gap: 6px; margin: 14px 0 14px; }
-  .welcome-arrow { display: none; }
+  .welcome-steps { flex-direction: column; gap: 2px; margin: 14px 0 13px; padding: 11px 12px 10px; }
+  /* The same "→" glyph turned a quarter turn — one arrow in the markup, and it cannot fall out of
+     step with the wide one. Centred on the panel, like the wide row's arrows are centred between
+     their steps: the rows are not a column of icons with labels hanging off them, they are three
+     blocks in sequence, and the arrow belongs to the gap rather than to the icons. */
+  .welcome-arrow {
+    align-self: center; transform: rotate(90deg); transform-origin: center;
+    padding: 0; margin: -1px 0; font-size: 13px; line-height: 1;
+  }
   .welcome-step {
-    flex-direction: row; align-items: center; gap: 10px; text-align: left; padding: 9px 12px;
+    flex-direction: row; align-items: center; gap: 12px; text-align: left; padding: 2px 2px;
   }
   .welcome-step-t { flex: none; }
   .welcome-step-c { flex: 1 1 auto; }
