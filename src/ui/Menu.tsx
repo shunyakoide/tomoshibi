@@ -1,0 +1,131 @@
+/**
+ * ============================================================================
+ * OVERFLOW MENU — the app-level actions that are not navigation
+ * ============================================================================
+ * A "☰" button and the popover it opens. It holds the handful of things that act on the APP or on
+ * the design AS A FILE — the intro card, the language, JSON export/import, reset — as opposed to
+ * the design itself (the inspector) or where you are in it (the two selects to its left).
+ *
+ * **It is a ☰ even though nothing in it is navigation, which is a knowing departure.** The
+ * convention is ☰ for a navigation drawer and ⋯/⋮ for an overflow of actions, and by that reading
+ * this should be ⋯: the app's navigation is the two selects immediately to the left, they stay
+ * visible, and one of them is filled accent precisely because it says where you are. What decided it
+ * the other way is that ⋯ is materially harder to find — it reads as "more options for the thing
+ * next to me" — while ☰ is read as "this app's menu" by everyone, which is exactly what the contents
+ * are: help, language, backup, reset, all app-level rather than contextual. The usual case against
+ * hamburgers (NN/g) is about hiding NAVIGATION; nothing navigational is hidden here, so it does not
+ * apply. **Do not put a destination in here** — that is the line this trade depends on.
+ *
+ * What justifies folding them away at all is space, measured rather than assumed: on a 375px phone
+ * the chip bar in ENGLISH came to exactly 375px — the view select (99, "Assembly") + the route
+ * select (144, "Cardboard (beta)") + the "?" and language buttons (88) + gaps (24) + padding (20) —
+ * with its flex spacer collapsed to zero. Japanese, whose labels are shorter (64 / 129), had 55px to
+ * spare. One 36px button in place of those two hands back 52px / 47px, and the row that carries the
+ * app's top-level navigation stops being full in the language that fills it.
+ *
+ * Undo and redo deliberately did NOT move in here. They are the recovery path for the direct-
+ * manipulation editor that fills the screen, and an overflow menu is for what is rare.
+ *
+ * Rules of the shape:
+ * - **Every row carries a text label.** The trigger is the only icon-only control, and it has an
+ *   `aria-label`; a menu of glyphs would just be the discoverability problem one level deeper.
+ * - **The destructive row is separated and states its consequence.** Reset sits below a rule, in
+ *   warn colour, with the sentence that used to be its `title=` as a second line — a tooltip is not
+ *   a thing a phone has.
+ * - **A row is 44px.** This is the one place in the app where new touch targets were being drawn
+ *   from scratch, so they are drawn at the size the guidelines ask for rather than the 36 the older
+ *   header buttons grew to.
+ * ============================================================================
+ */
+import React, { useEffect, useRef, useState } from "react";
+
+export type MenuItem =
+  | { kind: "sep" }
+  | {
+      kind: "item";
+      label: string;
+      /** Right-aligned current value, for a row that is a setting rather than a verb. */
+      value?: string;
+      /** A second line under the label. Used where a title= would have been. */
+      hint?: string;
+      danger?: boolean;
+      onClick: () => void;
+    };
+
+export default function OverflowMenu({ label, items }: { label: string; items: MenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  // Whether this opening came from the keyboard. A pointer user who taps "⋯" should not have a row
+  // light up under a focus ring; a keyboard user must land inside the menu or they have to Tab into
+  // a list that just appeared. `detail === 0` is how a click says it came from Enter/Space.
+  const [byKey, setByKey] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const rows = useRef<(HTMLButtonElement | null)[]>([]);
+  // The indices that can hold focus, in DOM order — separators are skipped when arrowing.
+  const focusable = items.map((it, i) => (it.kind === "item" ? i : -1)).filter((i) => i >= 0);
+
+  // Close on a press anywhere outside. pointerdown rather than click, so the menu is already gone
+  // by the time the press lands on whatever is underneath.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("pointerdown", away);
+    return () => window.removeEventListener("pointerdown", away);
+  }, [open]);
+
+  useEffect(() => { if (open && byKey) rows.current[focusable[0]]?.focus(); }, [open, byKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const shut = () => { setOpen(false); btn.current?.focus(); };
+
+  const step = (from: number, d: number) => {
+    const at = focusable.indexOf(from);
+    const next = focusable[(at + d + focusable.length) % focusable.length];
+    rows.current[next]?.focus();
+  };
+
+  const onKey = (e: React.KeyboardEvent, i: number) => {
+    if (e.key === "Escape") { e.preventDefault(); shut(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); step(i, 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); step(i, -1); }
+    else if (e.key === "Home") { e.preventDefault(); rows.current[focusable[0]]?.focus(); }
+    else if (e.key === "End") { e.preventDefault(); rows.current[focusable[focusable.length - 1]]?.focus(); }
+    else if (e.key === "Tab") setOpen(false);   // let focus leave, but do not leave a menu hanging open
+  };
+
+  return (
+    // Escape is caught here rather than on the rows: opened by pointer, focus is still on the
+    // trigger, and a menu you cannot dismiss from the keyboard is a trap.
+    <div className="menu" ref={box}
+      onKeyDown={(e) => { if (e.key === "Escape" && open) { e.preventDefault(); shut(); } }}>
+      <button ref={btn} className="icon-btn" aria-haspopup="menu" aria-expanded={open}
+        aria-label={label} title={label}
+        onClick={(e) => { setByKey(e.detail === 0); setOpen((v) => !v); }}
+        onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); setByKey(true); setOpen(true); } }}>
+        ☰
+      </button>
+      {open && (
+        <div className="menu-pop" role="menu" aria-label={label}>
+          {items.map((it, i) => (it.kind === "sep" ? (
+            <div key={`s${i}`} className="menu-sep" role="separator" />
+          ) : (
+            <button key={it.label} role="menuitem" tabIndex={-1}
+              ref={(n) => { rows.current[i] = n; }}
+              className={`menu-item${it.danger ? " menu-item--danger" : ""}`}
+              onKeyDown={(e) => onKey(e, i)}
+              // The action runs first: `onClick` may open a file picker, and that has to happen
+              // inside the user gesture rather than after a state update has re-rendered the row away.
+              onClick={() => { it.onClick(); setOpen(false); }}>
+              <span className="menu-item-l">
+                {it.label}
+                {it.hint && <em>{it.hint}</em>}
+              </span>
+              {it.value && <span className="menu-item-v">{it.value}</span>}
+            </button>
+          )))}
+        </div>
+      )}
+    </div>
+  );
+}

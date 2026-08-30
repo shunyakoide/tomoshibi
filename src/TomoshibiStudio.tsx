@@ -49,6 +49,7 @@ import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note } from "
 import PresetChips from "./ui/PresetChips.tsx";
 import PointCard from "./ui/PointCard.tsx";
 import Toolbar from "./ui/Toolbar.tsx";
+import OverflowMenu, { type MenuItem } from "./ui/Menu.tsx";
 import Logo from "./ui/Logo.tsx";
 import type { EditMode } from "./ui/PointCard.tsx";
 import type { Part } from "./stl.ts";
@@ -192,6 +193,9 @@ export default function TomoshibiStudio() {
   const barRef = useRef<HTMLDivElement>(null);                     // the sheet's grabber + summary bar
   const asideRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  // The design-JSON picker. It lives here rather than in the menu because a menu row unmounts the
+  // moment it is clicked, and an <input> that is gone cannot open its own dialog.
+  const designFile = useRef<HTMLInputElement>(null);
   const [peekH, setPeekH] = useState(44);                          // measured: the bar = the `peek` height
   const [budgetH, setBudgetH] = useState(0);                       // measured: viewport + sheet, the height they share
   const [glError, setGlError] = useState<string | null>(null);
@@ -207,7 +211,7 @@ export default function TomoshibiStudio() {
   // first-time visitor who merely reloads already has saved state and would never see the card,
   // which is exactly the person it is for. The cost is that an existing user meets it once.
   // Which card it is, not just whether one is open: "first" = auto-opened on the first visit,
-  // "help" = reopened from the "?" (null = closed). The two differ in one way — the first-run card
+  // "help" = reopened from the ☰ menu (null = closed). The two differ in one way — the first-run card
   // marks NEITHER route, because "stl" there is a default nobody chose and colouring it would answer
   // the question the card is asking ("どちらでつくりますか?"). Once past that, the card is a place to
   // switch, so the route in effect is marked. No second persisted flag: the mode carries it.
@@ -499,18 +503,30 @@ export default function TomoshibiStudio() {
     </button>
   ));
 
-  // The onboarding "?" and the language toggle. On a wide screen they sit beside the wordmark in the
-  // panel header. On a phone there is no panel header — so they sit at the top RIGHT of the chip
-  // bar, the one strip that is on screen in every view and at every stop of the sheet, including
-  // lit (where the whole inspector is hidden and this used to make the "?" unreachable).
-  const headerBtns = (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      {/* Reopens the onboarding card. Once dismissed it never auto-opens again, so this is the
-          only way back to "what is this app" — keep it next to the language toggle. */}
-      <button className="icon-btn" onClick={() => setWelcome("help")} title={t("はじめかた")} aria-label={t("はじめかた")}>?</button>
-      <button className="lang-btn" onClick={toggleLang} title="Language / 言語">{lang === "ja" ? "EN" : "日本語"}</button>
-    </div>
-  );
+  // Everything that acts on the APP or on the design AS A FILE, behind one "☰". On a wide screen it
+  // sits beside the wordmark in the panel header; on a phone there is no panel header, so it sits at
+  // the top RIGHT of the chip bar — the one strip that is on screen in every view and at every stop
+  // of the sheet, including lit (where the whole inspector is hidden and the intro card used to be
+  // unreachable altogether).
+  //
+  // It replaced a "?" and a language toggle standing in the row itself. Both are secondary by
+  // nature, and in Japanese they were the difference between a chip bar that fits and one that has
+  // nothing left: 99 + 144 + 88 + 24 of gaps + 20 of padding is 375 on the nose. See ui/Menu.tsx for
+  // why the glyph is a "☰" when none of the contents is navigation, and for what stayed out of it.
+  const menuItems: MenuItem[] = [
+    { kind: "item", label: t("はじめかた"), onClick: () => setWelcome("help") },
+    // A setting, not a verb, so it reads as one: the row names the thing and the right-hand side
+    // shows what it would become. (The old control was a button captioned with its own opposite.)
+    { kind: "item", label: t("言語"), value: lang === "ja" ? "English" : "日本語", onClick: toggleLang },
+    { kind: "sep" },
+    { kind: "item", label: t("バックアップを保存"), onClick: exportDesign },
+    { kind: "item", label: t("バックアップから復元"), onClick: () => designFile.current?.click() },
+    { kind: "sep" },
+    // Separated and captioned with its consequence, which is what a destructive action in a menu
+    // needs and what a `title=` tooltip could never give a phone.
+    { kind: "item", label: t("初期化"), hint: t("すべての設定を初期状態に戻す"), danger: true, onClick: resetAll },
+  ];
+  const headerBtns = <OverflowMenu label={t("メニュー")} items={menuItems} />;
 
   // ============ Narrow: the chips move OUT of the viewport, and become dropdowns ============
   // Floating over the canvas, the two rows were ~100px of a 357px pane — 28% of it, laid straight
@@ -519,7 +535,7 @@ export default function TomoshibiStudio() {
   // English, and the labels are the app's top-level navigation so shortening them was never on.
   //
   // As dropdowns the same two choices cost ONE row in every language, and the row has space left
-  // over for the "?" and the language toggle — which is where they now live, out of the sheet's bar.
+  // over for the header menu — which is where it now lives, out of the sheet's bar.
   // They are NATIVE `<select>`s, deliberately: on a phone that opens the OS picker, which is a
   // better touch target than anything hand-rolled here, arrives with keyboard and screen-reader
   // behaviour already correct, and costs no focus-trap or outside-click machinery. The `beta` badge
@@ -773,7 +789,7 @@ export default function TomoshibiStudio() {
           }} />
           {/* The grabber is a div with role=button, not a <button>, and that is not a shortcut: the
               drag has to be able to start ON it, and `onSheetDown` bails out of anything inside a
-              real <button> so that the "?" and the language toggle stay pressable. A <button> here
+              real <button> so that any button in the bar stays pressable. A <button> here
               would therefore be the one part of the bar you could not pull — which is exactly what
               it was, since the summary text sits inside it. It also cannot contain those two real
               buttons, so it is the left part of the bar rather than the whole of it.
@@ -788,7 +804,7 @@ export default function TomoshibiStudio() {
             }}>
             {/* The summary the pinned footer used to carry. It is the readout you watch while
                 dragging a ◇, so it is the whole of what the sheet shows at rest. Centred now that
-                the "?" and the language toggle have moved to the chip bar: with them in the row it
+                the header controls have moved to the chip bar: with them in the row it
                 would have been centred on everything except them, i.e. on nothing. */}
             <span style={{
               display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0 12px",
@@ -832,8 +848,7 @@ export default function TomoshibiStudio() {
         // scrollable thing on the page (body is touch-action: none).
         overscrollBehavior: "contain",
       }}>
-        <Toolbar undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo}
-          onReset={resetAll} onExport={exportDesign} onImport={importDesign} />
+        <Toolbar undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
 
         {/* The lit chip is derived from p.pts inside PresetChips, so it goes dark as soon as the
             curve is edited — picking a preset stores no "which one was clicked" flag. rTop/rBot go
@@ -1093,6 +1108,8 @@ export default function TomoshibiStudio() {
         {viewport}
         {alertBar}
         {inspector}
+        <input ref={designFile} type="file" accept=".json,application/json" style={{ display: "none" }}
+          onChange={(e) => { importDesign(e.target.files?.[0]); e.target.value = ""; }} />
         {welcome && (
           <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome}
             onPick={(r) => { setRoute(r); closeWelcome(); }} />

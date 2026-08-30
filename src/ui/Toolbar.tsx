@@ -1,55 +1,35 @@
 /**
  * ============================================================================
- * INSPECTOR TOOLBAR — edit / save
+ * INSPECTOR TOOLBAR — undo / redo
  * ============================================================================
- * Two groups, because the actions differ entirely in nature: "edit" (undo, redo, reset) operates on
- * the working state, "save" (export, import) is file I/O. Each carries its own subheading, and the
- * row wraps onto two lines in a narrow panel — per-button text never wraps.
+ * Undo and redo, and nothing else. Reset, export and import moved into the overflow menu in the
+ * header (`ui/Menu.tsx`) — they are rare, one of them is destructive, and none of them is about the
+ * design you are editing right now.
  *
- * Reset is destructive, so it keeps the warn-coloured border while staying in the edit group.
+ * These two stayed out of that menu on purpose. They are the recovery path for a direct-manipulation
+ * editor that fills the screen, so they are the frequent case an overflow menu exists to make room
+ * for, not an example of it.
  * ============================================================================
  */
-import React, { useRef } from "react";
+import React from "react";
 import { useT } from "./theme.ts";
 import type { UndoRedo } from "../hooks.ts";
 
 const UNDO: [string, string, string][] = [["↺", "元に戻す", "⌘Z"], ["↻", "やり直し", "⇧⌘Z"]];
 
-export default function Toolbar({ undo, redo, canUndo, canRedo, onReset, onExport, onImport }: UndoRedo & {
-  onReset: () => void; onExport: () => void; onImport: (file: File | undefined) => void;
-}) {
+export default function Toolbar({ undo, redo, canUndo, canRedo }: UndoRedo) {
   const t = useT();
-  const fileRef = useRef<HTMLInputElement>(null);
   const act: [() => void, boolean][] = [[undo, canUndo], [redo, canRedo]];
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 24, marginBottom: 14 }}>
-      <div className="tool-group">
-        <span>{t("編集")}</span>
-        <div>
-          {UNDO.map(([icon, label, keys], i) => (
-            <button key={label} className="btn btn--accent" disabled={!act[i][1]} onClick={act[i][0]}
-              title={`${t(label)} (${keys})`}>
-              <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{t(label)}
-            </button>
-          ))}
-          <button className="btn btn--warn" onClick={onReset} title={t("すべての設定を初期状態に戻す")}>
-            {t("初期化")}
+    <div className="tool-group" style={{ marginBottom: 14 }}>
+      <span>{t("編集")}</span>
+      <div>
+        {UNDO.map(([icon, label, keys], i) => (
+          <button key={label} className="btn btn--accent" disabled={!act[i][1]} onClick={act[i][0]}
+            title={`${t(label)} (${keys})`}>
+            <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{t(label)}
           </button>
-        </div>
-      </div>
-
-      <div className="tool-group">
-        <span>{t("保存")}</span>
-        <input ref={fileRef} type="file" accept=".json,application/json" style={{ display: "none" }}
-          onChange={(e) => { onImport(e.target.files?.[0]); e.target.value = ""; }} />
-        <div>
-          <button className="btn btn--ghost" onClick={onExport} title={t("設計を JSON ファイルに保存")}>
-            {t("書き出す")}
-          </button>
-          <button className="btn btn--ghost" onClick={() => fileRef.current?.click()} title={t("設計 JSON ファイルから復元")}>
-            {t("読み込む")}
-          </button>
-        </div>
+        ))}
       </div>
     </div>
   );

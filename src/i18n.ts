@@ -31,8 +31,7 @@ const EN: Record<string, string> = {
   "組立": "Assembly",
   "印刷": "Print",
   "点灯": "Lit",
-  // ---- Header ----
-  // ---- Welcome / onboarding (first run, reopened from the "?" in the header) ----
+  // ---- Welcome / onboarding (first run, reopened from the ☰ menu in the header) ----
   "閉じる": "Close",
   "はじめかた": "Getting started",
   "和紙提灯の「張型」をつくる": "Design the forming mold for a washi paper lantern",
@@ -183,14 +182,19 @@ const EN: Record<string, string> = {
   "この点を削除": "Delete this point",
   "断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。":
     "Click a point in the section view to edit its values, smooth/corner, and delete here. Add points with the green + on the curve.",
-  // ---- Toolbar / save & load ----
+  // ---- Toolbar (undo / redo) ----
   "編集": "Edit",
   "すべての設定を初期状態に戻す": "Reset all settings to defaults",
-  "保存": "Save",
-  "書き出す": "Export",
-  "設計を JSON ファイルに保存": "Save the design to a JSON file",
-  "読み込む": "Import",
-  "設計 JSON ファイルから復元": "Restore the design from a JSON file",
+  // ---- The header menu (ui/Menu.tsx) ----
+  // 「初期化」 itself is in the Toolbar block near the top, with its confirm; the row's second line
+  // reuses 「すべての設定を初期状態に戻す」, which used to be that button's title=.
+  "メニュー": "More",
+  "言語": "Language",
+  // Named for what they are FOR, not for what they do to a file. The only times either one is
+  // reached are "my browser data is gone" and "restore the tomoshibi_config.json out of a kit ZIP I
+  // downloaded months ago" — and that ZIP's own manifest already calls that file 設計のバックアップ.
+  "バックアップを保存": "Save a backup",
+  "バックアップから復元": "Restore from a backup",
   "設計ファイルを読み込めませんでした(JSON が壊れています)。": "Couldn't load the design file (the JSON is corrupted).",
   // ---- Spiral winding ----
   "螺旋巻き": "Spiral winding",
