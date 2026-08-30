@@ -332,6 +332,71 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   font-family: var(--mono); font-size: 13px;
 }
 .unit { font-size: 11px; color: var(--sub); }                     /* "mm" after a number field */
+
+/* ---- The selected ◇, as a bar (ui/PointBar.tsx, phones only) --------------------------------
+   Everything in it is 44px tall — this is the touch surface for editing a point, and the row exists
+   precisely so that nobody has to go and find the 44px controls in the sheet.
+   In FLOW between the viewport and the sheet, never over the canvas. It costs the section view 52px
+   while a point is selected and nothing the rest of the time; see the component for the measurements
+   that ruled out reaching the same controls by pulling the sheet up instead. */
+.ptbar {
+  flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  background: var(--panel); border-bottom: 1px solid var(--edge);
+}
+/* Which ◇ this is. A label, not a control — nothing in this row opens anything any more — so it is
+   tinted rather than bordered, and it is what gives up its place first when the row runs out. */
+.ptbar-id {
+  flex: none; display: flex; align-items: center; padding: 0 4px;
+  color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700;
+}
+/* A mono letter, then the same field the inspector uses. The tag is a letter and the value a number,
+   so this row is exactly as wide in Japanese as in English. */
+/* Sized to its content — four digits is the most this can hold (LIMITS.height tops out at 2000mm)
+   and mono 13px needs 62px for them. It used to be `flex: 1 1 auto`, which handed it every spare
+   pixel in the row: 99px of field for a three-digit number, on the one bar whose whole purpose is
+   to not spend the screen. `margin-right: auto` takes that slack instead, which also puts real
+   space between the point's VALUE and the buttons that act on it. The `min-width` is not optional:
+   a 2000mm design puts FOUR digits in here, and this input is right-aligned, so an overflow shows
+   the END of the number — "000" for 2000, silently, in a field you are about to type into. */
+.ptbar-num { flex: 0 1 auto; margin-right: auto; min-width: 0; display: flex; align-items: center; gap: 5px; }
+.ptbar-num > span { flex: none; font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.ptbar-num > .mm-field { width: 56px; min-width: 50px; min-height: 44px; padding: 0 7px; }
+/* Glyph-only, because ◇ and ■ ARE the two marks the section view draws for these two states — the
+   words would say less and cost the width this row does not have. */
+.ptbar-seg { flex: none; display: flex; gap: 4px; }
+/* Glyph over caption. 46px is what the longest caption needs — 「なめらか」, four CJK glyphs at 9px —
+   and the row had the slack for it at both 375 and 320. */
+.ptbar-seg > .seg,
+.ptbar-mode {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  flex: none; width: 46px; min-height: 44px; padding: 0; font-size: 13px; line-height: 1;
+}
+.ptbar-seg > .seg > em,
+.ptbar-mode > em {
+  font-style: normal; font-size: 9px; font-weight: 600; letter-spacing: 0; white-space: nowrap;
+}
+/* The editor mode. Same .seg skin as the ◇/■ pair so the row has one visual language, but it is a
+   single pressed-state button because "curve" is a thing you turn ON, not one of two values. */
+/* The row is three groups — the point's own values, the editor's mode, the destructive action — and
+   each boundary is a rule rather than a gap. In the same .seg skin, ◠ hard against the ◇/■ pair
+   reads as a third exclusive option in it however much air sits between them; 6px of margin was
+   tried first and did not say it. */
+.ptbar-sep { flex: none; width: 1px; align-self: stretch; margin: 4px 1px; background: var(--edge); }
+.ptbar-del {
+  flex: none; width: 40px; min-height: 44px; padding: 0; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: none; color: var(--warn); border: none;
+}
+.ptbar-del:hover { background: var(--warn-08); }
+.ptbar-del:disabled { color: var(--faintest); cursor: default; background: none; }
+/* Under ~360px the row cannot hold all of it AND four digits in the field. What gives is the
+   IDENTITY LABEL — the section view already rings the selected ◇, so the label is the one thing here
+   that is also said somewhere else. Delete cannot be what gives any more: with the card gone on a
+   phone, this row is the only place it exists. The gap and padding come in with it. */
+@media (max-width: 360px) {
+  .ptbar-id { display: none; }
+  .ptbar { gap: 5px; padding: 6px 8px; }
+}
 .unit-soft { font-weight: 400; color: var(--faintest); }          /* "mm" inside a slider row's value:
    inherits the value's size, so the right-aligned readout keeps its width */
 

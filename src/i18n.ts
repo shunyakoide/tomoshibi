@@ -166,6 +166,9 @@ const EN: Record<string, string> = {
   "クリック": "Click",
   "ふくらみを変える": "Reshape the curve",
   "選ぶ → 右パネルで編集": "Select → edit on the right",
+  // The same row on a phone, where there is no right panel: selecting a point raises the
+  // contextual bar under the drawing instead (ui/PointBar.tsx).
+  "選ぶ → 下のバーで編集": "Select → edit in the bar below",
   "点を増やす": "Add a point",
   "点は動きません(「点を動かす」へ)": "Points stay put (switch to Move)",
   "カーブの向き・強さ": "Curve angle & tension",
@@ -173,10 +176,20 @@ const EN: Record<string, string> = {
   "選択中の点": "Selected point",
   "✥ 点を動かす": "✥ Move",
   "◠ カーブ調整": "◠ Curve",
-  "張り出し(半径)": "Radius",
+  // The contextual bar's caption under the ◠ glyph. Shorter than 「カーブ調整」 because it sits in a
+  // 46px button (same reason なめらか/角 above lost their glyphs).
+  "カーブ": "Curve",
+  // Just 半径: it is the distance from the centre axis to this control point, which is the same
+  // number the section view prints beside the ◇. It was 「張り出し(半径)」, a word borrowed from the
+  // neck hint below — where "how far it sticks out" is fair — and meaningless for a body point.
+  "半径": "Radius",
   "高さ位置": "Height position",
   "◇ なめらか": "◇ Smooth",
   "■ 角": "■ Corner",
+  // The same two states named without their glyph: the contextual bar (ui/PointBar.tsx) draws
+  // ◇ and ■ as the whole button, so the words are its aria-label, where a read-aloud "◇" is noise.
+  "なめらか": "Smooth",
+  "角": "Corner",
   "この点を削除": "Delete this point",
   "断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。":
     "Click a point in the section view to edit its values, smooth/corner, and delete here. Add points with the green + on the curve.",
