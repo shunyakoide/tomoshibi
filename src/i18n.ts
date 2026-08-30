@@ -31,8 +31,8 @@ const EN: Record<string, string> = {
   "組立": "Assembly",
   "印刷": "Print",
   "点灯": "Lit",
-  // ---- Header ----
-  // ---- Welcome / onboarding (first run, reopened from the "?" in the header) ----
+  // ---- Welcome / onboarding (first run, reopened from the ☰ menu in the header) ----
+  "閉じる": "Close",
   "はじめかた": "Getting started",
   "和紙提灯の「張型」をつくる": "Design the forming mold for a washi paper lantern",
   "断面を決める": "Draw the section",
@@ -45,15 +45,12 @@ const EN: Record<string, string> = {
     "What you see is not the lantern itself — it is the mold the lantern is built on",
   "和紙の型紙(先に切っておく用・beta)は、どちらの出力にも付いてきます":
     "The washi template (beta) — for cutting the paper before pasting — comes with either output",
-  "上のタブで「組立」「点灯」の見え方も確認できます。この案内は右上の「?」でいつでも開けます。":
-    "The tabs above also show the assembly and the lantern lit. Reopen this with the \"?\" at the top right.",
   // ---- Welcome / the route choice (3D print vs cardboard) ----
   "どちらでつくりますか?": "How will you make it?",
   "後からいつでも変更できます": "Changeable at any time",
   "3Dプリンタ": "3D printer",
   "STL 一式をダウンロード": "Download the STL set",
   "A4 原寸の型紙を印刷 · 大きさの制限なし": "Print the A4 1:1 template · no size limit",
-  "とりあえず見る": "Just look around",
   // ---- Toolbar ----
   "元に戻す": "Undo",
   "やり直し": "Redo",
@@ -105,10 +102,11 @@ const EN: Record<string, string> = {
     "This output is still in development. Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Measure your material's real thickness, and check the printed 50 mm scale bar with a ruler.",
   "材料の厚み": "Material thickness",
   "型紙 ZIP をダウンロード (A4 原寸)": "Download the template ZIP (A4, 1:1)",
-  "プリンタの設定は「実際のサイズ / 100%」にしてください(「用紙に合わせる」は不可)。":
-    "Set your printer to \"Actual size / 100%\" (never \"fit to page\").",
-  " は別 PDF として同梱されます(そのまま原寸で印刷)。": " is bundled as a separate PDF (print it at 100% as-is).",
-  // The PDF's own title line — it becomes the document title, which a viewer shows in its window.
+  // The one line that stays out in the open under the cardboard CTA: a PDF is already A4 at exact
+  // size, so the printer's own scaling is the only way left to lose that.
+  "原寸 100% で印刷": "Print at 100%",
+  "(「用紙に合わせる」は不可)": " — never \"fit to page\"",
+  // The PDF's own title line. English on purpose: base-14 Helvetica cannot draw Japanese (see paperPDF).
   "TOMOSHIBI 段ボール型紙 {name} 原寸": "TOMOSHIBI cardboard template {name} (full scale)",
   // Printed on every sheet. Both languages reach paper now (the writer carries outlines for the
   // Japanese), so keep both SHORT: the note shares its band with the right-aligned footer.
@@ -117,16 +115,22 @@ const EN: Record<string, string> = {
   "最大径": "Max diameter",
   "羽根板の全長": "Rib length",
   "上下の開口(半径)": "Openings (radius)",
+  "開口": "Openings",   // compact footer: the short form of 上下の開口(半径)
+  "設定パネル": "Settings panel",   // the bottom sheet's grabber, on a phone
+  "表示": "View",              // aria-label of the narrow chip bar's view <select>
+  "つくりかた": "How to make",   // aria-label of the narrow chip bar's route <select>
   // ---- CTA / export ----
   "STL 書き出し": "Export STL",
   "印刷・書き出しへ進む →": "Go to print / export →",
-  "コマ・柱は上下同一のため各1つ入っています。スライサーで":
-    "Koma and columns are identical top & bottom, so one of each is included. In your slicer, ",
+  // Miss this one and you print half a mold, so it is the line that is not folded away.
+  "コマ・柱は各1つ。スライサーで": "One koma and one column only — in your slicer, ",
   "2つに複製": "duplicate to two",
-  "して印刷してください。設定は ": " and print them. Settings are bundled as ",
-  " として同梱されます(バックアップ用)。": " (for backup).",
-  "和紙の型紙 ": "The washi template ",
-  " も同梱されます(そのまま原寸で印刷)。": " is bundled too (print it at 100% as-is).",
+  // The export's manifest, folded behind a disclosure and opened when the download happens.
+  "同梱物": "In the ZIP",
+  " — 型紙": " — the template",
+  " — 和紙の型紙(原寸で印刷)": " — washi template (print at 100%)",
+  " — 羽根板・コマ・土台・口輪": " — ribs, koma, stand, opening rings",
+  " — 設計のバックアップ": " — design backup",
   // ---- Warnings / status ----
   "⚠ 3Dプレビューを初期化できませんでした": "⚠ Could not initialize the 3D preview",
   "お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。":
@@ -162,6 +166,9 @@ const EN: Record<string, string> = {
   "クリック": "Click",
   "ふくらみを変える": "Reshape the curve",
   "選ぶ → 右パネルで編集": "Select → edit on the right",
+  // The same row on a phone, where there is no right panel: selecting a point raises the
+  // contextual bar under the drawing instead (ui/PointBar.tsx).
+  "選ぶ → 下のバーで編集": "Select → edit in the bar below",
   "点を増やす": "Add a point",
   "点は動きません(「点を動かす」へ)": "Points stay put (switch to Move)",
   "カーブの向き・強さ": "Curve angle & tension",
@@ -169,21 +176,36 @@ const EN: Record<string, string> = {
   "選択中の点": "Selected point",
   "✥ 点を動かす": "✥ Move",
   "◠ カーブ調整": "◠ Curve",
-  "張り出し(半径)": "Radius",
+  // The contextual bar's caption under the ◠ glyph. Shorter than 「カーブ調整」 because it sits in a
+  // 46px button (same reason なめらか/角 above lost their glyphs).
+  "カーブ": "Curve",
+  // Just 半径: it is the distance from the centre axis to this control point, which is the same
+  // number the section view prints beside the ◇. It was 「張り出し(半径)」, a word borrowed from the
+  // neck hint below — where "how far it sticks out" is fair — and meaningless for a body point.
+  "半径": "Radius",
   "高さ位置": "Height position",
   "◇ なめらか": "◇ Smooth",
   "■ 角": "■ Corner",
+  // The same two states named without their glyph: the contextual bar (ui/PointBar.tsx) draws
+  // ◇ and ■ as the whole button, so the words are its aria-label, where a read-aloud "◇" is noise.
+  "なめらか": "Smooth",
+  "角": "Corner",
   "この点を削除": "Delete this point",
   "断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。":
     "Click a point in the section view to edit its values, smooth/corner, and delete here. Add points with the green + on the curve.",
-  // ---- Toolbar / save & load ----
+  // ---- Toolbar (undo / redo) ----
   "編集": "Edit",
   "すべての設定を初期状態に戻す": "Reset all settings to defaults",
-  "保存": "Save",
-  "書き出す": "Export",
-  "設計を JSON ファイルに保存": "Save the design to a JSON file",
-  "読み込む": "Import",
-  "設計 JSON ファイルから復元": "Restore the design from a JSON file",
+  // ---- The header menu (ui/Menu.tsx) ----
+  // 「初期化」 itself is in the Toolbar block near the top, with its confirm; the row's second line
+  // reuses 「すべての設定を初期状態に戻す」, which used to be that button's title=.
+  "メニュー": "More",
+  "言語": "Language",
+  // Named for what they are FOR, not for what they do to a file. The only times either one is
+  // reached are "my browser data is gone" and "restore the tomoshibi_config.json out of a kit ZIP I
+  // downloaded months ago" — and that ZIP's own manifest already calls that file 設計のバックアップ.
+  "バックアップを保存": "Save a backup",
+  "バックアップから復元": "Restore from a backup",
   "設計ファイルを読み込めませんでした(JSON が壊れています)。": "Couldn't load the design file (the JSON is corrupted).",
   // ---- Spiral winding ----
   "螺旋巻き": "Spiral winding",
