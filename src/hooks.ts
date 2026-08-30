@@ -133,5 +133,10 @@ export function useLang(): { lang: Lang; toggleLang: () => void; t: T } {
     saveLang(next);
     return next;
   }), []);
+  // Keep <html lang> in step with the dictionary. index.html can only ship one value, and the app
+  // starts in English but restores Japanese from localStorage — so without this the document claims
+  // to be English while showing Japanese. It is not cosmetic on a phone: `lang` is what a mobile
+  // browser uses to pick a CJK font fallback and what a screen reader uses to pick a voice.
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   return { lang, toggleLang: toggle, t: makeT(lang) };
 }
