@@ -61,11 +61,11 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   font-family: var(--sans); font-size: 12.5px; font-weight: 600; white-space: nowrap;
   cursor: pointer; transition: background 0.13s, border-color 0.13s;
 }
+/* One variant, because there is one consumer: undo/redo. `--ghost` (export/import) and `--warn`
+   (reset) went with the buttons themselves when those moved into the header menu — a rule nothing
+   draws is a claim about the UI that is not true. */
 .btn--accent { background: var(--card); color: var(--accent); border: 1px solid var(--accent-4); }
-.btn--ghost { background: var(--card); color: var(--sub); border: 1px solid var(--card-edge); }
-.btn--warn { background: transparent; color: var(--warn); border: 1px solid var(--warn-35); }
-.btn--accent:hover, .btn--ghost:hover { background: #fffaf5; border-color: var(--accent-55); }
-.btn--warn:hover { background: var(--warn-06); }
+.btn--accent:hover { background: #fffaf5; border-color: var(--accent-55); }
 
 /* One rule for every disabled button in the panel, instead of a ternary per property */
 .btn:disabled, .step-btn:disabled, .block-btn:disabled {
@@ -232,17 +232,48 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .note-list { margin: 2px 0 0; padding: 0; list-style: none; }
 .note-list > li { padding: 1.5px 0; }
 
-/* Header affordances: the "?" that reopens the intro, and the language toggle */
-.icon-btn, .lang-btn {
+/* Header affordance: the round button. One consumer now — the overflow menu's "⋯" trigger — but
+   the class stays generic, because the narrow block at the end of this file grows it to a touch
+   target and that is the property any future header button wants to inherit. */
+.icon-btn {
   background: var(--card); color: var(--sub); border: 1px solid var(--card-edge);
   font-family: var(--mono); font-weight: 700; cursor: pointer;
 }
 .icon-btn {
-  width: 22px; height: 22px; padding: 0; border-radius: 50%;
+  /* A rounded SQUARE, not a circle: it stands at the end of a row of `.tab-sel` selects whose
+     corners are 9px, and a lone circle among them read as a different kind of thing. */
+  width: 22px; height: 22px; padding: 0; border-radius: 7px;
   display: flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1;
 }
-.lang-btn { padding: 3px 8px; border-radius: 6px; font-size: 10.5px; letter-spacing: 0.08em; }
-.icon-btn:hover, .lang-btn:hover { color: var(--accent); border-color: var(--accent-45); }
+.icon-btn:hover { color: var(--accent); border-color: var(--accent-45); }
+
+/* ---- The overflow menu (ui/Menu.tsx) -------------------------------------------------------
+   The trigger reuses `.icon-btn`, which is not laziness: that class is already the app's small
+   round header button AND already grows to 36px in the narrow block at the end of this file, so
+   the touch target comes for free. It was the "?" that reopened the intro until that moved into
+   the menu, and this is the same button in the same corner. */
+.menu { position: relative; display: inline-flex; }
+/* Right-anchored, because the button is the last thing in its row on both layouts — a left-anchored
+   popover would open off the edge of the phone. */
+.menu-pop {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; min-width: 208px;
+  display: flex; flex-direction: column; padding: 5px;
+  background: var(--panel); border: 1px solid var(--edge); border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(59, 52, 43, 0.18);
+}
+.menu-item {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px;
+  background: none; border: none; border-radius: 8px; cursor: pointer; text-align: left;
+  font-family: var(--sans); font-size: 12.5px; color: var(--text);
+}
+.menu-item:hover { background: var(--accent-06); color: var(--accent); }
+.menu-item-l { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* The consequence line for the destructive row. It was a title= before, which a phone cannot show. */
+.menu-item-l > em { font-style: normal; font-size: 10.5px; line-height: 1.35; color: var(--faint); }
+.menu-item-v { flex: none; font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.menu-item--danger { color: var(--warn); }
+.menu-item--danger:hover { background: var(--warn-08); color: var(--warn); }
+.menu-sep { height: 1px; margin: 5px 6px; background: var(--edge); }
 
 /* ---- rows and fields ---- */
 .scrub-row {   /* label · track · a value you can click to type into */
@@ -420,15 +451,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 
   /* The two header buttons are the one place that cannot be paid for out of reserved space — they
      sit in a 48px header with nothing above or below to borrow from, and they are 10px apart, so an
-     overlay would put one button's hit area on top of the other's. They grow for real, and the
-     header goes 48px -> 54px. The "?" is worth its 6px: once the welcome card is dismissed it never
-     auto-opens again, so this button is the only way back to it. */
-  .icon-btn { width: 36px; height: 36px; font-size: 15px; }
-  /* Height comes from min-height and NOT from padding + line-height: the label is "EN" in one
-     language and "日本語" in the other, and CJK glyphs take a taller line box — which made the whole
-     chip bar 16px taller in English than in Japanese, for the same one row of controls. */
-  .lang-btn {
-    display: inline-flex; align-items: center; min-height: 36px;
-    padding: 0 11px; font-size: 11px; line-height: 1;
-  }
+     overlay would land on its neighbour. It grows for real, and the header goes 48px -> 54px. Worth
+     its 6px: this is the only way back to the onboarding card, which never auto-opens again. */
+  .icon-btn { width: 36px; height: 36px; border-radius: 9px; font-size: 14px; }
 }

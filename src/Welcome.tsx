@@ -15,13 +15,13 @@
  *
  * `route` is the route to MARK as current, or **null to mark neither** — which is what the first-run
  * card passes. On a first visit "stl" is a default nobody picked, and colouring it would have the
- * card answer its own question; reopened from the "?" the buttons are a switch instead, so the route
+ * card answer its own question; reopened from the ☰ menu the buttons are a switch instead, so the route
  * in effect is marked. That distinction lives in the caller (which card is this?), not here.
  *
  * The explanation itself is a single card — deliberately NOT a step-through tour with
  * spotlights: the app is one screen, and a spotlight would have to track a viewport that stretches
  * (the section view is a preserveAspectRatio SVG). Shown once (`tomoshibi.welcome`), reopenable from
- * the "?" in the inspector header, and never blocking: Esc / backdrop / button all close it.
+ * the ☰ menu in the header, and never blocking: Esc / backdrop / button all close it.
  *
  * Presentational only — it owns no app state and imports no geometry.
  * ============================================================================
