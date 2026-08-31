@@ -22,7 +22,14 @@ concurrency:
 
 jobs:
   checks:
-    name: build · lint · paper · glyphs · persist · i18n (node ${{ matrix.node }})
+    # The name is a required status check in the "Protect Main" ruleset, and a ruleset names checks
+    # by STRING. So the name must not enumerate what the job runs: this one read
+    # "build · lint · paper · persist · i18n (node …)" until check:glyphs was added, at which point
+    # the two names the ruleset was asking for stopped being reported by anything. GitHub shows a
+    # required check that never reports as forever pending, so every PR was blocked with every gate
+    # green and nothing on screen saying why. Keep it generic — the steps below are the list.
+    # ("watertightness sweep" below has always been named this way, and never broke.)
+    name: checks (node ${{ matrix.node }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
