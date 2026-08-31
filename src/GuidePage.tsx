@@ -155,7 +155,9 @@ const STEPS: Step[] = [
     // comes back here, keep the wording clear of "口輪" — the cardboard route prints no rings, and
     // a step must not name a part its own route never makes. The step also used to offer a ⌀65
     // lamp-holder base to print (`tomoshibi_socket_base.stl`); a printable file is a decision, and
-    // this one has been made the other way: the fittings here are all things you buy.
+    // this one has been made the other way: the fittings here are all things you buy. The STL was
+    // deleted from `public/` with the link — an asset nothing references still ships on every
+    // deploy, and the one thing worse than a dead download is a live one for an undecided part.
     id: "light", title: "灯りをつける",
     body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
     options: [
