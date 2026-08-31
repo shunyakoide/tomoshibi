@@ -56,12 +56,6 @@ button:focus-visible, input:focus-visible, summary:focus-visible,
 }
 input[type="range"]:focus-visible { outline-offset: 4px; }
 
-/* Motion here is decoration on top of a state the mark already carries; a reader who has asked for
-   none still gets the chevron, just turned rather than turning. */
-@media (prefers-reduced-motion: reduce) {
-  .guide-more > summary::before { transition: none; }
-}
-
 /* ---- buttons ---- */
 .btn {
   display: flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; border-radius: 8px;
@@ -605,48 +599,12 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .guide-detail h5 { display: inline; margin: 0; font-size: 12.5px; font-weight: 700; color: var(--head); }
 .guide-detail p { font-size: 12.5px; }
 .guide-note { margin: 12px 0 0; font-size: 12px; line-height: 1.7; color: var(--sub); }
-/* The folded detail block. It is a <details> and not a modal because a closed modal's content is
-   not in the page, so it cannot print — and printing is this page's only paper version. The marker
-   is drawn here rather than left to the UA: Safari's is a filled triangle in the text colour and
-   Chrome's is a disclosure arrow, so the two summaries do not look like the same control. */
-.guide-more { grid-column: 1 / -1; margin-top: 2px; padding-top: 4px; border-top: 1px dashed var(--edge); }
-/* The whole row is the control, not just the two words on it. Inline-flex made the hit target the
-   width of "詳しく" — about 40px on a page whose other controls are buttons — and a row that is only
-   clickable where the ink is does not read as a thing that opens. */
-.guide-more > summary {
-  display: flex; align-items: center; gap: 7px; list-style: none; cursor: pointer;
-  padding: 8px 2px; border-radius: 6px;
-  font-size: 12px; font-weight: 700; color: var(--sub); user-select: none;
-  transition: background 0.13s, color 0.13s;
-}
-
-.guide-more > summary::-webkit-details-marker { display: none; }   /* Safari draws one anyway */
-/* The chevron, drawn from two borders rather than set as a character. A "\25B8" at this size renders
-   as a dot in most faces — too few pixels left once the glyph's own side bearings are paid for — and
-   swapping it for "\25BE" on open is a substitution, not a movement: the mark changes but nothing
-   about it says the block below turned. A rotation does, and it is the gesture an accordion is read
-   by, so it is worth the 140ms it takes to be seen. `currentColor` keeps it on the summary's own
-   hover. */
-.guide-more > summary::before {
-  content: ""; width: 6px; height: 6px; margin: -2px 1px 0 1px;
-  border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor;
-  transform: rotate(-45deg); transform-origin: 55% 55%; transition: transform 0.14s ease;
-}
-.guide-more[open] > summary::before { transform: rotate(45deg); }
-.guide-more > summary:hover { background: var(--accent-06); color: var(--head); }
-.guide-more-body {
-  margin-top: 10px; display: grid; gap: 12px; align-items: start;
-  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
-}
-.guide-more-body p { font-size: 12.5px; }
-.guide-fig video { width: 100%; height: 100%; object-fit: contain; }
 .guide-steps .btn { margin-top: 12px; }
 
 @media (max-width: 860px) {
   /* One column: a 300px figure beside text on a phone leaves neither of them readable. */
   .guide-doc { padding: 26px 14px 40px; }
-  .guide-steps > li, .guide-opts > li, .guide-detail > li,
-  .guide-more-body { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .guide-steps > li, .guide-opts > li, .guide-detail > li { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 }
 /* Printing the page IS the printable guide — the app writes no PDF for it. Drop the app's furniture
    (tabs, chips, the scroll box) and let the browser paginate the document itself; a step must not be
@@ -677,14 +635,6 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
      Chrome then drops rather than splits. Keep the two columns on paper. */
   .guide-steps > li, .guide-opts > li { grid-template-columns: minmax(0, 38%) minmax(0, 1fr) !important; }
   .guide-detail > li { grid-template-columns: minmax(0, 24%) minmax(0, 1fr) !important; }
-  .guide-more-body { grid-template-columns: minmax(0, 32%) minmax(0, 1fr) !important; }
-  /* Nothing is folded away on paper. The reader at a bench is the one who most wants the detail and
-     the one who cannot click for it, so every block opens and the summary — a control, and there is
-     nothing to control here — goes. Chrome hides a closed <details> with `content-visibility` on
-     ::details-content, which no display rule on the element itself can reach; that pseudo-element is
-     the only handle, and without this line the whole mechanism is invisible in print. */
-  .guide-more::details-content { content-visibility: visible !important; }
-  .guide-more > summary { display: none; }
   .guide-h2 { break-after: avoid; }
 }
 
