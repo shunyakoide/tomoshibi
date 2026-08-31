@@ -199,14 +199,17 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
    about 460px of viewport — not `useNarrow(860)`, which a tablet with plenty of room would trip. */
 .welcome { padding: 26px 26px 22px; }
 .welcome-logo { height: 62px; width: auto; }
-/* The close X. Chrome, so it is quiet and in the corner; it replaced a full-width footer button. */
-.welcome-x {
-  position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; padding: 0;
+/* The close X, shared by the app's two overlays (the welcome card and the build guide). Chrome, so
+   it is quiet and in the corner; on the card it replaced a full-width footer button. Only the
+   PLACEMENT differs, so only the placement is written twice. */
+.welcome-x, .guide-x {
+  width: 36px; height: 36px; padding: 0;
   display: flex; align-items: center; justify-content: center;
   background: none; border: none; border-radius: 50%; cursor: pointer;
   font-family: var(--sans); font-size: 20px; line-height: 1; color: var(--faint);
 }
-.welcome-x:hover { background: var(--card); color: var(--text); }
+.welcome-x:hover, .guide-x:hover { background: var(--card); color: var(--text); }
+.welcome-x { position: absolute; top: 10px; right: 10px; }
 
 /* ONE white panel around all three, not three panels — that is the difference between "here are
    the steps" and "here are three things to press". The card sits on --panel, so a single --card
@@ -512,7 +515,16 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 /* 124px of head room, the same figure the print view's page grid uses and for the same reason: the
    mode tabs and the route chip float over this canvas, and once the window is narrow enough for the
    column to reach the left edge they land on the title. */
-.guide-doc { max-width: 860px; margin: 0 auto; padding: 124px 24px 72px; }
+/* Fixed to the window, not scrolled with the document — the way out has to stay reachable at the
+   bottom of a ten-step page. That means text passes UNDER it, so unlike the card's X this one needs
+   a ground and an edge of its own. */
+.guide-x {
+  position: fixed; top: 12px; right: 16px; z-index: 1;
+  background: var(--panel); box-shadow: 0 0 0 1px var(--edge);
+}
+/* 30px of top padding, not the 124 this had as a view: that was clearance for the mode and route
+   chips floating over the viewport, and an overlay has neither above it. */
+.guide-doc { max-width: 860px; margin: 0 auto; padding: 30px 24px 72px; }
 .guide-kicker {
   margin: 0 0 6px; font-family: var(--mono); font-size: 11px; font-weight: 600;
   letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
@@ -628,7 +640,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 
 @media (max-width: 860px) {
   /* One column: a 300px figure beside text on a phone leaves neither of them readable. */
-  .guide-doc { padding: 124px 14px 40px; }
+  .guide-doc { padding: 26px 14px 40px; }
   .guide-steps > li, .guide-opts > li, .guide-detail > li,
   .guide-more-body { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 }
@@ -644,9 +656,12 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   #root > div { display: block !important; height: auto !important; overflow: visible !important;
     background: #fff !important; }   /* the app's warm ground paints the rest of the last sheet */
   main { height: auto !important; overflow: visible !important; position: static !important; }
-  /* The furniture: the WebGL canvas the guide is overlaid on, the view tabs, the route chip. They
-     are absolutely positioned siblings of the document, so they are named by what they are not. */
-  main > *:not(.guide) { display: none !important; }
+  /* The furniture: the whole app behind the overlay — viewport and canvas, tab strip, inspector.
+     The guide is a fixed-position child of the app's root box now (it was a sibling of the canvas
+     inside <main> while it was a view), so it is named by what it is not, one level up. */
+  #root > div > *:not(.guide) { display: none !important; }
+  /* Including its own way out: a × is a control, and there is nothing to close on paper. */
+  .guide-x { display: none !important; }
   .guide { position: static !important; overflow: visible !important; background: #fff !important; }
   .guide-doc { max-width: none; padding: 0; }   /* the chips are gone on paper, and so is their clearance */
   .guide-steps > li, .guide-parts > li, .guide-opts > li, .guide-detail > li { break-inside: avoid; box-shadow: none; }

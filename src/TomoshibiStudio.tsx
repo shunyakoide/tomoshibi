@@ -57,7 +57,7 @@ import type { Part } from "./stl.ts";
 import type { Design, Route } from "./types.ts";
 
 /** Which viewport the middle of the screen is showing. Only `route` outlives the session. */
-type View = "2d" | "mold" | "print" | "guide" | "lit";
+type View = "2d" | "mold" | "print" | "lit";
 /** Which onboarding card is open: the first-visit one, the one reopened from "?", or neither. */
 type WelcomeCard = "first" | "help" | null;
 
@@ -94,9 +94,11 @@ const SHEET_TAP = 6;
 // mailed, reprinted months later, handed to someone else — and the caveat has to travel with it.
 const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";
 const BED_PRESETS = [180, 220, 250, 256, 300, 350];
-// In build order: shape it, see it assembled, print it, then make it. "作り方" comes after 印刷
-// because that is when you have parts in your hands, and before 点灯, which is the finished thing.
-const VIEWS: [View, string][] = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["guide", "作り方"], ["lit", "点灯"]];
+// In build order: shape it, see it assembled, print it, light it. Every one of them is a RENDERING
+// OF YOUR DESIGN — move a ◇ and all four redraw. That is what this control selects, and it is why
+// the build guide is not in it: its figures come from one fixed example (GUIDE_P), so it answered to
+// nothing you did here. It is an overlay off the ☰ menu instead — see `guide` below.
+const VIEWS: [View, string][] = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]];
 // How the mold gets made. Cardboard is marked beta: its dimensions come from the same geometry.ts
 // functions as the printed parts and are covered by check:paper, but the route has had far less
 // real-world building behind it than the STL one.
@@ -220,6 +222,11 @@ export default function TomoshibiStudio() {
   // switch, so the route in effect is marked. No second persisted flag: the mode carries it.
   const [welcome, setWelcome] = useState<WelcomeCard>(() => (loadWelcomeSeen() ? null : "first"));
   const closeWelcome = () => { saveWelcomeSeen(); setWelcome(null); };
+  // The build guide. An OVERLAY, not a view: it is a document about making a lantern, and its
+  // figures come from one fixed example rather than from `p`, so it belongs to neither the view
+  // tabs (which select a rendering of YOUR design) nor the inspector. Transient — it is a thing you
+  // open and close, and a reload should not put you back inside it.
+  const [guide, setGuide] = useState(false);
 
   // Clamp the rib count to what fits the koma. If board thickness, tolerance or the opening (◇)
   // changes make it too large — by any path — lower it here, so overlapping notches can never
@@ -378,10 +385,6 @@ export default function TomoshibiStudio() {
   }, [bedFit, p, bedW, bedD]);
 
   const isLit = view === "lit";   // lit = a viewing mode: panel hidden, dark background
-  // Views that take the whole window. Lit is one because it is a viewing mode; the guide is one
-  // because it is a document — a 400px inspector beside it would leave a column too narrow to read,
-  // and there is nothing on that panel you reach for with glue on your hands.
-  const solo = isLit || view === "guide";
   const bedRules = route === "stl";   // does a print bed constrain this design at all? (cardboard: never)
   // The cardboard route's print view is a document, not a scene: PagePreview draws the template's
   // pages over the (idle) canvas, exactly as the section editor does.
@@ -523,6 +526,10 @@ export default function TomoshibiStudio() {
   // why the glyph is a "☰" when none of the contents is navigation, and for what stayed out of it.
   const menuItems: MenuItem[] = [
     { kind: "item", label: t("はじめかた"), onClick: () => setWelcome("help") },
+    // A DOCUMENT, not a destination — it opens over whatever you were doing and closing it puts you
+    // back there, exactly as the card above does. That distinction is what lets the menu keep the
+    // "☰ with no navigation in it" trade intact; see ui/Menu.tsx.
+    { kind: "item", label: t("作り方"), onClick: () => setGuide(true) },
     // A setting, not a verb, so it reads as one: the row names the thing and the right-hand side
     // shows what it would become. (The old control was a button captioned with its own opposite.)
     { kind: "item", label: t("言語"), value: lang === "ja" ? "English" : "日本語", onClick: toggleLang },
@@ -606,14 +613,8 @@ export default function TomoshibiStudio() {
   // that widens it. There it goes in flow between the viewport and the panel instead: never over a
   // handle, always on screen, and adjacent both to the drawing it is about and to the controls that
   // answer it.
-  //
-  // The gate is `solo`, not `isLit`: all three are about the design you are EDITING, and the guide
-  // is neither a place you can act on one — every way out of any of them is a control in the
-  // inspector, which that page does not have — nor a page about your design at all, since its
-  // figures are drawn from one fixed example. Gate the LIST, never the cards or the strip: a fourth
-  // alert must not have to remember, and neither placement should have to ask the question twice.
   const alerts: { key: string; head: string; hint?: string }[] = [];
-  if (!solo) {
+  if (!isLit) {
     // Bed-overflow. Each part lies along a different axis, so the bed is width×depth. Gated on the
     // whole 3D-print ROUTE, not just the print view: on the cardboard route there is no machine to
     // overflow — a part wider than A4 continues onto the next page, butt-joined — so telling that
@@ -706,11 +707,6 @@ export default function TomoshibiStudio() {
           template's own pages, over the same (empty) canvas the section editor uses. */}
       {paperPreview && <PagePreview p={p} matT={matT} lang={lang} />}
 
-      {/* The build guide: also a document over the idle canvas, and also drawn from this design. */}
-      {view === "guide" && (
-        <GuidePage route={route} onGoPrint={() => setView("print")} />
-      )}
-
       {glError && (
         <div style={{
           position: "absolute", inset: 0, display: "flex", flexDirection: "column",
@@ -742,19 +738,16 @@ export default function TomoshibiStudio() {
         <div style={{ ...chipBox, top: CHIP.row2, left: CHIP.left }}>{routeTabs}</div>
       )}
 
-      {/* Dimension chip — live on every view that shows the model. On a phone it sits tighter to
-          the corner: at 375px the readout was printing straight through the tab strip. Not on the
-          guide: that page opens with the same two numbers in its own spec row, and on a phone the
-          fifth tab grew the strip far enough right to run into this. */}
-      {view !== "guide" && (
-        <div style={{
-          position: "absolute", top: narrow ? 10 : 24, right: narrow ? 12 : 24,
-          fontSize: narrow ? 11 : 12, color: chip.txt,
-          fontFamily: mono, letterSpacing: "0.05em", textAlign: "right", pointerEvents: "none",
-        }}>
-          ⌀{maxDia} × H{p.height} mm
-        </div>
-      )}
+      {/* Dimension chip (always live). On a phone it sits tighter to the corner: at 375px the tab
+          strip reaches far enough right that the readout was printing through it. Right-aligned
+          either way, so it reads as a status line rather than as another control. */}
+      <div style={{
+        position: "absolute", top: narrow ? 10 : 24, right: narrow ? 12 : 24,
+        fontSize: narrow ? 11 : 12, color: chip.txt,
+        fontFamily: mono, letterSpacing: "0.05em", textAlign: "right", pointerEvents: "none",
+      }}>
+        ⌀{maxDia} × H{p.height} mm
+      </div>
 
       {/* The alert column, floating in the canvas's bottom-right (declared above; on a phone it is
           a strip below the viewport instead — see `alertBar`). */}
@@ -779,7 +772,7 @@ export default function TomoshibiStudio() {
   );
 
   // ============ Right: inspector (hidden in lit mode) ============
-  const inspector = solo ? null : (
+  const inspector = isLit ? null : (
     <aside ref={asideRef} style={{
       display: "flex", flexDirection: "column",
       width: narrow ? "auto" : PANEL,
@@ -1144,6 +1137,13 @@ export default function TomoshibiStudio() {
         {welcome && (
           <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome}
             onPick={(r) => { setRoute(r); closeWelcome(); }} />
+        )}
+        {/* The guide's one outbound link closes it as well as switching the view: the print view is
+            somewhere you go to DO something, and leaving the document open over it would hide the
+            thing it just sent you to. */}
+        {guide && (
+          <GuidePage route={route} onClose={() => setGuide(false)}
+            onGoPrint={() => { setGuide(false); setView("print"); }} />
         )}
       </div>
     </TContext.Provider>

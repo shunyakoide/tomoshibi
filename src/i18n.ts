@@ -228,11 +228,14 @@ const EN: Record<string, string> = {
     "Still being verified: cut one panel and offer it up before you cut them all.",
   "TOMOSHIBI 和紙型紙 {name} 原寸": "TOMOSHIBI washi template {name} (full scale)",
 
-  // ---- Assembly guide (the 作り方 view) ----
+  // ---- Build guide (the ☰ menu's 作り方 overlay) ----
   // Body text is long by the standards of this file: it is the only place in the app that explains a
   // hand movement rather than labelling a control, and it is read once, away from the screen.
-  "作り方": "Guide",
-  "組立説明書": "Assembly guide",
+  // One string for the menu row and the page's own kicker: the row names the document, so the
+  // document says the same word back. It was "組立説明書" on the page, which is narrower than what
+  // is on it — winding bamboo, pasting washi, drying, pulling the mold out and lighting the result
+  // are not assembly, and half of them happen after the mold comes apart.
+  "作り方": "How to build it",
   "3Dプリントで型をつくる": "Build the mold by 3D printing",
   "段ボールで型をつくる": "Build the mold from cardboard",
   // The figures draw one representative lantern and the page prints no dimensions at all, so the
