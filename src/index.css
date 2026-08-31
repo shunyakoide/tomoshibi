@@ -271,9 +271,14 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .note-list { margin: 2px 0 0; padding: 0; list-style: none; }
 .note-list > li { padding: 1.5px 0; }
 
-/* Header affordance: the round button. One consumer now — the overflow menu's "⋯" trigger — but
-   the class stays generic, because the narrow block at the end of this file grows it to a touch
-   target and that is the property any future header button wants to inherit. */
+/* Header affordance. One consumer — the overflow menu's ☰ trigger — but the class stays generic,
+   because size is the property any future header button wants to inherit.
+
+   36px on BOTH layouts. It was 22 on the wide one, inherited from the "?" text button it replaced,
+   and grown to a touch target only in the narrow block at the end of this file. That was the wrong
+   shape of rule twice over: 22px is small for a pointer too — it is the app's whole menu, and the
+   only way back to the onboarding card — and the wide panel header has nothing to gain from it
+   being small, because the row's height comes from a 44px wordmark beside it. */
 .icon-btn {
   background: var(--card); color: var(--sub); border: 1px solid var(--card-edge);
   font-family: var(--mono); font-weight: 700; cursor: pointer;
@@ -281,15 +286,14 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .icon-btn {
   /* A rounded SQUARE, not a circle: it stands at the end of a row of `.tab-sel` selects whose
      corners are 9px, and a lone circle among them read as a different kind of thing. */
-  width: 22px; height: 22px; padding: 0; border-radius: 7px;
-  display: flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1;
+  width: 36px; height: 36px; padding: 0; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1;
 }
 .icon-btn:hover { color: var(--accent); border-color: var(--accent-45); }
 
 /* ---- The overflow menu (ui/Menu.tsx) -------------------------------------------------------
-   The trigger reuses `.icon-btn`, which is not laziness: that class is already the app's small
-   round header button AND already grows to 36px in the narrow block at the end of this file, so
-   the touch target comes for free. It was the "?" that reopened the intro until that moved into
+   The trigger reuses `.icon-btn`, which is not laziness: that class is already the app's header
+   button and is already 36px, so the touch target comes for free. It was the "?" that reopened the intro until that moved into
    the menu, and this is the same button in the same corner. */
 .menu { position: relative; display: inline-flex; }
 /* Right-anchored, because the button is the last thing in its row on both layouts — a left-anchored
@@ -697,24 +701,27 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 
 /* ---- Touch targets in the inspector (narrow) ------------------------------------------------
    Placed at the END of the file on purpose: a media query adds no specificity, so every rule here
-   would lose to the plain `.icon-btn` / `.val-btn` / `.scrub-row` definitions above if it came
+   would lose to the plain `.val-btn` / `.step-btn` / `.scrub-row` definitions above if it came
    first. That is not hypothetical — it is how this block was written the first time, and only the
    two rules that happened to out-specify their base (`.scrub-row input[type=range]`) took effect.
    Matches useNarrow(860). */
 @media (max-width: 860px) {
   /* ---- Touch targets in the inspector -------------------------------------------------------
      Measured on a 375x812 phone, every control in the panel was mouse-sized: the ± squares 26px,
-     the value buttons 62x24, the sliders a 24px strip, and the header's "?" — the ONLY way back to
-     the onboarding card — twenty-two pixels across. Against the 44px both platform guidelines ask
-     for, this is the same failure the section editor's ◇ had, in the half of the app that is
-     nothing but controls.
+     the value buttons 62x24, and the sliders a 24px strip. Against the 44px both platform
+     guidelines ask for, this is the same failure the section editor's ◇ had, in the half of the app
+     that is nothing but controls. (The header button was in this list at 22px and is not any more:
+     it is 36 in its base rule now, on both layouts — see `.icon-btn`. A control that is too small
+     to hit with a finger is usually also too small to find with a pointer, and this one is the
+     app's whole menu.)
 
      What makes it nearly free is that the space is ALREADY RESERVED: `.scrub-row` is min-height 44
      and `.row` comes out at 40, and the controls inside simply were not filling their own row. So
      these rules grow the HIT AREA and leave the layout where it is — the same separation the
      section editor draws between a handle's glyph and its hit circle. Panel height is the scarce
      resource here (1216px of controls through a ~260px window), so a rule that costs rows is a
-     rule that has to earn it: only the header's two buttons do, at +6px once. */
+     rule that has to earn it — and after the header button moved out to its base rule, nothing
+     left in this block costs a single row. */
 
   /* Fill the row that is already 44px tall. Dropping the padding does not change the row's height
      — min-height was already doing that — it just hands the content box the same 44px. */
@@ -728,10 +735,4 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
      `.row`'s own 7px padding, so neither square reaches its neighbour or the value between them. */
   .step-btn { position: relative; }
   .step-btn::after { content: ""; position: absolute; inset: -7px -9px; }
-
-  /* The two header buttons are the one place that cannot be paid for out of reserved space — they
-     sit in a 48px header with nothing above or below to borrow from, and they are 10px apart, so an
-     overlay would land on its neighbour. It grows for real, and the header goes 48px -> 54px. Worth
-     its 6px: this is the only way back to the onboarding card, which never auto-opens again. */
-  .icon-btn { width: 36px; height: 36px; border-radius: 9px; font-size: 14px; }
 }
