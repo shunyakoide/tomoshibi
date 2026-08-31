@@ -246,6 +246,10 @@ for (const preset of PRESETS)
 // **a broken file** (a bad xref offset makes viewers refuse it, or open it blank) and **a wrong
 // scale** (the whole point of the template). Scale is pinned by the page CTM (mm→pt = 2.835) plus
 // the 50mm ruler being drawn as literally 50mm in user space.
+// One outlined character: a scale-and-flip matrix, a fill colour, the stored path, filled. Its
+// operators are `m`/`l`/`c`/`h` like any other path, so every reader of the content stream has to
+// take it out first — a glyph is a word on the page, not a line to cut along.
+const GLYPH_RE = /q [-\d. ]+ cm [\d. ]+ rg [-\d. mlch]+ f Q/g;
 const pdfStructure = (s: string, tag: string, pages: number) => {
   if (!s.startsWith("%PDF-1.")) bad(`${tag}: no PDF header`);
   if (!s.trimEnd().endsWith("%%EOF")) bad(`${tag}: no EOF marker`);
@@ -306,6 +310,19 @@ for (const preset of PRESETS)
       // check above would still pass — this is the one that notices.
       for (const q of paperParts(p, 5, en).parts)
         if (!cs.includes(q.name)) bad(`${tag} cardboard: "${q.name}" is not labelled in the PDF`);
+      // The same sheet in Japanese — the language the app speaks by default, and the one the writer
+      // could not print at all until it carried its own outlines. Nothing about the file's structure
+      // may change (pdfStructure again, including the rule that no raw multi-byte reaches a Tj), and
+      // every character WinAnsi cannot encode must be DRAWN. Counting is the whole point: dropping
+      // them silently is the old failure, and it leaves every other assertion here satisfied.
+      const jaSVG = paperPagesSVG(p, 5, undefined, A4);
+      const js = Buffer.from(paperPDF(p, 5, A4)).toString("latin1");
+      pdfStructure(js, `${tag} cardboard ja`, jaSVG.pages);
+      const wanted = [...jaSVG.svg.matchAll(/<text[^>]*>([^<]*)</g)]
+        .flatMap((m) => [...m[1]]).filter((ch) => ch.charCodeAt(0) > 0xff).length;
+      const drawn = (js.match(GLYPH_RE) || []).length;
+      if (!wanted) bad(`${tag} cardboard ja: the pages carry no Japanese to draw`);
+      if (drawn !== wanted) bad(`${tag} cardboard ja: ${wanted} outlined characters on screen, ${drawn} in the PDF`);
     }
 // ---- 6. One drawing, two encodings ----
 // Every page is built once as `pageOps` and then rendered as SVG or as PDF. The cardboard route's
@@ -337,6 +354,7 @@ const svgText = (svg: string) => [...svg.matchAll(/<text x="([\d.-]+)" y="([\d.-
 const pdfBody = (s2: string) => [...s2.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map((m) => m[1]).join("\n");
 const pdfPaths = (s2: string) => pdfBody(s2)
   .replace(/BT[\s\S]*?ET/g, "")            // a text block's `Tm` matrix ends in "m" — not a moveto
+  .replace(GLYPH_RE, "")                   // an outlined character is text, not a line on the sheet
   .split(/\bS\b/)
   .map((seg) => [...seg.matchAll(/(-?[\d.]+) (-?[\d.]+) [ml]\n?/g)].flatMap((m) => [r2(m[1]), r2(m[2])]).join(" "))
   .filter(Boolean).sort(byPath);
@@ -375,9 +393,14 @@ for (const preset of PRESETS)
       // Built with the SAME translator the PDF gets, so this is about the drawing, not the labels.
       const w = washiPagesSVG(p, { side, end }, en, A4).svg;
       sameDrawing(w, Buffer.from(washiPDF(p, { side, end }, A4, en)).toString("latin1"), `${tag} washi`);
-      // The language must not move a single coordinate — only the words.
+      // The language must not move a single coordinate — only the words. Checked in both encodings:
+      // the PDF is where the words became artwork, so it is the one that could start pushing lines
+      // around (a glyph left in the path stream would read as a cut line half a millimetre wide).
       if (svgPaths(washiPagesSVG(p, { side, end }, undefined, A4).svg).join("|") !== svgPaths(w).join("|"))
         bad(`${tag} washi: the drawing changes with the UI language`);
+      const jaPDF = Buffer.from(washiPDF(p, { side, end }, A4)).toString("latin1");
+      if (pdfPaths(jaPDF).join("|") !== pdfPaths(Buffer.from(washiPDF(p, { side, end }, A4, en)).toString("latin1")).join("|"))
+        bad(`${tag} washi: the PDF drawing changes with the UI language`);
     }
   }
 

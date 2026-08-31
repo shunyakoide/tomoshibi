@@ -71,7 +71,6 @@ const EN: Record<string, string> = {
   "定番サイズ": "Common size",
   "カスタム": "Custom",
   "配置": "Layout",
-  "竹ひご": "Bamboo",
   // ---- Preset names ----
   "たまご": "Egg",
   "たる": "Barrel",
@@ -109,7 +108,8 @@ const EN: Record<string, string> = {
   "(「用紙に合わせる」は不可)": " — never \"fit to page\"",
   // The PDF's own title line. English on purpose: base-14 Helvetica cannot draw Japanese (see paperPDF).
   "TOMOSHIBI 段ボール型紙 {name} 原寸": "TOMOSHIBI cardboard template {name} (full scale)",
-  // Printed on every sheet, so it has to survive winAnsi() — plain Latin-1 only (the arrow folds).
+  // Printed on every sheet. Both languages reach paper now (the writer carries outlines for the
+  // Japanese), so keep both SHORT: the note shares its band with the right-aligned footer.
   "← 定規で確認": "<- check with a ruler",
   // ---- Summary ----
   "最大径": "Max diameter",
@@ -214,8 +214,8 @@ const EN: Record<string, string> = {
   "枚(各1枚)": " (one file each)",
   // ---- Papercraft (cardboard) ----
   "コマ": "Koma",
-  // Kept short: it shares the bottom band with the right-aligned footer, and the PDF draws the
-  // English text at the same size (a longer line collides with the footer).
+  // Kept short: it shares the bottom band with the right-aligned footer, and the PDF draws either
+  // language at the same size (a longer line collides with the footer).
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
   "羽根板の間 1面分 · beta": "one rib-to-rib panel · beta",
@@ -227,6 +227,140 @@ const EN: Record<string, string> = {
   "この型紙は検証中です。全面を切る前に、まず 1 面だけ合わせてみてください。":
     "Still being verified: cut one panel and offer it up before you cut them all.",
   "TOMOSHIBI 和紙型紙 {name} 原寸": "TOMOSHIBI washi template {name} (full scale)",
+
+  // ---- Build guide (the ☰ menu's 作り方 overlay) ----
+  // Body text is long by the standards of this file: it is the only place in the app that explains a
+  // hand movement rather than labelling a control, and it is read once, away from the screen.
+  // One string for the menu row and the page's own kicker: the row names the document, so the
+  // document says the same word back. It was "組立説明書" on the page, which is narrower than what
+  // is on it — winding bamboo, pasting washi, drying, pulling the mold out and lighting the result
+  // are not assembly, and half of them happen after the mold comes apart.
+  "作り方": "How to build it",
+  "3Dプリントで型をつくる": "Build the mold by 3D printing",
+  "段ボールで型をつくる": "Build the mold from cardboard",
+  // The figures draw one representative lantern and the page prints no dimensions at all, so the
+  // lead says so — a reader who counts eight ribs in every picture has to be told they are not a
+  // specification. See the GuidePage header.
+  "型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図は一例で、大きさや枚数は設計によって変わります。":
+    "Assemble the mold, wind the bamboo, paste the washi, and pull the mold once it is dry. The figures show one example — sizes and counts follow your own design.",
+  "設計した枚数": "per your design",
+  "部品": "Parts",
+  "手順": "Steps",
+  "支柱": "Post",
+  "土台": "Base",
+  "口輪(下)": "Ring (bottom)",
+  "口輪(上)": "Ring (top)",
+  "編集中": "draft",
+  "図を描けませんでした": "Figure unavailable",
+  "段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。":
+    "The cardboard mold has no posts, base or rings — the template cuts the mold itself. Hold it in your hands as you turn it, or rest it on a box.",
+  "「印刷」ビューへ →": "Go to the Print view →",
+  "部品をつくる": "Make the parts",
+  "「印刷」ビューから STL を書き出し、羽根板・コマ・支柱・土台・口輪を印刷します。コマと支柱は上下で同じ部品なので、スライサーで2つに複製してください。":
+    "Export the STLs from the Print view and print the ribs, koma, posts, base and rings. The koma and the posts are the same part top and bottom, so duplicate each one in your slicer.",
+  "「印刷」ビューから型紙 ZIP をダウンロードし、原寸(100%)で刷ります。段ボールに貼るか下敷きにして、線のとおりに切り出します。刃は新しいものを。":
+    "Download the template ZIP from the Print view and print it at 100%. Glue the sheets to the cardboard or slip them underneath, and cut along the lines. Use a fresh blade.",
+  "土台を組む": "Assemble the stand",
+  "土台のスリットに支柱の爪をまっすぐ差し込みます。肩が襟の上面に当たるまで押し込めば正しい深さです。2本とも、くぼみを上に向けて同じ向きに。":
+    "Push each post straight down into its slot in the base. When the shoulders meet the top of the collar it is in far enough. Both posts face the same way, saddle up.",
+  "コマに羽根板を差す": "Plug the ribs into a koma",
+  "コマを平らに置き、まわりのノッチに羽根板の爪を差し込みます。爪の先の欠きがコマの内側に噛むので、奥まで入れば止まります。太い側の向きをすべて揃えてください。":
+    "Lay one koma flat and plug a rib tab into each notch around it. The notch at the tip of the tab catches the koma's hub, so a tab that is all the way in stops there. Point every rib's wider end the same way.",
+  "もう1枚のコマをかぶせる": "Cap it with the second koma",
+  "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1か所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。":
+    "Line every tab up with a notch first, then press the koma down flat. Seating one tab at a time is what cracks them — work around the whole circle a little at a time. The two koma are the same part.",
+  "土台に載せる": "Set it in the stand",
+  "型を横向きにして、両端のコマを支柱のくぼみに載せます。こうすると型が回るので、1面貼っては回し、を繰り返せます。まず手で1回転させて、振れや引っかかりがないか確認してください。":
+    "Turn the mold on its side and rest a koma in each post's saddle. Now it turns: paste one panel, roll it round, paste the next. Spin it once by hand first and check that it runs true and catches on nothing.",
+  "竹ひごを巻く": "Wind the bamboo",
+  "羽根板の外縁の溝に竹ひごを沿わせ、下から上へ巻いていきます。溝が受けるので滑り落ちません。「螺旋巻き」で設計した型なら、溝が段ごとにずれていて1本の連続した螺旋になります。":
+    "Lay the bamboo into the grooves on the ribs' outer edges and wind upward from the bottom. The grooves hold it, so it cannot slip. If you designed with spiral winding, they step round rib by rib and the bamboo becomes one continuous helix.",
+  "和紙を貼る": "Paste the washi",
+  "でんぷん糊を竹ひごに置き、和紙をのせて刷毛で撫でて密着させます。羽根板と羽根板の間を1面ずつ、1つ飛ばしに。一周したら戻って間を埋めます — 縁を重ねる相手が濡れていない面になります。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。":
+    "Dab starch paste onto the bamboo, lay the washi over it and stroke it down with a brush. Work one rib-to-rib panel at a time, skipping every other bay; go round once, then come back and fill the gaps — each overlap then lands on a panel that is no longer wet. Cut the paper first with the washi template in the ZIP — trimming it wet is the fiddly part.",
+  "乾かす": "Let it dry",
+  "糊と和紙が完全に乾くまで置きます。乾くと紙が張って形が決まります。急がないこと — 生乾きで型を抜くと歪みます。":
+    "Leave it until the paste and the paper are completely dry. Drying is what pulls the paper taut and sets the shape. Do not rush it: pulling the mold from a damp shade warps it.",
+  "型を抜く": "Pull the mold",
+  "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。":
+    "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are. The rings stay behind with the lantern; trim the overhanging washi at the rim.",
+  "口輪をはめる": "Fit the opening rings",
+  "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。":
+    "Slip a ring over each opening. Their bore follows the opening, so they drop onto the ribs' outer edge. Nothing holds either the rings or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the rings when you paste, which is why they stay in the lantern after the mold comes out. The one with the leg sockets is the bottom.",
+  "灯りをつける": "Put a light in it",
+  "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。":
+    "There are {n} ways to light it. Whichever you pick, the bulb sits just inside the washi, so use an LED rather than a filament bulb.",
+  "未記入": "Not written yet",
+  "材料と道具": "Materials and tools",
+  "材料": "Materials",
+  "道具": "Tools",
+  // One entry serves the inspector's section heading and the kit card both: the dictionary is keyed
+  // by the Japanese, so a word cannot have two translations. (It had two — "Bamboo" for the panel,
+  // "Bamboo ribs" for the card — and the second silently retranslated the first. See check:i18n.)
+  "竹ひご": "Bamboo ribs",
+  "ワイヤー": "Wire",
+  "任意": "optional",
+  "脚を付けるか吊るす場合": "for the legs or for hanging it",
+  "ワイヤーを曲げる": "for bending the wire",
+  "のり": "Paste",
+  "でんぷんのり、または木工用ボンド": "starch paste or wood glue",
+  "テープや糸など": "Tape, thread, or the like",
+  "竹ひごを留める": "holds the bamboo in place",
+  "のりを塗るはけ": "Brush for the paste",
+  "障子貼り用の糊刷毛など": "a paste brush for shoji paper, or similar",
+  "紙を張るブラシ": "Brush for laying the paper",
+  "靴磨き用など": "a shoe brush, or similar",
+  "霧吹き": "Spray bottle",
+  "貼るときと、貼ったあとに": "As you paste, and again after",
+  "ペンチ": "Pliers",
+  "カミソリ": "Razor blade",
+  "はみ出した和紙を切る": "trims the washi that overhangs",
+  "ライト": "Lamp",
+  "熱を持ちにくい LED のもの": "an LED one, so it stays cool",
+  "置いたライトに被せる": "Cover a lamp you stand on the floor",
+  "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。":
+    "Stand an LED lamp on the floor and drop the shade over it. No legs, no fittings. Pick a lamp that fits through the bottom opening.",
+  "上から吊るす": "Hang it from above",
+  // Hanging. One wire, bowed into an arch over the top opening: the SOCKET hangs in the U bent
+  // into its middle (the gap passes the cord and stops the socket) and the shade hangs on the
+  // wire, whose ends drape over the rim. 「吊り線」 is that wire once it is bent for the job — the
+  // material is 「ワイヤー」 on the kit list, and the two words have to stay in their places or the
+  // page is naming one thing twice.
+  "ソケットを大きいほうの開口から入れ、コードを上の開口から出します。吊り線1本のUにコードを入れてソケットを引っ掛け、両端を上の開口の縁の下に入れます。":
+    "Put the socket in through the wider opening and bring the cord out of the top one. Drop the cord into the U of one hanger so the socket catches in it, and tuck the hanger's two ends under the rim of the top opening.",
+  "上の開口の大きさによっては安定しないことがあります。長さや曲げ方は現物に合わせて調整してください。":
+    "Depending on how big the top opening is, it may not sit steadily. Adjust the length and the bends to suit the lantern you have made.",
+  "吊り線を曲げる": "Bend the hanger",
+  "ワイヤーの中央をUの字に曲げます。間はコードが通ってソケットが通らない幅に。中央が高くなるようゆるい弧に曲げ、両端は上の開口の縁の下を通って外まで出る長さに伸ばします。":
+    "Bend the middle of the wire into a U, its gap wide enough to pass the cord and narrow enough to stop the socket. Bow the wire into a shallow arch, highest in the middle, and leave the two ends long enough to pass under the rim of the top opening and out the other side.",
+  "ソケットを引っ掛ける": "Hang the socket in it",
+  "Uにコードを入れると、ソケットが引っ掛かります。両端は上の開口の縁の下に入れます。":
+    "Drop the cord into the U and the socket catches in it. Tuck the two ends under the rim of the top opening.",
+  "脚を付けて下から留める": "Add legs and fix it from below",
+  "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚と枠を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。":
+    "The cardboard route prints no opening ring. Make one from card, glue it into the bottom opening and pierce three holes in it for the leg ends. The rest is the same: take the lamp with its legs and its frame on it in through the bottom opening to stand it up, and run the cord out between the legs.",
+  "脚と枠を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは脚のあいだから下へ逃がします。":
+    "Take the lamp with its legs and its frame on it in through the bottom opening and push the leg ends into the bottom ring's leg sockets to stand it up. The frame runs up inside the body and shows a little of itself at the top opening, holding the body taut between the two ends. The cord runs down and out between the legs.",
+  // The wire work under that one. ネジ is the socket's threaded stem and ナット the fixing nut
+  // that runs on it — one pair of words, so the three sub-steps have to keep calling them the same
+  // thing in both languages or the reader loses which part is which between figures.
+  // Not 「ワイヤーを曲げる」 for this one: that is already the pliers' line on the kit list, where
+  // it reads "for bending the wire" — a note about when you need the tool, not an instruction.
+  // The dictionary is keyed by the Japanese, so one wording cannot carry both (check:i18n).
+  "脚を曲げる": "Bend the legs",
+  "ペンチで先端を輪に曲げます。輪はソケットのネジが通る大きさに。残りは外へ渡してから下へ折り、床に届く長さにします。3本とも同じ形に。":
+    "Bend a loop in one end with the pliers, big enough to pass over the socket's threaded stem. Take the rest outward, then turn it down and cut it long enough to reach the floor. All three the same shape.",
+  // 枠 is the hoop that holds the shade out to its height, not the mold's rib boards — "frame" in
+  // the lampshade sense, the wire a shade is built on.
+  "枠を曲げる": "Bend the frame",
+  "もう1本を輪に曲げます。下は両端を合わせて脚と同じ大きさの輪にし、そこから電球とソケットに当たらないよう外へ開いて立ち上げます。上の端は小さな輪に。高さは、その輪が上の開口から少し出るくらいに。":
+    "Bend a second length into a hoop. At the bottom, bring both ends together into a loop the same size as the legs'; from there open it outward, clear of the bulb and the socket, before taking it up. A small loop at the top end. Make it tall enough that the loop stands a little proud of the top opening.",
+  "ネジに通す": "Onto the stem",
+  "ソケットの固定ナットを外し、3本の脚と枠の輪をネジに重ねて通します。脚が120°ずつ開くように向きを揃えてください。":
+    "Take the socket's fixing nut off and stack the three legs' loops and the frame's on the stem. Set them so the legs come out 120° apart.",
+  "ナットで締める": "Tighten the nut",
+  "ナットを戻して締めます。これでライトと脚と枠が1つになります。":
+    "Run the nut back up and tighten it. The lamp, its legs and its frame are now one piece.",
 };
 
 // Return the translation function for language `lang`. t(key, params?): for English, look up EN

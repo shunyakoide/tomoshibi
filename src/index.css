@@ -50,7 +50,8 @@ input[type="range"]::-moz-range-thumb {
 
 /* Keyboard-focus ring on every control. Mouse clicks don't match :focus-visible, so this is only
    ever seen by keyboard and AT users. */
-button:focus-visible, input:focus-visible, [role="checkbox"]:focus-visible, [tabindex]:focus-visible {
+button:focus-visible, input:focus-visible, summary:focus-visible,
+[role="checkbox"]:focus-visible, [tabindex]:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px;
 }
 input[type="range"]:focus-visible { outline-offset: 4px; }
@@ -192,14 +193,17 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
    about 460px of viewport — not `useNarrow(860)`, which a tablet with plenty of room would trip. */
 .welcome { padding: 26px 26px 22px; }
 .welcome-logo { height: 62px; width: auto; }
-/* The close X. Chrome, so it is quiet and in the corner; it replaced a full-width footer button. */
-.welcome-x {
-  position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; padding: 0;
+/* The close X, shared by the app's two overlays (the welcome card and the build guide). Chrome, so
+   it is quiet and in the corner; on the card it replaced a full-width footer button. Only the
+   PLACEMENT differs, so only the placement is written twice. */
+.welcome-x, .guide-x {
+  width: 36px; height: 36px; padding: 0;
   display: flex; align-items: center; justify-content: center;
   background: none; border: none; border-radius: 50%; cursor: pointer;
   font-family: var(--sans); font-size: 20px; line-height: 1; color: var(--faint);
 }
-.welcome-x:hover { background: var(--card); color: var(--text); }
+.welcome-x:hover, .guide-x:hover { background: var(--card); color: var(--text); }
+.welcome-x { position: absolute; top: 10px; right: 10px; }
 
 /* ONE white panel around all three, not three panels — that is the difference between "here are
    the steps" and "here are three things to press". The card sits on --panel, so a single --card
@@ -261,9 +265,14 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .note-list { margin: 2px 0 0; padding: 0; list-style: none; }
 .note-list > li { padding: 1.5px 0; }
 
-/* Header affordance: the round button. One consumer now — the overflow menu's "⋯" trigger — but
-   the class stays generic, because the narrow block at the end of this file grows it to a touch
-   target and that is the property any future header button wants to inherit. */
+/* Header affordance. One consumer — the overflow menu's ☰ trigger — but the class stays generic,
+   because size is the property any future header button wants to inherit.
+
+   36px on BOTH layouts. It was 22 on the wide one, inherited from the "?" text button it replaced,
+   and grown to a touch target only in the narrow block at the end of this file. That was the wrong
+   shape of rule twice over: 22px is small for a pointer too — it is the app's whole menu, and the
+   only way back to the onboarding card — and the wide panel header has nothing to gain from it
+   being small, because the row's height comes from a 44px wordmark beside it. */
 .icon-btn {
   background: var(--card); color: var(--sub); border: 1px solid var(--card-edge);
   font-family: var(--mono); font-weight: 700; cursor: pointer;
@@ -271,15 +280,14 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .icon-btn {
   /* A rounded SQUARE, not a circle: it stands at the end of a row of `.tab-sel` selects whose
      corners are 9px, and a lone circle among them read as a different kind of thing. */
-  width: 22px; height: 22px; padding: 0; border-radius: 7px;
-  display: flex; align-items: center; justify-content: center; font-size: 12px; line-height: 1;
+  width: 36px; height: 36px; padding: 0; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1;
 }
 .icon-btn:hover { color: var(--accent); border-color: var(--accent-45); }
 
 /* ---- The overflow menu (ui/Menu.tsx) -------------------------------------------------------
-   The trigger reuses `.icon-btn`, which is not laziness: that class is already the app's small
-   round header button AND already grows to 36px in the narrow block at the end of this file, so
-   the touch target comes for free. It was the "?" that reopened the intro until that moved into
+   The trigger reuses `.icon-btn`, which is not laziness: that class is already the app's header
+   button and is already 36px, so the touch target comes for free. It was the "?" that reopened the intro until that moved into
    the menu, and this is the same button in the same corner. */
 .menu { position: relative; display: inline-flex; }
 /* Right-anchored, because the button is the last thing in its row on both layouts — a left-anchored
@@ -498,6 +506,138 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 }
 .pages-note > span { font-weight: 400; }
 
+/* ---- assembly guide (GuidePage.tsx) ---- */
+/* A reading document, so it is set like one: a single measured column, generous leading, and the
+   figures on a fixed track so the text edge stays straight down the page. It owns the whole window
+   (no inspector), which is why the column is centred rather than hugging the viewport's left. */
+/* 124px of head room, the same figure the print view's page grid uses and for the same reason: the
+   mode tabs and the route chip float over this canvas, and once the window is narrow enough for the
+   column to reach the left edge they land on the title. */
+/* Fixed to the window, not scrolled with the document — the way out has to stay reachable at the
+   bottom of a ten-step page. That means text passes UNDER it, so unlike the card's X this one needs
+   a ground and an edge of its own. */
+.guide-x {
+  position: fixed; top: 12px; right: 16px; z-index: 1;
+  background: var(--panel); box-shadow: 0 0 0 1px var(--edge);
+}
+/* 30px of top padding, not the 124 this had as a view: that was clearance for the mode and route
+   chips floating over the viewport, and an overlay has neither above it. */
+.guide-doc { max-width: 860px; margin: 0 auto; padding: 30px 24px 72px; }
+.guide-kicker {
+  margin: 0 0 6px; font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
+}
+.guide-h1 { margin: 0 0 10px; font-size: 25px; font-weight: 700; color: var(--head); }
+.guide-lead { margin: 0; font-size: 14px; line-height: 1.75; color: var(--fine); max-width: 62ch; }
+.guide-h2 {
+  margin: 40px 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+  color: var(--head); border-bottom: 1px solid var(--edge); padding-bottom: 8px;
+}
+.guide-parts {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px;
+}
+.guide-parts > li { padding: 10px 12px 12px; }
+.guide-part-name { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13.5px; }
+/* The count — or, on the rib, the words that stand in for one (see PARTS). Mono because it is
+   usually "x2"; a CJK phrase falls through to the system mono and still sits on the same line. */
+.guide-part-name > span { font-family: var(--mono); font-size: 12px; color: var(--sub); }
+.guide-part-dim { margin-top: 2px; font-family: var(--mono); font-size: 11px; color: var(--fine); }
+
+/* What you supply. Laid out with the parts grid's own class so the two lists match: same cards,
+   same wells, same name-and-note lines. Only the group heading is extra. */
+.guide-kit { margin-top: 4px; }
+.guide-kit + .guide-kit { margin-top: 16px; }
+.guide-kit h3 { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--fine); }
+.guide-kit strong { font-weight: 400; }
+
+.guide-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.guide-steps > li { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 20px; padding: 16px; align-items: start; }
+/* A step with nothing to show (its only child is the text) spans the column instead of leaving a
+   300px hole where the figure would be. */
+.guide-steps > li > :only-child { grid-column: 1 / -1; }
+.guide-steps h3 { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; font-size: 15.5px; font-weight: 700; color: var(--head); }
+.guide-steps p { margin: 0; font-size: 13.5px; line-height: 1.8; color: var(--text); }
+.guide-num {
+  flex: none; width: 24px; height: 24px; border-radius: 50%; color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700;
+}
+/* The figure well. It keeps its box whether the drawing has arrived, has failed, or
+   neither exists — a step that reflows when its image loads is a step you lose your place in. */
+.guide-fig {
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  aspect-ratio: 4 / 3; border-radius: 10px; background: #fff; border: 1px solid var(--edge);
+}
+.guide-fig--part { aspect-ratio: 3 / 2; margin-bottom: 8px; border-color: transparent; background: transparent; }
+.guide-fig img { width: 100%; height: 100%; object-fit: contain; }
+.guide-slot { font-size: 11px; color: var(--fine); text-align: center; padding: 8px; }
+/* A step whose ways of doing it are ALTERNATIVES, not sub-steps: each gets its own section in the
+   step's own figure-beside-text rhythm rather than three narrow columns, so the drawings stay the
+   size every other figure on the page is read at. No numbers — numbering them would say do all. */
+.guide-opts { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 20px; }
+.guide-opts > li { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 6px 20px; align-items: start; }
+/* Title AND body span both columns, above the figure. That is what separates one way from the next:
+   beside the figure the title is just the first line of a paragraph in a column of paragraphs, and
+   what is left in the right-hand column is then only the numbered work, level with the drawing. */
+.guide-opts h4 { grid-column: 1 / -1; margin: 0; font-size: 13.5px; font-weight: 700; color: var(--head); }
+/* Spanning the columns buys the alignment; the measure has to be given back by hand. Without the
+   cap this one paragraph runs the full 828px card while every other body on the page sits in a
+   ~460px column — nearly 100 characters a line against 57. */
+.guide-opts > li > p { grid-column: 1 / -1; max-width: 60ch; margin: 0 0 2px; }
+/* The footnote at the foot of one way. The rule above wins the margin on specificity, so it needs
+   its own — and it is set on the TOP because what it has to clear is the block above it. */
+.guide-opts > li > p.guide-note { margin-top: 10px; }
+/* The numbered work inside one way of doing it — bending the wire, hooking it on. Numbered here
+   BECAUSE these are sequential, which is exactly what the options around them are not. Smaller
+   wells: they sit inside a section that is itself inside a step. */
+.guide-detail { margin: 0; padding: 0 0 0 0; list-style: none; counter-reset: gd; display: flex; flex-direction: column; gap: 10px; }
+.guide-detail > li { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); gap: 12px; align-items: start; counter-increment: gd; }
+.guide-detail > li > div:last-child::before {
+  content: counter(gd); display: inline-block; margin-right: 6px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--fine);
+}
+.guide-detail h5 { display: inline; margin: 0; font-size: 12.5px; font-weight: 700; color: var(--head); }
+.guide-detail p { font-size: 12.5px; }
+.guide-note { margin: 12px 0 0; font-size: 12px; line-height: 1.7; color: var(--sub); }
+.guide-steps .btn { margin-top: 12px; }
+
+@media (max-width: 860px) {
+  /* One column: a 300px figure beside text on a phone leaves neither of them readable. */
+  .guide-doc { padding: 26px 14px 40px; }
+  .guide-steps > li, .guide-opts > li, .guide-detail > li { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}
+/* Printing the page IS the printable guide — the app writes no PDF for it. Drop the app's furniture
+   (tabs, chips, the scroll box) and let the browser paginate the document itself; a step must not be
+   split across the fold, which is what break-inside on the cards buys. */
+@media print {
+  /* The app is a fixed-height, overflow-hidden shell — which is what a viewport-filling tool has to
+     be on screen, and which clipped the printed guide to EXACTLY ONE PAGE. Releasing `.guide`
+     alone was never enough: every ancestor from <html> down to the viewport is 100%-tall and
+     hidden, so the document could not paginate at all. Let all of them go first. */
+  html, body, #root { height: auto !important; overflow: visible !important; }
+  #root > div { display: block !important; height: auto !important; overflow: visible !important;
+    background: #fff !important; }   /* the app's warm ground paints the rest of the last sheet */
+  main { height: auto !important; overflow: visible !important; position: static !important; }
+  /* The furniture: the whole app behind the overlay — viewport and canvas, tab strip, inspector.
+     The guide is a fixed-position child of the app's root box now (it was a sibling of the canvas
+     inside <main> while it was a view), so it is named by what it is not, one level up. */
+  #root > div > *:not(.guide) { display: none !important; }
+  /* Including its own way out: a × is a control, and there is nothing to close on paper. */
+  .guide-x { display: none !important; }
+  .guide { position: static !important; overflow: visible !important; background: #fff !important; }
+  .guide-doc { max-width: none; padding: 0; }   /* the chips are gone on paper, and so is their clearance */
+  .guide-steps > li, .guide-parts > li, .guide-opts > li, .guide-detail > li { break-inside: avoid; box-shadow: none; }
+  /* …except a step that is a stack of alternatives. It is taller than a page, and break-inside on
+     something that cannot fit anyway only buys a blank page ahead of it. */
+  .guide-steps > li:has(.guide-opts) { break-inside: auto; }
+  /* Paper is narrower than the 860px breakpoint, so without this the page drops to ONE column and
+     every figure blows up to full width: a page per step, and blocks taller than a page — which
+     Chrome then drops rather than splits. Keep the two columns on paper. */
+  .guide-steps > li, .guide-opts > li { grid-template-columns: minmax(0, 38%) minmax(0, 1fr) !important; }
+  .guide-detail > li { grid-template-columns: minmax(0, 24%) minmax(0, 1fr) !important; }
+  .guide-h2 { break-after: avoid; }
+}
+
 /* ---- crash screen (main.tsx error boundary) ---- */
 /* Its own dark palette rather than the panel tokens: whatever went wrong may well be in the theme,
    so this screen must not depend on anything the app sets up at startup. */
@@ -511,24 +651,27 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 
 /* ---- Touch targets in the inspector (narrow) ------------------------------------------------
    Placed at the END of the file on purpose: a media query adds no specificity, so every rule here
-   would lose to the plain `.icon-btn` / `.val-btn` / `.scrub-row` definitions above if it came
+   would lose to the plain `.val-btn` / `.step-btn` / `.scrub-row` definitions above if it came
    first. That is not hypothetical — it is how this block was written the first time, and only the
    two rules that happened to out-specify their base (`.scrub-row input[type=range]`) took effect.
    Matches useNarrow(860). */
 @media (max-width: 860px) {
   /* ---- Touch targets in the inspector -------------------------------------------------------
      Measured on a 375x812 phone, every control in the panel was mouse-sized: the ± squares 26px,
-     the value buttons 62x24, the sliders a 24px strip, and the header's "?" — the ONLY way back to
-     the onboarding card — twenty-two pixels across. Against the 44px both platform guidelines ask
-     for, this is the same failure the section editor's ◇ had, in the half of the app that is
-     nothing but controls.
+     the value buttons 62x24, and the sliders a 24px strip. Against the 44px both platform
+     guidelines ask for, this is the same failure the section editor's ◇ had, in the half of the app
+     that is nothing but controls. (The header button was in this list at 22px and is not any more:
+     it is 36 in its base rule now, on both layouts — see `.icon-btn`. A control that is too small
+     to hit with a finger is usually also too small to find with a pointer, and this one is the
+     app's whole menu.)
 
      What makes it nearly free is that the space is ALREADY RESERVED: `.scrub-row` is min-height 44
      and `.row` comes out at 40, and the controls inside simply were not filling their own row. So
      these rules grow the HIT AREA and leave the layout where it is — the same separation the
      section editor draws between a handle's glyph and its hit circle. Panel height is the scarce
      resource here (1216px of controls through a ~260px window), so a rule that costs rows is a
-     rule that has to earn it: only the header's two buttons do, at +6px once. */
+     rule that has to earn it — and after the header button moved out to its base rule, nothing
+     left in this block costs a single row. */
 
   /* Fill the row that is already 44px tall. Dropping the padding does not change the row's height
      — min-height was already doing that — it just hands the content box the same 44px. */
@@ -542,10 +685,4 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
      `.row`'s own 7px padding, so neither square reaches its neighbour or the value between them. */
   .step-btn { position: relative; }
   .step-btn::after { content: ""; position: absolute; inset: -7px -9px; }
-
-  /* The two header buttons are the one place that cannot be paid for out of reserved space — they
-     sit in a 48px header with nothing above or below to borrow from, and they are 10px apart, so an
-     overlay would land on its neighbour. It grows for real, and the header goes 48px -> 54px. Worth
-     its 6px: this is the only way back to the onboarding card, which never auto-opens again. */
-  .icon-btn { width: 36px; height: 36px; border-radius: 9px; font-size: 14px; }
 }
