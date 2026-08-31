@@ -3,7 +3,7 @@
  * APP HOOKS
  * ============================================================================
  * The stateful behaviours that are not about drawing anything: undo/redo history, the autosave,
- * the responsive-layout flag, and the UI language. Each was inline in TomoshibiStudio, where they
+ * the responsive-layout flag, the UI language, and the one page that has a URL. Each was inline in TomoshibiStudio, where they
  * pushed the interesting code — what the app actually renders — a hundred lines further down.
  *
  * No geometry and no three.js here; these only touch React, localStorage, and window events.
@@ -12,8 +12,10 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { saveState } from "./persist.ts";
 import { makeT, loadLang, saveLang } from "./i18n.ts";
+import { currentRoute, routeHref } from "./route.ts";
 import type { SavedState } from "./persist.ts";
 import type { Lang, T } from "./i18n.ts";
+import type { PageRoute } from "./route.ts";
 import type { Design } from "./types.ts";
 
 /** What the toolbar's two buttons need: the actions, and whether each has anywhere to go. */
@@ -139,4 +141,66 @@ export function useLang(): { lang: Lang; toggleLang: () => void; t: T } {
   // browser uses to pick a CJK font fallback and what a screen reader uses to pick a voice.
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   return { lang, toggleLang: toggle, t: makeT(lang) };
+}
+
+/**
+ * The current page, and the one way to change it. See route.ts for what is addressable and why so
+ * little of it is.
+ *
+ * Opening PUSHES and closing goes BACK, so a guide opened from the app leaves the history exactly
+ * as it found it — one entry in, one entry out — and the browser's own back button is the same
+ * gesture as the ×. Arriving directly at `/guide` has no entry to go back to, though, and calling
+ * `back()` there would take a first-time visitor off the site from the page somebody linked them.
+ * So the first close after a deep link REPLACES instead: the URL becomes the app's, no entry is
+ * added, and back still leads wherever they actually came from.
+ */
+export function usePageRoute(): { route: PageRoute; go: (r: PageRoute) => void } {
+  const [route, setRoute] = useState<PageRoute>(currentRoute);
+  // Whether this session has pushed an entry we are still standing on. A popstate means the
+  // browser moved us, so whatever we pushed is behind us now and is no longer ours to go back to.
+  const pushed = useRef(false);
+
+  useEffect(() => {
+    const onPop = () => { pushed.current = false; setRoute(currentRoute()); };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // A path that names no page renders the app, so the URL should say the app. Without this a
+  // mistyped or stale link leaves `/nope` in the address bar for the rest of the session, which is
+  // an address that will keep being copied out of it. `index.html` is tidied the same way.
+  useEffect(() => {
+    if (currentRoute() === null && window.location.pathname !== routeHref(null)) {
+      writeUrl(() => window.history.replaceState(null, "", routeHref(null)));
+    }
+  }, []);
+
+  const go = useCallback((next: PageRoute) => {
+    if (next === currentRoute()) { setRoute(next); return; }
+    if (next === null && pushed.current) {
+      // popstate will set the state; do not set it here as well, or the two disagree for a frame.
+      if (writeUrl(() => window.history.back())) return;
+    } else if (next === null) {
+      writeUrl(() => window.history.replaceState(null, "", routeHref(null)));
+    } else if (writeUrl(() => window.history.pushState(null, "", routeHref(next)))) {
+      pushed.current = true;
+    }
+    setRoute(next);
+  }, []);
+
+  return { route, go };
+}
+
+/**
+ * Run a history write, and say whether it happened.
+ *
+ * The history API throws on a `file://` document — and opening `dist/index.html` straight off the
+ * disk is a case this build deliberately supports (`base: "./"`, see vite.config.ts). An exception
+ * on the way into the guide would take the whole app down with it, which is far worse than the URL
+ * simply not changing, so the failure is swallowed and the caller falls back to plain state: every
+ * page still opens and closes, it just has no address to be linked by. That is exactly the trade
+ * `base: "./"` already makes everywhere else.
+ */
+function writeUrl(write: () => void): boolean {
+  try { write(); return true; } catch { return false; }
 }

@@ -49,7 +49,8 @@ opening**. This app generates that mold as 3D-printable split parts.
 - **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
 - **Cardboard papercraft mode** (beta) — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the ribs and koma hubs from cardboard. Notch widths follow the thickness you measured, so the parts still mesh.
 - **Washi template (和紙の型紙)** (beta) — the paper skin itself, developed flat: one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. Includes the side overlap, the cover allowance past the openings, and dashed guides for the rib lines and bamboo positions. It ships with whichever output you choose, as its own PDF inside that download.
-- **English / Japanese UI** — toggle in the top bar.
+- **Assembly guide** — a step-by-step page for **your** design: the parts list counts the ribs you are printing and measures the parts you are printing, and the figures are drawn from the same geometry the STLs are written from. It runs past the mold, too — winding the bamboo, pasting the washi, pulling the mold, and putting a light in it — and it lists what you supply yourself (bamboo, paste, something to hold the bamboo, brushes), each one drawn. The steps whose difficulty is in the hand fold out a **detail block** with a photograph in it. Print it from the browser if you want it on paper — folded blocks open on paper, so nothing you can read on screen is missing from the sheet.
+- **English / Japanese UI** — toggle in the top bar. Both templates print in the language the app is showing.
 - **Watertight by construction** — every exported part is a closed manifold, verified by an automated sweep (see [CONTRIBUTING](CONTRIBUTING.md)).
 
 ---
@@ -72,7 +73,7 @@ life in April 2026. An older Node fails at `npm install` rather than degrading.
 
 ## Using it
 
-- **Top tabs** — switch between **Section / Assembly / Print / Lit** views.
+- **Top tabs** — switch between **Section / Assembly / Print / Guide / Lit** views.
 - **Right panel** — pick a preset, then drag the section's control points to reshape; open the accordions (Frame, Bamboo, Print bed…) for finer settings.
 - **Preview** — drag to orbit, wheel / pinch to zoom.
 - **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `config.json` backup of your design. (STL compresses well: a default kit is about 190 KB zipped.)
@@ -89,6 +90,21 @@ life in April 2026. An older Node fails at `npm install` rather than degrading.
 
 > **制作フロー**: 印刷 → コマ2枚のノッチに羽根板を差し込む → 溝に竹ひごを巻く → 糊＋和紙を
 > 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を貼る → 照明化。
+
+The app says the same thing in the **Guide** view — every step drawn, and a list of what you
+supply yourself (bamboo, washi, paste, a razor, a lamp) drawn beside it. The drawings are of one
+example lantern rather than of your design: the method does not change with the shape, and the
+sizes and counts are the ones you set in the app. Winding the bamboo and pasting the washi each fold out a
+further paragraph and a photograph — the two steps whose difficulty is in the hand, where a
+drawing cannot help — and they open by themselves when you print. The last step gives the **three ways to light it** — cover a lamp
+stood on the floor, hang it from a pendant cord, or add legs and fix the lamp in from below — each
+drawn, and the third only where the bottom ring has the leg sockets to take it. The two that need a
+fitting are worked through in sub-steps of their own, each with a detail block of its own beneath
+them, and neither needs anything you have to print — a length of wire does both. On legs: bend a loop in the end of three wires, stack them on the lamp
+holder's threaded stem and tighten its nut, and the lamp and its legs come off the bench as one
+piece. Hanging: bow one wire into a shallow arch with a U in the middle, drop the cord into the U — its
+gap passes the cord and stops the socket — and run the wire's two ends under the rim of the top
+opening and out past it.
 
 ### No 3D printer? Use cardboard (beta)
 
@@ -122,8 +138,8 @@ not the body height, so it reaches the openings exactly.
 It is not a separate download: the panel's allowances live in the **Washi** section of the
 side panel, and the template itself comes with whichever output you pick — as
 `tomoshibi_washi_a4_beta.pdf` inside that route's ZIP, next to the STLs or next to the mold's
-own template. The PDF is written directly by the app — no dependencies — and its labels
-are English, since a self-contained PDF can't carry a Japanese font.
+own template. The PDF is written directly by the app — no dependencies — and it prints in
+whichever language the app is set to.
 
 ---
 

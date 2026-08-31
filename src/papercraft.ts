@@ -559,9 +559,9 @@ function pageSVG(ops: Op[], i: number, page: Page): string {
 }
 
 /**
- * Parts → a print-ready PDF (Uint8Array) of the same pages the HTML shows. `t` should be the
- * **English** translator: the PDF carries base-14 Helvetica only, so Japanese labels cannot be drawn
- * (see pdf.ts). Nothing dimensional depends on the labels — the drawing itself is identical.
+ * Parts → a print-ready PDF (Uint8Array) of the same pages the HTML shows, labelled in whatever
+ * language `t` speaks: Latin is Helvetica, and the rest is drawn from the outlines pdf.ts carries.
+ * Nothing dimensional depends on the labels — the drawing itself is identical.
  */
 export function pagesPDF(parts: RawPart[], page: Page, t: T, title: string): Uint8Array {
   const lay = layout(parts, page);
@@ -579,10 +579,10 @@ export function pagesPDF(parts: RawPart[], page: Page, t: T, title: string): Uin
  * "save as HTML" button for later). A PDF is already A4 at exact size, so all of that went with it;
  * what is left worth saying is the one printer setting, and the app says it beside the download.
  *
- * `t` must be the **English** translator, for the reason washiPDF documents: the PDF carries
- * base-14 Helvetica only, and winAnsi() drops anything outside Latin-1 — hand it Japanese and the
- * part names come out as " x8" with the word silently gone. Nothing dimensional depends on the
- * labels; the drawing is identical either way.
+ * `t` is the UI's translator: the writer carries outlines for the characters WinAnsi cannot encode
+ * (pdf.ts / tools/pdffont), so the sheet prints in the language the app was showing. It used to be
+ * forced to English because a Japanese label was dropped rather than drawn — " x8" with the word
+ * silently gone. Nothing dimensional depends on the labels; the drawing is identical either way.
  */
 export function paperPDF(p: Design, matT: number, page = A4, t: T = tid): Uint8Array {
   const { parts } = paperParts(p, matT, t);
@@ -604,9 +604,9 @@ export function washiParts(p: Design, opts: WashiOpts = {}, t: T = tid) {
 /**
  * The washi panels as a **print-ready PDF** (Uint8Array) — the file bundled in the download either
  * route produces, so it prints directly with no intermediate step. On the cardboard route, hand it
- * `paperP(p, matT)`: the panel width follows the rib count, which that route can clamp. `t` must be
- * an ASCII translator (see pdf.ts); it defaults to the identity, which would emit Japanese, so
- * callers pass the English one.
+ * `paperP(p, matT)`: the panel width follows the rib count, which that route can clamp. `t` is the
+ * UI's translator (it defaults to the identity = Japanese); every character it can produce has an
+ * outline in pdf.ts, and tools/pdffont is what keeps that true.
  */
 export function washiPDF(p: Design, opts: WashiOpts = {}, page = A4, t: T = tid): Uint8Array {
   const { parts } = washiParts(p, opts, t);

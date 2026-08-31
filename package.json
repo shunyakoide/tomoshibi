@@ -33,6 +33,7 @@
     "check:hash": "node scripts/hash.mts",
     "check:persist": "node scripts/persist.test.mts",
     "check:paper": "node scripts/paper.test.mts",
+    "check:glyphs": "node scripts/glyphs.test.mts",
     "check:i18n": "node scripts/i18n.test.mts",
     "lint": "eslint . --max-warnings 0"
   },

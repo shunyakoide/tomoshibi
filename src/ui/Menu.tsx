@@ -6,15 +6,19 @@
  * the design AS A FILE — the intro card, the language, JSON export/import, reset — as opposed to
  * the design itself (the inspector) or where you are in it (the two selects to its left).
  *
- * **It is a ☰ even though nothing in it is navigation, which is a knowing departure.** The
- * convention is ☰ for a navigation drawer and ⋯/⋮ for an overflow of actions, and by that reading
- * this should be ⋯: the app's navigation is the two selects immediately to the left, they stay
- * visible, and one of them is filled accent precisely because it says where you are. What decided it
- * the other way is that ⋯ is materially harder to find — it reads as "more options for the thing
- * next to me" — while ☰ is read as "this app's menu" by everyone, which is exactly what the contents
- * are: help, language, backup, reset, all app-level rather than contextual. The usual case against
- * hamburgers (NN/g) is about hiding NAVIGATION; nothing navigational is hidden here, so it does not
- * apply. **Do not put a destination in here** — that is the line this trade depends on.
+ * **The ☰ was a knowing departure from the convention and no longer is.** ☰ means a navigation
+ * drawer and ⋯/⋮ means an overflow of actions, and when this menu held only help, language, backup
+ * and reset, the convention said ⋯. It was a ☰ anyway, because ⋯ is materially harder to find — it
+ * reads as "more options for the thing next to me" — while ☰ is read as "this app's menu" by
+ * everyone, and the case against hamburgers (NN/g) is about hiding NAVIGATION, of which there was
+ * none in here. The rule written alongside that reasoning was "do not put a destination in here".
+ *
+ * 「作り方」 is now a destination — a real page at `/guide` with an address of its own (src/route.ts)
+ * — so that rule is spent, and the glyph it was protecting turns out not to have needed protecting:
+ * a menu with one place to go in it is a navigation menu, which is what ☰ has meant all along. What
+ * remains true is the thing the rule was really guarding, so keep this instead: **the app's primary
+ * navigation stays VISIBLE.** The two selects to the left are how you move between views and they
+ * are never folded away; what may live in here is the occasional document, alongside the settings.
  *
  * What justifies folding them away at all is space, measured rather than assumed: on a 375px phone
  * the chip bar in ENGLISH came to exactly 375px — the view select (99, "Assembly") + the route
@@ -25,6 +29,17 @@
  *
  * Undo and redo deliberately did NOT move in here. They are the recovery path for the direct-
  * manipulation editor that fills the screen, and an overflow menu is for what is rare.
+ *
+ * The trigger's ☰ is DRAWN, not typed. U+2630 is not in the mono stack this button asks for, so it
+ * fell through to whatever the platform substitutes, and a substituted glyph sits wherever THAT
+ * font's metrics put it in the em box: measured in Chrome on macOS, the ink landed ~2px below and
+ * ~1px right of the centre of the 36px square, which is plainly visible at that size.
+ * `align-items: center` cannot fix it — that centres the LINE BOX, and the glyph is off-centre
+ * inside the line box. Nudging with padding or line-height only moves the error to the next
+ * platform, since the substituted face differs per OS (Apple Symbols here, Segoe UI Symbol on
+ * Windows) and none of them agrees on where in the em to sit. Three strokes in an SVG are centred
+ * because they are drawn centred, on every platform — 0.00px on both axes, against the button's own
+ * box — and the app already draws its marks this way (Logo, the section editor's legend).
  *
  * Rules of the shape:
  * - **Every row carries a text label.** The trigger is the only icon-only control, and it has an
@@ -103,7 +118,12 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
         aria-label={label} title={label}
         onClick={(e) => { setByKey(e.detail === 0); setOpen((v) => !v); }}
         onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); setByKey(true); setOpen(true); } }}>
-        ☰
+        {/* `display: block` so the svg brings no inline baseline gap of its own — with that, the
+            flex centring above lands the box exactly, and the box is the mark. */}
+        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" style={{ display: "block" }}>
+          <path d="M2.5 5h13M2.5 9h13M2.5 13h13" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" />
+        </svg>
       </button>
       {open && (
         <div className="menu-pop" role="menu" aria-label={label}>

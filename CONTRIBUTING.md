@@ -39,6 +39,7 @@ There is no unit-test runner. Correctness is guaranteed by **"the build passes"*
 | `npm run check:hash` | For a change that is *supposed* to leave the geometry identical (a refactor, a comment edit), diffs the vertex hashes before/after to prove not a single vertex moved. Usage is documented at the top of `scripts/hash.mts`. |
 | `npm run check:persist` | Confirms that corrupted `localStorage` / imported JSON is sanitized safely (no crash, no non-watertight parts). |
 | `npm run check:paper` | Confirms the cardboard papercraft output and the washi template are full-scale (1:1), that no part is dropped, and that no `NaN` reaches the SVG or a bad offset the PDF. |
+| `npm run check:glyphs` | Confirms every character the PDFs print has an outline in `src/pdf-glyphs.ts`. The writer sets Latin in Helvetica and draws the rest from those outlines; a character with none is **dropped**, so a new Japanese label prints as a blank space and nothing else notices. Regenerate the table with `tools/pdffont` rather than editing it. |
 | `npm run check:i18n` | Confirms no UI wording lost its translation. The dictionary is keyed by the Japanese string itself, so **rewording a label does not make its translation stale -- it deletes it**, silently, and the app shows Japanese to an English visitor. Also catches entries left orphaned by the reword, and `{placeholder}` mismatches. |
 
 CI runs all of these on every push and pull request, but run them locally first --

@@ -10,12 +10,17 @@
  * [Coordinates] Ops are in **mm with y DOWN from the sheet's top-left** (the SVG convention). Each
  *   page sets one CTM that flips y and scales mm→pt, so every number below stays in mm. Text sets
  *   its own flipped text matrix so the glyphs come out upright.
- * [Text] Base-14 Helvetica only. A self-contained PDF cannot carry a CJK font (embedding one would
- *   dwarf the whole file), so the caller renders the PDF with the **English** translator and
- *   `winAnsi()` folds the few remaining symbols (←, ▼, ×…) into WinAnsi. Nothing on paper depends on
- *   this text — it is the part label, the ruler note and the page footer.
+ * [Text] Latin is base-14 Helvetica, which every reader has and no file has to carry. Everything
+ *   WinAnsi cannot encode — the Japanese, the arrows — is drawn as **filled outlines** from
+ *   `pdf-glyphs.ts`, extracted from an OFL font by `tools/pdffont` for exactly the characters the
+ *   templates print (two dozen of them, 7kB). Embedding a whole CJK font would dwarf the file; this
+ *   is the same trade `tools/logo` makes for the wordmark. A character with no outline still goes
+ *   through `winAnsi()`, which folds what it can (←, ▼) and drops the rest rather than writing a
+ *   broken byte. **This is why the templates are no longer English-only**: hand them the Japanese
+ *   translator and the words print.
  * ============================================================================
  */
+import { GLYPHS } from "./pdf-glyphs.ts";
 
 import type { Pt2 } from "./types.ts";
 
@@ -85,15 +90,58 @@ function textWidth(s: string, size: number): number {
   }
   return w * size;
 }
+/** One outline from `pdf-glyphs.ts`: `w` is the advance, `d` a PDF path, both in a 1000-unit em. */
+export type Glyph = { w: number; d: string };
+/** One stretch of a label — Helvetica text or a single outlined glyph, never both. */
+type Run = { s: string; g?: undefined } | { g: Glyph; s?: undefined };
+/**
+ * Split a UI string into runs of the two things the writer can draw: `{ s }` = WinAnsi text set in
+ * Helvetica, `{ g }` = one outlined glyph. Runs are built in order, so a mixed label ("羽根板 ×8")
+ * comes out as one line rather than two passes at the same x.
+ *
+ * Latin-1 keeps going through Helvetica even where an outline exists, because real text is
+ * selectable, searchable, and a tenth of the bytes; the outlines are what makes the rest printable
+ * at all. A character with neither is folded by `winAnsi()` — never emitted raw.
+ */
+function textRuns(str: unknown): Run[] {
+  const runs: Run[] = [];
+  let buf = "";
+  const flush = () => { if (buf) { runs.push({ s: buf }); buf = ""; } };
+  for (const ch of String(str)) {
+    const glyph = ch.charCodeAt(0) > 0xff ? GLYPHS[ch] : null;
+    if (glyph) { flush(); runs.push({ g: glyph }); } else buf += winAnsi(ch);
+  }
+  flush();
+  return runs;
+}
+/** Width of a run list in mm. Outlines carry their own advance in the same 1/1000-em units. */
+function runsWidth(runs: Run[], size: number) {
+  let w = 0;
+  for (const r of runs) w += r.g ? (r.g.w / 1000) * size : textWidth(r.s, size);
+  return w;
+}
 
 const MM = 72 / 25.4;                                     // mm → pt
 const n3 = (v: number) => (Math.round(v * 1000) / 1000).toString();
+// Millimetres round to 3dp happily; a glyph's scale factor does not. It is size/1000 — 0.0034 for a
+// 3.4mm label — and 3dp rounds that to 0.003, which draws every character 12% oversized and laps it
+// over the next one. Matrix entries get their own precision.
+const n6 = (v: number) => (Math.round(v * 1e6) / 1e6).toString();
 const rgb = (hex: string) => {
   const h = hex.replace("#", "");
   const v = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
   return [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16) / 255);
 };
 const esc = (s: string) => s.replace(/[\\()]/g, (c) => "\\" + c);
+// A PDF text string, either literal or — once a character leaves WinAnsi — UTF-16BE hex with the
+// BOM the format requires. Only the Info dictionary needs this; page text goes through textRuns().
+const pdfString = (s: unknown) => {
+  const str = String(s);
+  if (winAnsi(str) === str) return `(${esc(str)})`;
+  let hex = "FEFF";
+  for (let i = 0; i < str.length; i++) hex += str.charCodeAt(i).toString(16).padStart(4, "0").toUpperCase();
+  return `<${hex}>`;
+};
 // Latin-1 bytes (NOT UTF-8): WinAnsi codes above 127 must go out as single bytes.
 const lat1 = (s: string) => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 0xff; return u; };
 
@@ -114,13 +162,25 @@ function contentOf(ops: Op[], style: StyleTable): string {
       out.push(op.pts.map(([x, y], i) => `${n3(x)} ${n3(y)} ${i ? "l" : "m"}`).join(" ") + (op.close ? " h S" : " S"));
     } else if (op.k === "text") {
       const st = style[op.style];
-      const s = winAnsi(op.str);
-      if (!s) continue;
-      const w = textWidth(s, st.size);
-      const x = op.x - (st.anchor === "middle" ? w / 2 : st.anchor === "end" ? w : 0);
-      const [r, g, b] = rgb(st.fill || "#000");
-      // The page CTM is y-flipped, so the text matrix flips back (otherwise the glyphs are mirrored).
-      out.push(`BT ${n3(r)} ${n3(g)} ${n3(b)} rg /F1 ${n3(st.size)} Tf 1 0 0 -1 ${n3(x)} ${n3(op.y)} Tm (${esc(s)}) Tj ET`);
+      const runs = textRuns(op.str);
+      if (!runs.length) continue;
+      const w = runsWidth(runs, st.size);
+      let x = op.x - (st.anchor === "middle" ? w / 2 : st.anchor === "end" ? w : 0);
+      const fill = rgb(st.fill || "#000").map(n3).join(" ");
+      for (const run of runs) {
+        if (run.g) {
+          // Outlines are a 1000-unit em with y UP; one matrix scales them to the font size and flips
+          // them onto the y-down page, so the stored path goes out verbatim. q/Q keeps the fill
+          // colour and the matrix from leaking into whatever is drawn next.
+          const k = st.size / 1000;
+          out.push(`q ${n6(k)} 0 0 ${n6(-k)} ${n3(x)} ${n3(op.y)} cm ${fill} rg ${run.g.d} f Q`);
+          x += (run.g.w / 1000) * st.size;
+        } else {
+          // The page CTM is y-flipped, so the text matrix flips back (otherwise the text is mirrored).
+          out.push(`BT ${fill} rg /F1 ${n3(st.size)} Tf 1 0 0 -1 ${n3(x)} ${n3(op.y)} Tm (${esc(run.s)}) Tj ET`);
+          x += textWidth(run.s, st.size);
+        }
+      }
       cur = null;                                          // BT/ET doesn't reset stroke state, but keep it simple
     }
   }
@@ -147,7 +207,9 @@ export function buildPDF(pages: Op[][], page: Page, style: StyleTable, title = "
   }
   objs[catalog - 1] = `<</Type/Catalog/Pages ${pagesObj} 0 R>>`;
   objs[pagesObj - 1] = `<</Type/Pages/Kids[${kids.map((k) => `${k} 0 R`).join(" ")}]/Count ${kids.length}>>`;
-  const info = add(`<</Producer(Tomoshibi)/Title(${esc(winAnsi(title))})>>`);
+  // The document title is the one string a PDF can carry outside WinAnsi: as UTF-16BE hex it shows
+  // up in the viewer's window and in the file manager, so a Japanese template says so there too.
+  const info = add(`<</Producer(Tomoshibi)/Title${pdfString(title)}>>`);
 
   const chunks: Uint8Array[] = [];
   let len = 0;

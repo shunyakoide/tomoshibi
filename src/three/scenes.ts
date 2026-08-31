@@ -10,6 +10,9 @@
  *  print view on the cardboard route — its output is a document, so PagePreview draws the template's
  *  own pages over this canvas the same way.)
  *   lit   … the finished lantern glowing in a dark room (no mold at all)
+ * (The build guide is not in this list at all: it is an overlay rather than a view, and its figures
+ *  are rendered off-screen by three/figures.ts and shown as images — eleven of them cost one WebGL
+ *  context, not eleven.)
  *
  * Every shape comes from geometry.ts — nothing here computes a dimension of its own, or the preview
  * and the STL would drift apart. The print layout is the one thing that touches geometry: it
@@ -297,7 +300,7 @@ export function buildScene(s: ViewportHandle, { p, view, viewChanged, printRibs,
     s.group.remove(m);
     m.traverse((o) => { const g = (o as THREE.Mesh).geometry; if (g) g.dispose(); });
   }
-  // Two views draw no 3D at all, and both are documents drawn over this canvas: the section editor,
+  // Two views draw no 3D at all, and each is a document drawn over this canvas: the section editor,
   // and the cardboard route's print view (PagePreview shows the template's own A4 pages).
   if (view === "2d" || (view === "print" && route === "paper")) {
     // Hand the canvas back BLANK before leaving. Emptying s.group is not enough: everything that

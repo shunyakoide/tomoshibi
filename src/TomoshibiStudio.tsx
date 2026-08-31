@@ -33,16 +33,16 @@ import { fitOnBed } from "./bed.ts";
 import { clamp } from "./util.ts";
 import { useViewport } from "./three/viewport.ts";
 import { buildScene } from "./three/scenes.ts";
-import { useAutosave, useLang, useNarrow, useUndoRedo } from "./hooks.ts";
+import { useAutosave, useLang, useNarrow, usePageRoute, useUndoRedo } from "./hooks.ts";
 import {
   loadSaved, serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION,
   loadWelcomeSeen, saveWelcomeSeen,
 } from "./persist.ts";
 import SectionEditor from "./SectionEditor.tsx";
 import PagePreview from "./PagePreview.tsx";
+import GuidePage from "./GuidePage.tsx";
 import Welcome from "./Welcome.tsx";
 import { DEFAULTS, LIMITS, SIL_ROWS } from "./config.ts";
-import { makeT } from "./i18n.ts";
 import type { T } from "./i18n.ts";
 import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.ts";
 import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note } from "./ui/controls.tsx";
@@ -94,6 +94,10 @@ const SHEET_TAP = 6;
 // mailed, reprinted months later, handed to someone else — and the caveat has to travel with it.
 const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";
 const BED_PRESETS = [180, 220, 250, 256, 300, 350];
+// In build order: shape it, see it assembled, print it, light it. Every one of them is a RENDERING
+// OF YOUR DESIGN — move a ◇ and all four redraw. That is what this control selects, and it is why
+// the build guide is not in it: its figures come from one fixed example (GUIDE_P), so it answered to
+// nothing you did here. It is an overlay off the ☰ menu instead — see `guide` below.
 const VIEWS: [View, string][] = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]];
 // How the mold gets made. Cardboard is marked beta: its dimensions come from the same geometry.ts
 // functions as the printed parts and are covered by check:paper, but the route has had far less
@@ -218,6 +222,16 @@ export default function TomoshibiStudio() {
   // switch, so the route in effect is marked. No second persisted flag: the mode carries it.
   const [welcome, setWelcome] = useState<WelcomeCard>(() => (loadWelcomeSeen() ? null : "first"));
   const closeWelcome = () => { saveWelcomeSeen(); setWelcome(null); };
+  // The build guide. Not a view: it is a document about making a lantern, and its figures come
+  // from one fixed example rather than from `p`, so it belongs to neither the view tabs (which
+  // select a rendering of YOUR design) nor the inspector. It is the one thing in this app with a
+  // URL of its own — `/guide`, so it can be linked to and left with the browser's back button —
+  // and `page` is that URL, read and written through the history API. See src/route.ts.
+  //
+  // Renamed on the way in: `route` is already this file's word for how the mold gets MADE (3D
+  // print / cardboard), which is a fact about the maker rather than a place.
+  const { route: page, go: goPage } = usePageRoute();
+  const guide = page === "guide";
 
   // Clamp the rib count to what fits the koma. If board thickness, tolerance or the opening (◇)
   // changes make it too large — by any path — lower it here, so overlapping notches can never
@@ -267,8 +281,9 @@ export default function TomoshibiStudio() {
     // even if localStorage is gone. Same schema as persist.ts, so it loads back as-is.
     // The washi template comes too: it belongs to this design (its panel width follows the rib count
     // you are about to print) and, unlike the parts, cannot be re-derived from the STLs. A PDF rather
-    // than the HTML page so it prints at 100% with no intermediate step — always English-labelled,
-    // since a self-contained PDF cannot carry a Japanese font (pdf.ts).
+    // than the HTML page so it prints at 100% with no intermediate step, and labelled in the UI's
+    // language — the templates used to be English whatever the app said, because the writer had no
+    // Japanese glyphs to draw with (pdf.ts carries its own now).
     const cfg = JSON.stringify({ schemaVersion: SCHEMA_VERSION, p, bedW, bedD }, null, 2);
     exportZip([
       ...ribEntries,
@@ -281,17 +296,17 @@ export default function TomoshibiStudio() {
       { name: "tomoshibi_ring_top.stl", geos: [ringGeometry(p, true)] },
     ], "tomoshibi_kit.zip", [
       { name: "tomoshibi_config.json", bytes: new TextEncoder().encode(cfg) },
-      { name: WASHI_PDF, bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, makeT("en")) },
+      { name: WASHI_PDF, bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, t) },
     ]);
   };
 
   // The cardboard route's bundle, shaped like the STL kit's: one download, and the washi template a
-  // separate PDF inside it. Both are written with the ENGLISH translator — base-14 Helvetica has no
-  // CJK glyphs, so a Japanese label is dropped rather than drawn (see paperPDF / winAnsi).
+  // separate PDF inside it. Both follow the UI's language, so the sheet in your hands says what the
+  // screen you cut it from said.
   const downloadPaperKit = () => zipBundle({
-    "tomoshibi_katagami_a4.pdf": paperPDF(p, matT, undefined, makeT("en")),
+    "tomoshibi_katagami_a4.pdf": paperPDF(p, matT, undefined, t),
     // moldSrc, not p: on this route the panel follows the possibly-clamped rib count.
-    [WASHI_PDF]: washiPDF(moldSrc, washiOpts, undefined, makeT("en")),
+    [WASHI_PDF]: washiPDF(moldSrc, washiOpts, undefined, t),
   }, "tomoshibi_katagami.zip");
 
   // Export the design as JSON. localStorage is a volatile cache; this file is the backup you can
@@ -516,6 +531,10 @@ export default function TomoshibiStudio() {
   // why the glyph is a "☰" when none of the contents is navigation, and for what stayed out of it.
   const menuItems: MenuItem[] = [
     { kind: "item", label: t("はじめかた"), onClick: () => setWelcome("help") },
+    // A DOCUMENT, not a destination — it opens over whatever you were doing and closing it puts you
+    // back there, exactly as the card above does. That distinction is what lets the menu keep the
+    // "☰ with no navigation in it" trade intact; see ui/Menu.tsx.
+    { kind: "item", label: t("作り方"), onClick: () => goPage("guide") },
     // A setting, not a verb, so it reads as one: the row names the thing and the right-hand side
     // shows what it would become. (The old control was a button captioned with its own opposite.)
     { kind: "item", label: t("言語"), value: lang === "ja" ? "English" : "日本語", onClick: toggleLang },
@@ -724,10 +743,9 @@ export default function TomoshibiStudio() {
         <div style={{ ...chipBox, top: CHIP.row2, left: CHIP.left }}>{routeTabs}</div>
       )}
 
-      {/* Dimension chip (always live). On a phone it drops to the SECOND row, beside the route
-          chip: at 375px the four mode tabs reach across two thirds of the width and the readout was
-          printing straight through "点灯". Right-aligned either way, so it still reads as a status
-          line rather than as another control. */}
+      {/* Dimension chip (always live). On a phone it sits tighter to the corner: at 375px the tab
+          strip reaches far enough right that the readout was printing through it. Right-aligned
+          either way, so it reads as a status line rather than as another control. */}
       <div style={{
         position: "absolute", top: narrow ? 10 : 24, right: narrow ? 12 : 24,
         fontSize: narrow ? 11 : 12, color: chip.txt,
@@ -1124,6 +1142,13 @@ export default function TomoshibiStudio() {
         {welcome && (
           <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome}
             onPick={(r) => { setRoute(r); closeWelcome(); }} />
+        )}
+        {/* The guide's one outbound link closes it as well as switching the view: the print view is
+            somewhere you go to DO something, and leaving the document open over it would hide the
+            thing it just sent you to. */}
+        {guide && (
+          <GuidePage route={route} onClose={() => goPage(null)}
+            onGoPrint={() => { goPage(null); setView("print"); }} />
         )}
       </div>
     </TContext.Provider>

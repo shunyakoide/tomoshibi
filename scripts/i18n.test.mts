@@ -117,7 +117,10 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const SRC = walk("src").filter((f) => !f.endsWith("i18n.ts"));
+// pdf-glyphs.ts is keyed by the character it draws, so every Japanese glyph in it reads as an
+// untranslated UI string. It is generated data (tools/pdffont), not copy — check:glyphs is what
+// holds it to its own source, the same way this file holds the dictionary to its.
+const SRC = walk("src").filter((f) => !f.endsWith("i18n.ts") && !f.endsWith("pdf-glyphs.ts"));
 const rawAll = SRC.map((f) => fs.readFileSync(f, "utf8"));
 
 // Candidate UI strings, mapped to the files they came from (for a useful failure message).
@@ -164,6 +167,17 @@ if (dictAt < 0) { bad("cannot find the EN dictionary declaration in src/i18n.ts"
 const dictBody = i18nSrc.slice(dictAt, i18nSrc.indexOf("\n};", dictAt));
 const EN_KEYS = [...dictBody.matchAll(/^\s{2}"((?:[^"\\]|\\.)*)":/gm)].map((m) => unescape_(m[1]));
 if (!EN_KEYS.length) { bad("read 0 keys out of the EN dictionary — the scraper has drifted"); process.exit(1); }
+
+// A duplicate key is invisible in JS — the object literal keeps the last one — so a new entry that
+// happens to repeat a word already in the dictionary silently RETRANSLATES the old one somewhere
+// else in the app. Adding "\u548c\u7d19": "Washi paper" for a materials card did exactly that to the
+// inspector's own "\u548c\u7d19" section heading, and nothing else here noticed.
+const dupes = EN_KEYS.filter((k, i) => EN_KEYS.indexOf(k) !== i);
+if (dupes.length) {
+  for (const k of [...new Set(dupes)]) bad(`duplicate EN entry (the later one silently wins): ${JSON.stringify(k)}`);
+} else {
+  ok(`no duplicate dictionary keys (${EN_KEYS.length} entries)`);
+}
 
 const orphans = EN_KEYS.filter((k) => !where.has(k));
 if (orphans.length) {
