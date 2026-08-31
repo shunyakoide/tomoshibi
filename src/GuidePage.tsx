@@ -2,9 +2,13 @@
  * ============================================================================
  * GUIDE PAGE — how to build the lantern
  * ============================================================================
- * A document, not a view of the model: it takes the whole window (no inspector) and scrolls, the way
- * an assembly sheet reads. It overlays the idle WebGL canvas exactly as the section editor and the
- * cardboard route's print preview do.
+ * A document, not a view of the model: it takes the whole window and scrolls, the way an assembly
+ * sheet reads. It is an OVERLAY, opened from the ☰ menu and closed with × or Esc — the same shape
+ * the welcome card has, for the same reason. It was a fifth view tab until it was noticed that the
+ * other four are all renderings of YOUR design (move a ◇ and every one of them redraws) while this
+ * one is not: its figures come from a fixed example, so it had to be excepted out of the dimension
+ * chip, out of the viewport alerts, and out of the inspector, one gate at a time. An overlay needs
+ * none of those exceptions, and it hands the phone's tab strip its fifth slot back.
  *
  * **The page is generic, and its figures are always the same drawing.** It used to be built from the
  * design on screen: every dimension measured off the geometry the STL is written from, every figure
@@ -419,7 +423,9 @@ function figure(id: string, smooth: boolean): string | null {
   return CACHE.get(key) ?? null;
 }
 
-export default function GuidePage({ route, onGoPrint }: { route: Route; onGoPrint: () => void }) {
+export default function GuidePage({ route, onClose, onGoPrint }: {
+  route: Route; onClose: () => void; onGoPrint: () => void;
+}) {
   const t = useT();
   const stl = route !== "paper";
   const steps = STEPS.filter((s) => stl || !s.stl);
@@ -467,11 +473,23 @@ export default function GuidePage({ route, onGoPrint }: { route: Route; onGoPrin
   // The renderer holds a WebGL context; the guide is the only thing that uses it.
   useEffect(() => disposeFigures, []);
 
+  // Esc closes, as it does on the welcome card. No focus move on open: this is a document you read
+  // from the top, and pulling focus to the × would scroll a long page to its corner instead.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const card = { background: UI.card, border: `1px solid ${UI.cardEdge}`, borderRadius: 14 };
   return (
-    <div className="guide" style={{ position: "absolute", inset: 0, overflowY: "auto", background: UI.panel }}>
+    <div className="guide" role="dialog" aria-modal="true" aria-label={t("作り方")}
+      style={{ position: "fixed", inset: 0, zIndex: 40, overflowY: "auto", background: UI.panel }}>
+      {/* Fixed to the window rather than scrolled with the document: this is the way out, and a way
+          out that leaves the screen after two paragraphs is not one. */}
+      <button className="guide-x" onClick={onClose} title={t("閉じる")} aria-label={t("閉じる")}>×</button>
       <div className="guide-doc">
-        <p className="guide-kicker">{t("組立説明書")}</p>
+        <p className="guide-kicker">{t("作り方")}</p>
         <h1 className="guide-h1">{t(stl ? "3Dプリントで型をつくる" : "段ボールで型をつくる")}</h1>
         <p className="guide-lead">
           {t("型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図は一例で、大きさや枚数は設計によって変わります。")}
