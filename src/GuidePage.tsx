@@ -3,8 +3,9 @@
  * GUIDE PAGE — how to build the lantern
  * ============================================================================
  * A document, not a view of the model: it takes the whole window and scrolls, the way an assembly
- * sheet reads. It is an OVERLAY, opened from the ☰ menu and closed with × or Esc — the same shape
- * the welcome card has, for the same reason. It was a fifth view tab until it was noticed that the
+ * sheet reads. It is the one PAGE in this app — `/guide`, with an address of its own (src/route.ts)
+ * — opened from the ☰ menu, closed with ×, Esc, or the browser's own back button, all three of
+ * which do the same thing. It was a fifth view tab until it was noticed that the
  * other four are all renderings of YOUR design (move a ◇ and every one of them redraws) while this
  * one is not: its figures come from a fixed example, so it had to be excepted out of the dimension
  * chip, out of the viewport alerts, and out of the inspector, one gate at a time. An overlay needs

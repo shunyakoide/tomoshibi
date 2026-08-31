@@ -6,15 +6,19 @@
  * the design AS A FILE — the intro card, the language, JSON export/import, reset — as opposed to
  * the design itself (the inspector) or where you are in it (the two selects to its left).
  *
- * **It is a ☰ even though nothing in it is navigation, which is a knowing departure.** The
- * convention is ☰ for a navigation drawer and ⋯/⋮ for an overflow of actions, and by that reading
- * this should be ⋯: the app's navigation is the two selects immediately to the left, they stay
- * visible, and one of them is filled accent precisely because it says where you are. What decided it
- * the other way is that ⋯ is materially harder to find — it reads as "more options for the thing
- * next to me" — while ☰ is read as "this app's menu" by everyone, which is exactly what the contents
- * are: help, language, backup, reset, all app-level rather than contextual. The usual case against
- * hamburgers (NN/g) is about hiding NAVIGATION; nothing navigational is hidden here, so it does not
- * apply. **Do not put a destination in here** — that is the line this trade depends on.
+ * **The ☰ was a knowing departure from the convention and no longer is.** ☰ means a navigation
+ * drawer and ⋯/⋮ means an overflow of actions, and when this menu held only help, language, backup
+ * and reset, the convention said ⋯. It was a ☰ anyway, because ⋯ is materially harder to find — it
+ * reads as "more options for the thing next to me" — while ☰ is read as "this app's menu" by
+ * everyone, and the case against hamburgers (NN/g) is about hiding NAVIGATION, of which there was
+ * none in here. The rule written alongside that reasoning was "do not put a destination in here".
+ *
+ * 「作り方」 is now a destination — a real page at `/guide` with an address of its own (src/route.ts)
+ * — so that rule is spent, and the glyph it was protecting turns out not to have needed protecting:
+ * a menu with one place to go in it is a navigation menu, which is what ☰ has meant all along. What
+ * remains true is the thing the rule was really guarding, so keep this instead: **the app's primary
+ * navigation stays VISIBLE.** The two selects to the left are how you move between views and they
+ * are never folded away; what may live in here is the occasional document, alongside the settings.
  *
  * What justifies folding them away at all is space, measured rather than assumed: on a 375px phone
  * the chip bar in ENGLISH came to exactly 375px — the view select (99, "Assembly") + the route
