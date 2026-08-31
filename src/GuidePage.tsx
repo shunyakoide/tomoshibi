@@ -27,19 +27,6 @@
  *   read: which way the bamboo runs, where the washi seams fall, which rib comes out of the opening
  *   and how far in it has to come to get there, what the thing looks like lit and on its legs. They
  *   draw one representative lantern, not the reader's.
- * [Detail] A drawing says where a thing goes. It cannot say how hard to pull, how wet the paste is,
- *   or what a seam looks like when it has gone right — and those are what the steps in the middle of
- *   this build are actually difficult for. So a step may carry a `more` block: the body says what to
- *   do, and this says how it goes, with a **photograph** from `public/photos/` beside it (and, over
- *   that still, an optional short clip). Until the file is there the well names what it is waiting
- *   for, which is the point of naming it here — the layout is finished before the photography is,
- *   and a picture lands by being dropped in under that name without this file being touched.
- *
- *   It is FOLDED (`<details>`), never a modal. A closed modal's content is not in the page at all,
- *   so it does not print — and the browser's own print is this page's paper version, with no PDF
- *   written anywhere to make up for it. The reader standing at a bench with paste on their hands is
- *   exactly the one who wants the detail and exactly the one who cannot click, so the detail must
- *   not be the one thing that exists only on screen. Folded is still there; hidden is not.
  * [Route] The cardboard route builds the same mold out of a different material and has no stand and
  *   no printed rings, so those steps are filtered rather than reworded.
  * [Print] The page carries print styles (index.css): the browser's own "Save as PDF" is the paper
@@ -51,7 +38,7 @@ import { ringLegs } from "./geometry.ts";
 import { DEFAULTS } from "./config.ts";
 import { paperP } from "./papercraft.ts";
 import { figureImage, disposeFigures } from "./three/figures.ts";
-import { UI, accent, mono, useT } from "./ui/theme.ts";
+import { UI, accent, useT } from "./ui/theme.ts";
 import type { T } from "./i18n.ts";
 import type { Design, Route } from "./types.ts";
 
@@ -78,21 +65,18 @@ const GUIDE_P = { stl: GUIDE_BASE, paper: paperP(GUIDE_BASE, GUIDE_MAT_T) };
 /** One entry in the parts list. `n` is printed only where it is a CONSTANT (see the note below);
  *  `stl` marks a part the cardboard route never makes. */
 type PartRow = { id: string; name: string; n?: number; note?: string; stl?: boolean };
-/** The folded detail block: a photograph (optionally a clip over it) and a paragraph, either of
- *  which may be missing — an empty one says the block is waiting, which is not a mistake. */
-type MoreBlock = { photo?: string; video?: string; body?: string };
 /** One numbered sub-step inside a way of lighting it — sequential, unlike the ways around it. */
 type SubStep = { id: string; fig: string; title: string; body: string };
 /** One WAY of doing a step: alternatives, not sub-steps. `needs` drops a way this design cannot
  *  offer, `note` is the footnote at its foot. */
 type Way = {
   id: string; fig: string; title: string; body: string; paperBody?: string;
-  needs?: (p: Design) => boolean; note?: string; detail?: SubStep[]; more?: MoreBlock;
+  needs?: (p: Design) => boolean; note?: string; detail?: SubStep[];
 };
 /** One step of the build. `wip` is both the draft badge and the one line saying why. */
 type Step = {
   id: string; title: string; body: string; paperBody?: string; fig?: string; stl?: boolean;
-  wip?: string; more?: MoreBlock; options?: Way[];
+  wip?: string; options?: Way[];
 };
 type KitItem = { name: string; fig?: string; note?: string; opt?: boolean };
 type KitGroup = { id: string; title: string; items: KitItem[] };
@@ -136,13 +120,6 @@ const STEPS: Step[] = [
   {
     id: "higo", title: "竹ひごを巻く", fig: "higo",
     body: "羽根板の外縁の溝に竹ひごを沿わせ、下から上へ巻いていきます。溝が受けるので滑り落ちません。「螺旋巻き」で設計した型なら、溝が段ごとにずれていて1本の連続した螺旋になります。",
-    // The only body written here so far, and everything in it is a fact this repo can vouch for:
-    // the grooves are evenly spaced, the barb leans toward the equator, and a spiral mold's ribs
-    // carry their own serial numbers. Craft that only a builder knows belongs in the empty ones.
-    more: {
-      photo: "higo-winding.jpg",
-      body: "溝は等間隔に切ってあるので、巻きながら間隔を測る必要はありません。溝の返しは胴の中央を向いているので、竹ひごは中央へ寄せるように押しつけると座ります。螺旋巻きの型は羽根板ごとに溝がずれています。羽根板に刻まれた通し番号の順に組んであれば、そのまま1本の連続した螺旋になります。",
-    },
   },
   {
     id: "stand", title: "土台を組む", fig: "stand", stl: true,
@@ -155,7 +132,6 @@ const STEPS: Step[] = [
   {
     id: "washi", title: "和紙を貼る", fig: "washi",
     body: "でんぷん糊を竹ひごに置き、和紙をのせて刷毛で撫でて密着させます。羽根板と羽根板の間を1面ずつ、1つ飛ばしに。一周したら戻って間を埋めます — 縁を重ねる相手が濡れていない面になります。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。",
-    more: { photo: "washi-panel.jpg" },
   },
   {
     id: "dry", title: "乾かす", fig: "dry",
@@ -213,7 +189,6 @@ const STEPS: Step[] = [
           { id: "wire2", fig: "hangSet", title: "ソケットを引っ掛ける",
             body: "Uにコードを入れると、ソケットが引っ掛かります。両端は上の開口の縁の下に入れます。" },
         ],
-        more: { photo: "light-hang.jpg" },
       },
       {
         // Needs the leg sockets: they are where the legs go. Without them the figure would draw a
@@ -258,7 +233,6 @@ const STEPS: Step[] = [
           { id: "wire3", fig: "legStood", title: "ナットで締める",
             body: "ナットを戻して締めます。これでライトと脚と枠が1つになります。" },
         ],
-        more: { photo: "light-legs.jpg" },
       },
     ],
   },
@@ -337,58 +311,6 @@ function Fig({ src, t, part = false }: { src?: string | null; t: T; part?: boole
     <div className={part ? "guide-fig guide-fig--part" : "guide-fig"}>
       {src && <img src={src} alt="" />}
       {src === null && <span className="guide-slot">{t("図を描けませんでした")}</span>}
-    </div>
-  );
-}
-
-/**
- * A step's technique, folded under its body: what to do is above, how it goes is in here. See the
- * header for why this is a `<details>` and not a modal — folded content still prints, and printing
- * is the only paper version this page has. Print styles open every one of them and drop the summary,
- * so what someone carries to the bench reads as one continuous document.
- *
- * An empty one is not a mistake. The well and the 未記入 line say the block is waiting for a
- * photograph and a paragraph, where three tidy sentences would say it was finished and thin.
- */
-function More({ more, t }: { more: MoreBlock; t: T }) {
-  return (
-    <details className="guide-more">
-      <summary>{t("詳しく")}</summary>
-      <div className="guide-more-body">
-        <Shot photo={more.photo} video={more.video} t={t} />
-        <p className={more.body ? undefined : "guide-note"}>{more.body ? t(more.body) : t("未記入")}</p>
-      </div>
-    </details>
-  );
-}
-
-/**
- * A photograph of the technique, or — until the file is in `public/photos/` — a slot naming the file
- * it is waiting for. A missing image must not print a broken icon on a page someone is building
- * from, which is why the error is caught rather than left to the browser's own placeholder.
- *
- * A clip plays over its own still, and the still is REQUIRED: `video` without `photo` shows the slot
- * and no clip at all. The still is what prints, what is on screen before the video has loaded, and
- * what is left if the clip never gets shot — so nothing about the method may live only in the video.
- * Muted, looping and short, with no controls: it is a figure that moves, not something to operate.
- */
-function Shot({ photo, video, t }: { photo?: string; video?: string; t: T }) {
-  const [ok, setOk] = useState(true);
-  const url = (f: string) => `${import.meta.env.BASE_URL}photos/${f}`;
-  if (!photo || !ok) {
-    return (
-      <div className="guide-fig">
-        <span className="guide-slot">
-          {t("写真")}{photo && <> · <span style={{ fontFamily: mono }}>{photo}</span></>}
-        </span>
-      </div>
-    );
-  }
-  return (
-    <div className="guide-fig">
-      {video
-        ? <video src={url(video)} poster={url(photo)} muted loop playsInline autoPlay />
-        : <img src={url(photo)} alt="" onError={() => setOk(false)} />}
     </div>
   );
 }
@@ -583,9 +505,6 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
                             </ol>
                           </div>
                         )}
-                        {/* Above the footnote, below the numbered work: it belongs to the way, and
-                            the asterisked caveat stays last in the block whatever comes before it. */}
-                        {o.more && <More more={o.more} t={t} />}
                         {/* A caveat about the way itself rather than a step in it, so it is a
                             FOOTNOTE: last in the block, marked with an asterisk, in the same voice
                             the step-level `wip` note uses. Above the figure it read as another
@@ -600,11 +519,6 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
                   <button className="btn btn--ghost" onClick={onGoPrint}>{t("「印刷」ビューへ →")}</button>
                 )}
               </div>
-              {/* Outside the text column, spanning the whole card. Nested inside it the block gets
-                  what is left of a 300px-figure row — a photograph too small to read a technique off
-                  and a measure of about twenty characters, where every other body on the page runs
-                  to sixty. It also belongs to the step rather than to its text. */}
-              {s.more && <More more={s.more} t={t} />}
             </li>
           ))}
         </ol>
