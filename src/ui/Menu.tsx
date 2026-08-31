@@ -26,6 +26,17 @@
  * Undo and redo deliberately did NOT move in here. They are the recovery path for the direct-
  * manipulation editor that fills the screen, and an overflow menu is for what is rare.
  *
+ * The trigger's ☰ is DRAWN, not typed. U+2630 is not in the mono stack this button asks for, so it
+ * fell through to whatever the platform substitutes, and a substituted glyph sits wherever THAT
+ * font's metrics put it in the em box: measured in Chrome on macOS, the ink landed ~2px below and
+ * ~1px right of the centre of the 36px square, which is plainly visible at that size.
+ * `align-items: center` cannot fix it — that centres the LINE BOX, and the glyph is off-centre
+ * inside the line box. Nudging with padding or line-height only moves the error to the next
+ * platform, since the substituted face differs per OS (Apple Symbols here, Segoe UI Symbol on
+ * Windows) and none of them agrees on where in the em to sit. Three strokes in an SVG are centred
+ * because they are drawn centred, on every platform — 0.00px on both axes, against the button's own
+ * box — and the app already draws its marks this way (Logo, the section editor's legend).
+ *
  * Rules of the shape:
  * - **Every row carries a text label.** The trigger is the only icon-only control, and it has an
  *   `aria-label`; a menu of glyphs would just be the discoverability problem one level deeper.
@@ -103,7 +114,12 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
         aria-label={label} title={label}
         onClick={(e) => { setByKey(e.detail === 0); setOpen((v) => !v); }}
         onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); setByKey(true); setOpen(true); } }}>
-        ☰
+        {/* `display: block` so the svg brings no inline baseline gap of its own — with that, the
+            flex centring above lands the box exactly, and the box is the mark. */}
+        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" style={{ display: "block" }}>
+          <path d="M2.5 5h13M2.5 9h13M2.5 13h13" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" />
+        </svg>
       </button>
       {open && (
         <div className="menu-pop" role="menu" aria-label={label}>
