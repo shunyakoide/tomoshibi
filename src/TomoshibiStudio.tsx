@@ -33,7 +33,7 @@ import { fitOnBed } from "./bed.ts";
 import { clamp } from "./util.ts";
 import { useViewport } from "./three/viewport.ts";
 import { buildScene } from "./three/scenes.ts";
-import { useAutosave, useLang, useNarrow, useUndoRedo } from "./hooks.ts";
+import { useAutosave, useLang, useNarrow, usePageRoute, useUndoRedo } from "./hooks.ts";
 import {
   loadSaved, serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION,
   loadWelcomeSeen, saveWelcomeSeen,
@@ -222,11 +222,16 @@ export default function TomoshibiStudio() {
   // switch, so the route in effect is marked. No second persisted flag: the mode carries it.
   const [welcome, setWelcome] = useState<WelcomeCard>(() => (loadWelcomeSeen() ? null : "first"));
   const closeWelcome = () => { saveWelcomeSeen(); setWelcome(null); };
-  // The build guide. An OVERLAY, not a view: it is a document about making a lantern, and its
-  // figures come from one fixed example rather than from `p`, so it belongs to neither the view
-  // tabs (which select a rendering of YOUR design) nor the inspector. Transient — it is a thing you
-  // open and close, and a reload should not put you back inside it.
-  const [guide, setGuide] = useState(false);
+  // The build guide. Not a view: it is a document about making a lantern, and its figures come
+  // from one fixed example rather than from `p`, so it belongs to neither the view tabs (which
+  // select a rendering of YOUR design) nor the inspector. It is the one thing in this app with a
+  // URL of its own — `/guide`, so it can be linked to and left with the browser's back button —
+  // and `page` is that URL, read and written through the history API. See src/route.ts.
+  //
+  // Renamed on the way in: `route` is already this file's word for how the mold gets MADE (3D
+  // print / cardboard), which is a fact about the maker rather than a place.
+  const { route: page, go: goPage } = usePageRoute();
+  const guide = page === "guide";
 
   // Clamp the rib count to what fits the koma. If board thickness, tolerance or the opening (◇)
   // changes make it too large — by any path — lower it here, so overlapping notches can never
@@ -529,7 +534,7 @@ export default function TomoshibiStudio() {
     // A DOCUMENT, not a destination — it opens over whatever you were doing and closing it puts you
     // back there, exactly as the card above does. That distinction is what lets the menu keep the
     // "☰ with no navigation in it" trade intact; see ui/Menu.tsx.
-    { kind: "item", label: t("作り方"), onClick: () => setGuide(true) },
+    { kind: "item", label: t("作り方"), onClick: () => goPage("guide") },
     // A setting, not a verb, so it reads as one: the row names the thing and the right-hand side
     // shows what it would become. (The old control was a button captioned with its own opposite.)
     { kind: "item", label: t("言語"), value: lang === "ja" ? "English" : "日本語", onClick: toggleLang },
@@ -1142,8 +1147,8 @@ export default function TomoshibiStudio() {
             somewhere you go to DO something, and leaving the document open over it would hide the
             thing it just sent you to. */}
         {guide && (
-          <GuidePage route={route} onClose={() => setGuide(false)}
-            onGoPrint={() => { setGuide(false); setView("print"); }} />
+          <GuidePage route={route} onClose={() => goPage(null)}
+            onGoPrint={() => { goPage(null); setView("print"); }} />
         )}
       </div>
     </TContext.Provider>
