@@ -2,20 +2,16 @@
  * ============================================================================
  * STL watertightness (manifold) sweep verification
  * ============================================================================
- * This project has no test runner. Correctness is guaranteed by "the build
- * passes" + "the STL is watertight (a closed manifold)". This script sweeps a
- * representative parameter range and checks that the geometry of every part
- * (rib / koma / stand / base board / opening rings) is watertight.
+ * No test runner here: correctness is "the build passes" + "the STL is
+ * watertight". This sweeps a representative parameter range and checks every
+ * part (rib / koma / stand / base board / opening rings).
  *
- * Criteria (per CLAUDE.md "STL watertightness"):
- *   - Undirected edge share count = 2 is closed (OK). 1 = open edge,
- *     >2 = non-manifold → FAIL.
- *   - Any NaN vertex → FAIL.
- *   - Any zero-area (degenerate) triangle → FAIL.
+ * Criteria (docs/design-notes.md "STL watertightness"): undirected edge share count 2 =
+ * closed, 1 = open edge and >2 = non-manifold → FAIL; any NaN vertex → FAIL;
+ * any zero-area triangle → FAIL.
  *
- * Run:  npm run check:manifold
- * Always run this after touching geometry. Anything other than 0 FAIL can break
- * the print slicer.
+ * Run:  npm run check:manifold — always, after touching geometry. Anything
+ * other than 0 FAIL can break the print slicer.
  * ============================================================================
  */
 import type * as THREE from "three";
@@ -80,10 +76,8 @@ for (const preset of PRESETS)
         for (const boardT of boardTs)
           for (const fit of fits)
             for (const reqBoards of boardsArr) {
-              // As the UI does, clamp the count to the max that fits in the koma
-              // (combos of small opening × thick board × high count where notches
-              // overlap and become non-watertight cannot be made in the UI ⇒
-              // verify under the same constraint).
+              // Clamp the count to what fits in the koma, as the UI does: small opening × thick
+              // board × high count overlaps the notches, and the UI cannot make it either.
               const base = { ...DEFAULTS, ...preset, height, higoD, pitch, boardT, fit, boards: reqBoards };
               const boards = Math.min(reqBoards, G.maxBoards(base));
               if (boards < reqBoards) clamped++;
@@ -103,10 +97,9 @@ console.log(`tab-tip dent (koma stop): cut ${stopOn} / plain tab, no room ${stop
 console.log(`combos where maxBoards clamped the count: ${clamped} (= invalid counts the UI cannot make)`);
 
 // ============ Bézier tangent handle watertightness sweep ============
-// Curve-adjust mode switches outerR to Bézier evaluation. This checks that
-// shapes with variously edited handles still produce watertight STLs (that a
-// steep angle does not carve the body toward the koma and become non-watertight).
-// Bake handles onto the midpoint → perturb → check watertightness of every part.
+// Curve-adjust mode switches outerR to Bézier evaluation. Bake handles onto the
+// midpoint → perturb → check every part, so a steep angle cannot carve the body
+// toward the koma and open the mesh.
 function perturb(pts: Pt[], kind: string): Pt[] {
   const mid = Math.max(1, Math.min(pts.length - 2, Math.floor(pts.length / 2)));
   return pts.map((q, i) => {
@@ -139,12 +132,10 @@ for (const preset of PRESETS)
 console.log(`\n=== handle editing: ${htotal} checks, ${hfail} FAIL ===`);
 
 // ============ Spiral winding watertightness sweep ============
-// Spiral winding makes grooveList shift the grooves by step/boards per rib (k).
-// The shift varies continuously with k, and on some ribs a groove lands on an
-// end grid point. Since the offset differs on every rib, **all k** are checked
-// (the normal sweep only samples k=0,1,mid). Cross-multiply the preset/height/
-// higo diameter/pitch/count that affect groove position. The criterion is the
-// same watertightness as normal.
+// Spiral winding shifts each rib's grooves by step/boards, so the offset differs
+// on every rib and on some a groove lands on an end grid point: **all k** are
+// checked here, where the main sweep samples only k=0,1,mid. Cross-multiplies
+// everything affecting groove position; same watertightness criterion.
 let spFail = 0, spTotal = 0;
 for (const preset of PRESETS)
   for (const height of [140, 205, 300, 400])
@@ -163,18 +154,14 @@ for (const preset of PRESETS)
 console.log(`\n=== spiral winding: ${spTotal} checks, ${spFail} FAIL ===`);
 
 // ============ Silhouette extremes sweep (the corners of LIMITS) ============
-// Everything above runs the presets at their own radii, so it only ever sees a moderately sloped
-// body — and the slope is what the groove notch, and therefore the lightening window, is sensitive
-// to. A groove is cut along the surface NORMAL, so on a steep face its tip reaches inward in x by
-// `depth × √(1+slope²)`; the window used to stand a constant 11mm off the smooth edge, which the
-// notch simply swallowed. That produced open edges on any wide, low body — and at the *old* caps
-// the worst case was already down to 0.2mm of surviving material, i.e. the bug was reachable
-// before the caps were widened, and invisible here because nothing scaled the control points.
-//
-// So this section stretches each preset to the edges of LIMITS in both axes. Radius targets are
-// applied by scaling every control point until the widest one lands on the target, which keeps the
-// preset's shape and makes the slope scale with it — the whole point. higoD 3 is included because
-// the notch depth (and so the reach) is largest there.
+// Everything above runs the presets at their own radii, so it only sees a moderately sloped body —
+// and slope is what the groove notch, and so the lightening window, is sensitive to: a groove is cut
+// along the surface NORMAL, so on a steep face its tip reaches inward in x by `depth × √(1+slope²)`,
+// and a window standing a constant 11mm off the smooth edge was swallowed by it, opening edges on
+// any wide, low body. This is the only section that scales the control points, which is why nothing
+// else saw it: each preset is stretched to the edges of LIMITS in both axes, the radius target
+// applied by scaling every point until the widest lands on it, so the shape is kept and the slope
+// scales with it. higoD 3 is included because the notch reach is largest there.
 let exFail = 0, exTotal = 0;
 const [hLo, hHi] = LIMITS.height, [rLo, rHi] = LIMITS.r;
 for (const preset of PRESETS)
@@ -190,10 +177,9 @@ for (const preset of PRESETS)
           if (!r.ok) { exFail++; if (exFail <= 40) console.log(`✗[X] ${preset.key} h${height} rMax${rMax} hd${higoD} :: ${r.name} → ${r.reason}`); }
         }
       }
-// A straight cylinder isolates the radius floor from every shape effect: it is the one family
-// where "how small may r be" has a single answer, and that answer (LIMITS.r[0]) is what the
-// editor, the typed field and persist all clamp to. One step below it must fail, or the floor is
-// in the wrong place and the app is either refusing valid designs or shipping broken ones.
+// A straight cylinder isolates the radius floor from every shape effect: the one family where "how
+// small may r be" has a single answer, and that answer (LIMITS.r[0]) is what the editor, the typed
+// field and persist all clamp to.
 const cyl = (height: number, r: number) => {
   const base = { ...DEFAULTS, pts: [{ t: 0.05, r }, { t: 0.5, r }, { t: 0.95, r }], height };
   return checkParts({ ...base, boards: Math.min(8, G.maxBoards(base)) });
@@ -204,9 +190,8 @@ for (const height of [hLo, 205, hHi]) {
       exTotal++;
       if (!res.ok) { exFail++; if (exFail <= 40) console.log(`✗[X] cylinder h${height} r${r} :: ${res.name} → ${res.reason}`); }
     }
-  // The floor is only meaningful if it is the actual wall. Two millimetres under it, the rib must
-  // NOT come out watertight — if it does, the floor has drifted above the wall and the app is
-  // refusing designs it could make.
+  // The floor is only meaningful if it is the actual wall: 2mm under it the rib must NOT come out
+  // watertight, or the floor has drifted above the wall and the app is refusing valid designs.
   exTotal++;
   if (cyl(height, rLo - 2).every((res) => res.ok)) {
     exFail++;
@@ -216,13 +201,12 @@ for (const height of [hLo, 205, hHi]) {
 console.log(`\n=== silhouette extremes (h ${hLo}..${hHi} × r ${rLo}..${rHi}): ${exTotal} checks, ${exFail} FAIL ===`);
 
 // ============ Bottom-ring leg sockets sweep ============
-// The bottom opening ring carries three onigiri pads with a leg bore each, unless `p.legSockets` is
-// off or the opening is too small to hold them. The sweeps above only ever run it on, at the
-// presets' own radii. Both branches are exercised here across the whole radius range, because the
-// failure they guard against is not visible in the preview: on a small opening the pads fold
-// through the ring's axis and through each other, into a solid no slicer can read. `ringLegs` is
-// the guard, so what is checked is that its verdict is right in BOTH directions — every design it
-// accepts must be watertight, and every one it refuses must fall back to a plain hoop that still is.
+// The bottom ring carries three onigiri pads with a leg bore each, unless `p.legSockets` is off or
+// the opening is too small; the sweeps above only run it on, at the presets' own radii. Both
+// branches are exercised here across the whole radius range, the failure being invisible in the
+// preview — on a small opening the pads fold through the ring's axis and each other. What is checked
+// is that `ringLegs`'s verdict is right in BOTH directions: every design it accepts is watertight,
+// and every one it refuses falls back to a plain hoop that still is.
 // The pad centres = where a leg goes in, in the ring's own XY plane.
 const padCentres = (p: Design): [number, number][] => {
   const l = G.ringLegs(p);
@@ -269,16 +253,15 @@ for (const preset of PRESETS)
             if (!r.ok) { lgFail++; if (lgFail <= 40) console.log(`✗[L] ${tag} :: ${name} → ${r.reason}`); }
           }
           // Edge counting is blind to a hole that got FILLED IN — the shell stays closed either way,
-          // and a leg socket with no bore is a ring you cannot put a leg in. So shoot a ray up the
-          // middle of each pad and count the faces it crosses: 0 means the bore is open, 2 would
-          // mean it is capped. This is the one check that looks at the sockets as sockets.
+          // and a socket with no bore is a ring you cannot put a leg in. So shoot a ray up each
+          // pad's middle: 0 faces = open, 2 = capped. The one check that treats a hole as a hole.
           for (const [x, y] of padCentres(p)) {
             lgTotal++;
             const c = faceHits(G.ringGeometry(p, false), x, y);
             if (c !== 0) { lgFail++; if (lgFail <= 40) console.log(`✗[L] ${tag} :: leg bore blocked (${c} faces over it)`); }
           }
-          // The pads are separate closed shells merged into the hoop, so edge counting alone would
-          // pass a set that has folded through itself. Assert the shape reasons the guard exists for.
+          // The pads are separate closed shells merged into the hoop, so edge counting alone passes
+          // a set folded through itself. Assert the two shape conditions the guard exists for.
           const legs = G.ringLegs(p);
           lgTotal++;
           if (legs && legs.Rc - legs.triR < 0) { lgFail++; console.log(`✗[L] ${tag} :: pad crosses the axis`); }

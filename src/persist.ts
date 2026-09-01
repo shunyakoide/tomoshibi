@@ -1,19 +1,14 @@
 /**
  * ============================================================================
- * STATE PERSISTENCE (PERSIST)
+ * STATE PERSISTENCE
  * ============================================================================
- * Auto-saves the working state (shape p + machine settings bedW/bedD + printRibs)
- * to localStorage and restores it on startup. If a reload reverted to DEFAULTS, the
- * seam values needed to reuse the stand (boardT/tabLen/komaT/boards/fit) would also
- * be lost; preventing that is the main goal.
+ * Auto-saves the working state (the design `p` plus bedW/bedD/printRibs/route) to localStorage and
+ * restores it on startup. The point is the SEAM values — boardT / tabLen / komaT / boards / fit —
+ * that a reload back to DEFAULTS would lose, taking the reuse of an already-printed stand with it.
  *
- * No dependency on React/DOM components (only localStorage and pure validation). Being
- * a separate file from geometry.ts, it also doesn't violate the "geometry stays pure"
- * constraint. Adds no dependencies (only the browser-standard localStorage).
- *
- * Restore always goes through sanitize: prevents externally-sourced (hand-written / old
- * version / JSON round-trip) corrupt values from making outerR NaN → non-manifold STL,
- * or an oversized boards producing a non-watertight koma on the first render.
+ * **Restore always goes through `sanitizeP`**: a hand-written, old-version or round-tripped file
+ * must not make `outerR` NaN (a non-manifold STL) or hand the first render an oversized `boards`
+ * (a koma whose notches overlap). Verified by `npm run check:persist`.
  * ============================================================================
  */
 import { DEFAULTS, LIMITS } from "./config.ts";
@@ -22,9 +17,9 @@ import { clamp } from "./util.ts";
 import type { Design, NumericDesignKey, Pt, Route } from "./types.ts";
 
 /**
- * Everything one save holds: the design plus the machine settings that are facts about the maker,
- * not about the lantern. This is also the shape of the exported JSON and of the ZIP's config.json —
- * one schema, so a design mailed to someone else restores the same way it was saved.
+ * Everything one save holds: the design plus the machine settings, which are facts about the maker
+ * rather than the lantern. Also the shape of the exported JSON and the ZIP's config.json, so a
+ * design mailed to someone else restores the way it was saved.
  */
 export type SavedState = {
   p: Design;
@@ -36,9 +31,8 @@ export type SavedState = {
 export const STORAGE_KEY = "tomoshibi.studio";
 export const SCHEMA_VERSION = 1;
 
-// First-run onboarding card: a separate key from the design state, because it is not part of the
-// design (exporting / importing a design must not carry "has this person seen the intro" with it,
-// and clearing the flag must not touch the shape). Same shape as i18n's language key.
+// First-run onboarding card, on its own key: exporting a design must not carry "has this person
+// seen the intro", and clearing the flag must not touch the shape. Same shape as i18n's lang key.
 export const WELCOME_KEY = "tomoshibi.welcome";
 export function loadWelcomeSeen() {
   try { return localStorage.getItem(WELCOME_KEY) === "1"; }
@@ -48,15 +42,12 @@ export function saveWelcomeSeen() {
   try { localStorage.setItem(WELCOME_KEY, "1"); } catch { /* the card simply shows again next time */ }
 }
 
-// Allowed range [min, max] per numeric field. Restored values don't pass through the
-// UI's clamping, so out-of-range values from corrupt localStorage or external JSON flow
-// straight into geometry and break it (in particular pitch:0 makes grooveList's
-// n=Math.round(span/pitch)=Infinity loop forever). Always clamp into range here.
-// Ranges match the UI slider/stepper allowed domains (unknowns get a safely wide range).
-// The two silhouette ranges come from LIMITS rather than being written out again: a saved design
-// is only "safe" if it is a design the editor could have produced, and r's floor in particular is
-// a geometric wall (below it the rib cannot close), not a UI preference — the 8 that used to sit
-// here let a corrupt file through at a radius the editor itself refuses.
+// Allowed range [min, max] per numeric field. Restored values skip the UI's clamping, so a bad
+// value from corrupt localStorage or external JSON flows straight into geometry — `pitch: 0` makes
+// `grooveList`'s `n = Math.round(span/pitch)` Infinity and loops forever. Ranges match the UI's own
+// domains; unknown fields get a safely wide one. The two silhouette ranges come from `LIMITS`
+// rather than being restated: a saved design is only safe if the editor could have produced it, and
+// r's floor is a geometric wall (below it the rib cannot close), not a UI preference.
 const BOUNDS: Record<NumericDesignKey, readonly [number, number]> = {
   height: LIMITS.height, rTop: LIMITS.r, rBot: LIMITS.r, boards: [4, 16],
   boardWidth: [10, 120], boardT: [1, 4], higoD: [1, 4], pitch: [8, 30],
@@ -64,18 +55,15 @@ const BOUNDS: Record<NumericDesignKey, readonly [number, number]> = {
 };
 const NUM_KEYS = Object.keys(BOUNDS) as NumericDesignKey[];
 
-// Validate a Bezier tangent handle (ho/hi). Accept if both {dt,dr} are finite; otherwise
-// (missing, non-object, NaN, JSON-serialized Infinity=null, etc.) discard it. Prevents a
-// corrupt handle from making outerR NaN.
+// Validate a Bezier tangent handle (ho/hi): keep it only if both {dt,dr} are finite, else discard
+// (missing, non-object, NaN, JSON-serialized Infinity=null). A corrupt handle makes outerR NaN.
 function validHandle(h: unknown): { dt: number; dr: number } | undefined {
   const q = h as { dt?: unknown; dr?: unknown } | null;
   return q && Number.isFinite(q.dt) && Number.isFinite(q.dr) ? { dt: q.dt as number, dr: q.dr as number } : undefined;
 }
-// Validate pts: must be an array, 2+ points, each element {t,r} finite. If not, substitute
-// DEFAULTS.pts. Clamp t to [0,1] and r to a valid range, and sort ascending by t (a geometry
-// precondition; externally-sourced data has no guaranteed order).
-// ho/hi (optional) are made safe via validHandle and omitted if invalid (= that point falls
-// back to an auto tangent).
+// Validate pts: an array of 2+ points with finite {t,r}, else DEFAULTS.pts. Clamps t to [0,1] and r
+// to a valid range, and sorts ascending by t — a geometry precondition external data cannot promise.
+// ho/hi go through validHandle and are omitted if invalid (that point falls back to an auto tangent).
 function validatePts(pts: unknown): Pt[] {
   if (!Array.isArray(pts) || pts.length < 2) return DEFAULTS.pts.map((q) => ({ ...q }));
   for (const q of pts) {
@@ -104,9 +92,9 @@ function coerceNums(p: Design): Design {
   return p;
 }
 
-// Sanitize a shape p: shallow-merge to fill missing fields from DEFAULTS, then validate pts,
-// coerce numbers, and clamp boards. The boards clamp brings TomoshibiStudio's self-healing
-// effect forward (so the first render doesn't produce a non-watertight koma).
+// Sanitize a shape p: shallow-merge missing fields from DEFAULTS, validate pts, coerce numbers,
+// clamp boards. The boards clamp brings TomoshibiStudio's self-healing effect forward, so the first
+// render cannot produce a non-watertight koma.
 function sanitizeP(rawP: unknown): Design {
   const raw = rawP as Partial<Design> | null | undefined;
   const p: Design = { ...DEFAULTS, ...raw };   // missing fields are filled from the single source of truth, DEFAULTS
@@ -123,20 +111,17 @@ export function saveState(state: SavedState): void {
   } catch { /* the app works even if saving fails (next launch simply starts from DEFAULTS) */ }
 }
 
-// Restore: either a merged / validated / clamped {p, bedW, bedD, printRibs, matT, washi*, route}, or null if
-// invalid. Read saved.p even when the version is unknown (shallow merge is forward-compatible,
-// so we don't throw away machine invariants). Only add a version to the discard list when a
-// truly incompatible breaking change was made.
+// Read saved.p even when the version is unknown — the shallow merge is forward-compatible, so
+// machine invariants are not thrown away. Only add a version here on a real breaking change.
 const INCOMPATIBLE_VERSIONS = new Set<unknown>(); // e.g. on a breaking change, add the affected version here
 
-// Parsed object → sanitized {p, bedW, bedD, printRibs, matT, washiSide, washiEnd, route} (null if invalid).
-// Every "single externally-sourced object" — localStorage restore, file load, ZIP-embedded
-// config, etc. — passes through here. Making corrupt values safe (sanitizeP / clamp) is
-// consolidated into one path instead of being written per route.
+// Parsed object → sanitized SavedState (null if invalid). Every externally-sourced object —
+// localStorage restore, file load, ZIP-embedded config — passes through here, so making corrupt
+// values safe is one path rather than one per caller.
 export function sanitizeSaved(saved: unknown): SavedState | null {
   if (!saved || typeof saved !== "object") return null;
-  // The one cast in the file, and the only place it belongs: past this line the data is typed, and
-  // every field below is read through a coercion that cannot return anything but a number.
+  // The one cast in the file: past this line every field is read through a coercion that cannot
+  // return anything but a number.
   const raw = saved as Record<string, unknown>;
   if (INCOMPATIBLE_VERSIONS.has(raw.schemaVersion)) return null;
   const clampNum = (v: unknown, lo: number, hi: number, def: number) => { const n = Number(v); return Number.isFinite(n) ? clamp(lo, hi, n) : def; };
@@ -144,9 +129,9 @@ export function sanitizeSaved(saved: unknown): SavedState | null {
   const bedD = clampNum(raw.bedD, 100, 420, 256);
   const printRibs = Math.round(clampNum(raw.printRibs, 1, 16, 1)); // 1..boards; upper bound further clamped on the boards side
   const matT = clampNum(raw.matT, 1, 10, 5);        // paper-template material thickness (mm). UI stepper allowed range
-  // How this person builds the mold: "stl" (3D print) or "paper" (cardboard). A setup fact about the
-  // maker, not about the design — but it decides whether the print bed constrains anything at all, so
-  // it is restored alongside the bed like any other machine setting. Anything else falls back to "stl".
+  // How this person builds the mold: "stl" (3D print) or "paper" (cardboard). A fact about the
+  // maker, not the design, but it decides whether the print bed constrains anything at all, so it is
+  // restored alongside the bed. Anything else falls back to "stl".
   const route = raw.route === "paper" ? "paper" : "stl";
   // Washi-template allowances (mm). Purely a paper margin — nothing in the mold depends on them,
   // so any out-of-range value just clamps back into the UI stepper's range.
@@ -163,16 +148,14 @@ export function loadSaved(): SavedState | null {
   } catch { return null; }
 }
 
-// Export: serialize the current working state to a JSON string with the same schema as
-// saveState / the ZIP-embedded config.json. Saving this to a file lets the design be restored
-// even if localStorage (a volatile cache layer) is cleared.
+// Export: the working state as JSON, same schema as saveState and the ZIP's config.json, so a
+// design survives localStorage being cleared.
 export function serializeState(state: SavedState): string {
   return JSON.stringify({ schemaVersion: SCHEMA_VERSION, ...state }, null, 2);
 }
 
-// Import: a string (from a file, etc.) → sanitized state (null if the JSON/content is invalid).
-// Whether it's a ZIP-embedded config.json ({schemaVersion, p, bedW, bedD}) or a standalone
-// exported state, sanitizeSaved fills missing fields from DEFAULTS so it restores as-is.
+// Import: a string → sanitized state (null if invalid). ZIP-embedded config.json or a standalone
+// export alike — sanitizeSaved fills missing fields from DEFAULTS, so either restores as-is.
 export function parseImport(text: string): SavedState | null {
   try { return sanitizeSaved(JSON.parse(text)); }
   catch { return null; }

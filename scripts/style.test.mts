@@ -2,34 +2,18 @@
  * ============================================================================
  * TYPE SCALE — every font size in the app must be a member of it
  * ============================================================================
- * The scale is `FS` in src/ui/theme.ts (nine steps). Nothing else may set a font size, and the
- * reason this is a check rather than a convention is that the old scale had SIXTEEN steps, five of
- * them half-pixel, and not one of them arrived by decision — each was a nudge that stuck. A scale
- * with no gate is a scale that grows back.
- *
- * Two encodings have to agree and neither can see the other:
- *   - JS  — `fontSize: FS.base` in a style object, `fontSize={FS.base}` on an SVG <text>
- *   - CSS — `font-size: 12px` in index.css, written as a LITERAL
- * The literal is deliberate (see the FS comment: a `var()` that is not set yet degrades to inherited
- * TEXT SIZE, and the whole page would resize on boot), so nothing at runtime links the two. This
- * script is the link.
+ * The scale is `FS` in src/ui/theme.ts (nine steps). A CHECK because a scale with no gate grows
+ * back — the old one reached sixteen steps, five half-pixel — and because two encodings must agree
+ * that cannot see each other (JS `fontSize`, CSS `font-size` literals in index.css).
  *
  * What it fails on:
  *   1. a CSS `font-size` whose px value is not in FS
- *   2. a JS `fontSize` written as a raw number instead of an FS member
- *   3. an `FS.<name>` that does not exist (a typo — `FS.xxl` is `undefined`, which React drops
- *      silently and CSS never sees, so the text renders at the inherited size and nothing warns)
- *   4. an FS step nothing uses — the drift that says a size was retired without being removed
- *   5. a class index.css styles that nothing in src/ renders, or a `--` modifier used but never defined
- *
- * Tailwind adds a THIRD encoding of the same scale — `@theme { --text-* }` at the top of
- * index.css, which is what `text-base` and friends resolve through — and a second of the palette.
- * Those are checked here too, both ways: a token in `@theme` that theme.ts does not define, and a
- * theme.ts value `@theme` does not carry. A stale `@theme` does not fail a build or throw; it just
- * renders one label at the wrong size or one border in last month's grey.
- *
- * It does NOT read font sizes out of three/figures.ts or papercraft.ts. Those draw into a WebGL
- * frame and onto A4 at 1:1, where the unit is mm or a world unit and 12 has nothing to do with 12px.
+ *   2. a JS `fontSize` written as a raw number
+ *   3. an `FS.<name>` that does not exist — a typo is `undefined`, which React drops and CSS never
+ *      sees, so the text renders at the inherited size and nothing warns
+ *   4. an FS step nothing uses: a size retired without being removed
+ *   5. the palette, the corner scale, the `@layer components` wrapper, and every class — see the
+ *      section comments below, each added after a bug got through
  * ============================================================================
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -42,10 +26,9 @@ const fail: string[] = [];
 const used = new Set<string>();
 
 // ---- 1. index.css: every font-size must be a member ----------------------------------------
-// Comments are blanked first, newlines kept so line numbers still point at the real line. This
-// file DOCUMENTS the rules it is checked against — the layer note below quotes the reset verbatim
-// — so a scanner that reads prose finds the thing it is looking for in the paragraph explaining it.
-// (That is not hypothetical: it is how the layer guard first failed, on a correct stylesheet.)
+// Comments blanked first, newlines kept so line numbers still point at the real line: index.css
+// documents the rules it is checked against, so a scanner reading prose finds what it looks for in
+// the paragraph explaining it — how the layer guard first failed, on a correct file.
 const strip = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
 const css = strip(readFileSync("src/index.css", "utf8")).split("\n");
 css.forEach((line, i) => {
@@ -57,10 +40,9 @@ css.forEach((line, i) => {
 });
 
 // ---- 1b. no raw corner radius, in either file kind -------------------------------------------
-// The same fold the type scale got, and the same reason to gate it: there were thirteen radii, one
-// per integer somebody reached for. index.css writes `var(--radius-*)` (safe, unlike a font size,
-// because `@theme` emits these STATICALLY into the stylesheet rather than at runtime), and a .tsx
-// writes `rounded-<step>`. A raw `rounded-[9px]` is how the thirteenth value comes back.
+// Same reason as the type scale: there were thirteen radii, one per integer somebody reached for.
+// index.css writes `var(--radius-*)` (safe, unlike a font size, because `@theme` emits these
+// STATICALLY) and a .tsx writes `rounded-<step>`; a raw bracket value brings the thirteenth back.
 css.forEach((line, i) => {
   for (const m of line.matchAll(/border-radius:\s*(\d[\d.]*)px/g)) {
     fail.push(`src/index.css:${i + 1}  border-radius: ${m[1]}px — use var(--radius-<step>)`);
@@ -135,10 +117,9 @@ for (const ns of ["color-*", "text-*", "radius-*"]) {
 }
 
 // ---- 3c. the app's CSS must stay inside @layer components ------------------------------------
-// This is the bug that made the Tailwind migration real work, and it is invisible: an UNLAYERED
-// rule beats every layered one whatever the specificity, so with the app's reset outside a layer
-// `* { padding: 0 }` defeated every spacing utility in the app. `px-12` computed to 0px with the
-// class in the DOM and the rule in the stylesheet, and nothing anywhere said so.
+// Invisible when wrong: an UNLAYERED rule beats every layered one whatever the specificity, so with
+// the app's reset outside a layer its zeroed padding defeated every spacing utility — computed 0px
+// with the class in the DOM and the rule in the stylesheet, and nothing said so.
 {
   const open = cssText.indexOf("@layer components {");
   const reset = cssText.indexOf("* { margin: 0");
@@ -147,26 +128,15 @@ for (const ns of ["color-*", "text-*", "radius-*"]) {
 }
 
 // ---- 3d. BEM modifiers must exist in both directions -----------------------------------------
-// `.btn--ghost` was deleted from index.css when the buttons it belonged to moved into the ☰ menu,
-// and GuidePage's one use of it was not. That button then rendered in the BROWSER's default chrome
-// — grey, 2px outset black — inside a warm-toned document, on main, past every gate here, because a
-// class attribute is a string and nothing in this project read it. The button is a component now
-// (`Button` in ui/controls.tsx) so this particular case cannot recur, but the shape can.
+// A class attribute is a string and nothing read it: a modifier deleted from index.css outlived its
+// one use in the guide, which shipped the BROWSER's default chrome on main, past every gate here.
 //
-// Two directions, and they need different rules because only one of them is decidable here.
-//
-// DEFINED BUT UNUSED covers EVERY class in index.css. It is what catches a rule whose element has
-// moved to utilities and left the rule behind — `.guide-steps .btn { margin-top: 12px }` outlived
-// the `.btn` it targeted by exactly one commit, and the guide's button silently lost its 12px.
-// A selector naming a class nothing renders is, as the CSS's own comment put it, a claim about the
-// UI that is not true.
-//
-// USED BUT UNDEFINED can only be checked for `x--y` modifiers. A bare class in JSX is far more
-// likely to be a Tailwind utility than a project class, and telling them apart without running
-// Tailwind's own scanner is guesswork; a `--` modifier is a project class by construction.
-//
-// Both read comment-stripped source, for the reason index.css's scan does: this repo documents the
-// rules it enforces, and the component that replaced `.btn--ghost` names it in its own docblock.
+// Two directions, needing different rules because only one is decidable. **Defined but unused**
+// covers EVERY class in index.css, catching a rule left behind when its element moved to utilities
+// (one such cost the guide's button 12px of margin). **Used but undefined** can only be checked for
+// `x--y` modifiers — a bare class in JSX is more likely a Tailwind utility, and telling them apart
+// without Tailwind's scanner is guesswork, while `--` is a project class by construction. Both read
+// comment-stripped source, for the reason index.css's scan does.
 {
   const noComments = (t: string) =>
     t.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")).replace(/\/\/.*$/gm, "");
@@ -176,10 +146,9 @@ for (const ns of ["color-*", "text-*", "radius-*"]) {
   // papercraft generates its own stylesheet from the STYLE table and scopes it under `.pages`.
   const paper = new Set([...noComments(readFileSync("src/papercraft.ts", "utf8"))
     .matchAll(/"?([a-z][\w-]*)"?\s*:\s*\{/g)].map((m) => m[1]));
-  // Every whitespace-separated token that appears inside a STRING LITERAL anywhere in src/. Only
-  // literals: an earlier version accepted a match delimited by whitespace in the raw source, which
-  // made `const btn = useRef(...)` in Menu.tsx count as a use of `.btn` and quietly passed a dead
-  // `.guide-steps .btn` rule — the exact bug the check exists for.
+  // Every whitespace-separated token inside a STRING LITERAL anywhere in src/. Only literals: an
+  // earlier version matched on whitespace in the raw source, so an identifier of the same name
+  // counted as a use of the class and passed a dead rule — the exact bug the check exists for.
   const rendered = new Set<string>();
   for (const f of walk("src", [".ts", ".tsx"])) {
     for (const m of noComments(readFileSync(f, "utf8")).matchAll(/"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`/g)) {
@@ -207,15 +176,12 @@ for (const ns of ["color-*", "text-*", "radius-*"]) {
 }
 
 // ---- 3e. every utility written in JSX must exist in the built stylesheet ----------------------
-// The Tailwind half of "a class attribute is a string". `text-md` is a size in this app and not in
-// stock Tailwind; `rounded-8` looks obviously fine and generates NOTHING, because v4's `rounded-*`
-// reads a --radius-* namespace rather than the spacing scale. A utility that does not exist is not
-// an error anywhere: it is a class in the DOM with no rule behind it, which is the same silence
-// `.btn--ghost` shipped in.
-//
-// This needs the BUILD, since only Tailwind knows what it generated. CI builds before it runs the
-// checks. If dist is missing this FAILS rather than skipping — a gate that quietly does nothing is
-// the one failure mode worth designing against (see eslint.config.ts for the same argument).
+// The Tailwind half of "a class attribute is a string": a plausible `rounded-8` generates NOTHING,
+// because v4's `rounded-*` reads a --radius-* namespace rather than the spacing scale, and a
+// utility that does not exist is just a class with no rule behind it. Needs the BUILD, since only
+// Tailwind knows what it generated (CI builds first); if dist is missing this FAILS rather than
+// skipping, a gate that quietly does nothing being the one failure mode worth designing against
+// (see eslint.config.js for the same argument).
 {
   let built: string[] = [];
   try { built = readdirSync("dist/assets").filter((n) => n.endsWith(".css")); } catch { /* reported below */ }
@@ -225,17 +191,11 @@ for (const ns of ["color-*", "text-*", "radius-*"]) {
     const sheet = readFileSync(join("dist/assets", built[0]), "utf8");
     const esc = (c: string) => "." + c.replace(/[:[\]().,'#/%!&>~*+=]/g, (ch) => "\\" + ch);
     const seen = new Set<string>();
-    // Two shapes carry a class list: the attribute itself, and a SHARED SKIN CONSTANT — the string
-    // a component hands to `className={…}` or composes into a template. `SEG_SKIN`, `NOTE_SKIN`,
-    // `PT_BTN`, `CHIP_BOX`, `TAB_SKIN`: every one is a class attribute that happens to be spelled
-    // somewhere else, and reading only the attribute left them all unchecked — the biggest class
-    // strings in the app, in the files most likely to be edited.
-    //
-    // Which constants those are is not guessed from their NAMES: the identifiers are read out of the
-    // `className={…}` expressions that use them, and only those are then resolved. A naming
-    // convention would have to be remembered; this cannot miss one, and cannot mistake `WASHI_PDF`
-    // for a class list either. A constant is read whole rather than line by line, because these are
-    // written as multi-line `"…" + "…"` concatenations.
+    // Two shapes carry a class list: the attribute, and a SHARED SKIN CONSTANT handed to
+    // `className={…}` — the biggest class strings in the app, unchecked while only the attribute was
+    // read. Which constants those are is read out of the `className={…}` expressions using them
+    // rather than guessed from their NAMES, so this cannot miss one nor mistake an unrelated
+    // constant for a class list. Each is read whole, being a multi-line `"…" + "…"` concatenation.
     const CLASS_ATTR = /className=(?:"([^"]*)"|\{`([^`]*)`\}|\{([^}]*)\})/g;
     const skinNames = new Set<string>();
     const files = [...walk("src", [".tsx"])];
@@ -245,11 +205,9 @@ for (const ns of ["color-*", "text-*", "radius-*"]) {
         for (const id of (m[2] ?? m[3] ?? "").matchAll(/\b[A-Z][A-Z0-9_]{2,}\b/g)) skinNames.add(id[0]);
       }
     }
-    // EVERY token, not just Tailwind-shaped ones. Narrowing this to utilities left a hole the orphan
-    // check does not cover from the other side: `className="sec"` kept working after `.sec` was
-    // deleted from index.css, because nothing asks whether a bare project class still resolves. It
-    // does not — the built sheet is the whole truth about what a class name means, project rule and
-    // generated utility alike.
+    // EVERY token, not just Tailwind-shaped ones. Narrowed to utilities it left a hole the orphan
+    // check does not cover from the other side: a bare project class kept being written after its
+    // rule was deleted. The built sheet is the whole truth about what a class name means.
     const check = (where: string, list: string) => {
       for (const c of list.replace(/\$\{[^}]*\}/g, " ").split(/\s+/)) {
         if (!c || seen.has(c)) continue;

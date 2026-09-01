@@ -37,18 +37,12 @@ identically on a machine that has none of the fonts installed. That matters more
 the kanji is set in a webfont that ships on no operating system, so a `<text>` version would
 silently fall back to whatever mincho the viewer happens to have.
 
-| Element | Source | Licence |
-| --- | --- | --- |
-| 灯 | Shippori Mincho 700 | SIL OFL 1.1 |
-| `TOMOSHIBI` | IBM Plex Mono 500 | SIL OFL 1.1 |
-| tagline | IBM Plex Mono 400 | SIL OFL 1.1 |
-
-Both families are OFL, which permits deriving artwork from their outlines. IBM Plex is already the
-app's typeface (`src/ui/theme.ts`), so the wordmark and the UI are the same voice.
+灯 is Shippori Mincho 700; the wordmark and tagline are IBM Plex Mono 500 / 400. Both families are
+SIL OFL 1.1, which permits deriving artwork from their outlines, and IBM Plex is already the app's
+typeface (`src/ui/theme.ts`), so the wordmark and the UI are the same voice.
 
 ## Regenerating
 
-The marks are generated, not hand-drawn: glyph outlines are pulled from the OFL fonts with
-`fontTools` and laid out by script. Re-run that script rather than editing the SVG paths — the
-letterspacing and the optical centring of the wordmark against the kanji's ink box are computed,
-and hand-nudging one file puts it out of step with the other eleven.
+Every file above is generated. Run [`tools/logo`](tools/logo/README.md) rather than editing an SVG
+by hand — the letterspacing and the optical centring of the wordmark against the kanji's ink box are
+computed, so a nudge to one file puts it out of step with the other eleven.

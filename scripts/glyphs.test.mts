@@ -5,12 +5,11 @@
  * `src/pdf.ts` sets Latin in Helvetica and draws everything else from the outlines in
  * `src/pdf-glyphs.ts`, which `tools/pdffont/build.py` extracts for exactly the characters the
  * templates use. A character with no outline is folded to ASCII or **dropped** — silently, and only
- * on paper, which is the one place nothing else here is looking. Adding a Japanese word to a
- * template and forgetting to rerun the tool is therefore a one-line change that prints a blank.
- *
- * So this reruns the tool's own collection (same sources, same rule) and fails when the committed
- * table no longer covers it. It reads the source with a regex rather than importing it, for the same
- * reason check:i18n does: what matters is the string as WRITTEN, before any translator sees it.
+ * on paper, where nothing else is looking: adding a Japanese word to a template without rerunning
+ * the tool is a one-line change that prints a blank. So this reruns the tool's own collection (same
+ * sources, same rule) and fails when the committed table no longer covers it. It reads the source
+ * with a regex rather than importing it, for the same reason check:i18n does: what matters is the
+ * string as WRITTEN, before any translator sees it.
  *
  *   node scripts/glyphs.test.mts
  * ============================================================================
@@ -48,9 +47,8 @@ for (const ch of needed) {
   if (!/^-?\d+ -?\d+ m\b/.test(g.d)) bad(`"${ch}": the outline does not start with a moveto`);
   if (!/\bh$/.test(g.d)) bad(`"${ch}": the outline's last contour is not closed (the fill would bleed)`);
   if (!(g.w > 0)) bad(`"${ch}": advance width ${g.w}`);
-  // The ink has to sit on the em it is advanced by. A glyph extracted at the wrong scale still
-  // draws, still fills, still passes every count — it simply prints the size of a thumbnail or of a
-  // fist, and nothing downstream is looking at that.
+  // The ink has to sit on the em it is advanced by: a glyph extracted at the wrong scale still
+  // draws, fills and passes every count, and simply prints thumbnail- or fist-sized.
   const xs: number[] = [], ys: number[] = [];
   for (const m of g.d.matchAll(/(-?\d+) (-?\d+)(?= [mlc]|\b)/g)) { xs.push(+m[1]); ys.push(+m[2]); }
   const box = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
@@ -58,8 +56,8 @@ for (const ch of needed) {
     bad(`"${ch}": ink box [${box}] is not inside its 1000-unit em`);
   if (box[1] - box[0] < 50 || box[3] - box[2] < 50) bad(`"${ch}": ink box [${box}] is degenerate`);
 }
-// The other direction: an outline nothing prints is 200 bytes of a font we are shipping for no
-// reason, and usually the fingerprint of a label that was reworded (the same drift check:i18n hunts).
+// The other direction: an outline nothing prints is 200 shipped bytes for nothing, and usually the
+// fingerprint of a reworded label (the same drift check:i18n hunts).
 for (const ch of Object.keys(GLYPHS)) if (!needed.has(ch)) bad(`"${ch}" has an outline but nothing prints it`);
 
 console.log(`\n=== ${needed.size} characters, ${Object.keys(GLYPHS).length} outlines, ${fail} FAIL ===`);

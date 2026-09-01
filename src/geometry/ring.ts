@@ -3,13 +3,13 @@
  * OPENING RING (KUCHIWA) — the one part that is not part of the mold
  * ============================================================================
  * A thin flat hoop glued around the finished lantern's opening to hold it round, after the mold has
- * been taken apart and pulled out. Sized from `openingR()`, so it follows the design like every
- * other part.
+ * been taken apart and pulled out. Sized from `openingR()` (the outermost control point), so it
+ * follows the design like every other part; thin both radially and in height, not a thick washer or
+ * a tall band, and independent of the mold's own parts.
  *
  * The BOTTOM ring doubles as the base of a leg stand for the finished lantern: inside the hoop sit
- * `legN` flat "onigiri" pads (rounded triangles), each with a bore at its middle that a leg rod
- * pushes into. Where the opening is too small to hold them the ring falls back to a plain hoop with
- * a marker tab, which is also what tells the printed pair apart when there are no sockets to do it.
+ * `LEG_N` flat "onigiri" pads (rounded triangles), each with a bore at its middle that a leg rod
+ * pushes into. Too small an opening falls back to a plain hoop with the marker tab instead.
  * ============================================================================
  */
 import type { Design } from "../types.ts";
@@ -17,31 +17,19 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { outerR } from "./profile.ts";
 
-// ============ Opening ring (kuchiwa) ============
-// A thin ring inserted into the top and bottom openings of the finished washi lantern. Fitted into
-// the opening to keep it perfectly round, and the bamboo rib ends are wound and fastened around its
-// outer edge. The opening position/diameter is decided by the outermost control point, so it comes
-// automatically from openingR (outer diameter = opening diameter). Not a thick washer nor a tall band,
-// but a thin wire-like hoop (thin both radially and in height). A new part independent of the existing
-// parts (rib/koma/stand).
+// The hoop goes AROUND the outside of the opening: its INNER diameter matches the opening's outer
+// one (see RING_FIT below).
 const RING_WALL = 2;   // hoop wall thickness (radial, mm). Thin = the bamboo rib can wind around the outer edge.
 const RING_H = 2;      // hoop height (= Z extrusion, mm). A thin flat ring (wire-like).
-// Fit clearance (radius, mm). The opening ring fits on the **outside** of the opening, so the ring's
-// **inner diameter** must smoothly match the opening's outer diameter (= the rib's outer side). This
-// widens by this much to relieve the amount the inner diameter shrinks due to print error. 0.3
-// (diameter 0.6mm) was loose, so changed to 0.15 (diameter 0.3mm). It is fixed by the bamboo rib and
-// washi, so slightly tight is better.
+// Fit clearance (radius, mm): the ring's inner diameter is widened by this much to relieve the print
+// error that shrinks it. 0.3 (⌀0.6) was loose; the ring is held by the bamboo rib and washi anyway,
+// so slightly tight is better.
 const RING_FIT = 0.15;
 // ---- Leg sockets on the bottom opening ring ----
-// The bottom ring also serves as the base of a leg stand for the finished lantern. Inside the hoop,
-// `p.legN` "onigiri" pads (rounded triangles) sit evenly spaced, each pointing its vertex toward the
-// center, and a leg rod is inserted into the bore at each pad's middle. The pad's outer (rounded)
-// edge overlaps the hoop's inner rim so the whole thing prints as one piece.
-//
-// The pad's dimensions are CONSTANTS, not settings. The one thing a design has to say about them is
-// whether it wants them at all (`p.legSockets`) — a lantern either stands on legs or it doesn't. How
-// wide the pad is and how big the bore is are consequences of that decision, not separate questions,
-// and a rod is trimmed to the hole rather than the other way round.
+// The pads sit evenly spaced inside the hoop, vertex toward the center, their outer edge overlapping
+// the hoop's inner rim so the whole thing prints as one piece. Their dimensions are CONSTANTS, not
+// settings: the only thing a design says is whether it wants them at all (`p.legSockets`) — pad
+// width and bore size follow from that decision, and a rod is trimmed to the hole, not vice versa.
 const LEG_N = 3;         // number of leg sockets (evenly spaced)
 const LEG_D = 6;         // leg rod diameter (mm)
 const TRI_R = 10;        // onigiri circumradius (corner distance from pad center, mm)
@@ -49,34 +37,31 @@ const TRI_ROUND = 0.4;   // corner rounding as a fraction of the edge (0 = sharp
 const LEG_OVERLAP = 0.6; // how far the pad's outer edge overlaps into the hoop rim (mm), for a joined look
 const PAD_CORE = 1;      // material the inner vertex must leave around the ring's axis, mm
 const PAD_GAP = 1.5;     // clear air required between two neighbouring pads, mm
-// Bottom-ring marker, for when there are no leg sockets to tell the pair apart. The two rings are
-// then the same flat hoop in different sizes, and on a shape whose openings are close (the barrel
-// preset is ⌀116 vs ⌀108) they are easy to mix up once printed. One small square tab on the inner rim
-// tells them apart at a glance. It reaches past the nominal opening by MARK_D - RING_FIT; that is
-// intended, the tab sits in the pasted layers at the rim. Kept narrow so it takes up as little of
-// the rim as possible — widen it and it stops being something you can tuck in. Don't "fix" it by
-// moving it outward.
+// Bottom-ring marker, for when there are no leg sockets to tell the pair apart: the two rings are
+// then the same flat hoop in sizes that can be close enough to mix up (the barrel preset is ⌀116 vs
+// ⌀108), and one small square tab on the inner rim separates them at a glance. It reaches past the
+// nominal opening by MARK_D - RING_FIT, intentionally — the tab sits in the pasted layers at the rim
+// — and is kept narrow so it stays tuckable. Don't "fix" it by moving it outward.
 const MARK_D = 1.5;   // how far the tab reaches in from the inner rim (mm)
 const MARK_W = 3;     // tangential width of the tab (mm) — at ⌀148 that is a 2.3° bite of the rim
-// The opening (= opening ring) radius. top=true for the top end, false for the bottom end. Uses
-// outerR's end value regardless of whether a neck exists.
+// The opening (= opening ring) radius. top=true for the top end, false for the bottom. Uses outerR's
+// end value regardless of whether a neck exists.
 export function openingR(p: Design, top: boolean): number { return outerR(p, top ? 1 : 0); }
 
 // The bottom ring's leg sockets, or null when the design turned them off OR the opening has no room
-// for them. Exported because the inspector has to say which of those it is — "off" is a checkbox you
-// can tick back on, "no room" is not, and a socket that silently is not there is one you find out
-// about with the print in your hand. Both the ring geometry and the UI read THIS function, so they
-// cannot disagree about whether a given design has sockets.
+// for them. Exported because the inspector has to say which — "off" is a checkbox you can tick back
+// on, "no room" is not, and a socket that is silently absent is one you find out about with the
+// print in your hand. Ring geometry and UI both read THIS function, so they cannot disagree.
 export function ringLegs(p: Design): { n: number; bore: number; triR: number; Rc: number } | null {
   if (!p.legSockets) return null;                  // absent = off (DEFAULTS ships them off)
   const bore = LEG_D / 2 + RING_FIT;               // leg bore = leg rod radius + fit clearance
   const inner = openingR(p, false) + RING_FIT;
-  // Pad center: with the vertex pointing inward, the outward-facing edge's midpoint sits at Rc + TRI_R/2.
-  // Place it just inside the rim so that midpoint overlaps the hoop band by LEG_OVERLAP.
+  // Pad center: vertex inward, so the outward-facing edge's midpoint sits at Rc + TRI_R/2. Placed
+  // just inside the rim, so that midpoint overlaps the hoop band by LEG_OVERLAP.
   const Rc = inner + LEG_OVERLAP - TRI_R / 2;
-  // Two ways the pads run out of room on a small opening, and both are checked against the SAME pad
-  // the geometry below builds. (1) The inward vertex crosses the ring's axis — at LIMITS' smallest
-  // opening (⌀20) it does, and the pads then fold through each other into a shape no slicer can
+  // Two ways the pads run out of room on a small opening, both checked against the SAME pad the
+  // geometry below builds. (1) The inward vertex crosses the ring's axis — it does at LIMITS'
+  // smallest opening (⌀20), and the pads then fold through each other into a shape no slicer can
   // read. (2) Neighbours touch: the pad's widest points are its two outer corners, so its angular
   // half-width seen from the axis is what has to fit inside half the spacing.
   if (Rc - TRI_R < PAD_CORE) return null;
@@ -89,9 +74,9 @@ export function ringLegs(p: Design): { n: number; bore: number; triR: number; Rc
 // apart: "you turned them off" and "they will not fit here" are different sentences.
 export function ringLegsFit(p: Design): boolean { return ringLegs({ ...p, legSockets: true }) !== null; }
 
-// A full-circle point list, optionally centered at (cx, cy). absarc(0,2π) creates a duplicate
-// start=end point and spawns a degenerate triangle, so it is built from N points below 0..2π and the
-// loop is not closed (Shape/Path close it automatically).
+// A full-circle point list, optionally centered at (cx, cy). absarc(0,2π) leaves a duplicate
+// start=end point → degenerate triangle, so it is N points over 0..2π left unclosed (Shape/Path
+// close it themselves).
 function circlePts(r: number, N: number, cx = 0, cy = 0): THREE.Vector2[] {
   const pts: THREE.Vector2[] = [];
   for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2; pts.push(new THREE.Vector2(cx + r * Math.cos(a), cy + r * Math.sin(a))); }
@@ -104,9 +89,9 @@ function annulusGeo(rOuter: number, rInner: number, N: number, cx = 0, cy = 0, d
   let hole: THREE.Vector2[];
   if (mark > 0 && MARK_W / 2 < rInner) {
     // The tab is a rectangle spliced into the hole, so material grows inward. Its two base corners
-    // are placed at the exact angles where the rim crosses y = ±MARK_W/2, which is what keeps the
-    // splice from leaving a hair-thin sliver of a triangle at the join. The rim is then sampled
-    // strictly BETWEEN those angles, so no sample can coincide with a corner.
+    // sit at the exact angles where the rim crosses y = ±MARK_W/2, which keeps the splice from
+    // leaving a hair-thin sliver of a triangle at the join; the rim is then sampled strictly BETWEEN
+    // those angles, so no sample can coincide with a corner.
     const phi = Math.asin(MARK_W / 2 / rInner);
     const xBase = rInner * Math.cos(phi), xTip = rInner - mark;
     hole = [
@@ -128,9 +113,9 @@ function annulusGeo(rOuter: number, rInner: number, N: number, cx = 0, cy = 0, d
   return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 1 });
 }
 // An "onigiri" pad: an equilateral triangle centered at (cx, cy), circumradius R, rotated by `rot`,
-// with a circular bore of radius `boreR` at the center. Extruded along Z. `t` is the corner rounding
-// as a fraction of the edge — a single number for all corners, or a per-corner [t0,t1,t2]; a corner
-// with t=0 stays sharp (used where the pad meets the ring). Independently watertight.
+// bore of radius `boreR` at the center, extruded along Z. `t` = corner rounding as a fraction of the
+// edge, one number or per-corner [t0,t1,t2]; t=0 stays sharp (where the pad meets the ring).
+// Independently watertight.
 function onigiriGeo(cx: number, cy: number, R: number, t: number | [number, number, number], rot: number, boreR: number, depth: number): THREE.ExtrudeGeometry {
   const tv = Array.isArray(t) ? t : [t, t, t];
   const V = [0, 1, 2].map((k) => {
@@ -156,21 +141,20 @@ function onigiriGeo(cx: number, cy: number, R: number, t: number | [number, numb
 }
 export function ringGeometry(p: Design, top: boolean): THREE.BufferGeometry {
   const R = openingR(p, top);          // the opening's outer diameter = the rib's outer side (lamp body face)
-  const inner = R + RING_FIT;          // inner diameter = opening outer diameter + clearance (the ring fits smoothly onto the outside of the opening)
-  const outer = inner + RING_WALL;     // outward by the wall thickness. The bamboo rib winds around this outer edge
+  const inner = R + RING_FIT;          // inner diameter = opening outer diameter + clearance
+  const outer = inner + RING_WALL;     // outward by the wall thickness; the bamboo rib winds around this edge
   const N = 96;
   if (top) return annulusGeo(outer, inner, N);   // the top ring is a plain hoop
   const legs = ringLegs(p);
-  // No room for sockets → a plain hoop, and then the marker tab is the only thing separating this
-  // ring from the top one, so it is cut exactly when the sockets are not.
+  // No sockets → a plain hoop, and the marker tab is then the only thing separating this ring from
+  // the top one, so it is cut exactly when the sockets are not.
   if (!legs) return annulusGeo(outer, inner, N, 0, 0, RING_H, MARK_D);
-  // Bottom ring = base of the leg stand. Inside the hoop, the pads point their vertex toward the
-  // center; the opposite (rounded) edge overlaps the inner rim so it all prints as one piece.
+  // Bottom ring = base of the leg stand.
   const geos = [annulusGeo(outer, inner, N)];
   for (let i = 0; i < legs.n; i++) {
     const a = (i / legs.n) * Math.PI * 2;
     const rot = a + Math.PI;                 // V[0] vertex points inward (toward the center)
-    // Round only the inner vertex; keep the two outer corners sharp where the pad meets the ring.
+    // Round only the inner vertex; the two outer corners stay sharp where the pad meets the ring.
     // Flat pad, same height as the hoop (RING_H).
     geos.push(onigiriGeo(legs.Rc * Math.cos(a), legs.Rc * Math.sin(a), legs.triR, [TRI_ROUND, 0, 0], rot, legs.bore, RING_H));
   }

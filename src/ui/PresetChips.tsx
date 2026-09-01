@@ -2,19 +2,14 @@
  * ============================================================================
  * SHAPE PRESET CHIPS
  * ============================================================================
- * The three starting shapes, each drawn as a miniature of its own profile rather than a generic
- * icon — the silhouette on the chip is the silhouette you get, sampled through the same `outerR`
- * the 3D view and the STL use.
+ * The starting shapes, each drawn as a miniature of its own profile rather than a generic icon: the
+ * silhouette on the chip is the one you get, sampled through the same `outerR` as the 3D view.
  *
- * They are TEMPLATES, not modes: picking one replaces the control points and you then edit the
- * curve freely in the section view. The subheading says so, because three chips on their own read
- * as "the shape is one of these three".
- *
- * Which chip is lit follows from that: it is DERIVED from the current control points (matchPreset),
- * not remembered from the click. Once the curve has been edited the chip goes dark, because a lit
- * chip on a shape that no longer resembles it is the "one of these three" misreading again. Deriving
- * it also means undo/redo, importing a design and restoring from localStorage are all right for
- * free -- there is no flag for an edit path to forget to clear (and every edit path would have to).
+ * They are TEMPLATES, not modes — picking one replaces the control points and you edit freely after,
+ * and the subheading says so, because chips alone read as "the shape is one of these". Which chip is
+ * lit is therefore DERIVED from the control points (matchPreset) rather than remembered from the
+ * click, going dark once the curve is edited; that also makes undo/redo, import and restore right
+ * for free, with no flag for an edit path to forget to clear.
  * ============================================================================
  */
 import React from "react";
@@ -29,9 +24,8 @@ import type { Design, Pt } from "../types.ts";
 // the left. Box is 60×46 with the body inset, so all three read at the same scale.
 function miniPath(pr: Preset): string {
   // A whole design, not just the four fields the curve needs: `outerR` reads the neck flags and,
-  // on a neck-less end, the koma size derived from the rib count. The icon has always been drawn
-  // with the neck on both ends (the flags default to true when absent), which is what DEFAULTS
-  // says too — so the curve is the one it always was, now with nothing left undefined.
+  // on a neck-less end, the koma size derived from the rib count. DEFAULTS has the neck on both
+  // ends, which is how this icon has always been drawn.
   const q: Design = { ...DEFAULTS, height: 280, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts };
   const N = 40, rr: number[] = [];
   let mx = 0;
@@ -44,10 +38,9 @@ function miniPath(pr: Preset): string {
   return d + " Z";
 }
 
-// Compare on pts alone: they are the silhouette. rTop/rBot are only a fallback for an empty pts
-// (see config.ts) and are never edited, so a design whose curve matches a preset should light its
-// chip regardless of what they hold. Handles are compared as plain pairs -- a design that has been
-// through JSON has its {dt,dr} rebuilt, and key order must not decide this.
+// Compare on pts alone: they are the silhouette, while rTop/rBot are only a fallback for an empty
+// pts (config.ts) and are never edited. Handles are compared as plain pairs — a design that has
+// been through JSON has its {dt,dr} rebuilt, and key order must not decide this.
 const ptKey = (q: Pt) =>
   JSON.stringify([q.t, q.r, !!q.sharp, q.ho ? [q.ho.dt, q.ho.dr] : 0, q.hi ? [q.hi.dt, q.hi.dr] : 0]);
 const ptsKey = (pts: Pt[]) => (pts || []).map(ptKey).join("|");

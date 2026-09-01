@@ -2,35 +2,27 @@
  * ============================================================================
  * PROFILE AND THE SIZES DERIVED FROM IT
  * ============================================================================
- * The radius function `outerR(p, t)` — the heart of the design — and every dimension that is a
- * consequence of it: the koma's outer radius, the tab's depth and tip, the koma notch's bottom, the
- * rib-count ceiling.
+ * The radius function `outerR(p, t)` — the heart of the design — and every dimension that follows
+ * from it: the koma's outer radius, the tab's depth and tip, the koma notch's bottom, the rib-count
+ * ceiling. They live together because they are mutually recursive: `outerR` needs `komaR` (a
+ * neck-less end IS the tab size) and `komaR` needs `outerR` (via `bodyMinR`'s self-intersection
+ * guard), so splitting them would buy an import cycle.
  *
- * These live together because they are genuinely mutually recursive, not merely related:
- * `outerR` needs `komaR` (a neck-less end IS the tab size) and `komaR` needs `outerR` (via
- * `bodyMinR`'s self-intersection guard). Splitting them would buy two files and an import cycle.
+ * It is also where the **print-fit invariants** are aggregated — `innerRi` / `tabTipRi` / `notchR`
+ * below (see docs/design-notes.md "Part joints"). Those single definitions are the only reason a reprinted rib
+ * still fits a koma printed last month; change one and check both parts.
  *
- * This is also where the **print-fit invariants** are aggregated (see CLAUDE.md "Part joints"):
- * `innerRi()` fixes the tab tip AND the koma notch bottom, `notchR()` is shared by the part that
- * cuts the dent and the part that cuts the notch. Those single definitions are the only reason a
- * reprinted rib still fits a koma printed last month. Change one and check both.
- *
- * Pure arithmetic — no three.js, no React, no DOM. Nothing here builds geometry.
+ * Pure arithmetic: no three.js, React or DOM, and nothing here builds geometry.
  * ============================================================================
  */
 import type { Design, Handle, Pt } from "../types.ts";
 
 // ============ Profile (control-point spline) ============
-// The silhouette is determined by a radius function built by joining the "control-point
-// array pts" with monotone Hermite interpolation. The ◇ handles in the drawing are dragged
-// directly to edit pts. The neck is a vertical rectangle outside the outermost control point,
-// with no bamboo ribs (higo) wound on it.
-
-// Lamp body spline: P=[{neck bottom, rBot}, …control points…, {neck top, rTop}]. A smooth
-// curve with suppressed warping/sharp kinks, via monotone Hermite (Fritsch–Carlson). Each
-// point's tangent dr/dt is derived from adjacent chords, clamped to the same sign as, and
-// within 3× of, the adjacent chord (prevents overshoot and unwanted sharp curves). Endpoints
-// use the chord to the next point.
+// The silhouette is a radius function joining the control-point array `pts` with monotone Hermite
+// interpolation (Fritsch–Carlson); the ◇ handles in the drawing edit `pts` directly. Lamp body
+// spline: P=[{neck bottom, rBot}, …control points…, {neck top, rTop}]. Each point's tangent dr/dt
+// comes from the adjacent chords, clamped to the same sign as, and within 3× of, the adjacent chord
+// (no overshoot, no unwanted sharp curves); endpoints use the chord to the next point.
 function fukuroTangents(P: Pt[]): number[] {
   const n = P.length, d: number[] = new Array(n - 1), T: number[] = new Array(n);
   for (let i = 0; i < n - 1; i++) d[i] = (P[i + 1].r - P[i].r) / ((P[i + 1].t - P[i].t) || 1); // segment chord (dr/dt)
@@ -58,20 +50,16 @@ function fukuroSpline(P: Pt[], x: number, T?: number[]): number {
 }
 
 // ---- Bézier tangent handles (optional) ----
-// Like Illustrator's pen tool, direction lines (handles ho=next-point side / hi=prev-point side)
-// are drawn from each control point so the curve's angle/tension can be edited. Handles are
-// relative vectors {dt,dr} in (t,r) space.
-// **If even one point has a handle, the lamp body curve switches to Bézier evaluation.** With
-// none, it stays the previous monotone Hermite (fukuroSpline) = STL of existing presets and
-// saved data is completely unchanged.
-//
-// Single-valuedness (height t → radius r unique) is guaranteed by clamping the t-component of
-// the segment's control points to be non-decreasing (ho.dt∈[0,Δt] / hi.dt∈[-Δt,0], and shrinking
-// the total to within Δt so they don't cross). This makes t(u) monotone in u ⇒ the u for t=x is
-// found uniquely by bisection, without breaking the t-monotone assumption of grooves/extrusion.
+// Like a pen tool's direction lines: `ho` (next-point side) / `hi` (prev-point side) are relative
+// vectors {dt,dr} in (t,r) space. **One point with a handle switches the lamp body to Bézier
+// evaluation**; with none it stays monotone Hermite (`fukuroSpline`), so existing presets and saved
+// designs produce byte-identical STLs. Single-valuedness (height t → one radius r) is kept by
+// clamping the segment's control points to non-decreasing t (ho.dt∈[0,Δt] / hi.dt∈[-Δt,0], the total
+// shrunk to within Δt so they cannot cross); t(u) is then monotone in u, so bisection finds the u
+// for t=x uniquely without breaking the t-monotone assumption grooves and extrusion rely on.
 function anyHandle(pts: Pt[]): boolean { for (const q of pts) if (q && (q.ho || q.hi)) return true; return false; }
-// Default for points with no handle specified (equivalent to Catmull-Rom; endpoints use one-sided
-// 1/3, sharp corner points use 0 = straight line).
+// Default for points with no handle (equivalent to Catmull-Rom; endpoints one-sided 1/3, sharp
+// corner points 0 = straight line).
 function bezDefault(P: Pt[], i: number): { ho: Handle; hi: Handle } {
   const n = P.length, a = P[i];
   if (a.sharp) return { ho: { dt: 0, dr: 0 }, hi: { dt: 0, dr: 0 } };
@@ -99,20 +87,14 @@ function fukuroBezierR(P: Pt[], x: number): number {
   for (let k = 0; k < 40; k++) { const u = (lo + hi) / 2; if (T(u) < x) lo = u; else hi = u; }
   return R((lo + hi) / 2);
 }
-// Unifies the lamp body curve's radius function: Bézier if there are handles, otherwise the
-// previous Hermite. The cross-section, STL, and koma computation all go through this one
-// function, so they always match.
+// The one radius function for the lamp body curve: Bézier if there are handles, else Hermite.
+// Cross-section, STL and koma computation all go through it, so they always match.
 function profileR(P: Pt[], x: number): number { return anyHandle(P) ? fukuroBezierR(P, x) : fukuroSpline(P, x); }
 
-// Bakes each point's Bézier handles (ho/hi) from the current Hermite curve and returns them
-// (pts unchanged). Called the moment curve-adjust mode is entered. A cubic Hermite is exactly
-// equal to "a cubic Bézier with the control point shifted Δt/3 along the tangent," so the curve
-// shape is unchanged after baking (a seamless transition into handle editing). From then on
-// anyHandle=true and evaluation switches to Bézier (only the shape that was touched; untouched
-// shapes stay the same). All points, including sharp ones, are baked from the current Hermite
-// tangent T[i] (= exactly reproduces the current shape). After baking, "sharp" is limited to
-// meaning "the handles are not mirrored left/right (the corner can move independently)" and has
-// no direct effect on the curve itself (evaluation always uses ho/hi).
+// Bakes each point's Bézier handles from the current Hermite curve on entry to curve-adjust mode
+// (pts unchanged). A cubic Hermite IS a cubic Bézier with the control point shifted Δt/3 along the
+// tangent, so the shape does not move. After baking, `sharp` means only "the handles are not
+// mirrored, so the corner can move independently"; evaluation always uses ho/hi.
 export function bakeBezierHandles(pts: Pt[]): Pt[] {
   if (!pts || pts.length < 2) return pts;
   const T = fukuroTangents(pts), n = pts.length;
@@ -122,24 +104,20 @@ export function bakeBezierHandles(pts: Pt[]): Pt[] {
     return { ...q, ho: { dt: dtN, dr: T[i] * dtN }, hi: { dt: -dtP, dr: -T[i] * dtP } };
   });
 }
-// Effective outer radius. t∈[0,1] → radius in mm. Makes a single continuous spline from the
-// ends (t=0/1) to the apex (no vertical neck is created). Inserting a neck would produce a
-// "flat → sharp curve" kink angle, so the ends are included in the spline as control points
-// (rBot/rTop), keeping the outline smooth even with few points.
-// The upper/lower end bands (neck) with no bamboo ribs wound on them are handled separately via
-// cutT/cutY (the radius stays continuous).
-// The lamp body (curve + bamboo rib grooves) t-range = between the outermost control points.
-// The neck is outside (toward the opening) the outermost control point.
-// The opening (= neck) radius exactly matches the outermost control point → no wasted
-// flare/S-curve appears between neck and lamp body.
+// Effective outer radius: t∈[0,1] → mm. One continuous spline from the ends (t=0/1) to the apex with
+// no vertical neck inserted — a neck there would put a flat-to-curve kink at the joint — so the ends
+// are spline control points (rBot/rTop) and the outline stays smooth even with few points. The end
+// bands carrying no bamboo (the neck) are handled separately via cutT/cutY, radius continuous. The
+// lamp body (curve + grooves) is the t-range BETWEEN the outermost control points; the neck lies
+// outside them at exactly their radius, so no flare or S-curve appears at the join.
 export function fukuroRange(p: Design): { lo: number; hi: number } {
   const pts = (p.pts && p.pts.length >= 2) ? p.pts : null;
   if (!pts) return { lo: cutTbot(p), hi: 1 - cutTtop(p) };
   const nB = p.neckBot ?? p.neckOn ?? true, nT = p.neckTop ?? p.neckOn ?? true;
   return { lo: nB ? pts[0].t : 0, hi: nT ? pts[pts.length - 1].t : 1 };
 }
-// The design basis for neck/tab is "the control-point radius" = independent of whether a neck
-// exists (tab size does not change when the neck is toggled).
+// The design basis for neck/tab is the control-point radius, so toggling a neck does not change the
+// tab size.
 function openMin(p: Design): number {
   const pts = p.pts;
   return (pts && pts.length) ? Math.min(pts[0].r, pts[pts.length - 1].r) : Math.min(p.rTop ?? 60, p.rBot ?? 60);
@@ -158,16 +136,14 @@ export function outerR(p: Design, t: number): number {
   const fp = pts[0], lp = pts[pts.length - 1];
   const nB = p.neckBot ?? p.neckOn ?? true, nT = p.neckTop ?? p.neckOn ?? true;
   const kR = komaR(p); // tab (koma) size = opening when there is no neck
-  // With neck = widen the opening outward to the control point, then a vertical rectangle from
-  // there to y=0/1.
-  // Without neck = the opening becomes the tab size (set the lamp body end to kR and close to
-  // the opening; no slanted taper).
+  // With a neck: widen the opening outward to the control point, then a vertical rectangle from
+  // there to y=0/1. Without: the opening becomes the tab size (body end set to kR, no slanted taper).
   const loT = nB ? fp.t : 0, loR = nB ? fp.r : kR;
   const hiT = nT ? lp.t : 1, hiR = nT ? lp.r : kR;
   if (t <= loT) return Math.max(8, loR);
   if (t >= hiT) return Math.max(8, hiR);
-  // The endpoint radius changes with the presence of a neck (loR/hiR), but the handles (ho/hi)
-  // are relative vectors so they are carried over.
+  // The endpoint radius changes with the neck (loR/hiR), but ho/hi are relative vectors, so they
+  // carry over.
   const first = { t: loT, r: loR, ho: fp.ho, hi: fp.hi, sharp: fp.sharp };
   const last = { t: hiT, r: hiR, ho: lp.ho, hi: lp.hi, sharp: lp.sharp };
   const P = [first, ...pts.slice(1, -1), last];
@@ -178,27 +154,25 @@ export function maxRadius(p: Design): number {
   for (let i = 0; i <= 120; i++) m = Math.max(m, outerR(p, i / 120));
   return m + p.higoD;
 }
-// The neck = a vertical rectangle outside (toward the opening) the outermost control point.
-// Neck height = the position of the outermost control point. Presence chosen independently for
-// top and bottom (neckBot / neckTop). On the neck-less side, outerR makes it straight (lantern-like).
+// The neck = a vertical rectangle outside (toward the opening) the outermost control point; its
+// height is that point's position, and presence is independent top and bottom (neckBot / neckTop).
+// On the neck-less side outerR makes it straight (lantern-like).
 export function cutTbot(p: Design): number { const pts = p.pts; return (pts && pts.length) ? pts[0].t : 0; }
 export function cutTtop(p: Design): number { const pts = p.pts; return (pts && pts.length) ? 1 - pts[pts.length - 1].t : 0; }
 export function cutYbot(p: Design): number { return cutTbot(p) * (p.height || 1); }
 export function cutYtop(p: Design): number { return cutTtop(p) * (p.height || 1); }
 function cutY(p: Design): number { return Math.max(cutYbot(p), cutYtop(p)); }
 export function cutT(p: Design): number { return cutY(p) / Math.max(1, p.height); }
-// Koma outer radius = the radius of the small hub that bundles the tabs. The tab (inner end
-// Ri〜Ri+td) meets the koma's edge (outer rim). Ri and tabDepth are top-bottom symmetric, so the
-// koma is completely identical top and bottom (only one kind).
+// Koma outer radius = the hub that bundles the tabs; the tab (inner end Ri〜Ri+td) meets its outer
+// rim. Ri and tabDepth are top-bottom symmetric, so the two koma are identical (only one kind).
 export function komaR(p: Design): number {
-  // The koma outer radius (= tab size) is determined relative to the smaller control-point radius
-  // (openMin) (independent of whether a neck exists). When there is no neck, this kR becomes the
-  // opening. The basis is "the previous inner end nominalRi," so deepening the tab tip toward the
-  // center (lowering innerRi) does not move komaR = stand dimensions.
+  // Measured from the smaller control-point radius (openMin), independent of the neck; with no neck
+  // this kR IS the opening. Its basis is the legacy inner end `nominalRi`, so deepening the tab tip
+  // toward the center (lowering innerRi) does not move komaR = the stand dimensions.
   return Math.min(nominalRi(p) + tabDepth(p) + 3, openMin(p));
 }
-// The radial depth of the tab (the rib's insertion part) = the koma's notch depth. Relative to
-// the control point, independent of the neck.
+// The radial depth of the tab (the rib's insertion part) = the koma's notch depth, measured from the
+// control point (openMin).
 export function tabDepth(p: Design): number {
   return Math.min(p.tabW, Math.max(6, openMin(p) * 0.4));
 }
@@ -209,27 +183,26 @@ export function effBoardWidth(p: Design): number {
 }
 
 // ============ 2D cross-section (final shape) ============
-// The inner edge is a straight core (radius Ri), with tabs on its inside at the same top/bottom
-// positions. The outer edge is the body curve + neck. The center is lightened (keeping the outer
-// band = grooves, and the inner core = tab support). Used in the rib's cross-section view.
+// Inner edge: a straight core (radius Ri), tabs on its inside at the same top/bottom positions.
+// Outer edge: the body curve plus the neck. The centre is lightened, keeping the outer band (the
+// grooves) and the inner core (the tab support).
 //
-// The previous-basis tab inner end (= the basis for computing the koma outer radius komaR).
-// Includes a self-intersection guard. Control-point-based = independent of the neck. The actual
-// tab tip / notch bottom is deepened further toward the center by innerRi (but komaR stays fixed
-// on this nominalRi basis).
+// `nominalRi` is the legacy tab inner end and the basis for `komaR`, control-point-based (so
+// independent of the neck) with a self-intersection guard. The real tab tip and notch bottom go
+// further in via `innerRi`, but `komaR` stays on this nominal basis — which is what keeps deepening
+// the tab from moving the stand.
 function nominalRi(p: Design): number {
   const td = tabDepth(p);
   // Keep the core (Ri) within the lamp body's minimum outer radius (self-intersection prevention).
-  // Control-point-based = independent of whether a neck exists.
   const lim = Math.min(openMin(p) - td - 2, bodyMinR(p) - 3);
   return Math.max(6, Math.min(p.tabR ?? 15, lim));
 }
-// Amount (mm) to deepen the tab inner end toward the center. Lengthens the tab tip / notch bottom
-// to increase grip (still a straight tongue).
+// Amount (mm) the tab inner end is deepened toward the center: a longer tab tip / notch bottom grips
+// harder (still a straight tongue).
 const TAB_DEEPEN = 5;
-// Minimum wall thickness (mm) to leave between adjacent tab notches on the koma. With many teeth
-// or a small koma the wall becomes thin and non-manifold. This is the basis for both the
-// deepening lower limit (ribCoreFloor) and the maximum board count (maxBoards).
+// Minimum wall (mm) left between adjacent tab notches on the koma — with many teeth or a small koma
+// it goes thin and non-manifold. Basis for both the deepening floor (ribCoreFloor) and the maximum
+// board count (maxBoards).
 const MIN_WALL = 1.6;
 // Notch width (= tab thickness + print fit/tolerance).
 function notchWidth(p: Design): number { return p.boardT + Math.max(0, p.fit ?? 0); }
@@ -239,42 +212,37 @@ function ribCoreFloor(p: Design): number {
   const rNotchMin = (MIN_WALL + notchWidth(p)) * p.boards / (2 * Math.PI);
   return Math.max(6, rNotchMin + 0.5);
 }
-// The maximum rib count for which the koma's notch walls can stay at or above MIN_WALL, for this
-// opening/board-thickness/tolerance. Notches are cut near notchR=nominalRi-0.5, and
-// wall = 2π·notchR/boards − notchW. This is the upper bound on boards that keeps that ≥ MIN_WALL.
-// Used as the UI's count limit, to prevent the notches from overlapping near the center and making
-// the koma non-watertight (wall going negative) in the combination of small opening / thick board /
-// many boards. nominalRi does not depend on boards, so this value also does not depend on the
-// current boards (a monotone upper bound).
+// The rib-count ceiling: the most boards whose koma notch walls still clear `MIN_WALL` at this
+// opening / board thickness / tolerance (wall = 2π·r/boards − notchW). Without it a small opening
+// plus a thick board plus many boards overlaps the notches near the centre and the koma comes out
+// non-watertight (wall negative). Evaluated at the legacy `nominalRi - 0.5` rather than the real
+// notch bottom (`notchR()` = `innerRi + TAB_DENT_W - 0.5` when the tab is dented) because the bound
+// must not depend on `boards`; `nominalRi` does not, so this is a monotone upper bound.
 export function maxBoards(p: Design): number {
   const notchR = nominalRi(p) - 0.5;
   return Math.max(4, Math.floor((2 * Math.PI * notchR) / (MIN_WALL + notchWidth(p))));
 }
-// The actual tab tip / notch bottom. Deeper toward the center than the previous basis nominalRi by
-// TAB_DEEPEN (lower limit = ribCoreFloor). ribOutline2D (tab) and komaShape (notch bottom) call
-// this same value, so the meshing always matches (the aggregation point of the invariant). Upper
-// limit is nominalRi (never shallower). When there are many teeth and floor>nominalRi, it is not
-// deepened and stays as before.
+// The actual tab tip / notch bottom: deeper toward the center than nominalRi by TAB_DEEPEN, floored
+// at ribCoreFloor and capped at nominalRi (never shallower; with many teeth, floor > nominalRi, so
+// it is simply not deepened). ribOutline2D (tab) and komaShape (notch bottom) call this same value,
+// so the meshing always matches — this is the aggregation point of that invariant.
 export function innerRi(p: Design): number {
   const nom = nominalRi(p);
   return Math.min(nom, Math.max(ribCoreFloor(p), nom - TAB_DEEPEN));
 }
-// Top & bottom tab tips are dented at the inner corner (an L-notch, TAB_DENT_W wide × TAB_DENT_H
-// deep). The dent narrows the tab tip's inner edge to innerRi + TAB_DENT_W while the tab base stays
-// at innerRi. The koma notch bottom is set to the dented tip radius, so the wider tab base catches
-// the koma's solid hub = the inward stop ("the tab hooks the koma's inner side").
-// Exported because rib.ts cuts the dent while notchR() below sizes the koma notch to match it:
+// Both tab tips are dented at the inner corner (an L-notch, TAB_DENT_W wide × TAB_DENT_H deep): the
+// tip's inner edge narrows to innerRi + TAB_DENT_W while the tab base stays at innerRi, and the koma
+// notch bottom is set to the dented tip radius, so the wider base catches the koma's solid hub = the
+// inward stop. Exported because rib.ts cuts the dent while notchR() below sizes the notch to match:
 // one pair of numbers, two parts, no chance of them disagreeing.
 export const TAB_DENT_W = 6;      // tab-tip inner-corner dent: width (mm, radial)
 export const TAB_DENT_H = 6;      // tab-tip inner-corner dent: depth (mm, along the tab)
-// Whether the dent is used. p.noTabDent forces a plain tab + full-depth notch (the papercraft sets this:
-// cardboard favors tab strength over the koma stop). Short tabs / crowded centers also fall back to plain.
+// Whether the dent is used. p.noTabDent forces a plain tab + full-depth notch (set by the papercraft:
+// cardboard favors tab strength over the koma stop); short tabs / crowded centers also fall back.
 export function tabDented(p: Design): boolean { return !p.noTabDent && p.tabLen > TAB_DENT_H + 1 && komaR(p) - innerRi(p) > TAB_DENT_W + 2; }
 // The tab tip's inner radius (where the koma notch bottom mates). Dented tabs pull the tip in by TAB_DENT_W.
 function tabTipRi(p: Design): number { return innerRi(p) + (tabDented(p) ? TAB_DENT_W : 0); }
-// The radius of the koma's notch bottom (= inside this is the koma's solid part). Relieved by 0.5
-// from the tab tip inner radius (tabTipRi). With a dent, the notch is shallower and its bottom sits
-// at the dent radius; the tab base (at innerRi, further in) then catches the koma hub. This IS the
-// koma stop: ribOutline2D cuts the dent and komaShape cuts the notch, both from tabTipRi, so the
-// catch cannot drift between the two parts.
+// The koma notch bottom radius (inside it is the koma's solid part) = tabTipRi relieved by 0.5.
+// komaShape cuts the notch from this and ribOutline2D the dent from tabTipRi, so the catch above
+// cannot drift between the two parts.
 export function notchR(p: Design): number { return Math.max(1, tabTipRi(p) - 0.5); }
