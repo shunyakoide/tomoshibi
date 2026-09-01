@@ -40,6 +40,7 @@ import { DEFAULTS } from "./config.ts";
 import { paperP } from "./papercraft.ts";
 import { figureImage, disposeFigures } from "./three/figures.ts";
 import { UI, accent, useT } from "./ui/theme.ts";
+import { Badge, Button } from "./ui/controls.tsx";
 import type { T } from "./i18n.ts";
 import type { Design, Route } from "./types.ts";
 
@@ -311,9 +312,11 @@ const KIT_FIGS = KIT.flatMap((g) => g.items.map((i) => i.fig).filter((f): f is s
  */
 function Fig({ src, t, part = false }: { src?: string | null; t: T; part?: boolean }) {
   return (
-    <div className={part ? "guide-fig guide-fig--part" : "guide-fig"}>
-      {src && <img src={src} alt="" />}
-      {src === null && <span className="guide-slot">{t("図を描けませんでした")}</span>}
+    <div className={`flex items-center justify-center overflow-hidden rounded-lg ${part
+      ? "aspect-[3/2] mb-8 border border-transparent bg-transparent"
+      : "aspect-[4/3] border border-edge bg-[#fff]"}`}>
+      {src && <img src={src} alt="" className="w-full h-full object-contain" />}
+      {src === null && <span className="text-sm text-fine text-center p-8">{t("図を描けませんでした")}</span>}
     </div>
   );
 }
@@ -406,100 +409,129 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const card = { background: UI.card, border: `1px solid ${UI.cardEdge}`, borderRadius: 14 };
+  const card = { background: UI.card, border: `1px solid ${UI.cardEdge}` };
+  /* Prose inside a step. This was `.guide-steps p`, and it beat `.guide-note` on specificity for
+     every property it set — so a note inside a step never actually looked like a note. Utilities
+     have no such accidents, which also means the accident has to be written out on purpose. */
+  const stepP = "m-0 text-md leading-[1.8] text-text";
+  const optP = `${stepP} col-span-full max-w-[60ch] mb-2`;
   return (
-    <div className="guide" role="dialog" aria-modal="true" aria-label={t("作り方")}
+    /* `.guide` stays a class: the print rule that hides everything else keys off it from
+       OUTSIDE the guide (`#root > div > *:not(.guide)`), which no utility can express. */
+    <div className="guide print:static print:overflow-visible print:bg-[#fff]" role="dialog" aria-modal="true" aria-label={t("作り方")}
       style={{ position: "fixed", inset: 0, zIndex: 40, overflowY: "auto", background: UI.panel }}>
       {/* Fixed to the window rather than scrolled with the document: this is the way out, and a way
           out that leaves the screen after two paragraphs is not one. */}
-      <button className="guide-x" onClick={onClose} title={t("閉じる")} aria-label={t("閉じる")}>×</button>
-      <div className="guide-doc">
-        <p className="guide-kicker">{t("作り方")}</p>
-        <h1 className="guide-h1">{t(stl ? "3Dプリントで型をつくる" : "段ボールで型をつくる")}</h1>
-        <p className="guide-lead">
+      <button onClick={onClose}
+        className="fixed top-12 right-16 z-1 w-36 h-36 p-0 flex items-center justify-center
+          bg-panel border-none border-[currentColor] rounded-full cursor-pointer font-sans text-2xl leading-none text-faint
+          shadow-[0_0_0_1px_var(--color-edge)] hover:bg-card hover:text-text print:hidden" title={t("閉じる")} aria-label={t("閉じる")}>×</button>
+      <div className="max-w-860 mx-auto pt-30 px-24 pb-72 narrow:pt-26 narrow:px-14 narrow:pb-40
+        print:max-w-none print:p-0">
+        <p className="mt-0 mx-0 mb-6 font-mono text-sm font-semibold tracking-[0.14em] uppercase text-accent">{t("作り方")}</p>
+        <h1 className="mt-0 mx-0 mb-10 text-3xl font-bold text-head">{t(stl ? "3Dプリントで型をつくる" : "段ボールで型をつくる")}</h1>
+        <p className="m-0 text-lg leading-[1.75] text-fine max-w-[62ch]">
           {t("型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図は一例で、大きさや枚数は設計によって変わります。")}
         </p>
 
-        <h2 className="guide-h2">{t("部品")}</h2>
-        <ul className="guide-parts">
+        <h2 className="mt-40 mx-0 mb-14 text-md font-bold tracking-[0.08em] text-head border-b border-b-edge pb-8 print:[break-after:avoid]">{t("部品")}</h2>
+        <ul className="list-none m-0 p-0 grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-12">
           {parts.map((q) => (
-            <li key={q.id} style={card}>
-              <div className="guide-fig guide-fig--part">
-                {figs[q.id] ? <img src={figs[q.id]!} alt="" /> : <span />}
+            <li key={q.id} style={card} className="rounded-2xl pt-10 px-12 pb-12 print:[break-inside:avoid] print:shadow-none">
+              <div className="flex items-center justify-center overflow-hidden rounded-lg aspect-[3/2] mb-8 border border-transparent bg-transparent">
+                {figs[q.id] ? <img src={figs[q.id]!} alt="" className="w-full h-full object-contain" /> : <span />}
               </div>
-              <div className="guide-part-name">
+              <div className="flex items-baseline justify-between gap-8 text-md">
                 {/* A count, or the reason there isn't one — never a number this page cannot know. */}
-                <strong>{t(q.name)}</strong><span>{q.n ? `×${q.n}` : q.note && t(q.note)}</span>
+                <strong>{t(q.name)}</strong>
+                <span className="font-mono text-base text-sub">{q.n ? `×${q.n}` : q.note && t(q.note)}</span>
               </div>
             </li>
           ))}
         </ul>
         {!stl && (
-          <p className="guide-note">
+          <p className="mt-12 mx-0 mb-0 text-base leading-[1.7] text-sub">
             {t("段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。")}
           </p>
         )}
 
-        <h2 className="guide-h2">{t("材料と道具")}</h2>
+        <h2 className="mt-40 mx-0 mb-14 text-md font-bold tracking-[0.08em] text-head border-b border-b-edge pb-8 print:[break-after:avoid]">{t("材料と道具")}</h2>
         {KIT.map((g) => (
-          <div key={g.id} className="guide-kit">
-            <h3>{t(g.title)}</h3>
-            <ul className="guide-parts">
+          <div key={g.id} className="mt-4 [&+&]:mt-16 [&_strong]:font-normal">
+            <h3 className="mt-0 mx-0 mb-8 text-base font-bold tracking-[0.06em] text-fine">{t(g.title)}</h3>
+            <ul className="list-none m-0 p-0 grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-12">
               {g.items.map((it) => (
-                <li key={it.name} style={card}>
+                <li key={it.name} style={card} className="rounded-2xl pt-10 px-12 pb-12 print:[break-inside:avoid] print:shadow-none">
                   <Fig src={it.fig ? figs[it.fig] : undefined} t={t} part />
-                  <div className="guide-part-name">
+                  <div className="flex items-baseline justify-between gap-8 text-md">
                     <strong>{t(it.name)}</strong>
                     {/* Right-aligned, where the parts list puts its ×N: the same line answering the
                         same question — how much of this do I need, and do I need it at all. */}
-                    {it.opt && <em className="badge">{t("任意")}</em>}
+                    {it.opt && <Badge>{t("任意")}</Badge>}
                   </div>
-                  {it.note && <div className="guide-part-dim">{t(it.note)}</div>}
+                  {it.note && <div className="mt-2 font-mono text-sm text-fine">{t(it.note)}</div>}
                 </li>
               ))}
             </ul>
           </div>
         ))}
 
-        <h2 className="guide-h2">{t("手順")}</h2>
-        <ol className="guide-steps">
+        <h2 className="mt-40 mx-0 mb-14 text-md font-bold tracking-[0.08em] text-head border-b border-b-edge pb-8 print:[break-after:avoid]">{t("手順")}</h2>
+        <ol className="list-none m-0 p-0 flex flex-col gap-14">
           {steps.map((s, i) => (
-            <li key={s.id} style={card}>
+            <li key={s.id} style={card}
+              className={`rounded-2xl grid grid-cols-[minmax(0,300px)_minmax(0,1fr)] gap-20 p-16 items-start
+                narrow:grid-cols-[minmax(0,1fr)] narrow:gap-12 [&>:only-child]:col-span-full
+                print:shadow-none print:grid-cols-[minmax(0,38%)_minmax(0,1fr)]
+                ${s.options ? "print:[break-inside:auto]" : "print:[break-inside:avoid]"}`}>
               {/* No well when the step has nothing to show — an empty box reads as a figure that
                   failed to load, which is exactly what it looks like next to ten that did. A step
                   with `options` puts its figures in the sections instead, one per way of doing it. */}
               {s.fig && <Fig src={figs[s.fig]} t={t} />}
               <div>
-                <h3>
-                  <span className="guide-num" style={{ background: accent }}>{i + 1}</span>
+                <h3 className="flex items-center gap-10 mt-2 mx-0 mb-8 text-xl font-bold text-head">
+                  <span className="flex-none w-24 h-24 rounded-full text-[#fff] flex items-center justify-center text-base font-bold"
+                    style={{ background: accent }}>{i + 1}</span>
                   {/* Title and badge in one flex item, so the badge keeps its own 5px against the
                       words instead of taking the h3's 10px gap as well. */}
-                  <span>{t(s.title)}{s.wip && <em className="badge">{t("編集中")}</em>}</span>
+                  <span>{t(s.title)}{s.wip && <Badge>{t("編集中")}</Badge>}</span>
                 </h3>
                 {/* The count comes from the options actually offered here, not from the list: one
                     of them needs the leg sockets, and "three ways" over two sections is a lie the
                     reader can see. */}
-                <p>{t(!stl && s.paperBody ? s.paperBody : s.body, s.options && { n: options[s.id].length })}</p>
-                {s.wip && <p className="guide-note">{t(s.wip)}</p>}
+                <p className={stepP}>{t(!stl && s.paperBody ? s.paperBody : s.body, s.options && { n: options[s.id].length })}</p>
+                {s.wip && <p className={stepP}>{t(s.wip)}</p>}
                 {s.options && (
-                  <ul className="guide-opts">
+                  <ul className="list-none mt-16 mx-0 mb-0 p-0 flex flex-col gap-20">
                     {options[s.id].map((o) => (
                       // The title sits ABOVE the figure, spanning both columns: that is what
                       // separates one way from the next. Beside the figure it is just the first
                       // line of a paragraph in a column of paragraphs.
-                      <li key={o.id}>
-                        <h4>{t(o.title)}</h4>
-                        <p>{t(!stl && o.paperBody ? o.paperBody : o.body)}</p>
+                      <li key={o.id}
+                        className="grid grid-cols-[minmax(0,300px)_minmax(0,1fr)] gap-x-20 gap-y-6
+                          items-start narrow:grid-cols-[minmax(0,1fr)] narrow:gap-12
+                          print:[break-inside:avoid] print:shadow-none
+                          print:grid-cols-[minmax(0,38%)_minmax(0,1fr)]">
+                        <h4 className="col-span-full m-0 text-md font-bold text-head">{t(o.title)}</h4>
+                        <p className={optP}>{t(!stl && o.paperBody ? o.paperBody : o.body)}</p>
                         <Fig src={figs[o.fig]} t={t} />
                         {o.detail && (
                           <div>
-                            <ol className="guide-detail">
+                            <ol className="m-0 p-0 list-none [counter-reset:gd] flex flex-col gap-10">
                               {o.detail.map((d) => (
-                                <li key={d.id}>
+                                <li key={d.id}
+                                  className="grid grid-cols-[minmax(0,150px)_minmax(0,1fr)] gap-12
+                                    items-start [counter-increment:gd] narrow:grid-cols-[minmax(0,1fr)]
+                                    print:[break-inside:avoid] print:shadow-none
+                                    print:grid-cols-[minmax(0,24%)_minmax(0,1fr)]">
                                   <Fig src={d.fig ? figs[d.fig] : undefined} t={t} />
-                                  <div>
-                                    {d.title && <h5>{t(d.title)}</h5>}
-                                    <p className={d.body ? undefined : "guide-note"}>
+                                  {/* The step number. A CSS counter rather than an index, so a
+                                      slot that is filled in later renumbers by itself. */}
+                                  <div className="before:content-[counter(gd)] before:inline-block
+                                    before:mr-6 before:font-mono before:text-sm before:font-bold
+                                    before:text-fine">
+                                    {d.title && <h5 className="inline m-0 text-base font-bold text-head">{t(d.title)}</h5>}
+                                    <p className="m-0 text-base leading-[1.8] text-text">
                                       {d.body ? t(d.body) : t("未記入")}
                                     </p>
                                   </div>
@@ -513,13 +545,13 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
                             the step-level `wip` note uses. Above the figure it read as another
                             sentence of the body — as a condition on doing this at all, which it is
                             not: you do it, and then you may have to adjust it. */}
-                        {o.note && <p className="guide-note">*{t(o.note)}</p>}
+                        {o.note && <p className={`${optP} mt-10`}>*{t(o.note)}</p>}
                       </li>
                     ))}
                   </ul>
                 )}
                 {s.id === "make" && (
-                  <button className="btn btn--ghost" onClick={onGoPrint}>{t("「印刷」ビューへ →")}</button>
+                  <Button className="mt-12" onClick={onGoPrint}>{t("「印刷」ビューへ →")}</Button>
                 )}
               </div>
             </li>

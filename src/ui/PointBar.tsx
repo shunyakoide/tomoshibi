@@ -46,6 +46,15 @@
 import React from "react";
 import { clamp } from "../util.ts";
 import { useT } from "./theme.ts";
+import { SEG_SKIN } from "./controls.tsx";
+
+/* Glyph over caption. 46px is what the longest caption needs — 「なめらか」, four CJK glyphs at 9px —
+   and the row had the slack for it at both 375 and 320. All three buttons share this box: the CSS
+   said so in one grouped selector (`.ptbar-seg > .seg, .ptbar-mode`), which is exactly the shape a
+   per-class reading of a stylesheet misses. */
+const PT_BTN = `flex flex-col items-center justify-center gap-1 flex-none w-46 min-h-44 p-0
+  text-md leading-none ${SEG_SKIN}`;
+const PT_CAP = "not-italic text-2xs font-semibold tracking-normal whitespace-nowrap";
 import { pointOps, makeSetMode } from "./pointEdit.ts";
 import type { EditMode } from "./pointEdit.ts";
 import type { Design } from "../types.ts";
@@ -55,10 +64,14 @@ function Num({ tag, title, value, min, max, onChange }: {
   tag: string; title: string; value: number; min: number; max: number; onChange: (v: number) => void;
 }) {
   return (
-    <label className="ptbar-num" title={title}>
-      <span aria-hidden="true">{tag}</span>
+    <label className="flex-[0_1_auto] mr-auto min-w-0 flex items-center gap-5" title={title}>
+      <span aria-hidden="true" className="flex-none font-mono text-sm text-faint">{tag}</span>
       {/* key={value} re-mounts on an external change (a drag) so defaultValue follows it */}
-      <input key={value} className="mm-field" type="number" defaultValue={value} min={min} max={max} step={1}
+      <input key={value} type="number" defaultValue={value} min={min} max={max} step={1}
+        /* Sized to its content, with a FLOOR: a 2000mm design puts four digits in here, the field is
+           right-aligned, and an overflow shows the END of the number — `000` for 2000, silently. */
+        className="w-56 min-w-50 min-h-44 px-7 py-0 rounded-md text-right bg-card
+          border border-card-edge text-text font-mono text-md"
         aria-label={`${title} (mm)`}
         onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
         onBlur={(e) => {
@@ -83,35 +96,39 @@ export default function PointBar({ p, setP, sel, setSel, editMode, setEditMode }
   if (!pt) return null;
 
   return (
-    <div className="ptbar">
+    <div className="flex-none flex items-center gap-6 px-10 py-6 bg-panel border-b border-edge
+      max-[360px]:gap-5 max-[360px]:px-8">
       {/* Which ◇ this is. A label, not a button: there is nothing left to open — `PointCard` renders
           nothing on a phone now, because everything it held is either in this row or is set by
           dragging the ◇ itself. It is the first thing dropped when the row runs out of width. */}
-      <span className="ptbar-id">{isEnd ? t("開口/首") : `#${sel! + 1}`}</span>
+      <span className="flex-none flex items-center px-4 text-accent font-mono text-base font-bold max-[360px]:hidden">{isEnd ? t("開口/首") : `#${sel! + 1}`}</span>
       <Num tag="H" title={t("高さ位置")} value={Math.round(pt.t * p.height)}
         min={1} max={p.height} onChange={setHeightMm} />
       {/* Glyph over a caption. The glyphs are the marks the section view draws for these two states,
           so they carry the meaning; the words are what make them findable without pressing one. The
           span is aria-hidden so the accessible name is the word alone, not "◇ Smooth". */}
-      <div className="ptbar-seg">
-        <button className="seg" aria-pressed={!pt.sharp} onClick={() => patch({ sharp: false })}>
-          <span aria-hidden="true">◇</span><em>{t("なめらか")}</em>
+      <div className="flex-none flex gap-4">
+        <button className={PT_BTN} aria-pressed={!pt.sharp} onClick={() => patch({ sharp: false })}>
+          <span aria-hidden="true">◇</span><em className={PT_CAP}>{t("なめらか")}</em>
         </button>
-        <button className="seg" aria-pressed={!!pt.sharp} onClick={() => patch({ sharp: true })}>
-          <span aria-hidden="true">■</span><em>{t("角")}</em>
+        <button className={PT_BTN} aria-pressed={!!pt.sharp} onClick={() => patch({ sharp: true })}>
+          <span aria-hidden="true">■</span><em className={PT_CAP}>{t("角")}</em>
         </button>
       </div>
       {/* A rule, not a gap. ◇/■ are two exclusive VALUES of this point; ◠ is a mode of the editor,
           and in the same .seg skin they read as one group of three however much air is between them. */}
-      <span className="ptbar-sep" aria-hidden="true" />
+      <span className="flex-none w-1 self-stretch mx-1 my-4 bg-edge" aria-hidden="true" />
       {/* A mode, so a toggle: pressed = curve. Shared with the card via makeSetMode, which is what
           bakes the Bézier handles on the first entry. */}
-      <button className="seg ptbar-mode" aria-pressed={editMode === "curve"}
+      <button className={PT_BTN} aria-pressed={editMode === "curve"}
         onClick={() => setMode(editMode === "curve" ? "move" : "curve")}>
-        <span aria-hidden="true">◠</span><em>{t("カーブ")}</em>
+        <span aria-hidden="true">◠</span><em className={PT_CAP}>{t("カーブ")}</em>
       </button>
-      <span className="ptbar-sep" aria-hidden="true" />
-      <button className="ptbar-del" onClick={del} disabled={!canDelete}
+      <span className="flex-none w-1 self-stretch mx-1 my-4 bg-edge" aria-hidden="true" />
+      <button onClick={del} disabled={!canDelete}
+        className="flex-none w-40 min-h-44 p-0 rounded-md flex items-center justify-center
+          cursor-pointer bg-transparent text-warn border-0 hover:bg-warn-08
+          disabled:text-faintest disabled:cursor-default disabled:bg-transparent"
         aria-label={t("この点を削除")} title={t("この点を削除")}>
         <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" fill="none"
           stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">

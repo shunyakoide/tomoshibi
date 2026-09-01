@@ -1,3 +1,103 @@
+/* ============================================================================================
+   TAILWIND
+   ============================================================================================
+   Utilities and the token table, and NOTHING else — specifically not preflight. This app already
+   has a reset below, and one line of it is load-bearing in a way a generic reset cannot know:
+   `html { height: 100svh }` is what keeps the whole layout from collapsing on iOS (every child of
+   <main> is absolutely positioned, so main's content height is zero and the percentage chain has to
+   stay definite). Two resets fighting over html/body is not a thing worth finding out about on a
+   phone. So the layers are declared here and only two of the three are imported.
+
+   **`--spacing` is 1px, so a spacing utility's number IS its pixel count.** `gap-10` is 10px here,
+   not the 40px it would be anywhere else, and this WILL surprise anyone who knows Tailwind — it is
+   the one convention this file breaks on purpose. The reason is measurement: only 40% of this
+   app's spacing values land on a 4px grid (5, 6, 7, 9, 10, 11, 13, 14, 18, 22, 26 are all in use),
+   because the layout was built by measuring a 375px phone rather than by picking from a scale. On
+   the default 4px base every second utility would be an arbitrary value like `p-[9px]`, which is an
+   inline style wearing a costume. At 1px every value in the app is expressible and exact.
+
+   The `initial` lines CLEAR Tailwind's own palette and type scale before ours are declared, so
+   `text-red-500` and `text-xs` do not silently exist. The palette is the one in ui/theme.ts and the
+   type scale is `FS` — `npm run check:style` reads both sides and fails if they drift, the same way
+   it does for index.css's literals.
+   ============================================================================================ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* The app's one breakpoint, as a variant, so `narrow:` in a component means the same thing as
+   `useNarrow()` in a hook. It is 859px and not 860 on purpose: `useNarrow(860)` builds
+   `(max-width: 859px)`, while the four hand-written blocks this replaces said `max-width: 860px`,
+   so at EXACTLY 860px wide the stylesheet was in the narrow layout and React was rendering the wide
+   one. A one-pixel window, and the kind that is found by reading rather than by using. */
+@custom-variant narrow (@media (max-width: 859px));
+
+@theme {
+  --spacing: 1px;                 /* see above: the number IS the pixels */
+
+  --color-*: initial;             /* drop Tailwind's palette; ui/theme.ts owns the colours */
+  --color-panel: #fbf8f1;
+  --color-edge: rgba(59,52,43,0.1);
+  --color-head: #3b342b;
+  --color-text: #3b342b;
+  --color-sub: #8a7c66;
+  --color-faint: #a1937c;
+  --color-faintest: #c0b298;
+  --color-fine: #7f7159;
+  --color-card: #fff;
+  --color-card-edge: rgba(59,52,43,0.09);
+  --color-warn: #c23c12;
+  --color-accent: #D95B18;
+
+  /* The alpha ladder, spelled out rather than reached through Tailwind's `/40` modifier. That
+     modifier resolves to a color-mix in oklab — a round trip through another colour space for a
+     value this app already publishes as exact rgba — and its no-color-mix fallback for `/6` is
+     #d95b180f, which is alpha 0.0588, not 0.06. Same ladder as theme.ts's ALPHAS, and check:style
+     compares the two. */
+  --color-accent-06: rgba(217,91,24,0.06);
+  --color-warn-06: rgba(194,60,18,0.06);
+  --color-accent-07: rgba(217,91,24,0.07);
+  --color-warn-07: rgba(194,60,18,0.07);
+  --color-accent-08: rgba(217,91,24,0.08);
+  --color-warn-08: rgba(194,60,18,0.08);
+  --color-accent-25: rgba(217,91,24,0.25);
+  --color-warn-25: rgba(194,60,18,0.25);
+  --color-accent-3: rgba(217,91,24,0.3);
+  --color-warn-3: rgba(194,60,18,0.3);
+  --color-accent-35: rgba(217,91,24,0.35);
+  --color-warn-35: rgba(194,60,18,0.35);
+  --color-accent-4: rgba(217,91,24,0.4);
+  --color-warn-4: rgba(194,60,18,0.4);
+  --color-accent-45: rgba(217,91,24,0.45);
+  --color-warn-45: rgba(194,60,18,0.45);
+  --color-accent-5: rgba(217,91,24,0.5);
+  --color-warn-5: rgba(194,60,18,0.5);
+  --color-accent-55: rgba(217,91,24,0.55);
+  --color-warn-55: rgba(194,60,18,0.55);
+
+  --text-*: initial;              /* drop Tailwind's type scale; `FS` in ui/theme.ts owns it */
+  --text-2xs: 9px;
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 16px;
+  --text-2xl: 20px;
+  --text-3xl: 25px;
+
+  --radius-*: initial;            /* drop Tailwind's rem radii; `RADII` in ui/theme.ts owns them */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+
+  --font-sans: "IBM Plex Sans JP", "Hiragino Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 /* ============================================================================
    Reset, form controls, and the inspector's component classes.
    ----------------------------------------------------------------------------
@@ -11,6 +111,25 @@
    at startup by ui/theme.ts, which is where the palette is defined. It lives in JS
    because SVG presentation attributes need a real colour, not a var().
    ============================================================================ */
+
+/* ------------------------------------------------------------------------------------------------
+   Everything below is in `@layer components`, and the wrapper is not decoration.
+
+   An UNLAYERED rule beats every layered one, whatever the specificity — so with the app's CSS left
+   outside a layer, `* { margin: 0; padding: 0 }` in the reset silently defeated every Tailwind
+   spacing utility in the app. Not "sometimes": `px-12` computed to 0px, on an element that declared
+   it, with the class present in the DOM and the rule present in the stylesheet. Nothing warns.
+
+   Inside `components` the declared order (theme, base, components, utilities) puts utilities last,
+   so a utility wins over an app rule of any specificity — which is what makes them usable at all.
+   The app's own rules keep their existing relative order, because they are all still in one layer
+   and source order decides among them exactly as before.
+
+   If a component rule ever HAS to beat a utility, the answer is `!important` or a more specific
+   selector inside the utility layer — not lifting this block back out of the layer. That would
+   restore the silent breakage above for every utility in the app at once.
+   ------------------------------------------------------------------------------------------------ */
+@layer components {
 
 /* ---- reset (the app is a fullscreen canvas + panel; nothing scrolls but the panel) ---- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -48,7 +167,7 @@ input[type="range"] {
   touch-action: pan-x;   /* let the browser drive horizontal thumb drags despite touch-action:none on body */
 }
 input[type="range"]::-webkit-slider-runnable-track {
-  height: 5px; border-radius: 3px;
+  height: 5px; border-radius: var(--radius-xs);
   background: linear-gradient(to right, var(--accent) 0 var(--pct, 0%), #ccd2da var(--pct, 0%));
 }
 input[type="range"]::-webkit-slider-thumb {
@@ -56,8 +175,8 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 50%; background: var(--accent); border: 2px solid #fff;
   box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4); cursor: pointer;
 }
-input[type="range"]::-moz-range-track { height: 5px; border-radius: 3px; background: #ccd2da; }
-input[type="range"]::-moz-range-progress { height: 5px; border-radius: 3px; background: var(--accent); }
+input[type="range"]::-moz-range-track { height: 5px; border-radius: var(--radius-xs); background: #ccd2da; }
+input[type="range"]::-moz-range-progress { height: 5px; border-radius: var(--radius-xs); background: var(--accent); }
 input[type="range"]::-moz-range-thumb {
   width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 2px solid #fff;
   box-shadow: 0 1px 3px rgba(70, 30, 5, 0.4); cursor: pointer;
@@ -67,107 +186,36 @@ input[type="range"]::-moz-range-thumb {
    ever seen by keyboard and AT users. */
 button:focus-visible, input:focus-visible, summary:focus-visible,
 [role="checkbox"]:focus-visible, [tabindex]:focus-visible {
-  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px;
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm);
 }
 input[type="range"]:focus-visible { outline-offset: 4px; }
 
 /* ---- buttons ---- */
-.btn {
-  display: flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; border-radius: 8px;
-  font-family: var(--sans); font-size: 12px; font-weight: 600; white-space: nowrap;
-  cursor: pointer; transition: background 0.13s, border-color 0.13s;
-}
-/* One variant, because there is one consumer: undo/redo. `--ghost` (export/import) and `--warn`
-   (reset) went with the buttons themselves when those moved into the header menu — a rule nothing
-   draws is a claim about the UI that is not true. */
-.btn--accent { background: var(--card); color: var(--accent); border: 1px solid var(--accent-4); }
-.btn--accent:hover { background: #fffaf5; border-color: var(--accent-55); }
+/* `.btn` and `.btn--accent` used to be here and are now `Button` in ui/controls.tsx, utilities and
+   all. They are the reason the componentisation happened: the class was used from two files, one of
+   them named a modifier (`--ghost`) that had been deleted along with the buttons it belonged to, and
+   that call site shipped the browser's default button chrome for as long as nobody looked at the
+   guide's last step. A prop can be typed; a class attribute is a string. */
 
 /* One rule for every disabled button in the panel, instead of a ternary per property */
-.btn:disabled, .step-btn:disabled, .block-btn:disabled {
-  background: transparent; color: var(--faintest); border-color: var(--card-edge);
-  opacity: 0.55; cursor: default;
-}
 
-.step-btn {   /* the ± squares */
-  width: 26px; height: 26px; padding: 0; border-radius: 7px;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--card); color: var(--accent); border: 1px solid var(--accent-45);
-  font-size: 16px; font-weight: 600; line-height: 1; cursor: pointer;
-}
-.step-btn:hover:not(:disabled) { background: var(--accent-08); }
 
-.seg {   /* one option of a segmented control; the chosen one is filled */
-  flex: 1; padding: 7px 4px; border-radius: 8px; cursor: pointer;
-  background: var(--card); color: var(--text); border: 1px solid var(--card-edge);
-  font-family: var(--sans); font-size: 12px; font-weight: 600;
-}
-.seg:hover { border-color: var(--accent-45); }
-.seg[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
 /* Status marker on an option ("beta"). Outlined rather than filled so it reads as a note about the
    option and not as a second thing to press, and it inherits currentColor so every host — a
    segmented option, the welcome card's route button, the viewport chip — needs no rule of its own,
    pressed (filled orange) state included. */
-.badge {
-  margin-left: 5px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px;
-  font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase; opacity: 0.72; vertical-align: 1px;
-}
 
 /* The card's only action, and it has to look like it. It used to wear the same faint card-edge as
    the step blocks above, which made the one thing you must press the quietest thing on the card:
    accent border, a lift, and a → that says pressing this goes somewhere. Both buttons weigh the
    same — they are two equal answers to one question, not a recommendation and an alternative. */
-.route-btns { display: flex; flex-direction: column; gap: 8px; }
-.route-btn {
-  min-width: 0; display: flex; flex-direction: column; gap: 3px; text-align: left;
-  padding: 12px 13px; border-radius: 11px; cursor: pointer;
-  background: var(--card); color: var(--text); border: 1px solid var(--accent-45);
-  box-shadow: 0 2px 8px var(--accent-08);
-  font-family: var(--sans); transition: background 0.13s, border-color 0.13s, box-shadow 0.13s;
-}
-.route-btn > b { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; }
 /* Pushed to the far edge of the title row, so it is the last thing read on the line. */
-.route-btn .route-go { margin-left: auto; color: var(--accent); font-size: 14px; line-height: 1; }
-.route-btn > i { font-size: 10px; font-style: normal; line-height: 1.45; color: var(--sub); }
-.route-btn:hover { background: #fffaf5; border-color: var(--accent); box-shadow: 0 4px 14px var(--accent-25); }
-.route-btn:active { box-shadow: 0 1px 4px var(--accent-25); transform: translateY(1px); }
 /* The saved route, when the card is reopened from the ☰ menu — aria-current rather than aria-pressed,
    because these are live actions that happen to mark the current setting, not a toggle; and a tint
    rather than the filled orange of .seg, for the same reason. */
-.route-btn[aria-current="true"] { background: var(--accent-06); border-color: var(--accent); }
-.route-btn[aria-current="true"] > b { color: var(--accent); }
-.cta {   /* full-width call to action at the foot of the panel */
-  width: 100%; padding: 12px; border: none; border-radius: 10px; cursor: pointer;
-  background: var(--accent); color: #fff; box-shadow: 0 3px 10px var(--accent-3);
-  font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
-}
-.cta:hover { filter: brightness(1.06); }
-.cta--outline { background: #fff; color: var(--accent); border: 1px solid var(--accent-5); box-shadow: none; }
 
-.block-btn {   /* full-width secondary action inside a card (delete this point) */
-  width: 100%; padding: 9px; border-radius: 8px; cursor: pointer;
-  background: transparent; color: var(--warn); border: 1px solid var(--warn-4);
-  font-family: var(--sans); font-size: 12px; font-weight: 600;
-}
-.block-btn:hover:not(:disabled) { background: var(--warn-06); }
 
-.chip {   /* shape preset: a miniature of the profile above its name */
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 8px 4px 7px; border-radius: 10px; cursor: pointer; font-family: var(--sans);
-  background: var(--card); color: var(--text); border: 1px solid var(--card-edge);
-}
-.chip:hover { border-color: var(--accent-45); }
-.chip[aria-pressed="true"] {
-  background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 3px 8px var(--accent-25);
-}
 
-.tab {   /* viewport mode tabs, floating over the canvas */
-  padding: 7px 14px; border: none; border-radius: 7px; cursor: pointer; transition: all 0.15s;
-  background: transparent; color: #6f6350;
-  font-family: var(--sans); font-size: 12px; font-weight: 500;
-}
-.tab[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 700; }
 
 /* Narrow: `.tab` is not styled here, because there are no tabs here — the six chips are two
    `<select>`s in the bar above the viewport (chipBar in TomoshibiStudio). Tightening their padding
@@ -175,9 +223,6 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
    labels wrapped to two rows in English, and the labels are the app's top-level navigation, so
    shortening them was never an option. `.badge` stays: the welcome card renders one. Matches
    useNarrow(860). */
-@media (max-width: 860px) {
-  .badge { margin-left: 3px; }
-}
 
 /* A view/route chooser as a native <select>, used by the narrow chip bar. Native because on a phone
    it opens the OS picker: a better touch target than anything hand-rolled, with keyboard and
@@ -185,100 +230,44 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
    closed state is styled — the open list is the platform's, which is the point.
    `--on` is the mode chooser (this is where you ARE, so it reads like the pressed tab it replaced);
    plain is the route chooser, which is a setting rather than a location. */
-.tab-sel { position: relative; display: inline-flex; }
-.tab-sel > select {
-  -webkit-appearance: none; appearance: none;
-  min-height: 38px; padding: 0 26px 0 11px; border-radius: 9px;
-  font-family: var(--sans); font-size: 12px; font-weight: 700; line-height: 1;
-  background: var(--card); color: var(--text); border: 1px solid var(--card-edge); cursor: pointer;
-}
-.tab-sel--on > select { background: var(--accent); color: #fff; border-color: var(--accent); }
 /* The caret is a sibling, not a background image: it has to take the fill colour of whichever
    variant it sits in, and pointer-events:none keeps the click on the select underneath it. */
-.tab-sel > span {
-  position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
-  pointer-events: none; font-size: 9px; color: var(--sub);
-}
-.tab-sel--on > span { color: #fff; }
 
 /* ---- The onboarding card (Welcome.tsx) ----------------------------------------------------
    Its layout lives here rather than as `narrow` ternaries in the component for two reasons: the
    component is presentational and takes no layout props, and its own breakpoint is not the app's.
    The card is `min(560px, 100%)`, so what matters is whether the CARD has room for three columns —
    about 460px of viewport — not `useNarrow(860)`, which a tablet with plenty of room would trip. */
-.welcome { padding: 26px 26px 22px; }
-.welcome-logo { height: 62px; width: auto; }
 /* The close X, shared by the app's two overlays (the welcome card and the build guide). Chrome, so
    it is quiet and in the corner; on the card it replaced a full-width footer button. Only the
    PLACEMENT differs, so only the placement is written twice. */
-.welcome-x, .guide-x {
-  width: 36px; height: 36px; padding: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: none; border-radius: 50%; cursor: pointer;
-  font-family: var(--sans); font-size: 20px; line-height: 1; color: var(--faint);
-}
-.welcome-x:hover, .guide-x:hover { background: var(--card); color: var(--text); }
-.welcome-x { position: absolute; top: 10px; right: 10px; }
 
 /* ONE white panel around all three, not three panels — that is the difference between "here are
    the steps" and "here are three things to press". The card sits on --panel, so a single --card
    ground reads as one block of explanation, and the → between the steps are what make it a
    sequence. (Three separate cards with the same border as `.route-btn` below is exactly the false
    affordance this replaced; see the Onboarding section of CLAUDE.md.) */
-.welcome-steps {
-  display: flex; align-items: stretch; gap: 4px; margin: 18px 0 16px;
-  background: var(--card); border: 1px solid var(--card-edge); border-radius: 14px;
-  padding: 14px 10px 13px;
-}
-.welcome-arrow { align-self: center; color: var(--faintest); font-size: 16px; padding: 0 2px; }
 /* NO card, NO border, NO radius — and that is the whole point. These carried the same white card
    with a 1px edge and an 11px radius as `.route-btn` directly below them, so the three things you
    cannot press looked exactly like the two you must, and they came first. An icon and two lines of
    text read as content; anything with a box around it reads as a target. The flow is carried by the
    → between them on a wide screen, and by the order alone once they stack. */
-.welcome-step {
-  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px;
-  text-align: center; padding: 4px 6px;
-}
-.welcome-step-t { font-size: 12px; font-weight: 700; }
-.welcome-step-c { font-size: 10px; color: var(--sub); line-height: 1.45; }
 
-@media (max-width: 480px) {
-  /* Three columns of ~85px is where this card fell apart: at 375px every caption wrapped to three
-     or four lines and the row alone ran to ~330px, half the card. Stacked, each step is one row —
-     icon, then title and caption beside it — and the whole block is ~150px and actually readable.
-     The arrows go with the columns: in a vertical list the order already says "then", and a row of
-     ↓ between the steps would spend the height the stacking just saved. */
-  .welcome { padding: 18px 16px 16px; }
-  .welcome-logo { height: 44px; }
-  .welcome-steps { flex-direction: column; gap: 2px; margin: 14px 0 13px; padding: 11px 12px 10px; }
-  /* The same "→" glyph turned a quarter turn — one arrow in the markup, and it cannot fall out of
-     step with the wide one. Centred on the panel, like the wide row's arrows are centred between
-     their steps: the rows are not a column of icons with labels hanging off them, they are three
-     blocks in sequence, and the arrow belongs to the gap rather than to the icons. */
-  .welcome-arrow {
-    align-self: center; transform: rotate(90deg); transform-origin: center;
-    padding: 0; margin: -1px 0; font-size: 13px; line-height: 1;
-  }
-  .welcome-step {
-    flex-direction: row; align-items: center; gap: 12px; text-align: left; padding: 2px 2px;
-  }
-  .welcome-step-t { flex: none; }
-  .welcome-step-c { flex: 1 1 auto; }
-}
+/* The onboarding card's 480px breakpoint is `max-[480px]:` on the elements themselves now
+   (Welcome.tsx). It is 480 rather than useNarrow's 859 for a reason worth keeping: the card is
+   `min(560px, 100%)`, so what decides its layout is whether the CARD has room for three columns —
+   about 460px of viewport — not whether the APP is in its stacked mode, which a tablet with plenty
+   of room would trip. What the breakpoint does: three columns of ~85px is where this card fell
+   apart (at 375px every caption wrapped to three or four lines and that row alone ran to ~330px,
+   half the card), so the steps become rows — icon, then title and caption beside it — and the block
+   drops to ~150px. The arrows go with the columns: in a vertical list the order already says
+   "then", and the SAME "→" is turned a quarter turn rather than written twice, centred on the panel
+   because the rows are three blocks in sequence and the arrow belongs to the gap between them. */
+
 
 /* The export manifest's disclosure (KitNote). A row, not a button that looks like one: what it
    reveals is reference material, so it should read as a quiet label with a caret rather than compete
    with the CTA directly above it. 36px tall, so it is still a touch target on a phone. */
-.note-toggle {
-  display: flex; align-items: center; gap: 5px; min-height: 36px; margin-top: 2px;
-  padding: 0; background: none; border: none; cursor: pointer;
-  font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--sub);
-}
-.note-toggle:hover { color: var(--accent); }
-.note-toggle > span { font-size: 9px; color: var(--faint); }
-.note-list { margin: 2px 0 0; padding: 0; list-style: none; }
-.note-list > li { padding: 1.5px 0; }
 
 /* Header affordance. One consumer — the overflow menu's ☰ trigger — but the class stays generic,
    because size is the property any future header button wants to inherit.
@@ -288,234 +277,42 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
    shape of rule twice over: 22px is small for a pointer too — it is the app's whole menu, and the
    only way back to the onboarding card — and the wide panel header has nothing to gain from it
    being small, because the row's height comes from a 44px wordmark beside it. */
-.icon-btn {
-  background: var(--card); color: var(--sub); border: 1px solid var(--card-edge);
-  font-family: var(--mono); font-weight: 700; cursor: pointer;
-}
-.icon-btn {
-  /* A rounded SQUARE, not a circle: it stands at the end of a row of `.tab-sel` selects whose
-     corners are 9px, and a lone circle among them read as a different kind of thing. */
-  width: 36px; height: 36px; padding: 0; border-radius: 9px;
-  display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1;
-}
-.icon-btn:hover { color: var(--accent); border-color: var(--accent-45); }
 
-/* ---- The overflow menu (ui/Menu.tsx) -------------------------------------------------------
-   The trigger reuses `.icon-btn`, which is not laziness: that class is already the app's header
-   button and is already 36px, so the touch target comes for free. It was the "?" that reopened the intro until that moved into
-   the menu, and this is the same button in the same corner. */
-.menu { position: relative; display: inline-flex; }
-/* Right-anchored, because the button is the last thing in its row on both layouts — a left-anchored
-   popover would open off the edge of the phone. */
-.menu-pop {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; min-width: 208px;
-  display: flex; flex-direction: column; padding: 5px;
-  background: var(--panel); border: 1px solid var(--edge); border-radius: 12px;
-  box-shadow: 0 10px 28px rgba(59, 52, 43, 0.18);
-}
-.menu-item {
-  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px;
-  background: none; border: none; border-radius: 8px; cursor: pointer; text-align: left;
-  font-family: var(--sans); font-size: 12px; color: var(--text);
-}
-.menu-item:hover { background: var(--accent-06); color: var(--accent); }
-.menu-item-l { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-/* The consequence line for the destructive row. It was a title= before, which a phone cannot show. */
-.menu-item-l > em { font-style: normal; font-size: 10px; line-height: 1.35; color: var(--faint); }
-.menu-item-v { flex: none; font-family: var(--mono); font-size: 11px; color: var(--faint); }
-.menu-item--danger { color: var(--warn); }
-.menu-item--danger:hover { background: var(--warn-08); color: var(--warn); }
-.menu-sep { height: 1px; margin: 5px 6px; background: var(--edge); }
 
-/* ---- rows and fields ---- */
-.scrub-row {   /* label · track · a value you can click to type into */
-  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 0;
-}
-.scrub-row[data-active="true"] { background: var(--accent-06); }
-.scrub-row > label { flex: 0 0 auto; white-space: nowrap; font-size: 12px; color: var(--text); }
-.scrub-row input[type="range"] { flex: 1 1 auto; min-width: 60px; }
-.scrub-row[data-active="true"] .val-btn { color: var(--accent); }
 
-.val-btn {   /* looks like text, behaves like a field */
-  min-width: 62px; padding: 4px 2px; flex: 0 0 auto; text-align: right;
-  background: transparent; border: none; color: var(--text); cursor: text;
-  font-family: var(--mono); font-size: 12px; font-weight: 600;
-}
-.val-btn:hover { color: var(--accent); }
-.val-field {   /* replaces the value while it is being typed into */
-  width: 62px; padding: 4px 6px; border-radius: 6px; flex: 0 0 auto; text-align: right;
-  background: #fff; border: 1px solid var(--accent); color: var(--text);
-  font-family: var(--mono); font-size: 12px; font-weight: 600;
-}
 
-.field-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
-.mm-field {
-  width: 66px; padding: 6px 8px; border-radius: 8px; text-align: right;
-  background: var(--card); border: 1px solid var(--card-edge); color: var(--text);
-  font-family: var(--mono); font-size: 13px;
-}
-.unit { font-size: 11px; color: var(--sub); }                     /* "mm" after a number field */
+/* The selected ◇'s bar (ui/PointBar.tsx, phones only) is utilities now — see PT_BTN there, and
+   note WHY it is one shared constant: the rules it replaced were written as a GROUPED selector
+   (`.ptbar-seg > .seg, .ptbar-mode { … }`), which is the shape that gets lost when a stylesheet is
+   read one class at a time. Converted per class, the ◇/■ pair silently lost its column layout and
+   its 9px caption and came out as italic text beside a glyph. */
 
-/* ---- The selected ◇, as a bar (ui/PointBar.tsx, phones only) --------------------------------
-   Everything in it is 44px tall — this is the touch surface for editing a point, and the row exists
-   precisely so that nobody has to go and find the 44px controls in the sheet.
-   In FLOW between the viewport and the sheet, never over the canvas. It costs the section view 52px
-   while a point is selected and nothing the rest of the time; see the component for the measurements
-   that ruled out reaching the same controls by pulling the sheet up instead. */
-.ptbar {
-  flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 10px;
-  background: var(--panel); border-bottom: 1px solid var(--edge);
-}
-/* Which ◇ this is. A label, not a control — nothing in this row opens anything any more — so it is
-   tinted rather than bordered, and it is what gives up its place first when the row runs out. */
-.ptbar-id {
-  flex: none; display: flex; align-items: center; padding: 0 4px;
-  color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700;
-}
-/* A mono letter, then the same field the inspector uses. The tag is a letter and the value a number,
-   so this row is exactly as wide in Japanese as in English. */
-/* Sized to its content — four digits is the most this can hold (LIMITS.height tops out at 2000mm)
-   and mono 13px needs 62px for them. It used to be `flex: 1 1 auto`, which handed it every spare
-   pixel in the row: 99px of field for a three-digit number, on the one bar whose whole purpose is
-   to not spend the screen. `margin-right: auto` takes that slack instead, which also puts real
-   space between the point's VALUE and the buttons that act on it. The `min-width` is not optional:
-   a 2000mm design puts FOUR digits in here, and this input is right-aligned, so an overflow shows
-   the END of the number — "000" for 2000, silently, in a field you are about to type into. */
-.ptbar-num { flex: 0 1 auto; margin-right: auto; min-width: 0; display: flex; align-items: center; gap: 5px; }
-.ptbar-num > span { flex: none; font-family: var(--mono); font-size: 11px; color: var(--faint); }
-.ptbar-num > .mm-field { width: 56px; min-width: 50px; min-height: 44px; padding: 0 7px; }
-/* Glyph-only, because ◇ and ■ ARE the two marks the section view draws for these two states — the
-   words would say less and cost the width this row does not have. */
-.ptbar-seg { flex: none; display: flex; gap: 4px; }
-/* Glyph over caption. 46px is what the longest caption needs — 「なめらか」, four CJK glyphs at 9px —
-   and the row had the slack for it at both 375 and 320. */
-.ptbar-seg > .seg,
-.ptbar-mode {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-  flex: none; width: 46px; min-height: 44px; padding: 0; font-size: 13px; line-height: 1;
-}
-.ptbar-seg > .seg > em,
-.ptbar-mode > em {
-  font-style: normal; font-size: 9px; font-weight: 600; letter-spacing: 0; white-space: nowrap;
-}
-/* The editor mode. Same .seg skin as the ◇/■ pair so the row has one visual language, but it is a
-   single pressed-state button because "curve" is a thing you turn ON, not one of two values. */
-/* The row is three groups — the point's own values, the editor's mode, the destructive action — and
-   each boundary is a rule rather than a gap. In the same .seg skin, ◠ hard against the ◇/■ pair
-   reads as a third exclusive option in it however much air sits between them; 6px of margin was
-   tried first and did not say it. */
-.ptbar-sep { flex: none; width: 1px; align-self: stretch; margin: 4px 1px; background: var(--edge); }
-.ptbar-del {
-  flex: none; width: 40px; min-height: 44px; padding: 0; border-radius: 9px;
-  display: flex; align-items: center; justify-content: center; cursor: pointer;
-  background: none; color: var(--warn); border: none;
-}
-.ptbar-del:hover { background: var(--warn-08); }
-.ptbar-del:disabled { color: var(--faintest); cursor: default; background: none; }
-/* Under ~360px the row cannot hold all of it AND four digits in the field. What gives is the
-   IDENTITY LABEL — the section view already rings the selected ◇, so the label is the one thing here
-   that is also said somewhere else. Delete cannot be what gives any more: with the card gone on a
-   phone, this row is the only place it exists. The gap and padding come in with it. */
-@media (max-width: 360px) {
-  .ptbar-id { display: none; }
-  .ptbar { gap: 5px; padding: 6px 8px; }
-}
-.unit-soft { font-weight: 400; color: var(--faintest); }          /* "mm" inside a slider row's value:
-   inherits the value's size, so the right-aligned readout keeps its width */
 
-.row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; }
-.row-label { font-size: 12px; color: var(--text); }
-.row-value { font-family: var(--mono); font-size: 11px; color: var(--faint); }
-.step-group { display: flex; align-items: center; gap: 10px; }
-.step-val {
-  min-width: 44px; text-align: center; color: var(--text);
-  font-family: var(--mono); font-size: 13px; font-weight: 600;
-}
-
-.check {   /* checkbox as a real button, so Tab/Space and screen readers work */
-  display: flex; align-items: center; gap: 9px; width: 100%; min-height: 44px; padding: 8px 0;
-  text-align: left; background: transparent; border: none; font: inherit; cursor: pointer;
-}
-.check-box {
-  width: 18px; height: 18px; flex: none; border-radius: 5px; font-size: 12px; color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--card); border: 1px solid rgba(59, 52, 43, 0.3);
-}
-.check[aria-checked="true"] .check-box { background: var(--accent); border-color: transparent; }
-.check-label { font-size: 12px; color: var(--text); }
 
 /* ---- headings and notes ---- */
-.sec-label { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
-.sec-label > b { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint); }
-.sec-label > i { font-size: 10px; font-style: normal; color: var(--faintest); }
-.tool-group { display: flex; flex-direction: column; gap: 7px; }
-.tool-group > span { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint); }
-.tool-group > div { display: flex; gap: 6px; }
-.note { font-size: 10px; line-height: 1.6; color: var(--faint); }
-.hint { font-size: 11px; line-height: 1.5; color: var(--faint); padding: 2px 0 4px; }
 
 /* ---- inspector composition -------------------------------------------------------------------
    The panel is one long scroll of settings groups, and these are the shapes it is built from. They
    were style={{ }} objects until they weren't: `marginBottom: 20` was written out six times, the
    footer's readout carried six declarations plus one per cell, and every one had to be read at the
    call site to find out it was the same spacing as the group above it. */
-.sec { margin-bottom: 20px; }
 /* A group opened by a rule rather than by air. `.sec-ruled` starts a top-level section (the print /
    export block); `.sec-sub` starts a group INSIDE one, so it sits closer to what it follows. */
-.sec-ruled { border-top: 1px solid var(--edge); padding-top: 16px; margin-top: 4px; }
-.sec-sub { border-top: 1px solid var(--edge); padding-top: 14px; margin-top: 14px; }
 
 /* The footer's readout: label left, value right-aligned in mono. Wide layout only — the phone's
    summary is one mono line in the sheet's bar (see "Narrow screens" in CLAUDE.md). */
-.sum { display: grid; grid-template-columns: auto 1fr; row-gap: 5px; column-gap: 12px; font-size: 12px; margin-bottom: 14px; }
-.sum-k { color: var(--faint); }
-.sum-v { font-family: var(--mono); font-weight: 600; text-align: right; }
-.sum-v--warn { color: var(--warn); }
 
-.mono { font-family: var(--mono); }                /* a filename or a part code — retyped or searched for */
-.qty-of { color: var(--faintest); font-weight: 400; }   /* the greyed remainder after a count: " 枚", " / 8" */
-.note strong { color: var(--text); }               /* the one word in a note carrying the consequence */
-.kit-note { margin-top: 9px; }
 
-/* The selected-point card (ui/PointCard.tsx) and its empty state. Solid when a ◇ is selected,
-   dashed when none is — the dash is what says "this fills in", rather than a sentence saying so. */
-.pt-box { border: 1px solid var(--card-edge); border-radius: 10px; background: var(--card); padding: 12px 12px 10px; }
-.pt-empty { border: 1px dashed var(--card-edge); border-radius: 10px; padding: 14px; font-size: 11px; color: var(--faint); line-height: 1.6; }
-.pt-segs { display: flex; gap: 6px; margin-bottom: 10px; }
-.pt-segs--mid { margin: 4px 0 10px; }
 
 /* The shape templates (ui/PresetChips.tsx): four to a row, each a miniature over its name. */
-.chip-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
-.chip-mini { width: 40px; height: 32px; display: block; }
-.chip-name { font-size: 11px; font-weight: 500; }
 /* The wordmark at the END of the scroll — identity, so it may not take the first 40px of a pull. */
-.wordmark-foot { padding: 22px 0 14px; opacity: 0.5; }
 
 /* ---- viewport alerts (TomoshibiStudio) --------------------------------------------------------
    A card in the wide layout's bottom-right column; on a phone the same alerts fold into one strip
    in flow above the panel. See "Narrow screens" in CLAUDE.md for why the strip starts collapsed. */
-.alert {
-  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-  background: var(--card); border: 1px solid var(--accent-4); border-radius: 10px;
-  box-shadow: 0 3px 12px rgba(59,52,43,0.1);
-  font-family: var(--sans); font-size: 12px; color: var(--text); text-align: left;
-}
-.alert-mark { flex: none; font-size: 14px; }
-.alert-hint { color: var(--sub); }
 
-.alert-strip { flex: none; background: var(--panel); border-top: 1px solid var(--edge); }
-.alert-strip > button {
-  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px;
-  padding: 6px 12px; background: var(--accent-07); border: none;
-  border-left: 3px solid var(--accent-5);
-  cursor: pointer; font: inherit; font-size: 12px; color: var(--text); text-align: left;
-}
 /* min-width 0 is what lets the ellipsis happen at all: a flex item's automatic minimum size is its
    own content, so without it the headline pushes the count and the caret off the strip. */
-.alert-strip-head { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.alert-strip-n { flex: none; font-family: var(--mono); font-size: 11px; color: var(--sub); }
-.alert-strip-caret { flex: none; color: var(--faint); }
-.alert-strip-body { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 8px; }
 
 /* ---- page preview (cardboard route's print view) ---- */
 /* A document viewer over the (empty) 3D canvas: the pages flow and the whole thing scrolls. The
@@ -577,190 +374,36 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
    over a grey canvas rather than on the panel, and at 11px the browns were washed out. The two
    halves (what this is / the caveat that it is not full scale) stay distinguishable by WEIGHT
    instead, so neither of them gives up contrast for the hierarchy. */
-.pages-note {
-  flex: none; padding: 8px 20px 12px; font-size: 11px; line-height: 1.5; font-weight: 600;
-  color: var(--text); background: rgba(255,255,255,0.82); border-top: 1px solid var(--edge);
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-}
-.pages-note > span { font-weight: 400; }
 
 /* ---- assembly guide (GuidePage.tsx) ---- */
-/* A reading document, so it is set like one: a single measured column, generous leading, and the
-   figures on a fixed track so the text edge stays straight down the page. It owns the whole window
-   (no inspector), which is why the column is centred rather than hugging the viewport's left. */
-/* 124px of head room, the same figure the print view's page grid uses and for the same reason: the
-   mode tabs and the route chip float over this canvas, and once the window is narrow enough for the
-   column to reach the left edge they land on the title. */
-/* Fixed to the window, not scrolled with the document — the way out has to stay reachable at the
-   bottom of a ten-step page. That means text passes UNDER it, so unlike the card's X this one needs
-   a ground and an edge of its own. */
-.guide-x {
-  position: fixed; top: 12px; right: 16px; z-index: 1;
-  background: var(--panel); box-shadow: 0 0 0 1px var(--edge);
-}
-/* 30px of top padding, not the 124 this had as a view: that was clearance for the mode and route
-   chips floating over the viewport, and an overlay has neither above it. */
-.guide-doc { max-width: 860px; margin: 0 auto; padding: 30px 24px 72px; }
-.guide-kicker {
-  margin: 0 0 6px; font-family: var(--mono); font-size: 11px; font-weight: 600;
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
-}
-.guide-h1 { margin: 0 0 10px; font-size: 25px; font-weight: 700; color: var(--head); }
-.guide-lead { margin: 0; font-size: 14px; line-height: 1.75; color: var(--fine); max-width: 62ch; }
-.guide-h2 {
-  margin: 40px 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
-  color: var(--head); border-bottom: 1px solid var(--edge); padding-bottom: 8px;
-}
-.guide-parts {
-  list-style: none; margin: 0; padding: 0;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px;
-}
-.guide-parts > li { padding: 10px 12px 12px; }
-.guide-part-name { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
-/* The count — or, on the rib, the words that stand in for one (see PARTS). Mono because it is
-   usually "x2"; a CJK phrase falls through to the system mono and still sits on the same line. */
-.guide-part-name > span { font-family: var(--mono); font-size: 12px; color: var(--sub); }
-.guide-part-dim { margin-top: 2px; font-family: var(--mono); font-size: 11px; color: var(--fine); }
-
-/* What you supply. Laid out with the parts grid's own class so the two lists match: same cards,
-   same wells, same name-and-note lines. Only the group heading is extra. */
-.guide-kit { margin-top: 4px; }
-.guide-kit + .guide-kit { margin-top: 16px; }
-.guide-kit h3 { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--fine); }
-.guide-kit strong { font-weight: 400; }
-
-.guide-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
-.guide-steps > li { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 20px; padding: 16px; align-items: start; }
-/* A step with nothing to show (its only child is the text) spans the column instead of leaving a
-   300px hole where the figure would be. */
-.guide-steps > li > :only-child { grid-column: 1 / -1; }
-.guide-steps h3 { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; font-size: 16px; font-weight: 700; color: var(--head); }
-.guide-steps p { margin: 0; font-size: 13px; line-height: 1.8; color: var(--text); }
-.guide-num {
-  flex: none; width: 24px; height: 24px; border-radius: 50%; color: #fff;
-  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
-}
-/* The figure well. It keeps its box whether the drawing has arrived, has failed, or
-   neither exists — a step that reflows when its image loads is a step you lose your place in. */
-.guide-fig {
-  display: flex; align-items: center; justify-content: center; overflow: hidden;
-  aspect-ratio: 4 / 3; border-radius: 10px; background: #fff; border: 1px solid var(--edge);
-}
-.guide-fig--part { aspect-ratio: 3 / 2; margin-bottom: 8px; border-color: transparent; background: transparent; }
-.guide-fig img { width: 100%; height: 100%; object-fit: contain; }
-.guide-slot { font-size: 11px; color: var(--fine); text-align: center; padding: 8px; }
-/* A step whose ways of doing it are ALTERNATIVES, not sub-steps: each gets its own section in the
-   step's own figure-beside-text rhythm rather than three narrow columns, so the drawings stay the
-   size every other figure on the page is read at. No numbers — numbering them would say do all. */
-.guide-opts { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 20px; }
-.guide-opts > li { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 6px 20px; align-items: start; }
-/* Title AND body span both columns, above the figure. That is what separates one way from the next:
-   beside the figure the title is just the first line of a paragraph in a column of paragraphs, and
-   what is left in the right-hand column is then only the numbered work, level with the drawing. */
-.guide-opts h4 { grid-column: 1 / -1; margin: 0; font-size: 13px; font-weight: 700; color: var(--head); }
-/* Spanning the columns buys the alignment; the measure has to be given back by hand. Without the
-   cap this one paragraph runs the full 828px card while every other body on the page sits in a
-   ~460px column — nearly 100 characters a line against 57. */
-.guide-opts > li > p { grid-column: 1 / -1; max-width: 60ch; margin: 0 0 2px; }
-/* The footnote at the foot of one way. The rule above wins the margin on specificity, so it needs
-   its own — and it is set on the TOP because what it has to clear is the block above it. */
-.guide-opts > li > p.guide-note { margin-top: 10px; }
-/* The numbered work inside one way of doing it — bending the wire, hooking it on. Numbered here
-   BECAUSE these are sequential, which is exactly what the options around them are not. Smaller
-   wells: they sit inside a section that is itself inside a step. */
-.guide-detail { margin: 0; padding: 0 0 0 0; list-style: none; counter-reset: gd; display: flex; flex-direction: column; gap: 10px; }
-.guide-detail > li { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); gap: 12px; align-items: start; counter-increment: gd; }
-.guide-detail > li > div:last-child::before {
-  content: counter(gd); display: inline-block; margin-right: 6px;
-  font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--fine);
-}
-.guide-detail h5 { display: inline; margin: 0; font-size: 12px; font-weight: 700; color: var(--head); }
-.guide-detail p { font-size: 12px; }
-.guide-note { margin: 12px 0 0; font-size: 12px; line-height: 1.7; color: var(--sub); }
-.guide-steps .btn { margin-top: 12px; }
-
-@media (max-width: 860px) {
-  /* One column: a 300px figure beside text on a phone leaves neither of them readable. */
-  .guide-doc { padding: 26px 14px 40px; }
-  .guide-steps > li, .guide-opts > li, .guide-detail > li { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-}
-/* Printing the page IS the printable guide — the app writes no PDF for it. Drop the app's furniture
-   (tabs, chips, the scroll box) and let the browser paginate the document itself; a step must not be
-   split across the fold, which is what break-inside on the cards buys. */
+/* The page's own look is utilities in GuidePage.tsx. What CANNOT be a utility is this: the printed
+   guide needs everything that is NOT the guide hidden, and that selector reaches elements the guide
+   does not render and cannot put a class on. `.guide` survives as the marker it keys off — it
+   carries no declarations of its own. (Releasing the shell is the load-bearing half: the app is a
+   100%-tall, overflow-hidden box from <html> down, which clipped the printed guide to EXACTLY ONE
+   PAGE. Styling `.guide` alone never reached it.) */
 @media print {
-  /* The app is a fixed-height, overflow-hidden shell — which is what a viewport-filling tool has to
-     be on screen, and which clipped the printed guide to EXACTLY ONE PAGE. Releasing `.guide`
-     alone was never enough: every ancestor from <html> down to the viewport is 100%-tall and
-     hidden, so the document could not paginate at all. Let all of them go first. */
-  html, body, #root { height: auto !important; overflow: visible !important; }
-  #root > div { display: block !important; height: auto !important; overflow: visible !important;
-    background: #fff !important; }   /* the app's warm ground paints the rest of the last sheet */
-  main { height: auto !important; overflow: visible !important; position: static !important; }
-  /* The furniture: the whole app behind the overlay — viewport and canvas, tab strip, inspector.
-     The guide is a fixed-position child of the app's root box now (it was a sibling of the canvas
-     inside <main> while it was a view), so it is named by what it is not, one level up. */
+  html, body, #root, #root > div { height: auto !important; overflow: visible !important; }
   #root > div > *:not(.guide) { display: none !important; }
-  /* Including its own way out: a × is a control, and there is nothing to close on paper. */
-  .guide-x { display: none !important; }
-  .guide { position: static !important; overflow: visible !important; background: #fff !important; }
-  .guide-doc { max-width: none; padding: 0; }   /* the chips are gone on paper, and so is their clearance */
-  .guide-steps > li, .guide-parts > li, .guide-opts > li, .guide-detail > li { break-inside: avoid; box-shadow: none; }
-  /* …except a step that is a stack of alternatives. It is taller than a page, and break-inside on
-     something that cannot fit anyway only buys a blank page ahead of it. */
-  .guide-steps > li:has(.guide-opts) { break-inside: auto; }
-  /* Paper is narrower than the 860px breakpoint, so without this the page drops to ONE column and
-     every figure blows up to full width: a page per step, and blocks taller than a page — which
-     Chrome then drops rather than splits. Keep the two columns on paper. */
-  .guide-steps > li, .guide-opts > li { grid-template-columns: minmax(0, 38%) minmax(0, 1fr) !important; }
-  .guide-detail > li { grid-template-columns: minmax(0, 24%) minmax(0, 1fr) !important; }
-  .guide-h2 { break-after: avoid; }
 }
-
-/* ---- crash screen (main.tsx error boundary) ---- */
-/* Its own dark palette rather than the panel tokens: whatever went wrong may well be in the theme,
-   so this screen must not depend on anything the app sets up at startup. */
-.crash {
-  position: fixed; inset: 0; padding: 20px; overflow: auto;
-  background: #0c0c0d; color: #e8e8ec; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
-  -webkit-user-select: text; user-select: text;
-}
-.crash > b { display: block; margin-bottom: 8px; color: #e0a060; font-weight: 600; }
-.crash > pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
 
 /* ---- Touch targets in the inspector (narrow) ------------------------------------------------
-   Placed at the END of the file on purpose: a media query adds no specificity, so every rule here
-   would lose to the plain `.val-btn` / `.step-btn` / `.scrub-row` definitions above if it came
-   first. That is not hypothetical — it is how this block was written the first time, and only the
-   two rules that happened to out-specify their base (`.scrub-row input[type=range]`) took effect.
-   Matches useNarrow(860). */
-@media (max-width: 860px) {
-  /* ---- Touch targets in the inspector -------------------------------------------------------
-     Measured on a 375x812 phone, every control in the panel was mouse-sized: the ± squares 26px,
-     the value buttons 62x24, and the sliders a 24px strip. Against the 44px both platform
-     guidelines ask for, this is the same failure the section editor's ◇ had, in the half of the app
-     that is nothing but controls. (The header button was in this list at 22px and is not any more:
-     it is 36 in its base rule now, on both layouts — see `.icon-btn`. A control that is too small
-     to hit with a finger is usually also too small to find with a pointer, and this one is the
-     app's whole menu.)
+   This block is EMPTY now and its rules are `narrow:` utilities on the controls themselves
+   (ui/controls.tsx). Two things are worth keeping from it.
 
-     What makes it nearly free is that the space is ALREADY RESERVED: `.scrub-row` is min-height 44
-     and `.row` comes out at 40, and the controls inside simply were not filling their own row. So
-     these rules grow the HIT AREA and leave the layout where it is — the same separation the
-     section editor draws between a handle's glyph and its hit circle. Panel height is the scarce
-     resource here (1216px of controls through a ~260px window), so a rule that costs rows is a
-     rule that has to earn it — and after the header button moved out to its base rule, nothing
-     left in this block costs a single row. */
+   What it did: measured on a 375x812 phone, every control in the panel was mouse-sized — the ±
+   squares 26px, the value buttons 62x24, the sliders a 24px strip — against the 44px both platform
+   guidelines ask for. What made the fix nearly free is that the space was ALREADY RESERVED: the
+   slider row is min-height 44 and the stepper row comes out at 40, and the controls inside simply
+   were not filling their own row. So the rules grew the HIT AREA and left the layout where it was,
+   the same separation the section editor draws between a handle's glyph and its hit circle. Panel
+   height is the scarce resource here, so a rule that costs rows has to earn it; none of these did.
 
-  /* Fill the row that is already 44px tall. Dropping the padding does not change the row's height
-     — min-height was already doing that — it just hands the content box the same 44px. */
-  .scrub-row { padding: 0; }
-  .scrub-row input[type="range"] { height: 44px; }
-  .val-btn { align-self: stretch; padding-top: 0; padding-bottom: 0; }
-
-  /* The ± squares stay 26px to look at and become 40x44 to hit. An overlay rather than a bigger
-     box because the box is what the row's spacing is built from: `.step-group`'s 10px gap and the
-     44px `.step-val` between the pair absorb the horizontal growth, and the vertical stays inside
-     `.row`'s own 7px padding, so neither square reaches its neighbour or the value between them. */
-  .step-btn { position: relative; }
-  .step-btn::after { content: ""; position: absolute; inset: -7px -9px; }
+   Why it sat at the END of the file: a media query adds no specificity, so every rule in it lost to
+   the plain `.val-btn` / `.step-btn` / `.scrub-row` definitions further up. That is not
+   hypothetical — it is how the block was written the first time, and only the two rules that
+   happened to out-specify their base took effect. As `narrow:` utilities the problem cannot arise:
+   Tailwind emits variants after the base utilities they modify, so position in a class string
+   decides nothing and position in the file is not ours to get wrong.
+   --------------------------------------------------------------------------------------------- */
 }

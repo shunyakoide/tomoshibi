@@ -28,6 +28,7 @@
  */
 import React, { useEffect, useRef } from "react";
 import { UI as ui, FS, accent, accentA, useT } from "./ui/theme.ts";
+import { Badge } from "./ui/controls.tsx";
 import Logo from "./ui/Logo.tsx";
 import type { Route } from "./types.ts";
 
@@ -112,7 +113,7 @@ export default function Welcome({ route = null, onPick, onClose }: {
       overflowY: "auto",
     }}>
       <div role="dialog" aria-modal="true" aria-label={t("はじめかた")} onClick={(e) => e.stopPropagation()}
-        className="welcome"
+        className="rounded-2xl pt-26 px-26 pb-22 max-[480px]:pt-18 max-[480px]:px-16 max-[480px]:pb-16"
         style={{
           // 560 rather than 520: below that the three step captions wrap onto a second line with a
           // single character stranded on it in Japanese.
@@ -124,25 +125,36 @@ export default function Welcome({ route = null, onPick, onClose }: {
           // the padding edge and the whole of it scrolls into reach.
           margin: "auto",
           width: "min(560px, 100%)", background: ui.panel, color: ui.text, fontFamily: "var(--sans)",
-          borderRadius: 16, boxShadow: "0 18px 50px rgba(43,36,26,0.3)",
+          boxShadow: "0 18px 50px rgba(43,36,26,0.3)",
           border: `1px solid ${ui.edge}`, position: "relative",
         }}>
         {/* The only way out that is not also a choice. It replaced a 「とりあえず見る」 button on the
             footer row, which cost a full row and read like a third option beside the two routes —
             the escape from a modal is chrome, not an alternative to the thing it is asking. */}
-        <button className="welcome-x" onClick={onClose} title={t("閉じる")} aria-label={t("閉じる")}>×</button>
-        <Logo variant="full" className="welcome-logo" style={{ color: ui.head }} />
+        <button onClick={onClose}
+          className="absolute top-10 right-10 w-36 h-36 p-0 flex items-center justify-center
+            bg-transparent border-0 rounded-full cursor-pointer font-sans text-2xl leading-none
+            text-faint hover:bg-card hover:text-text" title={t("閉じる")} aria-label={t("閉じる")}>×</button>
+        <Logo variant="full" className="h-62 w-auto max-[480px]:h-44" style={{ color: ui.head }} />
         <div style={{ fontSize: FS.md, color: ui.sub, marginTop: 8 }}>{t("和紙提灯の「張型」をつくる")}</div>
 
         {/* The three steps, with arrows between them: design → output → build by hand */}
-        <div className="welcome-steps">
+        <div className="flex items-stretch gap-4 my-18 mb-16 bg-card border border-card-edge
+          rounded-2xl pt-14 px-10 pb-13
+          max-[480px]:flex-col max-[480px]:gap-2 max-[480px]:mt-14 max-[480px]:mb-13
+          max-[480px]:pt-11 max-[480px]:px-12 max-[480px]:pb-10">
           {STEPS.map(([kind, title, caption], i) => (
             <React.Fragment key={kind}>
-              {i > 0 && <div aria-hidden="true" className="welcome-arrow">→</div>}
-              <div className="welcome-step">
+              {i > 0 && <div aria-hidden="true"
+                className="self-center text-faintest text-xl px-2
+                  max-[480px]:rotate-90 max-[480px]:origin-center max-[480px]:p-0
+                  max-[480px]:-my-1 max-[480px]:text-md max-[480px]:leading-none">→</div>}
+              <div className="flex-1 min-w-0 flex flex-col items-center gap-6 text-center py-4 px-6
+                max-[480px]:flex-row max-[480px]:items-center max-[480px]:gap-12
+                max-[480px]:text-left max-[480px]:p-2">
                 <StepIcon kind={kind} />
-                <div className="welcome-step-t">{t(title)}</div>
-                <div className="welcome-step-c">{t(caption)}</div>
+                <div className="text-base font-bold max-[480px]:flex-none">{t(title)}</div>
+                <div className="text-xs text-sub leading-[1.45] max-[480px]:flex-auto">{t(caption)}</div>
               </div>
             </React.Fragment>
           ))}
@@ -151,9 +163,8 @@ export default function Welcome({ route = null, onPick, onClose }: {
         <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
           {POINTS.map((s) => (
             <li key={s} style={{ display: "flex", gap: 9, fontSize: FS.base, lineHeight: 1.6, color: ui.text }}>
-              <span aria-hidden="true" style={{
-                width: 5, height: 5, borderRadius: "50%", background: accent, flex: "none", marginTop: 7,
-              }} />
+              <span aria-hidden="true" className="w-5 h-5 rounded-full flex-none mt-7"
+                style={{ background: accent }} />
               <span>{t(s)}</span>
             </li>
           ))}
@@ -168,16 +179,24 @@ export default function Welcome({ route = null, onPick, onClose }: {
           </div>
           {/* Stacked, not side by side: full width, each one is unmistakably a button rather than a
               tile, and the two captions stop wrapping to different heights for no reason. */}
-          <div className="route-btns">
+          <div className="flex flex-col gap-8">
             {ROUTES.map(([key, title, caption, badge], i) => (
-              <button key={key} ref={i === 0 ? btnRef : null} className="route-btn"
-                aria-current={route === key ? "true" : undefined} onClick={() => onPick(key)}>
-                <b>
+              <button key={key} ref={i === 0 ? btnRef : null}
+                aria-current={route === key ? "true" : undefined} onClick={() => onPick(key)}
+                className="group min-w-0 flex flex-col gap-3 text-left pt-12 px-13 pb-12
+                  rounded-lg cursor-pointer bg-card text-text border border-accent-45
+                  shadow-[0_2px_8px_var(--color-accent-08)] font-sans
+                  transition-[background-color,border-color,box-shadow] duration-[130ms]
+                  hover:bg-[#fffaf5] hover:border-accent hover:shadow-[0_4px_14px_var(--color-accent-25)]
+                  active:shadow-[0_1px_4px_var(--color-accent-25)] active:translate-y-[1px]
+                  aria-[current=true]:bg-accent-06 aria-[current=true]:border-accent">
+                <b className="flex items-center gap-5 text-md font-bold
+                  group-aria-[current=true]:text-accent">
                   {t(title)}
-                  {badge && <em className="badge">{badge}</em>}
-                  <span aria-hidden="true" className="route-go">→</span>
+                  {badge && <Badge>{badge}</Badge>}
+                  <span aria-hidden="true" className="ml-auto text-accent text-lg leading-none">→</span>
                 </b>
-                <i>{t(caption)}</i>
+                <i className="text-xs not-italic leading-[1.45] text-sub">{t(caption)}</i>
               </button>
             ))}
           </div>
