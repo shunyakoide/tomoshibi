@@ -12,7 +12,7 @@
  * ============================================================================
  */
 import React from "react";
-import { useT } from "./theme.ts";
+import { FS, useT } from "./theme.ts";
 import type { UndoRedo } from "../hooks.ts";
 
 const UNDO: [string, string, string][] = [["↺", "元に戻す", "⌘Z"], ["↻", "やり直し", "⇧⌘Z"]];
@@ -27,7 +27,7 @@ export default function Toolbar({ undo, redo, canUndo, canRedo }: UndoRedo) {
         {UNDO.map(([icon, label, keys], i) => (
           <button key={label} className="btn btn--accent" disabled={!act[i][1]} onClick={act[i][0]}
             title={`${t(label)} (${keys})`}>
-            <span style={{ fontSize: 17, lineHeight: 1 }}>{icon}</span>{t(label)}
+            <span style={{ fontSize: FS.xl, lineHeight: 1 }}>{icon}</span>{t(label)}
           </button>
         ))}
       </div>

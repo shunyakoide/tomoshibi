@@ -21,6 +21,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterPts, komaR, innerRi, maxRadius, ribOutline2D, lightenHoles2D } from "./geometry.ts";
 import { LIMITS } from "./config.ts";
 import { clamp } from "./util.ts";
+import { FS } from "./ui/theme.ts";
 import type { EditMode } from "./ui/pointEdit.ts";
 import type { T } from "./i18n.ts";
 import type { Design, NumericDesignKey, Pt2 } from "./types.ts";
@@ -418,7 +419,7 @@ export default function SectionEditor({
         <path d={ribD} fillRule="evenodd" fill={C.board} fillOpacity="0.42" stroke={C.boardLine}
           strokeWidth="1.2" strokeLinejoin="round" style={{ pointerEvents: "none" }} />
         {showLabels && <text x={(X(kR) + 9).toFixed(1)} y={(Ymm(H + p.tabLen) + 3).toFixed(1)}
-          fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="11" fontWeight="600"
+          fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.sm} fontWeight="600"
           fill={C.boardLine} style={{ pointerEvents: "none" }}>{t("羽根板")}</text>}
 
         {/* Neck ↔ lamp body boundary (= height of the outermost control point). Beyond here is the straight neck */}
@@ -430,7 +431,7 @@ export default function SectionEditor({
         {/* Region labels (neck / lamp body / neck). Left side = doesn't collide with the ◇ value labels.
             Dropped in compact: they sit outside the widest point of the body, so on a phone they are
             what sets the frame's width — the colour bands they name are still there. */}
-        {showLabels && <g style={{ pointerEvents: "none" }} fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="12.5" textAnchor="end">
+        {showLabels && <g style={{ pointerEvents: "none" }} fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.base} textAnchor="end">
           {fr.lo > 0.03 && <text x={Xm(maxR + 6).toFixed(1)} y={(Y(fr.lo / 2) + 4).toFixed(1)} fill={C.label} fontWeight="600">{t("首")}</text>}
           <text x={Xm(maxR + 6).toFixed(1)} y={(Y((fr.lo + fr.hi) / 2) + 4).toFixed(1)} fill={accent} fontWeight="700">{t("火袋")}</text>
           {fr.hi < 0.97 && <text x={Xm(maxR + 6).toFixed(1)} y={(Y((fr.hi + 1) / 2) + 4).toFixed(1)} fill={C.label} fontWeight="600">{t("首")}</text>}
@@ -456,12 +457,12 @@ export default function SectionEditor({
               <circle cx={h.x.toFixed(1)} cy={h.y.toFixed(1)} r={Math.max(14, hitPt).toFixed(1)} fill="transparent" />
               <circle cx={h.x.toFixed(1)} cy={h.y.toFixed(1)} r={rH.toFixed(1)} fill={active ? accent : C.handleFill} stroke={accent} strokeWidth={markStroke} />
               {showLabels && <text x={h.lx.toFixed(1)} y={(h.ly - 6).toFixed(1)} textAnchor={h.anchor}
-                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="12" fill={C.label}>{t(h.label)}</text>}
+                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.base} fill={C.label}>{t(h.label)}</text>}
               {/* The mm readout is never dropped: on a phone it is both the answer to "how tall is
                   this" and the only feedback the drag has, since the inspector that would otherwise
                   show it is behind the sheet. */}
               {<text x={h.lx.toFixed(1)} y={(h.ly + 10).toFixed(1)} textAnchor={h.anchor}
-                fontFamily="'IBM Plex Mono',monospace" fontSize="13" fontWeight="600" fill={active ? accent : C.value}>{p[h.key]} mm</text>}
+                fontFamily="'IBM Plex Mono',monospace" fontSize={FS.md} fontWeight="600" fill={active ? accent : C.value}>{p[h.key]} mm</text>}
             </g>
           );
         })}
@@ -493,13 +494,13 @@ export default function SectionEditor({
               fill={c.active || c.selected || c.end ? accent : C.handleFill} stroke={accent} strokeWidth={markStroke} />
             {c.end && showLabels && (
               <text x={(c.x + rPt + 9.5).toFixed(1)} y={(c.y - 8).toFixed(1)}
-                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize="10.5" fontWeight="600" fill={accent}>{t("開口/首")}</text>
+                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.xs} fontWeight="600" fill={accent}>{t("開口/首")}</text>
             )}
             {/* Every point's radius, on both layouts. These are the sizes the section view is for,
                 and they ride inside the right-hand reservation `FIT_PAD.r` already makes, so showing
                 all of them costs the drawing no scale at all. */}
             {<text x={(c.x + rPt + 9.5).toFixed(1)} y={(c.y + 4).toFixed(1)}
-              fontFamily="'IBM Plex Mono',monospace" fontSize="12" fontWeight="600"
+              fontFamily="'IBM Plex Mono',monospace" fontSize={FS.base} fontWeight="600"
               fill={c.active ? accent : C.label}>{Math.round(c.pt.r)} mm</text>}
           </g>
         ))}
@@ -621,14 +622,14 @@ function Legend({ accent, editMode, compact, t }: { accent: string; editMode: Ed
           aria-expanded={open} style={{
             display: "flex", alignItems: "center", gap: 7, minHeight: 34, padding: shown ? "0 0 6px" : "0 12px",
             background: "transparent", border: "none", cursor: "pointer",
-            fontFamily: "inherit", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", color: C.label,
+            fontFamily: "inherit", fontSize: FS.xs, fontWeight: 700, letterSpacing: "0.06em", color: C.label,
           }}>
           <Glyph kind="pt" accent={accent} />
           {t(g.title)}
           <span aria-hidden="true" style={{ color: C.faint }}>{open ? "▾" : "▸"}</span>
         </button>
       ) : (
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em", color: C.label, marginBottom: 6 }}>
+        <div style={{ fontSize: FS.xs, fontWeight: 700, letterSpacing: "0.06em", color: C.label, marginBottom: 6 }}>
           {t(g.title)}
         </div>
       )}
@@ -637,8 +638,8 @@ function Legend({ accent, editMode, compact, t }: { accent: string; editMode: Ed
         {rows.map(([kind, verb, desc]) => (
           <React.Fragment key={kind + verb}>
             <Glyph kind={kind} accent={accent} />
-            <span style={{ fontSize: 10.5, fontWeight: 600, color: C.label, whiteSpace: "nowrap" }}>{t(verb)}</span>
-            <span style={{ fontSize: 11.5, color: C.value, lineHeight: 1.35 }}>{t(desc)}</span>
+            <span style={{ fontSize: FS.xs, fontWeight: 600, color: C.label, whiteSpace: "nowrap" }}>{t(verb)}</span>
+            <span style={{ fontSize: FS.sm, color: C.value, lineHeight: 1.35 }}>{t(desc)}</span>
           </React.Fragment>
         ))}
       </div>
