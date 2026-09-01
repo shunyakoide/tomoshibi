@@ -45,11 +45,28 @@ export default function PagePreview({ p, matT, lang }: { p: Design; matT: number
   );
 
   return (
-    <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", pointerEvents: "auto" }}>
+    <div className="absolute inset-0 flex flex-col pointer-events-auto">
       {/* The page styles are generated from papercraft's STYLE table, scoped to `.pages` so the
           inspector's own `.note` is not caught by the sheet's 2.6px note style. */}
       <style>{css}</style>
-      <div className="pages" dangerouslySetInnerHTML={{ __html: svg }} />
+      {/* `.pages` is only a marker for index.css's `.pages .pg` rule — the sheet itself is markup
+          papercraft writes as a string, so there is no element here to put utilities on. The layout
+          around it is utilities, and `repeat(auto-fit, …)` is doing the work: auto-FIT collapses the
+          tracks no page landed in and lets the survivors share ALL the width, so two pages become
+          half the pane each rather than two thumbnails in a row of seven. `grid-auto-rows: max-content`
+          is load-bearing and `auto` is a bug — this pane is a flex item with a DEFINITE height, and an
+          auto row in such a grid is sized against that height rather than against its contents (the
+          rows came out 8.5px while every page still rendered 243px, so each sheet drew through the
+          three below it). The top pad clears the two floating chip rows drawn over this canvas; on a
+          phone the chips are a bar ABOVE this pane, so there is nothing to clear, and the sheets go
+          to ONE COLUMN AND TOUCH — the template's own layout is one column wide and consecutive
+          sheets are butt-joined, so the preview is the strip you will tape, in the order you tape it,
+          and a gap would draw a join the finished template does not have. */}
+      <div dangerouslySetInnerHTML={{ __html: svg }}
+        className="pages flex-auto min-h-0 overflow-y-auto [overscroll-behavior:contain]
+          grid [grid-template-columns:repeat(auto-fit,minmax(380px,1fr))] [align-content:start]
+          [grid-auto-rows:max-content] gap-14 pt-124 px-20 pb-14
+          narrow:[grid-template-columns:1fr] narrow:gap-0 narrow:pt-12 narrow:px-10 narrow:pb-10" />
       <div className="flex-none pt-8 px-20 pb-12 text-sm leading-[1.5] font-semibold text-text
         bg-[rgba(255,255,255,0.82)] border-t border-edge backdrop-blur-[4px]">
         {t("型紙プレビュー · 全 {n} ページ", { n: pages })}

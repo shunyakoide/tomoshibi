@@ -18,8 +18,7 @@
 
    The `initial` lines CLEAR Tailwind's own palette and type scale before ours are declared, so
    `text-red-500` and `text-xs` do not silently exist. The palette is the one in ui/theme.ts and the
-   type scale is `FS` — `npm run check:style` reads both sides and fails if they drift, the same way
-   it does for index.css's literals.
+   type scale is `FS` — `npm run check:style` reads both sides and fails if they drift.
    ============================================================================================ */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
@@ -27,9 +26,9 @@
 
 /* The app's one breakpoint, as a variant, so `narrow:` in a component means the same thing as
    `useNarrow()` in a hook. It is 859px and not 860 on purpose: `useNarrow(860)` builds
-   `(max-width: 859px)`, while the four hand-written blocks this replaces said `max-width: 860px`,
-   so at EXACTLY 860px wide the stylesheet was in the narrow layout and React was rendering the wide
-   one. A one-pixel window, and the kind that is found by reading rather than by using. */
+   `(max-width: 859px)`, while the hand-written blocks this replaced said `max-width: 860px`, so at
+   EXACTLY 860px wide the stylesheet was in the narrow layout and React was rendering the wide one.
+   A one-pixel window, and the kind that is found by reading rather than by using. */
 @custom-variant narrow (@media (max-width: 859px));
 
 @theme {
@@ -98,21 +97,7 @@
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* ============================================================================
-   Reset, form controls, and the inspector's component classes.
-   ----------------------------------------------------------------------------
-   The panel's buttons each used to carry an inline style object with a ternary per
-   property for their active and disabled looks. They are classes now: the repetition
-   is gone, "disabled" and "active" are declared once for all of them, and :hover /
-   :active exist at all — an inline style cannot express them, so until now nothing
-   in the panel responded to the pointer before it was clicked.
-
-   The custom properties (--accent, --text, --card-edge, --accent-40 …) are published
-   at startup by ui/theme.ts, which is where the palette is defined. It lives in JS
-   because SVG presentation attributes need a real colour, not a var().
-   ============================================================================ */
-
-/* ------------------------------------------------------------------------------------------------
+/* ================================================================================================
    Everything below is in `@layer components`, and the wrapper is not decoration.
 
    An UNLAYERED rule beats every layered one, whatever the specificity — so with the app's CSS left
@@ -122,13 +107,17 @@
 
    Inside `components` the declared order (theme, base, components, utilities) puts utilities last,
    so a utility wins over an app rule of any specificity — which is what makes them usable at all.
-   The app's own rules keep their existing relative order, because they are all still in one layer
-   and source order decides among them exactly as before.
 
    If a component rule ever HAS to beat a utility, the answer is `!important` or a more specific
    selector inside the utility layer — not lifting this block back out of the layer. That would
    restore the silent breakage above for every utility in the app at once.
-   ------------------------------------------------------------------------------------------------ */
+
+   WHAT IS LEFT HERE is only what a utility cannot be: a rule on an element the app never puts a
+   class on (`*`, html, body, #root), a vendor pseudo-element, a global `:focus-visible`, a rule on
+   markup papercraft GENERATES as a string, and the print block, whose selector reaches elements the
+   guide does not render. Everything else in the app is utilities on the element or a component in
+   ui/. Do not grow this file back; put the styling where the markup is.
+   ================================================================================================ */
 @layer components {
 
 /* ---- reset (the app is a fullscreen canvas + panel; nothing scrolls but the panel) ---- */
@@ -160,8 +149,8 @@ body {
 
 /* ---- range slider ----
    --pct is set inline per row (how far along the value sits); the colours come from the palette.
-   Thumb and filled track are both --accent, so changing the accent moves the whole control at once
-   (the thumb used to carry a hardcoded, slightly brighter orange of its own). */
+   Thumb and filled track are both --color-accent, so changing the accent moves the whole control at
+   once (the thumb used to carry a hardcoded, slightly brighter orange of its own). */
 input[type="range"] {
   -webkit-appearance: none; appearance: none; height: 24px; background: transparent;
   touch-action: pan-x;   /* let the browser drive horizontal thumb drags despite touch-action:none on body */
@@ -190,220 +179,29 @@ button:focus-visible, input:focus-visible, summary:focus-visible,
 }
 input[type="range"]:focus-visible { outline-offset: 4px; }
 
-/* ---- buttons ---- */
-/* `.btn` and `.btn--accent` used to be here and are now `Button` in ui/controls.tsx, utilities and
-   all. They are the reason the componentisation happened: the class was used from two files, one of
-   them named a modifier (`--ghost`) that had been deleted along with the buttons it belonged to, and
-   that call site shipped the browser's default button chrome for as long as nobody looked at the
-   guide's last step. A prop can be typed; a class attribute is a string. */
-
-/* One rule for every disabled button in the panel, instead of a ternary per property */
-
-
-/* Status marker on an option ("beta"). Outlined rather than filled so it reads as a note about the
-   option and not as a second thing to press, and it inherits currentColor so every host — a
-   segmented option, the welcome card's route button, the viewport chip — needs no rule of its own,
-   pressed (filled orange) state included. */
-
-/* The card's only action, and it has to look like it. It used to wear the same faint card-edge as
-   the step blocks above, which made the one thing you must press the quietest thing on the card:
-   accent border, a lift, and a → that says pressing this goes somewhere. Both buttons weigh the
-   same — they are two equal answers to one question, not a recommendation and an alternative. */
-/* Pushed to the far edge of the title row, so it is the last thing read on the line. */
-/* The saved route, when the card is reopened from the ☰ menu — aria-current rather than aria-pressed,
-   because these are live actions that happen to mark the current setting, not a toggle; and a tint
-   rather than the filled orange of .seg, for the same reason. */
-
-
-
-
-/* Narrow: `.tab` is not styled here, because there are no tabs here — the six chips are two
-   `<select>`s in the bar above the viewport (chipBar in TomoshibiStudio). Tightening their padding
-   was the previous attempt at the same problem and it only ever half-worked: even at 7px the eight
-   labels wrapped to two rows in English, and the labels are the app's top-level navigation, so
-   shortening them was never an option. `.badge` stays: the welcome card renders one. Matches
-   useNarrow(860). */
-
-/* A view/route chooser as a native <select>, used by the narrow chip bar. Native because on a phone
-   it opens the OS picker: a better touch target than anything hand-rolled, with keyboard and
-   screen-reader behaviour already right and no outside-click or focus-trap code to own. Only the
-   closed state is styled — the open list is the platform's, which is the point.
-   `--on` is the mode chooser (this is where you ARE, so it reads like the pressed tab it replaced);
-   plain is the route chooser, which is a setting rather than a location. */
-/* The caret is a sibling, not a background image: it has to take the fill colour of whichever
-   variant it sits in, and pointer-events:none keeps the click on the select underneath it. */
-
-/* ---- The onboarding card (Welcome.tsx) ----------------------------------------------------
-   Its layout lives here rather than as `narrow` ternaries in the component for two reasons: the
-   component is presentational and takes no layout props, and its own breakpoint is not the app's.
-   The card is `min(560px, 100%)`, so what matters is whether the CARD has room for three columns —
-   about 460px of viewport — not `useNarrow(860)`, which a tablet with plenty of room would trip. */
-/* The close X, shared by the app's two overlays (the welcome card and the build guide). Chrome, so
-   it is quiet and in the corner; on the card it replaced a full-width footer button. Only the
-   PLACEMENT differs, so only the placement is written twice. */
-
-/* ONE white panel around all three, not three panels — that is the difference between "here are
-   the steps" and "here are three things to press". The card sits on --panel, so a single --card
-   ground reads as one block of explanation, and the → between the steps are what make it a
-   sequence. (Three separate cards with the same border as `.route-btn` below is exactly the false
-   affordance this replaced; see the Onboarding section of CLAUDE.md.) */
-/* NO card, NO border, NO radius — and that is the whole point. These carried the same white card
-   with a 1px edge and an 11px radius as `.route-btn` directly below them, so the three things you
-   cannot press looked exactly like the two you must, and they came first. An icon and two lines of
-   text read as content; anything with a box around it reads as a target. The flow is carried by the
-   → between them on a wide screen, and by the order alone once they stack. */
-
-/* The onboarding card's 480px breakpoint is `max-[480px]:` on the elements themselves now
-   (Welcome.tsx). It is 480 rather than useNarrow's 859 for a reason worth keeping: the card is
-   `min(560px, 100%)`, so what decides its layout is whether the CARD has room for three columns —
-   about 460px of viewport — not whether the APP is in its stacked mode, which a tablet with plenty
-   of room would trip. What the breakpoint does: three columns of ~85px is where this card fell
-   apart (at 375px every caption wrapped to three or four lines and that row alone ran to ~330px,
-   half the card), so the steps become rows — icon, then title and caption beside it — and the block
-   drops to ~150px. The arrows go with the columns: in a vertical list the order already says
-   "then", and the SAME "→" is turned a quarter turn rather than written twice, centred on the panel
-   because the rows are three blocks in sequence and the arrow belongs to the gap between them. */
-
-
-/* The export manifest's disclosure (KitNote). A row, not a button that looks like one: what it
-   reveals is reference material, so it should read as a quiet label with a caret rather than compete
-   with the CTA directly above it. 36px tall, so it is still a touch target on a phone. */
-
-/* Header affordance. One consumer — the overflow menu's ☰ trigger — but the class stays generic,
-   because size is the property any future header button wants to inherit.
-
-   36px on BOTH layouts. It was 22 on the wide one, inherited from the "?" text button it replaced,
-   and grown to a touch target only in the narrow block at the end of this file. That was the wrong
-   shape of rule twice over: 22px is small for a pointer too — it is the app's whole menu, and the
-   only way back to the onboarding card — and the wide panel header has nothing to gain from it
-   being small, because the row's height comes from a 44px wordmark beside it. */
-
-
-
-
-/* The selected ◇'s bar (ui/PointBar.tsx, phones only) is utilities now — see PT_BTN there, and
-   note WHY it is one shared constant: the rules it replaced were written as a GROUPED selector
-   (`.ptbar-seg > .seg, .ptbar-mode { … }`), which is the shape that gets lost when a stylesheet is
-   read one class at a time. Converted per class, the ◇/■ pair silently lost its column layout and
-   its 9px caption and came out as italic text beside a glyph. */
-
-
-
-/* ---- headings and notes ---- */
-
-/* ---- inspector composition -------------------------------------------------------------------
-   The panel is one long scroll of settings groups, and these are the shapes it is built from. They
-   were style={{ }} objects until they weren't: `marginBottom: 20` was written out six times, the
-   footer's readout carried six declarations plus one per cell, and every one had to be read at the
-   call site to find out it was the same spacing as the group above it. */
-/* A group opened by a rule rather than by air. `.sec-ruled` starts a top-level section (the print /
-   export block); `.sec-sub` starts a group INSIDE one, so it sits closer to what it follows. */
-
-/* The footer's readout: label left, value right-aligned in mono. Wide layout only — the phone's
-   summary is one mono line in the sheet's bar (see "Narrow screens" in CLAUDE.md). */
-
-
-
-/* The shape templates (ui/PresetChips.tsx): four to a row, each a miniature over its name. */
-/* The wordmark at the END of the scroll — identity, so it may not take the first 40px of a pull. */
-
-/* ---- viewport alerts (TomoshibiStudio) --------------------------------------------------------
-   A card in the wide layout's bottom-right column; on a phone the same alerts fold into one strip
-   in flow above the panel. See "Narrow screens" in CLAUDE.md for why the strip starts collapsed. */
-
-/* min-width 0 is what lets the ellipsis happen at all: a flex item's automatic minimum size is its
-   own content, so without it the headline pushes the count and the caret off the strip. */
-
-/* ---- page preview (cardboard route's print view) ---- */
-/* A document viewer over the (empty) 3D canvas: the pages flow and the whole thing scrolls. The
-   sheets are the template's own SVG, so only their size on screen is set here.
-   The sheets FILL the width instead of sitting at a fixed size — a fixed width left most of a wide
-   viewport grey while the pages stayed too small to read anything on.
-   `repeat(auto-fit, minmax(<min>, 1fr))` is doing the work, and the choice of auto-FIT over both
-   flex-wrap and auto-fill is the whole point: auto-fit collapses the tracks no page landed in and
-   lets the survivors share ALL the width, so two pages become half the pane each rather than two
-   thumbnails in a row of seven. Uniform, too — grid tracks are one width for every row, whereas
-   `flex-wrap` + `flex-grow` blows up whatever is left alone on the last row. Page height follows on
-   its own: the sheet is an SVG with a viewBox, so it carries A4's aspect ratio intrinsically. */
-.pages {
-  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-  align-content: start; gap: 14px;
-  /* A row is as tall as the sheet standing in it — say so, because `auto` does not. An auto row in
-     a grid whose own height is DEFINITE (this pane is a flex item with a fixed height) gets sized
-     against that height rather than against its contents: with the inspector sheet pulled up over a
-     tall design the four rows came out 8.5px each while every page still rendered 243px, so each
-     sheet was drawn straight through the three below it. The sheets are the one thing here whose
-     size is not ours to choose — the SVG carries A4's ratio — so the track has to follow them. */
-  grid-auto-rows: max-content;
-  /* The top pad clears the two floating chip rows drawn over this canvas — without enough of it the
-     first page slides under them. The route row is the lower one: top 62px + its own height (a
-     .tab's 7px padding twice around a ~17px line box, the badge being the tallest thing in it, plus
-     the chip's 4px padding twice and its border) ≈ 110px, and the rest is the gap. Anything that
-     changes .tab's padding or font size moves this number. */
-  padding: 124px 20px 14px;
-}
+/* ---- the cardboard route's page preview (PagePreview.tsx) ----
+   `.pg` is the sheet, and papercraft.ts writes that class into an SVG STRING, so there is no element
+   here to put utilities on — which is the whole reason this rule exists. `.pages` is the marker its
+   parent carries; the parent's own layout is utilities in the component. The sheets FILL their grid
+   track (a fixed width left most of a wide viewport grey), and height follows on its own because the
+   SVG carries A4's ratio in its viewBox. */
 .pages .pg {
   width: 100%; height: auto; background: #fff;
   border: 1px solid rgba(59,52,43,0.14); box-shadow: 0 3px 12px rgba(59,52,43,0.16);
 }
+/* On a phone the sheets TOUCH (see PagePreview), and between two touching sheets a drop shadow is a
+   dark band down the seam — the one place the eye should read continuity. */
+@media (max-width: 859px) { .pages .pg { box-shadow: none; } }
 
-/* Narrow: a page's height is the binding constraint here rather than its width. Matches useNarrow(860). */
-@media (max-width: 860px) {
-  .pages {
-    /* No clearance to leave here: on a phone the mode/route chips are a bar ABOVE this pane
-       (chipBar in TomoshibiStudio), not floating over it, so the first sheet has nothing to slide
-       under. */
-    padding: 12px 10px 10px;
-    /* ONE COLUMN, AND THE SHEETS TOUCH. Both halves are the document's own structure rather than a
-       small-screen accommodation: the template packs its parts into a layout that is one column
-       wide, and consecutive sheets are BUTT-JOINED — cut both on the blue trim box, put the cut
-       edges together, tape from behind. So the pages are a strip you scroll, in the order you will
-       tape them, and a gap between two sheets would draw a join that the finished template does not
-       have. This pane used to be a 2-up grid of 150px tracks, from back when it was 40vh tall and a
-       full-width sheet ran several screens deep; the sheet is now the whole phone at rest, so that
-       traded a readable 355px page for two thumbnails nothing could be read on. */
-    gap: 0;
-    grid-template-columns: 1fr;
-  }
-  /* A strip, not a stack of cards: between two touching sheets the drop shadow is a dark band down
-     the seam, which is the one place the eye should read continuity. */
-  .pages .pg { box-shadow: none; }
-}
-/* Full --text, not the muted --sub/--faint the inspector's notes use: this bar sits on the viewport
-   over a grey canvas rather than on the panel, and at 11px the browns were washed out. The two
-   halves (what this is / the caveat that it is not full scale) stay distinguishable by WEIGHT
-   instead, so neither of them gives up contrast for the hierarchy. */
-
-/* ---- assembly guide (GuidePage.tsx) ---- */
-/* The page's own look is utilities in GuidePage.tsx. What CANNOT be a utility is this: the printed
-   guide needs everything that is NOT the guide hidden, and that selector reaches elements the guide
-   does not render and cannot put a class on. `.guide` survives as the marker it keys off — it
-   carries no declarations of its own. (Releasing the shell is the load-bearing half: the app is a
-   100%-tall, overflow-hidden box from <html> down, which clipped the printed guide to EXACTLY ONE
-   PAGE. Styling `.guide` alone never reached it.) */
+/* ---- assembly guide (GuidePage.tsx) ----
+   The page's own look is utilities. What CANNOT be a utility is this: the printed guide needs
+   everything that is NOT the guide hidden, and that selector reaches elements the guide does not
+   render and cannot put a class on. `.guide` survives as the marker it keys off and carries no
+   declarations of its own. Releasing the shell is the load-bearing half — the app is a 100%-tall,
+   overflow-hidden box from <html> down, which clipped the printed guide to EXACTLY ONE PAGE. */
 @media print {
   html, body, #root, #root > div { height: auto !important; overflow: visible !important; }
   #root > div > *:not(.guide) { display: none !important; }
 }
 
-/* ---- Touch targets in the inspector (narrow) ------------------------------------------------
-   This block is EMPTY now and its rules are `narrow:` utilities on the controls themselves
-   (ui/controls.tsx). Two things are worth keeping from it.
-
-   What it did: measured on a 375x812 phone, every control in the panel was mouse-sized — the ±
-   squares 26px, the value buttons 62x24, the sliders a 24px strip — against the 44px both platform
-   guidelines ask for. What made the fix nearly free is that the space was ALREADY RESERVED: the
-   slider row is min-height 44 and the stepper row comes out at 40, and the controls inside simply
-   were not filling their own row. So the rules grew the HIT AREA and left the layout where it was,
-   the same separation the section editor draws between a handle's glyph and its hit circle. Panel
-   height is the scarce resource here, so a rule that costs rows has to earn it; none of these did.
-
-   Why it sat at the END of the file: a media query adds no specificity, so every rule in it lost to
-   the plain `.val-btn` / `.step-btn` / `.scrub-row` definitions further up. That is not
-   hypothetical — it is how the block was written the first time, and only the two rules that
-   happened to out-specify their base took effect. As `narrow:` utilities the problem cannot arise:
-   Tailwind emits variants after the base utilities they modify, so position in a class string
-   decides nothing and position in the file is not ours to get wrong.
-   --------------------------------------------------------------------------------------------- */
 }

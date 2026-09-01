@@ -49,11 +49,6 @@ export const sans = "'IBM Plex Sans JP', 'Hiragino Sans', system-ui, sans-serif"
  * mirrored into index.css's `@theme` block as `--text-*`, which is where `text-base` and friends
  * resolve; `npm run check:style` reads both sides and fails on any drift. index.css itself sets no
  * font size any more — every one of them is a `text-<step>` on the element.
- *
- * Note the two kinds of custom property in this file's orbit, because they behave differently:
- * `@theme`'s are emitted STATICALLY into the built stylesheet and are safe to `var()` anywhere
- * (the radius scale does exactly that), while the ones the block at the bottom of this file
- * publishes at RUNTIME are not there until the module has run.
  */
 export const FS = {
   "2xs": 9,     // badges, the select carets, the point bar's button captions

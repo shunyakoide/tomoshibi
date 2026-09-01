@@ -72,11 +72,12 @@ type LogoProps = {
   tagColour?: string;
 } & SVGProps<SVGSVGElement>;
 
-export default function Logo({ variant = "compact", height = 30, tagColour = accent, ...rest }: LogoProps) {
+export default function Logo({ variant = "compact", height = 30, tagColour = accent, className = "", ...rest }: LogoProps) {
   const L = variant === "full" ? FULL : COMPACT;
   return (
     <svg viewBox={`0 0 ${L.w} ${L.h}`} height={height} width={(height * L.w) / L.h}
-      role="img" aria-label="灯 Tomoshibi" style={{ display: "block", overflow: "visible" }} {...rest}>
+      role="img" aria-label="灯 Tomoshibi" {...rest}
+      className={`block overflow-visible ${className}`}>
       {L.ink.map((p, i) => <path key={`i${i}`} d={p.d} transform={p.t} fill="currentColor" />)}
       {L.tag.map((p, i) => <path key={`t${i}`} d={p.d} transform={p.t} fill={tagColour} />)}
     </svg>
