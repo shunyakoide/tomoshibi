@@ -225,21 +225,49 @@ for (const ns of ["color-*", "text-*", "radius-*"]) {
     const sheet = readFileSync(join("dist/assets", built[0]), "utf8");
     const esc = (c: string) => "." + c.replace(/[:[\]().,'#/%!&>~*+=]/g, (ch) => "\\" + ch);
     const seen = new Set<string>();
-    for (const f of walk("src", [".tsx"])) {
-      readFileSync(f, "utf8").split("\n").forEach((line, i) => {
-        for (const m of line.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
-          for (const c of (m[1] ?? m[2] ?? "").replace(/\$\{[^}]*\}/g, " ").split(/\s+/)) {
-            // EVERY token, not just Tailwind-shaped ones. Narrowing this to utilities left a hole
-            // the orphan check does not cover from the other side: `className="sec"` kept working
-            // after `.sec` was deleted from index.css, because nothing asks whether a bare project
-            // class still resolves. It does not — the built sheet is the whole truth about what a
-            // class name means, project rule and generated utility alike.
-            if (!c || seen.has(c)) continue;
-            seen.add(c);
-            if (!sheet.includes(esc(c))) fail.push(`${f}:${i + 1}  class "${c}" matches no rule in the built stylesheet`);
-          }
-        }
+    // Two shapes carry a class list: the attribute itself, and a SHARED SKIN CONSTANT — the string
+    // a component hands to `className={…}` or composes into a template. `SEG_SKIN`, `NOTE_SKIN`,
+    // `PT_BTN`, `CHIP_BOX`, `TAB_SKIN`: every one is a class attribute that happens to be spelled
+    // somewhere else, and reading only the attribute left them all unchecked — the biggest class
+    // strings in the app, in the files most likely to be edited.
+    //
+    // Which constants those are is not guessed from their NAMES: the identifiers are read out of the
+    // `className={…}` expressions that use them, and only those are then resolved. A naming
+    // convention would have to be remembered; this cannot miss one, and cannot mistake `WASHI_PDF`
+    // for a class list either. A constant is read whole rather than line by line, because these are
+    // written as multi-line `"…" + "…"` concatenations.
+    const CLASS_ATTR = /className=(?:"([^"]*)"|\{`([^`]*)`\}|\{([^}]*)\})/g;
+    const skinNames = new Set<string>();
+    const files = [...walk("src", [".tsx"])];
+    const src = new Map(files.map((f) => [f, readFileSync(f, "utf8")]));
+    for (const text of src.values()) {
+      for (const m of text.matchAll(CLASS_ATTR)) {
+        for (const id of (m[2] ?? m[3] ?? "").matchAll(/\b[A-Z][A-Z0-9_]{2,}\b/g)) skinNames.add(id[0]);
+      }
+    }
+    // EVERY token, not just Tailwind-shaped ones. Narrowing this to utilities left a hole the orphan
+    // check does not cover from the other side: `className="sec"` kept working after `.sec` was
+    // deleted from index.css, because nothing asks whether a bare project class still resolves. It
+    // does not — the built sheet is the whole truth about what a class name means, project rule and
+    // generated utility alike.
+    const check = (where: string, list: string) => {
+      for (const c of list.replace(/\$\{[^}]*\}/g, " ").split(/\s+/)) {
+        if (!c || seen.has(c)) continue;
+        seen.add(c);
+        if (!sheet.includes(esc(c))) fail.push(`${where}  class "${c}" matches no rule in the built stylesheet`);
+      }
+    };
+    for (const [f, text] of src) {
+      text.split("\n").forEach((line, i) => {
+        for (const m of line.matchAll(CLASS_ATTR)) check(`${f}:${i + 1}`, m[1] ?? m[2] ?? "");
       });
+      // The skins, read whole. `[\s\S]` rather than `.` so a concatenation may span lines.
+      for (const name of skinNames) {
+        const m = text.match(new RegExp(`\\b${name}\\b(?:\\s*:\\s*string)?\\s*=\\s*((?:\\s*(?:"[^"\\n]*"|\`[^\`]*\`)\\s*\\+?)+)`));
+        if (!m) continue;
+        const parts = [...m[1].matchAll(/"([^"\n]*)"|\`([^\`]*)\`/g)].map((q) => q[1] ?? q[2]).join(" ");
+        check(`${f}  (${name})`, parts);
+      }
     }
   }
 }

@@ -125,7 +125,7 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
         onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); setByKey(true); setOpen(true); } }}>
         {/* `display: block` so the svg brings no inline baseline gap of its own — with that, the
             flex centring above lands the box exactly, and the box is the mark. */}
-        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" style={{ display: "block" }}>
+        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" className="block">
           <path d="M2.5 5h13M2.5 9h13M2.5 13h13" fill="none" stroke="currentColor"
             strokeWidth="2" strokeLinecap="round" />
         </svg>
