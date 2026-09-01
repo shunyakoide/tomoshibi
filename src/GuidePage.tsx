@@ -11,8 +11,8 @@
  *
  * **The page is generic, and its figures are always the same drawing.** It used to be built from the
  * design on screen — every dimension measured off the geometry, every figure rebuilt on a slider
- * move — which cost eleven WebGL scenes per edit and bought numbers nobody needs. The drawings now
- * come from ONE fixed design (`GUIDE_P`), are built at most once per session, and **no measurement
+ * move — which cost two dozen WebGL scenes per edit and bought numbers nobody needs. The drawings now
+ * come from ONE fixed design (`GUIDE_P`), are built at most once per ROUTE per session, and **no measurement
  * is printed anywhere**.
  *
  * What that gives up is the old guarantee that the page could not describe a mold the download does
@@ -90,8 +90,8 @@ const PARTS: PartRow[] = [
   { id: "ringTop", name: "口輪(上)", n: 1, stl: true },
 ];
 
-// The build, in order. `fig` names a scene in three/figures.ts; `more` is the folded detail block
-// (see the header); `stl` marks a step the cardboard route does not have. Bodies are i18n keys like
+// The build, in order. `fig` names a scene in three/figures.ts; `stl` marks a step the cardboard
+// route does not have; an option's `detail` holds its numbered sub-steps. Bodies are i18n keys like
 // every other string.
 const STEPS: Step[] = [
   {
@@ -141,7 +141,7 @@ const STEPS: Step[] = [
     // each carries its own figure, because the difference between the three IS the picture.
     //
     // This step carried a `wip` draft badge until all three ways had a fixing; they do now, so the
-    // badge is gone rather than left standing over eleven drawn sub-figures. **The mechanism stays
+    // badge is gone rather than left standing over nine drawn figures. **The mechanism stays
     // for the next unsettled step** — `wip` draws the badge beside the title and prints the field's
     // own one-line reason under the body — and if one lands back here, keep its wording clear of
     // 「口輪」: the cardboard route prints no rings, and a step must not name a part its own route
@@ -153,7 +153,7 @@ const STEPS: Step[] = [
     body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
     options: [
       {
-        // No `more`: there is no fitting to photograph. You set the lamp down and drop the shade
+        // No `detail`: there is no fitting to work through. You set the lamp down and drop the shade
         // over it, which is the whole method and is already the figure. The other two ways bend
         // wire, and that is what a photograph is for here.
         id: "set", fig: "lightSet", title: "置いたライトに被せる",
@@ -165,7 +165,7 @@ const STEPS: Step[] = [
         // text used to say the socket is fixed to an opening "with wire or the like", which was the
         // sentence standing in for a method nobody had worked out.
         //
-        // Two slots, not the three the legs take, because there is less to it: bend one wire, lay
+        // Two slots, not the four the legs take, because there is less to it: bend one wire, lay
         // it on. It went the other way first — a bought cord stopper, three wires clamped under its
         // nut, a hook on each for the opening's ring — and that was three joints too many for a
         // paper shade. Nothing here is clamped and nothing is hooked onto the ring, so nothing here
@@ -342,9 +342,10 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
   const parts = PARTS.filter((s) => stl || !s.stl);
   const p = stl ? GUIDE_P.stl : GUIDE_P.paper;
 
-  // The options a step actually offers HERE. An option can need something the route does not have —
-  // the legs go in the bottom ring's sockets, and cardboard prints no rings — and drawing it anyway
-  // would put a legless lantern under the words "add legs".
+  // The options a step actually offers HERE. `needs` gates on the DESIGN, not the route: the legs go
+  // in the bottom ring's sockets, so a design with the sockets off — or an opening too small for
+  // them — drops that way rather than putting a legless lantern under the words "add legs". Both
+  // routes offer all three when the sockets are there, cardboard included.
   const options = useMemo(
     () => Object.fromEntries(STEPS.filter((s) => s.options)
       .map((s) => [s.id, s.options!.filter((o) => !o.needs || o.needs(p))])) as Record<string, Way[]>,

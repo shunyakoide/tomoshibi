@@ -86,8 +86,9 @@ export function ribPullFit(p: Design): { band: number; chord: number; openR: num
 // which marks the bamboo positions with ticks instead, 0.5mm V notches not being cuttable in board.
 export function ribOutline2D(p: Design, k = 0, opts: { smooth?: boolean } = {}): Pt2[] {
   const h = p.height, tl = p.tabLen, gR = grooveR(p);
-  // Bamboo rib grooves are made over the whole lamp body (between the outermost control points).
-  // The curve always gets grooves, and grooves are placed at the top/bottom ends too.
+  // Bamboo rib grooves run over the whole lamp body (between the outermost control points), but NOT
+  // right up to the ends: `grooveLattice` insets the range by gR*1.6 and `grooveList` starts a
+  // further half-pitch in, so no groove sits next to an opening (a barb there does not hold).
   // With spiral winding, the groove positions shift by rib index k.
   const grooves = grooveList(p, gR, k);
   // Outer edge: grooves cut along the surface normal (opts.smooth = no grooves, for the paper template).

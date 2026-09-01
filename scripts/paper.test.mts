@@ -9,7 +9,8 @@
  *      invariants (rib length, koma outer diameter, groove width, groove wall). If this drifts the
  *      template is worthless.
  *   2. **No missing parts** — all N ribs + 2 koma appear, which only this can catch after row
- *      packing and page spanning. Also that **no glue tabs are emitted when no part spans pages**.
+ *      packing and page spanning. Also that **no seam marks are emitted when no part spans pages**
+ *      (sheets butt at the trim box; there is no glue tab anywhere).
  *   3. **No NaN/undefined** — a NaN in an SVG path makes that part vanish silently, so you find out
  *      after printing.
  *
@@ -109,9 +110,10 @@ for (const preset of PRESETS)
           // The check bar is what catches printer scaling, so a template without one is unusable.
           // It is once per DOCUMENT now, not once per page — printers scale the whole job alike, so
           // one sheet answers for all of them, and reserving a strip on every page bought nothing.
-          // It must be on the FIRST page (the one nobody prints without) and drawn whole: TWO bars
-          // (metric and imperial), each a line plus its two end ticks = six "scale" paths. Both are
-          // required — a reader with only an inch rule cannot check the metric bar, and vice versa.
+          // It must be drawn whole: TWO ARMS (one across, one down), each a line plus its two end
+          // ticks = six "scale" paths. Two arms because a printer can scale x and y by different
+          // amounts; and BOTH units ride BOTH arms, a tick where the metric figure falls and another
+          // where the imperial one does, so either rule checks either axis.
           const sheets = svg.split('<svg class="pg"').slice(1);
           if (sheets.length !== pages) bad(`${tag}: ${sheets.length} sheets vs ${pages} pages`);
           // Exactly one sheet carries it, and which one is the layout's call — it goes wherever the
@@ -234,8 +236,8 @@ for (const preset of PRESETS)
 //
 // The PDF is hand-rolled (src/pdf.ts), so this checks the two ways it can be silently wrong: **a
 // broken file** (a bad xref offset makes viewers refuse it or open it blank) and **a wrong scale**
-// (the whole point of the template), pinned by the page CTM (mm→pt = 2.835) and by the 50mm ruler
-// being drawn as literally 50mm in user space.
+// (the whole point of the template), pinned by the page CTM (mm→pt = 2.835) and by the check
+// square's arms measuring 76.2mm (3in) across and 30mm (3cm) down in user space.
 //
 // An outlined character is a scale-and-flip matrix, a fill colour, a stored path, filled — and its
 // operators are `m`/`l`/`c`/`h` like any other path, so every reader of the content stream has to

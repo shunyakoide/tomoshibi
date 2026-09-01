@@ -37,8 +37,9 @@ export function equatorY(p: Design): number {
 // Single source of truth: shared by `ribOutline2D` (the printed rib) and the section drawing.
 // ・The basis is the local outer radius at each y, not the groove centre's — so on a slope the
 //   groove is not offset to one side, and walls form above and below it.
-// ・On a steep slope a radial groove's effective depth shallows by cosθ, so the depth is multiplied
-//   by 1/cosθ = √(1+slope²), capped at 2.2.
+// ・The depth itself is CONSTANT and perpendicular — `grooveDepth` is `min(higoD*1.5, gR*GROOVE_DEEP)`
+//   with no slope term. Cutting along the normal is what keeps it effective on a slope; a radial
+//   notch would shallow by cosθ, which is the failure this avoids rather than compensates for.
 export function grooveOuterPts(p: Design, grooves: number[], gR: number): Pt2[] {
   const h = p.height, mid = equatorY(p), STEP = 0.5;
   const info = grooves.map((g) => {

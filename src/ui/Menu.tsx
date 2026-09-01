@@ -87,7 +87,7 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
   };
 
   return (
-    // Escape is caught here rather than on the rows: opened by pointer, focus is still on the
+    // Escape is caught here as well as on the rows: opened by pointer, focus is still on the
     // trigger, and a menu you cannot dismiss from the keyboard is a trap.
     <div className="relative inline-flex" ref={box}
       onKeyDown={(e) => { if (e.key === "Escape" && open) { e.preventDefault(); shut(); } }}>
