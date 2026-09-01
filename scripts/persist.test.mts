@@ -3,9 +3,9 @@
  * persist.ts sanitize verification (manual check, no test runner)
  * ============================================================================
  * Save/restore can receive corrupt values from external sources (hand-written,
- * old versions, JSON round-trips). This confirms they neither crash, produce
- * NaN, nor yield a non-watertight koma, and are safely fallen back to DEFAULTS /
- * salvaged. Runs with localStorage mocked by an in-memory implementation.
+ * old versions, JSON round-trips). This confirms they neither crash, produce NaN
+ * nor yield a non-watertight koma, but fall back to DEFAULTS or are salvaged,
+ * against an in-memory localStorage mock.
  *
  * Run:  npm run check:persist
  * ============================================================================
@@ -22,10 +22,9 @@ const G = await import("../src/geometry.ts");
 const { DEFAULTS, LIMITS } = await import("../src/config.ts");
 type SavedState = import("../src/persist.ts").SavedState;
 
-// This file's whole job is handing the restore path what a corrupt, hand-edited or older client
-// wrote, so most of what goes in below is deliberately NOT a valid SavedState. The casts live here,
-// in the test, rather than being bought by widening what persist.ts claims to accept — and the `!`s
-// say the same thing the assertions do: these calls are expected to give a state back.
+// Most of what goes in below is deliberately NOT a valid SavedState. The casts live here rather
+// than being bought by widening what persist.ts claims to accept, and the `!`s say what the
+// assertions say: these calls are expected to give a state back.
 const save = (state: unknown) => P.saveState(state as SavedState);
 const load = () => P.loadSaved()!;
 const serialize = (state: unknown) => P.serializeState(state as SavedState);
@@ -95,9 +94,9 @@ save({ p: { ...DEFAULTS, neckOn: false }, bedW: 256, bedD: 256, printRibs: 1 });
 t("legacy neckOn preserved", load().p.neckOn === false);
 
 // ---- bottom-ring leg sockets (legSockets) ----
-// One flag, but it decides which of two solids the bottom ring is, so both have to survive the
-// round-trip watertight. Neither state can be left to DEFAULTS here: the default is OFF now, so a
-// test that only saved the default would stop exercising the socketed ring the day it flipped.
+// One flag deciding which of two solids the bottom ring is, so both must survive the round-trip
+// watertight. Neither state may be left to DEFAULTS: a test that saved only the default would stop
+// exercising the socketed ring the day the default flipped.
 save({ p: { ...DEFAULTS, legSockets: false }, bedW: 256, bedD: 256, printRibs: 1 });
 r = load();
 t("legSockets off preserved", r.p.legSockets === false);
@@ -110,9 +109,9 @@ t("legSockets on preserved", r.p.legSockets === true);
 t("legSockets on → sockets cut", G.ringLegs(r.p) !== null);
 t("legSockets on → watertight", manifoldOK(r.p) === true);
 
-// A save from before the flag existed carries no key at all, so it comes back as whatever DEFAULTS
-// says. That is OFF — the same reading `ringLegs` gives a missing flag, which is the point: absent
-// means off in the sanitizer and in the geometry, or a restored design and its ring disagree.
+// A save from before the flag existed carries no key, so it comes back as DEFAULTS says: OFF, the
+// same reading `ringLegs` gives a missing flag. Absent must mean off in the sanitizer and in the
+// geometry alike, or a restored design and its ring disagree.
 const noLegs: Partial<typeof DEFAULTS> = { ...DEFAULTS };
 delete noLegs.legSockets;
 save({ p: noLegs, bedW: 256, bedD: 256, printRibs: 1 });
@@ -144,8 +143,8 @@ t("grooveList returns a finite count even after pitch=0 restore", (() => {
 // Out-of-range numbers (negative / huge) → clamp to the allowed range.
 save({ p: { ...DEFAULTS, height: -5, boardT: 99, boards: 999 }, bedW: 9, bedD: 9999, printRibs: 1 });
 r = load();
-// Read the floor from LIMITS rather than restating it: the point of the assertion is "a corrupt
-// height lands back inside the range the editor works in", not the number itself.
+// Read the floor from LIMITS rather than restating it: the assertion is that a corrupt height lands
+// back inside the editor's range, not the number itself.
 t(`height negative → ${LIMITS.height[0]} or more`, r.p.height >= LIMITS.height[0]);
 t("boardT huge → 4 or less", r.p.boardT <= 4);
 t(`pts radius → within ${LIMITS.r.join("..")}`, r.p.pts.every((q) => q.r >= LIMITS.r[0] && q.r <= LIMITS.r[1]));
@@ -195,7 +194,7 @@ t("ZIP config load: missing printRibs/matT filled with defaults", fromZipCfg && 
 t("ZIP config load: watertight", manifoldOK(fromZipCfg.p) === true);
 
 // ---- build route (3D print / cardboard) ----
-// It is not a design value but it decides whether the print bed constrains anything, so a corrupt or
+// Not a design value, but it decides whether the print bed constrains anything, so a corrupt or
 // missing one must land on the safe side: "stl", where the bed warning still runs.
 const rt = (v: unknown) => parse(JSON.stringify({ schemaVersion: 1, p: { ...DEFAULTS }, route: v }));
 t("route round-trip: paper preserved", rt("paper").route === "paper");

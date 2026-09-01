@@ -6,8 +6,7 @@
  * not break:
  *
  *   1. **Full scale (1:1)** — paper dimensions = real mm, cross-checked against geometry.ts's own
- *      invariants (rib length, koma outer diameter, groove width, groove wall). If this drifts the
- *      template is worthless.
+ *      invariants (rib length, koma outer diameter, groove width, groove wall).
  *   2. **No missing parts** — all N ribs + 2 koma appear, which only this can catch after row
  *      packing and page spanning. Also that **no seam marks are emitted when no part spans pages**
  *      (sheets butt at the trim box; there is no glue tab anywhere).
@@ -15,10 +14,9 @@
  *      after printing.
  *
  * The **washi template** is checked by the same three plus its own decisive invariant: the sheet's
- * length is the **meridian arc length**, not the body height — cutting to the straight height is the
- * mistake the template exists to prevent, so section 4 asserts it against an independent integration
- * of `outerR`. It is a document of its own on both routes, so section 4 also pins that its pages are
- * NOT among the cardboard template's.
+ * length is the **meridian arc length**, not the body height, which section 4 asserts against an
+ * independent integration of `outerR`. It is a document of its own on both routes, so section 4 also
+ * pins that its pages are NOT among the cardboard template's.
  * ============================================================================
  */
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
@@ -47,30 +45,28 @@ for (const preset of PRESETS)
       const tag = `${preset.key} h${height} t${matT}`;
       const find = (pre: string) => parts.find((q) => q.name.startsWith(pre))!;
       eq(bb(find("羽根板")).h, p.height + 2 * p.tabLen, `${tag} rib total length`);
-      // Koma notch width = material thickness exactly (fit=0). If this drifts, the tab won't fit / will wobble.
+      // Koma notch width = material thickness exactly (fit=0), or the tab won't fit / will wobble.
       eq(pk.boardT + Math.max(0, pk.fit ?? 0), matT, `${tag} notch width`);
-      // Cardboard skips the tab-tip dent (strength over the koma stop): the papercraft rib is a plain
-      // straight tab, and the koma notch is full-depth so that plain tab fits.
+      // Cardboard skips the tab-tip dent (strength over the koma stop): a plain straight tab in a
+      // full-depth notch.
       if (tabDented(pk)) bad(`${tag} papercraft should have no tab dent (noTabDent)`);
       eq(notchR(pk), innerRi(pk) - 0.5, `${tag} koma notch should be full-depth for the plain tab`);
-      // The wall left between the koma's notches. Thin (under half the material thickness) means it
-      // tears when hand-cut — the app raises a viewport alert for it, and no longer the printed page,
-      // because every fix for it (fewer ribs / thinner material / a wider opening) is a control you
-      // reach for while designing. So what has to hold here is that the number the alert quotes is
-      // the real one: paperFit is what the app calls, checked against the formula and against the
+      // The wall left between the koma's notches; under half the material thickness it tears when
+      // hand-cut. It is a viewport alert rather than a note on the printed page, so what has to hold
+      // is that the number the alert quotes is real: paperFit against the formula, and against the
       // copy paperParts hands the template.
       const wall = (2 * Math.PI * notchR(pk)) / pk.boards - matT;
       const fit = paperFit(p, matT);
       eq(fit.wall, wall, `${tag} paperFit wall`);
       eq(fit.thin, matT / 2, `${tag} paperFit thin threshold`);
       if (fit.clamped !== clamped || fit.nMax !== nMax) bad(`${tag} paperFit disagrees with paperParts`);
-      // The koma is a polygonal approximation (chords) + edge notch cutouts, so the circumscribed diameter is slightly under the diameter
-      // (thicker material = wider notches = more under). It's an error if it **exceeds** komaR.
+      // Chords + edge notch cutouts put the koma's circumscribed diameter slightly UNDER komaR
+      // (thicker material = wider notches = more under). Exceeding it is the error.
       const kw = bb(find("コマ")).w, kd = 2 * komaR(pk);
       if (!(kw <= kd + 0.01 && kw >= kd * 0.9)) bad(`${tag} koma outer diameter ${kw} vs ${kd}`);
-      // The washi PDF that ships with THIS route is cut from paperP, not from the design as edited.
-      // The panel is one rib-to-rib bay wide, so a clamped rib count means wider panels; cutting the
-      // unclamped ones would give a skin that does not meet itself on the mold this template makes.
+      // The washi PDF that ships with THIS route is cut from paperP, not the design as edited: the
+      // panel is one rib-to-rib bay wide, so a clamped rib count means wider panels, and the
+      // unclamped ones give a skin that does not meet itself on the mold this template makes.
       eq(washiParts(paperP(p, matT)).g.span, washiParts(pk).g.span, `${tag} washi span`);
       if (fit.clamped && !(washiParts(pk).g.wMax > washiParts(p).g.wMax))
         bad(`${tag}: the clamped rib count does not widen the washi panel`);
@@ -89,8 +85,8 @@ for (const preset of PRESETS)
           const { parts, pk, clamped, nMax } = paperParts(p, matT);
           const nRibParts = pk.spiral ? pk.boards : 1; // identical ribs → a single "×N" sheet; spiral → one per rib
           // The mold and nothing else: koma is 2 sheets, or 1 ("×2") when 2 would spill onto an extra
-          // page. The washi panel is a document of its own (its own PDF beside this one in the ZIP),
-          // so a sheet of it appearing here would mean it is being printed twice.
+          // page. The washi panel is its own PDF beside this one in the ZIP, so a sheet of it
+          // appearing here would mean it is printed twice.
           if (parts.length !== nRibParts + 1 && parts.length !== nRibParts + 2) bad(`${tag}: part count ${parts.length}`);
           if (parts.some((q) => q.name.startsWith("和紙"))) bad(`${tag}: washi panel laid out among the cardboard pages`);
           if (clamped && pk.boards !== nMax) bad(`${tag}: clamp mismatch`);
@@ -100,26 +96,22 @@ for (const preset of PRESETS)
             for (const [x, y] of pts) if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
             for (const m of q.marks || []) for (const v of m) if (!Number.isFinite(v)) bad(`${tag}: ${q.name} has NaN in marks`);
           }
-          // The template ships as a PDF, but its pages are built from the same pageOps; paperPagesSVG
-          // renders them as the markup the in-app preview shows, which is what these assertions read.
-          // (The PDF's own structural checks are section 5.)
+          // The template ships as a PDF, but its pages come from the same pageOps; these assertions
+          // read paperPagesSVG's markup instead. (The PDF's own structural checks are section 5.)
           const { svg, pages } = paperPagesSVG(p, matT, undefined, A4);
           if (/NaN|Infinity|undefined/.test(svg)) bad(`${tag}: NaN/undefined in the pages`);
           if (pages < 1 || pages > 60) bad(`${tag}: page count ${pages}`);
           if ((svg.match(/class="pg"/g) || []).length !== pages) bad(`${tag}: page count disagrees with the markup`);
-          // The check bar is what catches printer scaling, so a template without one is unusable.
-          // It is once per DOCUMENT now, not once per page — printers scale the whole job alike, so
-          // one sheet answers for all of them, and reserving a strip on every page bought nothing.
-          // It must be drawn whole: TWO ARMS (one across, one down), each a line plus its two end
-          // ticks = six "scale" paths. Two arms because a printer can scale x and y by different
-          // amounts; and BOTH units ride BOTH arms, a tick where the metric figure falls and another
-          // where the imperial one does, so either rule checks either axis.
+          // The check bar catches printer scaling, so a template without one is unusable. Once per
+          // DOCUMENT, not per page (printers scale the whole job alike), and drawn whole: TWO ARMS,
+          // across and down because a printer can scale x and y by different amounts, each a line
+          // plus its two end ticks = six "scale" paths, with BOTH units on BOTH arms so either rule
+          // checks either axis.
           const sheets = svg.split('<svg class="pg"').slice(1);
           if (sheets.length !== pages) bad(`${tag}: ${sheets.length} sheets vs ${pages} pages`);
-          // Exactly one sheet carries it, and which one is the layout's call — it goes wherever the
-          // parts already leave room (scaleSpot), so pinning it to sheet 1 would pin the packing too.
-          // What must hold is that it exists at all, on one sheet, with every mark on it: a template
-          // with no check square cannot be trusted at any size, and one drawn twice means two answers.
+          // WHICH sheet carries it is the layout's call (scaleSpot puts it where the parts leave
+          // room), so pinning it to sheet 1 would pin the packing; only "exactly one sheet, every
+          // mark on it" holds — none means a template trusted at no size, two means two answers.
           for (const u of ["5cm", "3in", "1in", "3cm"]) {
             const on = sheets.filter((x) => x.includes(u)).length;
             if (on !== 1) bad(`${tag}: ${u} mark on ${on} sheets, want exactly 1`);
@@ -127,26 +119,25 @@ for (const preset of PRESETS)
           if ((svg.match(/class="scale"/g) || []).length !== 6) bad(`${tag}: check square drawn incompletely`);
           for (const q of parts) if (!svg.includes(q.name)) bad(`${tag}: ${q.name} not on paper`);
           // Seams appear only when a part is too tall for one sheet. Derived from the module's own
-          // constants rather than copied: this block used to carry "297 - 2*8 - 14" long after the
-          // 14mm band was deleted, and only passed because no swept part happened to land in the gap
-          // between the CH it assumed and the real one.
+          // constants, never copied: a stale "297 - 2*8 - 14" survived the 14mm band's deletion here
+          // and passed only because no swept part landed in the gap between its CH and the real one.
           const CH = 297 - 2 * MARGIN;      // a full sheet
           const CH0 = CH - TOPBAR;          // sheet 1, which gives up its top strip to the check bar
           const tallest = Math.max(...parts.map((q) => {
             const a = [q.outline, ...(q.holes || [])].flat();
             const ys = a.map((v) => v[1]), xs = a.map((v) => v[0]);
-            // If it doesn't fit the paper width it's rotated 90°, in which case the width becomes the height
+            // Too wide for the paper → rotated 90°, so the width becomes the height
             const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
             return w > 210 - 2 * MARGIN ? w : h;
           }));
-          // Judge by what is actually drawn on paper: a seam carries code 1A on both of its sheets.
+          // Judge by what is drawn on paper: a seam carries code 1A on both of its sheets.
           const glued = svg.includes(">1A<");
-          // Between CH0 and CH it depends which sheet the part lands on, so only the two certain
-          // ends are asserted: fits anywhere → never a seam; fits nowhere → always one.
+          // Between CH0 and CH it depends which sheet the part lands on, so only the certain ends
+          // are asserted: fits anywhere → never a seam; fits nowhere → always one.
           if (tallest <= CH0 && glued) bad(`${tag}: seam emitted despite no spanning part`);
           if (tallest > CH && !glued) bad(`${tag}: seam missing despite a spanning part`);
           // Both halves of every seam must exist, or there is nothing to line up against: the sheet
-          // above draws the top halves and the sheet below the bottom halves, codes 1A/1B, 2A/2B …
+          // above draws the top halves, the sheet below the bottom ones, codes 1A/1B, 2A/2B …
           for (let j = 1; j <= pages; j++)
             for (const side of ["A", "B"]) {
               const on = sheets.filter((x) => x.includes(`>${j}${side}<`)).length;
@@ -157,27 +148,24 @@ for (const preset of PRESETS)
           const codes = (svg.match(/class="jlabel">\d+[AB]</g) || []).length;
           const diamonds = (svg.match(/class="join"/g) || []).length;
           const seamed = sheets.filter((x) => x.includes('class="join"')).length;
-          // A horizontal frame line can only be one of three things, and a fourth value means it is
-          // marking something that isn't there. This caught a bottom frame drawn at the end of the
-          // CONTENT band on pages whose next page starts a new row — a line across the middle of the
-          // paper that is neither a seam nor a cut, and that moved from sheet to sheet.
+          // A horizontal frame line is MARGIN or the trim edge; a third value marks something that
+          // isn't there. This caught a bottom frame drawn at the end of the CONTENT band on pages
+          // whose next page starts a new row — a line across the middle of the paper.
           const trimBot = A4.h - MARGIN;
           for (const y of svg.matchAll(/M0 ([\d.]+)L210 /g))
             if (![MARGIN, trimBot].some((v) => Math.abs(Number(y[1]) - v) < 1e-6))
               bad(`${tag}: frame line at y=${y[1]}, not a trim edge (${MARGIN}/${trimBot})`);
           // The trim box is a fact about the PAPER, so it is on every sheet and identical on each —
-          // a box that changes size from sheet to sheet is the bug this replaced (a seam sheet's box
-          // used to stop at the seam, 10mm short of the others).
+          // a seam sheet's box used to stop at the seam, 10mm short of the others.
           const framed = sheets.filter((x) => x.includes('class="frame"')).length;
           if (framed !== pages) bad(`${tag}: trim box on ${framed} of ${pages} sheets`);
           if (diamonds !== codes + seamed * 2) bad(`${tag}: ${diamonds} diamonds for ${codes} codes on ${seamed} seamed sheets`);
         }
 
 // ---- 4. Washi template (the paper skin's flat pattern) ----
-// Same three criteria, but the invariant that decides whether the cut sheet is usable is the
-// **meridian arc length**: the sheet must be as long as the curve, not as tall as the body. Cutting
-// to the straight height is exactly the mistake this template exists to prevent, so it is asserted
-// against an independent integration of outerR here.
+// Same three criteria, plus the invariant that decides whether the cut sheet is usable: the sheet is
+// as long as the **meridian arc**, not as tall as the body — cutting to the straight height is the
+// mistake this template exists to prevent — asserted against an independent integration of outerR.
 let nw = 0;
 for (const preset of PRESETS)
   for (const height of [140, 205, 300, 400])
@@ -218,30 +206,28 @@ for (const preset of PRESETS)
             if (!Number.isFinite(v)) bad(`${tag}: NaN in the washi pattern`);
           // The panel's own sheets — the SVG encoding of the pages the ZIP's PDF is written from
           // (nothing in the app draws them; see washiPagesSVG). Section 5 pins their page count to
-          // that PDF's; here, that they are drawn at all, and drawn as guides.
+          // that PDF's; here, only that they are drawn at all.
           const ws = washiPagesSVG(p, { side, end }, undefined, A4).svg;
           if (/NaN|Infinity|undefined/.test(ws)) bad(`${tag}: NaN/undefined in the washi sheets`);
           if (!ws.includes("和紙")) bad(`${tag}: the panel is not on its own sheets`);
           // Guides must be drawn as guides, never as cut lines (cutting them ruins the panel).
           if (!/class="guide"/.test(ws)) bad(`${tag}: guides not drawn on the washi sheets`);
-          // …and nowhere else: the cardboard template stopped carrying it when it became its own PDF,
-          // and a panel on both would be one printed twice, at two different rib counts.
+          // …and nowhere else: a panel on both documents would be one printed twice, at two
+          // different rib counts.
           if (paperPagesSVG(p, 3, undefined, A4).svg.includes("和紙"))
             bad(`${tag}: the washi panel is still on the cardboard pages`);
         }
 
 // ---- 5. The template PDFs (both shipped deliverables) ----
-// The washi template bundled in the STL kit's ZIP, and the cardboard template, which since the HTML
-// page was dropped IS the cardboard route's entire output.
+// The washi template bundled in the STL kit's ZIP, and the cardboard template, which IS the cardboard
+// route's entire output. The PDF is hand-rolled (src/pdf.ts), so this checks the two ways it can be
+// silently wrong: **a broken file** (a bad xref offset makes viewers refuse it or open it blank) and
+// **a wrong scale**, pinned by the page CTM (mm→pt = 2.835) and by the check square's arms measuring
+// 76.2mm (3in) across and 30mm (3cm) down in user space.
 //
-// The PDF is hand-rolled (src/pdf.ts), so this checks the two ways it can be silently wrong: **a
-// broken file** (a bad xref offset makes viewers refuse it or open it blank) and **a wrong scale**
-// (the whole point of the template), pinned by the page CTM (mm→pt = 2.835) and by the check
-// square's arms measuring 76.2mm (3in) across and 30mm (3cm) down in user space.
-//
-// An outlined character is a scale-and-flip matrix, a fill colour, a stored path, filled — and its
-// operators are `m`/`l`/`c`/`h` like any other path, so every reader of the content stream has to
-// strip glyph blocks first. A glyph is a word on the page, not a line to cut along.
+// An outlined character is a scale-and-flip matrix, a fill colour and a stored path, whose operators
+// are `m`/`l`/`c`/`h` like any other path — so every reader of the content stream must strip glyph
+// blocks first. A glyph is a word on the page, not a line to cut along.
 const GLYPH_RE = /q [-\d. ]+ cm [\d. ]+ rg [-\d. mlch]+ f Q/g;
 const pdfStructure = (s: string, tag: string, pages: number) => {
   if (!s.startsWith("%PDF-1.")) bad(`${tag}: no PDF header`);
@@ -259,8 +245,8 @@ const pdfStructure = (s: string, tag: string, pages: number) => {
   // Full scale: the page CTM is mm→pt, and the ruler is 50mm long in that space.
   if ((s.match(/2\.835 0 0 -2\.835 0 841\.89 cm/g) || []).length !== pages) bad(`${tag}: page CTM is not mm→pt`);
   // Full scale, part two: the check square's two arms, found by LENGTH rather than by coordinates
-  // (a bar's position follows the layout). Both axes are required — the reason the mark is an L and
-  // not a bar is that a printer can scale x and y differently, and only a vertical arm sees that.
+  // (position follows the layout). Both axes are required — a printer can scale x and y differently,
+  // which only a vertical arm sees.
   const seg = [...s.matchAll(/([\d.]+) ([\d.]+) m ([\d.]+) ([\d.]+) l S/g)];
   const has = (i0: number, i1: number, fixed: [number, number], len: number) => seg.some((m) =>
     m[fixed[0]] === m[fixed[1]] && Math.abs(Math.abs(Number(m[i1]) - Number(m[i0])) - len) < 1e-6);
@@ -277,13 +263,12 @@ for (const preset of PRESETS)
       np++;
       const p = { ...DEFAULTS, ...preset, height, boards };
       const tag = `pdf ${preset.key} h${height} b${boards}`;
-      // Washi. Its page count is checked twice over. First against a derivation that owes the layout
-      // code nothing — one part of this height on A4, butt-split across pages when it does not fit on
-      // one. Two answers are admissible there because the check square either finds room beside the
-      // panel (no strip reserved) or does not (sheet 1 gives up TOPBAR); which of the two is the
-      // layout's call, and pinning it here would pin the packing. Then the PDF is pinned to the
-      // preview's exact answer, so the sheets the 3D route shows beside its plates and the file in
-      // the kit ZIP can never be a different document (same pairing as the cardboard one below).
+      // Washi. Its page count is checked twice over: first against a derivation that owes the layout
+      // code nothing — one part of this height on A4, butt-split across pages when it does not fit
+      // on one — where TWO answers are admissible, the check square either finding room beside the
+      // panel or sheet 1 giving up TOPBAR, and pinning which would pin the packing. Then the PDF is
+      // pinned to the preview's exact answer, so the sheets shown and the file in the ZIP can never
+      // be a different document (same pairing as the cardboard one below).
       const { g } = washiParts(p, { side: 3, end: 3 });
       const H = g.sTot + 2 * g.end, CH = 297 - 2 * MARGIN, CH0 = CH - TOPBAR;
       const wPages = washiPagesSVG(p, { side: 3, end: 3 }, en, A4).pages;
@@ -298,16 +283,16 @@ for (const preset of PRESETS)
       // The split, in the shipped bytes: the mold's PDF carries no washi panel. (Labelled in
       // English here, so this is what "和紙 ×N" comes out as when winAnsi has had it.)
       if (cs.includes(en("和紙"))) bad(`${tag} cardboard: the washi panel is in the mold's PDF`);
-      // Every part must still be LABELLED. winAnsi drops what it cannot draw rather than mangling it,
-      // so handing this PDF a Japanese translator would leave the names silently blank and every
-      // check above would still pass — this is the one that notices.
+      // Every part must still be LABELLED: winAnsi drops what it cannot draw rather than mangling
+      // it, so a Japanese translator would leave the names silently blank with every check above
+      // still passing. This is the one that notices.
       for (const q of paperParts(p, 5, en).parts)
         if (!cs.includes(q.name)) bad(`${tag} cardboard: "${q.name}" is not labelled in the PDF`);
-      // The same sheet in Japanese — the language the app speaks by default, and the one the writer
-      // could not print at all until it carried its own outlines. Nothing about the file's structure
-      // may change (pdfStructure again, including the rule that no raw multi-byte reaches a Tj), and
-      // every character WinAnsi cannot encode must be DRAWN. Counting is the whole point: dropping
-      // them silently is the old failure, and it leaves every other assertion here satisfied.
+      // The same sheet in Japanese — the app's default language, and the one the writer could not
+      // print at all until it carried its own outlines. Nothing about the file's structure may change
+      // (pdfStructure again, including the rule that no raw multi-byte reaches a Tj), and every
+      // character WinAnsi cannot encode must be DRAWN — dropping them silently is the old failure,
+      // and it leaves every other assertion here satisfied, so the count is the whole point.
       const jaSVG = paperPagesSVG(p, 5, undefined, A4);
       const js = Buffer.from(paperPDF(p, 5, A4)).toString("latin1");
       pdfStructure(js, `${tag} cardboard ja`, jaSVG.pages);
@@ -320,8 +305,7 @@ for (const preset of PRESETS)
 // ---- 6. One drawing, two encodings ----
 // Every page is built once as `pageOps` and rendered as SVG or as PDF. Section 5 pins the page
 // COUNT; this pins the drawing itself, so a change to one renderer cannot quietly leave the other
-// behind — the only thing standing between a hand-rolled PDF and a file that disagrees with
-// everything else here.
+// behind.
 //
 // Compared as coordinates, not bytes, because the two encodings legitimately differ in three ways
 // and ONLY these three:
@@ -374,8 +358,8 @@ let ns = 0;
 for (const preset of PRESETS)
   for (const height of [140, 205, 300, 400]) {
     const p = { ...DEFAULTS, ...preset, height };
-    // Once per design, not once per allowance pair: the mold's template stopped depending on the
-    // washi allowances the day the panel became its own document.
+    // Once per design, not per allowance pair: the mold's template stopped depending on the washi
+    // allowances when the panel became its own document.
     ns++;
     sameDrawing(paperPagesSVG(p, 5, en, A4).svg,
       Buffer.from(paperPDF(p, 5, A4, en)).toString("latin1"), `same ${preset.key} h${height} cardboard`);
@@ -385,9 +369,9 @@ for (const preset of PRESETS)
       // Built with the SAME translator the PDF gets, so this is about the drawing, not the labels.
       const w = washiPagesSVG(p, { side, end }, en, A4).svg;
       sameDrawing(w, Buffer.from(washiPDF(p, { side, end }, A4, en)).toString("latin1"), `${tag} washi`);
-      // The language must not move a single coordinate — only the words. Checked in both encodings:
-      // the PDF is where the words became artwork, so it is the one that could start pushing lines
-      // around (a glyph left in the path stream would read as a cut line half a millimetre wide).
+      // The language must not move a single coordinate — only the words. Checked in both encodings,
+      // the PDF being where the words became artwork and so the one that could push lines around (a
+      // glyph left in the path stream reads as a cut line half a millimetre wide).
       if (svgPaths(washiPagesSVG(p, { side, end }, undefined, A4).svg).join("|") !== svgPaths(w).join("|"))
         bad(`${tag} washi: the drawing changes with the UI language`);
       const jaPDF = Buffer.from(washiPDF(p, { side, end }, A4)).toString("latin1");
@@ -397,13 +381,12 @@ for (const preset of PRESETS)
   }
 
 // ---- 7. The silhouette extremes (the corners of LIMITS) ----
-// Cardboard is the route with no size limit — a part too tall for A4 just continues on the next
-// sheet — so it is the route that actually meets a 2m body, and the one where the sweeps above say
-// nothing: they run 140..400mm at the presets' own radii. This walks the corners of the box the
-// editor now allows and asserts what would make the template wrong rather than merely large: the
-// rib is still drawn at full scale (its length is the geometry's, not a fitted one), the washi
-// panel is still cut to the meridian ARC length — which only runs further from the straight height
-// as the body gets steeper — and every part still lands on a page with no NaN in it.
+// Cardboard has no size limit — a part too tall for A4 continues on the next sheet — so it is the
+// route that meets a 2m body, and the one the sweeps above say nothing about (they run 140..400mm at
+// the presets' own radii). This walks the corners of the box the editor allows and asserts what would
+// make the template wrong rather than merely large: the rib still drawn at full scale (its length is
+// the geometry's, not a fitted one), the washi panel still cut to the meridian ARC length — which
+// only runs further from the straight height as the body steepens — and no NaN on any page.
 let nx = 0;
 const [xhLo, xhHi] = LIMITS.height, [xrLo, xrHi] = LIMITS.r;
 for (const preset of PRESETS)

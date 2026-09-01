@@ -4,42 +4,33 @@
  * ============================================================================
  * Where the grooves go along the lamp body (`grooveList`, from one lattice so the mold, the section
  * drawing and the washi template cannot disagree), how wide they are (`grooveR`), and the outer-edge
- * point list with them cut in along the surface normal (`grooveOuterPts`).
- *
- * `grooveOuterPts` is the single source of the rib's outer edge: `ribOutline2D` extrudes it and
- * SectionEditor draws it, so what you see on screen is the edge that gets printed.
- *
- * Pure arithmetic, like profile.ts — point lists in, point lists out, no three.js.
+ * point list with them cut in along the surface normal (`grooveOuterPts`) — the single source of the
+ * rib's outer edge, extruded by `ribOutline2D` and drawn by SectionEditor, so what you see on screen
+ * is the edge that gets printed. Pure arithmetic, like profile.ts: no three.js.
  * ============================================================================
  */
 import type { Design, Pt2 } from "../types.ts";
 import { outerR, fukuroRange } from "./profile.ts";
 
-// The height (mm) of the lamp body's equator (maximum outer radius). The groove barbs tilt toward
-// this equator side (to catch the bamboo rib sliding toward the opening). The point where the barb
-// direction reverses is "the point where the slope dR/dy becomes 0 = maximum outer radius," so the
-// actual argmax is used rather than a hard-coded h/2 (prevents the barb from facing the wrong way
-// on an asymmetric profile).
+// The height (mm) of the lamp body's equator (maximum outer radius). Groove barbs tilt toward it, to
+// catch the bamboo rib sliding toward the opening; the barb direction reverses where dR/dy = 0, so
+// the actual argmax is used rather than a hard-coded h/2 (on an asymmetric profile a barb would
+// otherwise face the wrong way).
 export function equatorY(p: Design): number {
   const h = p.height;
   let bestT = 0.5, bestR = -1;
   for (let i = 0; i <= 120; i++) { const t = i / 120, r = outerR(p, t); if (r > bestR) { bestR = r; bestT = t; } }
   return bestT * h;
 }
-// Outer-edge point list with the grooves cut ALONG THE SURFACE NORMAL, not radially. A radial notch
-// (a depth subtracted from R at each y) loses its effective depth and its catching wall where the
-// profile turns steeply diagonal — an outline that is single-valued in y literally cannot form the
-// undercut that stops the bamboo sliding. This builds the notch as a V of constant PERPENDICULAR
-// depth, offset inward along the local normal at each groove centre, so depth and wall stay
-// effective at any face angle. Returns [[x,y],…] from y=0 to y=h with the endpoints exact (the
-// smooth opening radius); `grooves=[]` returns the plain smooth edge.
-//
-// Single source of truth: shared by `ribOutline2D` (the printed rib) and the section drawing.
-// ・The basis is the local outer radius at each y, not the groove centre's — so on a slope the
-//   groove is not offset to one side, and walls form above and below it.
-// ・The depth itself is CONSTANT and perpendicular — `grooveDepth` is `min(higoD*1.5, gR*GROOVE_DEEP)`
-//   with no slope term. Cutting along the normal is what keeps it effective on a slope; a radial
-//   notch would shallow by cosθ, which is the failure this avoids rather than compensates for.
+// Outer-edge point list with the grooves cut ALONG THE SURFACE NORMAL, not radially: a radial notch
+// (depth subtracted from R at each y) shallows by cosθ on a steeply diagonal face and loses the wall
+// that stops the bamboo sliding — an outline single-valued in y cannot form that undercut. The notch
+// is a V of constant PERPENDICULAR depth (`grooveDepth` = min(higoD*1.5, gR*GROOVE_DEEP), no slope
+// term), offset inward along the local normal at each groove centre. Its basis is the local outer
+// radius at each y, not the groove centre's, so on a slope the groove is not offset to one side and
+// walls form above and below it.
+// Returns [[x,y],…] from y=0 to y=h with the endpoints exact (the smooth opening radius);
+// `grooves=[]` returns the plain smooth edge. Shared by `ribOutline2D` and the section drawing.
 export function grooveOuterPts(p: Design, grooves: number[], gR: number): Pt2[] {
   const h = p.height, mid = equatorY(p), STEP = 0.5;
   const info = grooves.map((g) => {
@@ -77,12 +68,9 @@ export function grooveOuterPts(p: Design, grooves: number[], gR: number): Pt2[] 
   }
   return pts;
 }
-// Bamboo rib groove positions. Distributes them "evenly" over the lamp body, but places no groove
-// right next to the neck (opening). It gives a half-pitch buffer (= opening/neck-side clearance) at
-// the top and bottom ends and arranges the grooves evenly from the inside.
-// Groove half-width (mm) = bamboo rib radius + relief. Aggregated here in one place so the
-// groove-making side (ribOutline2D) and the drawing side (SectionEditor) always use the
-// same value (prevents cross-section/STL mismatch).
+// Groove half-width (mm) = bamboo rib radius + relief. In one place so the groove-making side
+// (ribOutline2D) and the drawing side (SectionEditor) always use the same value (no section/STL
+// mismatch).
 const GROOVE_CLEAR = 0.25;
 export function grooveR(p: Design): number { return p.higoD / 2 + GROOVE_CLEAR; }
 // The local slope dR/dy of the smooth outer edge at height y (mm). Sampled over the same ±0.6mm
@@ -93,15 +81,14 @@ export function profileSlope(p: Design, y: number): number {
 }
 // One groove's perpendicular depth (mm) — how deep `grooveOuterPts` cuts along the normal.
 // `lightenHoles2D` needs the same number to work out how far a notch reaches **in x** on a slope
-// (the tip travels `depth × √(1+slope²)` inward, not `depth`), which is what keeps the lightening
-// window from being cut straight through a groove. Shared rather than repeated, for that reason.
+// (the tip travels `depth × √(1+slope²)` inward, not `depth`), which keeps the lightening window
+// from being cut straight through a groove — hence shared rather than repeated.
 const GROOVE_DEEP = 2.1; // perpendicular depth factor; on a flat face this equals the legacy radial depth.
 export function grooveDepth(p: Design, gR: number = grooveR(p)): number { return Math.min(p.higoD * 1.5, gR * GROOVE_DEEP); }
 // The groove-distribution lattice (valid range [gLo,gHi] within the lamp body, count n, spacing
-// step). Aggregated in one place so grooveList and the spiral path higoSpiralPath use the same
-// lattice (if they diverge, the mold and the drawing disagree).
-// gM = gR*1.6 is a half-pitch-equivalent buffer meaning "place no groove closer than this to the
-// opening (neck)."
+// step), in one place so grooveList and higoSpiralPath use the same one — diverge, and the mold and
+// the drawing disagree. gM = gR*1.6 is a half-pitch-equivalent buffer: no groove closer than that to
+// the opening (neck).
 function grooveLattice(p: Design, gR: number) {
   const h = p.height, fr = fukuroRange(p), gM = gR * 1.6;
   const gLo = fr.lo * h + gM, gHi = fr.hi * h - gM, span = gHi - gLo;
@@ -109,15 +96,13 @@ function grooveLattice(p: Design, gR: number) {
   return { gLo, gHi, span, n, step: n > 0 ? span / n : 0 };
 }
 // Bamboo rib groove positions (mm). k = rib index.
-// ・Normal (horizontal ring): identical for all ribs. Placed with a step/2 buffer at the ends and
-//   arranged evenly.
-// ・Spiral winding (p.spiral): shifted downward by step/boards per rib. One turn (all ribs) drops
-//   exactly one lattice cell (step), and the next rib lands on the next lattice point ⇒ forming a
-//   single continuous spiral across all ribs. Grooves that fall outside the valid range [gLo,gHi]
-//   due to the shift are dropped, and a vacated lattice point on the opposite side comes in, so the
-//   count stays roughly constant (±1). The valid range includes the gM buffer, so even a groove
-//   landing at an end keeps the near-opening clearance. With k=0 / no spiral, this is completely
-//   identical to normal (does not change existing STL).
+// ・Normal (horizontal ring): identical for all ribs, spread evenly with a step/2 buffer at the ends.
+// ・Spiral winding (p.spiral): shifted downward by step/boards per rib, so one turn (all ribs) drops
+//   exactly one lattice cell (step) and the next rib lands on the next lattice point ⇒ a single
+//   continuous spiral across all ribs. Grooves shifted outside [gLo,gHi] are dropped and a vacated
+//   lattice point on the opposite side comes in, so the count stays constant to ±1; the range
+//   includes the gM buffer, so even an end groove keeps its near-opening clearance. k=0 / no spiral
+//   is completely identical to normal (does not change existing STL).
 export function grooveList(p: Design, gR: number, k = 0): number[] {
   const { gLo, gHi, n, step } = grooveLattice(p, gR);
   if (n === 0) return [];
@@ -134,11 +119,9 @@ export function grooveList(p: Design, gR: number, k = 0): number[] {
   }
   return gs;
 }
-// The spiral-winding bamboo rib centerline (for the lit preview). Builds a "one pitch / one turn"
-// continuous spiral from the same lattice as grooveList. Pure function (no THREE dependency):
-// returns a point list of [angle rad, height mm (0 basis), radius mm].
-// The height decreases as the angle increases (= the rib advances) = matching grooveList's shift
-// direction.
+// The spiral-winding bamboo rib centerline (for the lit preview): a "one pitch / one turn" continuous
+// spiral from the same lattice as grooveList. Pure — returns [angle rad, height mm (0 basis), radius
+// mm]. The height decreases as the angle increases, matching grooveList's shift direction.
 export function higoSpiralPath(p: Design, seg = 48): [number, number, number][] {
   const gR = grooveR(p), h = p.height;
   const { gHi, n, step } = grooveLattice(p, gR);

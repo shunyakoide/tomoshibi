@@ -100,9 +100,10 @@ other mesh with holes, eyeball the render.
 - The section editor and papercraft must reuse `geometry.ts` functions rather than
   re-deriving dimensions.
 - The mold's part definitions and relationships (rib / koma / stand / groove / neck / tab /
-  opening ring) are fixed — see [`CLAUDE.md`](CLAUDE.md) for the full design rules and the
-  print-fit invariants (the shared values that let a reprinted part still fit a previously
-  printed one). Read it before changing shapes.
+  opening ring) are fixed — see [`docs/design-notes.md`](docs/design-notes.md) for the full design
+  rules and the print-fit invariants (the shared values that let a reprinted part still fit a
+  previously printed one). **Read the note for the area you are changing before you change it**:
+  most of what is in there is there because it was got wrong once.
 
 ## Adding a shape preset
 

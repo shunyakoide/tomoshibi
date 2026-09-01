@@ -2,28 +2,23 @@
  * ============================================================================
  * KOMA — the gear-like hub that bundles the rib tabs
  * ============================================================================
- * Two identical hubs, top and bottom. Notches around the rim take the tabs; the stand cradles the
- * rim. The notch width is the board thickness plus the print tolerance, and its bottom radius comes
- * from `notchR()` — the same function the rib's tab tip is built from, which is what makes them mate.
- *
- * The notch does NOT reach the tab's inner end when the tab is dented: `notchR` sits at the DENT
- * radius, so the wider tab base (further in, at `innerRi`) catches the koma's solid hub. That is the
- * koma stop, and it cannot drift between the two parts because both derive from `tabTipRi`.
+ * Two identical hubs, top and bottom, a small gear with edge-open notches (parallel walls) around
+ * the rim: the tab (inner end Ri〜Ri+td) plugs in and the rib extends out through the notch, and the
+ * stand cradles the rim. The notch bottom radius comes from `notchR()`, which is `tabTipRi() - 0.5` —
+ * the same quantity the rib's tab tip is cut from, so the two cannot drift apart. With a dented tab the notch does NOT reach
+ * the tab's inner end — `notchR` sits at the DENT radius, so the wider tab base (further in, at
+ * `innerRi`) catches the koma's solid hub. That is the koma stop.
  * ============================================================================
  */
 import type { Design } from "../types.ts";
 import * as THREE from "three";
 import { komaR, notchR } from "./profile.ts";
 
-// ============ Koma (the small gear hub that bundles the tabs) ============
-// A small gear with edge-open notches (parallel walls). The tab (inner end Ri〜Ri+td) meets the
-// koma's edge and the rib extends out through the notch; the stand receives the koma.
 export function komaShape(p: Design): THREE.Shape {
   const { boards, boardT } = p;
   const R = komaR(p);
-  // Notch width = board thickness + print fit. The tab itself stays boardT (nominally "tab
-  // width = notch width = board thickness" matches, and fit only opens the actual fit clearance).
-  // With fit=0, there is no gap as before.
+  // Notch width = board thickness + print fit. The tab itself stays boardT, so fit only opens the
+  // real fit clearance (fit=0 → no gap).
   const sw = boardT + Math.max(0, p.fit ?? 0);
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
@@ -40,9 +35,8 @@ export function komaShape(p: Design): THREE.Shape {
     const dx = Math.cos(a1), dy = Math.sin(a1), nx = -dy, ny = dx;
     shape.lineTo(nR * dx - nx * sw / 2, nR * dy - ny * sw / 2);
     shape.lineTo(nR * dx + nx * sw / 2, nR * dy + ny * sw / 2);
-    // The notch's outer return point is the start of the next tooth. For the last board, it exactly
-    // matches the start point (moveTo), so it is omitted and left to closePath (prevents a degenerate
-    // triangle from a duplicate point).
+    // The notch's outer return point is the start of the next tooth; on the last board it coincides
+    // with the moveTo start, so it is left to closePath (a duplicate point → degenerate triangle).
     if (k < boards - 1) shape.lineTo(rOut * dx + nx * sw / 2, rOut * dy + ny * sw / 2);
   }
   shape.closePath();

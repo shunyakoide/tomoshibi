@@ -2,12 +2,11 @@
  * ============================================================================
  * SELECTED CONTROL POINT
  * ============================================================================
- * The card for whichever ◇ is selected in the section view. Its job is to turn gestures that were
- * once hidden on the SVG into explicit, typed, keyboard-reachable UI: exact radius and height,
- * smooth ⇄ corner, delete, and the move ⇄ curve mode switch.
+ * The card for whichever ◇ is selected in the section view: the SVG's gestures as explicit, typed,
+ * keyboard-reachable UI — exact radius and height, smooth ⇄ corner, delete, move ⇄ curve mode.
  *
  * It edits `pts` only — radius, height and the sharp flag. No dimension is computed here; the shape
- * still comes entirely from geometry.ts.
+ * comes entirely from geometry.ts.
  * ============================================================================
  */
 import React from "react";
@@ -34,11 +33,10 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode,
   const { pt, isEnd, canDelete, patch, setHeightMm, del } = pointOps(p, setP, sel, setSel);
   const setMode = makeSetMode(setP, setEditMode);
 
-  // Not rendered at all on a phone. Every control that was left here after the contextual bar took
-  // over (ui/PointBar.tsx) was either already in that bar or reachable by dragging the ◇ itself: the
-  // radius is set by the app's primary gesture and printed live beside the mark, so a field for it
-  // bought exact entry and nothing else, at the price of a section in a list you have to pull a
-  // sheet up and scroll to reach. Delete moved into the bar unconditionally instead.
+  // Not rendered at all on a phone: everything left here after the contextual bar (ui/PointBar.tsx)
+  // took over is either in that bar or set by dragging the ◇ — the radius is the primary gesture and
+  // is printed live beside the mark, so a field for it cost a section you must scroll to reach and
+  // bought only exact entry. Delete moved into the bar unconditionally instead.
   if (compact) return null;
 
   return (

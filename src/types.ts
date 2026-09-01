@@ -2,18 +2,13 @@
  * ============================================================================
  * THE SHARED TYPES — what a design IS
  * ============================================================================
- * `Design` is the object called `p` everywhere in this codebase: the single argument that almost
- * every function in geometry/ takes. Until now its shape lived in two places that could not check
- * each other — `DEFAULTS` in config.ts and the prose in CLAUDE.md — and a third, `BOUNDS` in
- * persist.ts, listed the half of it that is numeric. This file is the one place that says what the
- * fields are; `DEFAULTS` is now checked against it, so a field added to one and not the other stops
- * the build instead of arriving in `outerR` as `undefined`.
+ * `Design` is the object called `p` everywhere here — the single argument almost every geometry/
+ * function takes. This file is the one place saying what its fields are, and `DEFAULTS` is checked
+ * against it, so a field added to one and not the other stops the build instead of arriving in
+ * `outerR` as `undefined`.
  *
- * Types only — no values, nothing at runtime. Every import of it is `import type`, erased by the
- * transpiler, so this file creates no dependency edge and cannot make a cycle. That is what lets
- * geometry/ name a design without importing config.ts, which it deliberately does not do.
- *
- * Units are mm throughout (see CLAUDE.md "Coordinate system and units").
+ * Types only, so every import is erased: no dependency edge and no possible cycle, which is what
+ * lets geometry/ name a design without importing config.ts. Units are mm throughout.
  * ============================================================================
  */
 
@@ -21,10 +16,10 @@
 export type Handle = { dt: number; dr: number };
 
 /**
- * One silhouette control point. `t` is the normalized height (0 = bottom, 1 = top), `r` the radius
- * in mm. `sharp` marks a corner; `ho`/`hi` are the optional Bézier handles toward the next/previous
- * point — **if even one point in the array has one, the whole curve switches to Bézier evaluation**
- * (see geometry/profile.ts), which is why they are optional rather than always present.
+ * One silhouette control point: `t` normalized height (0 = bottom, 1 = top), `r` radius in mm,
+ * `sharp` a corner. `ho`/`hi` are the optional Bézier handles toward the next/previous point —
+ * **one point having one switches the whole curve to Bézier evaluation** (geometry/profile.ts),
+ * which is why they are optional rather than always present.
  */
 export type Pt = { t: number; r: number; sharp?: boolean; ho?: Handle; hi?: Handle };
 
@@ -33,14 +28,12 @@ export type Pt2 = [number, number];
 
 /**
  * The design. One flat object, edited by the section view and the inspector, persisted by
- * persist.ts, and handed to every geometry function.
- *
- * The two optional fields are not optional settings — they are the two ways a design reaches
- * geometry without having come from the editor:
+ * persist.ts, handed to every geometry function. The two optional fields are not settings — they
+ * are the two ways a design reaches geometry without coming from the editor:
  *   `neckOn`   — the legacy single neck flag, from designs saved before it split into
  *                neckBot/neckTop. Read only as a fallback (`p.neckBot ?? p.neckOn ?? true`).
  *   `noTabDent`— set by the papercraft, which trades the koma stop for tab strength on cardboard
- *                (CLAUDE.md "Papercraft"). Never set by the app's own state.
+ *                (docs/design-notes.md "Papercraft"). Never set by the app's own state.
  */
 export type Design = {
   /** Lamp-body height (mm). The silhouette's t axis spans this. */
@@ -76,7 +69,7 @@ export type Design = {
   lighten: boolean;
   /** Spiral winding: offset each rib's grooves so the bamboo forms one continuous helix. */
   spiral: boolean;
-  /** Leg sockets in the bottom opening ring. A checkbox, never dimensions (CLAUDE.md). */
+  /** Leg sockets in the bottom opening ring. A checkbox, never dimensions (docs/design-notes.md). */
   legSockets: boolean;
   /** Legacy: the single neck flag that neckBot/neckTop replaced. Read as a fallback only. */
   neckOn?: boolean;
@@ -88,9 +81,8 @@ export type Design = {
 export type Route = "stl" | "paper";
 
 /**
- * The keys of `Design` whose value is a number — the fields a slider can scrub and a bound can
- * clamp. `SIL_ROWS` (config) and `BOUNDS` (persist) are both keyed by it, so a numeric field added
- * to the design without a range to clamp it into stops the build rather than reaching `outerR`
- * unclamped from a corrupt file.
+ * The keys of `Design` whose value is a number — what a slider can scrub and a bound can clamp.
+ * `SIL_ROWS` (config) and `BOUNDS` (persist) are keyed by it, so a numeric field added without a
+ * range stops the build rather than reaching `outerR` unclamped from a corrupt file.
  */
 export type NumericDesignKey = { [K in keyof Design]-?: Design[K] extends number ? K : never }[keyof Design];

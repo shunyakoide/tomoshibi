@@ -4,17 +4,15 @@
  * ============================================================================
  * Can a flat part be laid on the print bed, and at what in-plane angle?
  *
- * One function serves three callers — the overflow warning, the recommended maximum body height,
- * and the print-plate preview layout — so "we warned it won't fit", "lower the height to N" and
- * "the preview shows it fitting" can never disagree with each other. Pure: no three.js, no DOM.
+ * One function serves three callers — the overflow warning, the recommended maximum body height and
+ * the print-plate preview layout — so those three can never disagree. Pure: no three.js, no DOM.
  * ============================================================================
  */
 
 // Footprint [a, b] on a W×D bed → { fits, angle } (angle in degrees, in the bed plane).
-// Policy: keep it axis-aligned whenever it fits that way, and only tilt when the part would
-// otherwise overrun the bed edge. When a tilt is needed, sweep 0..90° for the angle that fits best
-// across the bed — ≈45° on a square bed, and steeper or shallower on a rectangular one, which
-// accommodates a noticeably larger part than a fixed 45° would.
+// Policy: axis-aligned whenever it fits that way, tilting only when the part would overrun the bed
+// edge. A needed tilt sweeps 0..90° for the best-fitting angle — ≈45° on a square bed, steeper or
+// shallower on a rectangular one, which takes a noticeably larger part than a fixed 45° would.
 export function fitOnBed([a, b]: [number, number], W: number, D: number): { fits: boolean; angle: number } {
   const EPS = 0.01;
   if (Math.max(a, b) <= Math.max(W, D) + EPS && Math.min(a, b) <= Math.min(W, D) + EPS) {

@@ -2,11 +2,9 @@
  * ============================================================================
  * APP HOOKS
  * ============================================================================
- * The stateful behaviours that are not about drawing anything: undo/redo history, the autosave,
- * the responsive-layout flag, the UI language, and the one page that has a URL. Each was inline in TomoshibiStudio, where they
- * pushed the interesting code — what the app actually renders — a hundred lines further down.
- *
- * No geometry and no three.js here; these only touch React, localStorage, and window events.
+ * The stateful behaviours that draw nothing: undo/redo history, the autosave, the responsive-layout
+ * flag, the UI language, and the one page with a URL. No geometry and no three.js — only React,
+ * localStorage and window events.
  * ============================================================================
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -25,10 +23,9 @@ export type UndoRedo = { undo: () => void; redo: () => void; canUndo: boolean; c
  * Undo/redo over the shape `p`.
  *
  * There is no single choke point for edits — `setP` is called from the section editor, the sliders,
- * the preset chips and the point card — so instead of instrumenting every call site this watches `p`
- * and commits a snapshot once it settles. That coalesces a continuous drag into one history entry
- * and still catches discrete edits (preset switch, add/delete point, sharp⇄smooth) through the same
- * path.
+ * the preset chips and the point card — so rather than instrument every call site this watches `p`
+ * and commits once it settles: a drag coalesces into one entry, and discrete edits (preset switch,
+ * add/delete point, sharp⇄smooth) come through the same path.
  */
 export function useUndoRedo(
   p: Design,
@@ -58,9 +55,8 @@ export function useUndoRedo(
     return () => clearTimeout(timer.current);
   }, [p, commitNow, settle]);
 
-  // Both directions first flush the pending edit, so it is reachable again afterwards. For redo
-  // that is a no-op whenever a new edit already discarded the redo target — standard behaviour,
-  // and nothing is lost.
+  // Both directions flush the pending edit first, so it stays reachable. For redo that is a no-op
+  // whenever a new edit already discarded the redo target — standard behaviour, nothing lost.
   const step = useCallback((dir: number) => {
     clearTimeout(timer.current);
     commitNow(p);
@@ -92,10 +88,9 @@ export function useUndoRedo(
 }
 
 /**
- * Auto-save the working state to localStorage. The debounce keeps a continuous drag from flooding
- * writes; `pagehide` (tab close / navigation) flushes immediately so the last action is never lost.
- * Mount this AFTER the rib-count clamp so what gets saved is always post-clamp — never a design
- * that would rebuild into a non-watertight koma.
+ * Auto-save to localStorage. The debounce keeps a drag from flooding writes; `pagehide` flushes so
+ * the last action is never lost. Mount this AFTER the rib-count clamp, so what is saved is always
+ * post-clamp and never a design that rebuilds into a non-watertight koma.
  */
 export function useAutosave(state: SavedState, delay = 300): void {
   useEffect(() => {
@@ -108,10 +103,9 @@ export function useAutosave(state: SavedState, delay = 300): void {
 }
 
 /**
- * True while the window is narrower than `px` — the app stacks the viewport above the inspector
- * instead of placing them side by side. useSyncExternalStore rather than a resize listener plus
- * useState: one subscription, and the first render already has the right answer, so a phone never
- * paints the side-by-side layout for a frame before correcting itself.
+ * True while the window is narrower than `px` — the app then stacks the viewport above the
+ * inspector. useSyncExternalStore rather than a resize listener plus useState: the first render
+ * already has the right answer, so a phone never paints the wide layout for a frame first.
  */
 export function useNarrow(px = 860): boolean {
   const query = `(max-width: ${px - 1}px)`;
@@ -135,29 +129,23 @@ export function useLang(): { lang: Lang; toggleLang: () => void; t: T } {
     saveLang(next);
     return next;
   }), []);
-  // Keep <html lang> in step with the dictionary. index.html can only ship one value, and the app
-  // starts in English but restores Japanese from localStorage — so without this the document claims
-  // to be English while showing Japanese. It is not cosmetic on a phone: `lang` is what a mobile
-  // browser uses to pick a CJK font fallback and what a screen reader uses to pick a voice.
+  // Keep <html lang> in step with the dictionary: index.html ships one value and the app restores
+  // Japanese from localStorage, so without this the document claims English while showing Japanese.
+  // Not cosmetic — `lang` picks a mobile browser's CJK font fallback and a screen reader's voice.
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   return { lang, toggleLang: toggle, t: makeT(lang) };
 }
 
 /**
- * The current page, and the one way to change it. See route.ts for what is addressable and why so
- * little of it is.
- *
- * Opening PUSHES and closing goes BACK, so a guide opened from the app leaves the history exactly
- * as it found it — one entry in, one entry out — and the browser's own back button is the same
- * gesture as the ×. Arriving directly at `/guide` has no entry to go back to, though, and calling
- * `back()` there would take a first-time visitor off the site from the page somebody linked them.
- * So the first close after a deep link REPLACES instead: the URL becomes the app's, no entry is
- * added, and back still leads wherever they actually came from.
+ * The current page and the one way to change it (route.ts says what is addressable and why little
+ * is). Opening PUSHES and closing goes BACK — one entry in, one out, so the browser's back button
+ * is the same gesture as the ×. A deep link has no entry to go back to and `back()` would take a
+ * first-time visitor off the site, so the first close after one REPLACES instead.
  */
 export function usePageRoute(): { route: PageRoute; go: (r: PageRoute) => void } {
   const [route, setRoute] = useState<PageRoute>(currentRoute);
-  // Whether this session has pushed an entry we are still standing on. A popstate means the
-  // browser moved us, so whatever we pushed is behind us now and is no longer ours to go back to.
+  // Whether this session pushed the entry we are standing on. A popstate means the browser moved
+  // us, so whatever we pushed is no longer ours to go back to.
   const pushed = useRef(false);
 
   useEffect(() => {
@@ -166,9 +154,8 @@ export function usePageRoute(): { route: PageRoute; go: (r: PageRoute) => void }
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  // A path that names no page renders the app, so the URL should say the app. Without this a
-  // mistyped or stale link leaves `/nope` in the address bar for the rest of the session, which is
-  // an address that will keep being copied out of it. `index.html` is tidied the same way.
+  // A path naming no page renders the app, so the URL should say the app: otherwise a mistyped or
+  // stale link stays in the address bar all session, being copied back out of it. So is index.html.
   useEffect(() => {
     if (currentRoute() === null && window.location.pathname !== routeHref(null)) {
       writeUrl(() => window.history.replaceState(null, "", routeHref(null)));
@@ -192,14 +179,10 @@ export function usePageRoute(): { route: PageRoute; go: (r: PageRoute) => void }
 }
 
 /**
- * Run a history write, and say whether it happened.
- *
- * The history API throws on a `file://` document — and opening `dist/index.html` straight off the
- * disk is a case this build deliberately supports (`base: "./"`, see vite.config.ts). An exception
- * on the way into the guide would take the whole app down with it, which is far worse than the URL
- * simply not changing, so the failure is swallowed and the caller falls back to plain state: every
- * page still opens and closes, it just has no address to be linked by. That is exactly the trade
- * `base: "./"` already makes everywhere else.
+ * Run a history write, and say whether it happened. The history API throws on a `file://` document,
+ * which this build deliberately supports (`base: "./"`, vite.config.ts). An exception on the way
+ * into the guide would take the whole app down — far worse than the URL not changing — so it is
+ * swallowed and the caller falls back to plain state: pages open and close, with no address.
  */
 function writeUrl(write: () => void): boolean {
   try { write(); return true; } catch { return false; }

@@ -2,18 +2,12 @@
  * ============================================================================
  * INSPECTOR CONTROLS
  * ============================================================================
- * The small labelled controls the right-hand panel is built from. They used to be closures defined
- * inside TomoshibiStudio's render, rebuilt on every keystroke, each carrying an inline style object
- * with a ternary per property for its active state.
- *
- * The looks are **Tailwind utilities on the elements here**, plus the two shared skins `SEG_SKIN`
- * and `NOTE_SKIN` — which is what makes `:hover`, `:active` and `:disabled` possible at all, an
- * inline style being unable to express them. What stays inline is only what genuinely varies per
- * instance (the slider's `--pct`).
- *
- * All of them are native interactive elements (`<input>`, `<button>`) rather than styled `<div>`s,
- * so keyboard, screen readers and touch targets work without re-implementing any of it. Minimum
- * touch target is 44px wherever the control is the primary way to change a value.
+ * The small labelled controls the right-hand panel is built from. The looks are Tailwind utilities
+ * plus the two shared skins `SEG_SKIN`/`NOTE_SKIN`, which is what makes `:hover`, `:active` and
+ * `:disabled` expressible at all; only what varies per instance stays inline (the slider's `--pct`).
+ * All are native `<input>`/`<button>`, not styled `<div>`s, so keyboard, screen readers and touch
+ * targets work for free. Minimum touch target 44px wherever the control is the primary way to
+ * change a value.
  * ============================================================================
  */
 import React, { useEffect, useId, useRef, useState } from "react";
@@ -21,9 +15,8 @@ import { clamp } from "../util.ts";
 import { useT } from "./theme.ts";
 
 /**
- * What a scrub row edits. `key` is the row's identity for the shared drag highlight (which row is
- * currently being pulled), `display` an optional pre-formatted readout, and `curve` the optional
- * non-linear travel documented below.
+ * What a scrub row edits. `key` is the row's identity for the shared drag highlight, `display` an
+ * optional pre-formatted readout, `curve` the optional non-linear travel documented below.
  */
 export type ScrubCfg = {
   key: string; label: string; value: number;
@@ -46,11 +39,10 @@ export function SectionLabel({ title, hint }: { title: string; hint?: string }) 
 }
 
 /**
- * A labelled parameter: a native range slider with a filled track, plus a value you can click to
- * type an exact number. (It replaced a drag-only "scrub" row that had no track, no keyboard access
- * and no direct entry — hence the name.)
- *   cfg: { key, label, value, min, max, round, unit, display?, onChange }   round = step / snap quantum
- *   drag/setDrag: shared highlight state, so the row tints while this control is the active one.
+ * A labelled parameter: a native range slider with a filled track, plus a click-to-type value.
+ * (Named for the drag-only "scrub" row it replaced.)
+ *   cfg: { key, label, value, min, max, round, unit, display?, onChange }   round = step / snap
+ *   drag/setDrag: shared highlight state, so the row tints while this control is active.
  */
 export function ScrubRow({ cfg, drag, setDrag }: { cfg: ScrubCfg } & DragState) {
   const t = useT();
@@ -59,12 +51,10 @@ export function ScrubRow({ cfg, drag, setDrag }: { cfg: ScrubCfg } & DragState) 
   const id = useId();
   const { value, min, max, round, unit, curve } = cfg;
   const snap = (v: number) => clamp(min, max, +(Math.round(v / round) * round).toFixed(4));
-  // Optional non-linear travel, for a row whose range spans far more than the sizes anyone
-  // actually works at. `curve: k` maps slider position u∈[0,1] to min+(max-min)·u^k, so the small
-  // end gets the travel: over 60–2000mm a linear slider spends 93% of itself above 200mm, while
-  // k=2.5 gives 60–400mm — where nearly every lantern lives — half the bar. The input runs in u
-  // (0..U) only when a curve is set; every other row keeps its exact mm markup, because there a
-  // u-space step would quantize the arrow keys into doing nothing and then jumping.
+  // Optional non-linear travel for a range far wider than the sizes anyone works at. `curve: k`
+  // maps slider position u∈[0,1] to min+(max-min)·u^k: over 60–2000mm a linear slider spends 93% of
+  // itself above 200mm, while k=2.5 gives 60–400mm half the bar. The input runs in u (0..U) only
+  // when a curve is set; elsewhere exact mm, since a u-space step quantizes the arrow keys.
   const U = 1000;
   const bent = curve !== undefined && curve > 1 && max > min;
   const toU = (v: number) => Math.round(U * Math.pow(Math.max(0, (v - min) / (max - min)), 1 / curve!));
@@ -103,7 +93,7 @@ export function ScrubRow({ cfg, drag, setDrag }: { cfg: ScrubCfg } & DragState) 
           onBlur={(e) => commit(e.currentTarget.value)} />
       ) : (
         <button onClick={() => setEditing(true)} title={t("クリックで数値を入力")}
-          /* Looks like text, behaves like a field. It follows the ROW's active state, which is what
+          /* Looks like text, behaves like a field; follows the ROW's active state, which is what
              `group` on the row is for. */
           className="min-w-62 px-2 py-4 flex-none text-right bg-transparent border-0 text-text
             cursor-text font-mono text-base font-semibold hover:text-accent
@@ -125,9 +115,8 @@ export function Stepper({ label, value, min, max, step, onChange, children }: {
   const sq = (txt: string, delta: number, off: boolean) => (
     <button disabled={off} aria-label={`${t(label)} ${delta > 0 ? "+" : "−"}${Math.abs(delta)}`}
       onClick={() => onChange(clamp(min, max, +(value + delta).toFixed(2)))}
-      /* 26px to look at, 40x44 to hit on a phone — the overlay rather than a bigger box, because the
-         box is what the row's spacing is built from. Same split the section editor draws between a
-         handle's glyph and its hit circle. */
+      /* 26px to look at, 40x44 to hit — an overlay rather than a bigger box, since the box is what
+         the row's spacing is built from. Same split the section editor draws. */
       className="w-26 h-26 p-0 rounded-sm flex items-center justify-center bg-card text-accent
         border border-accent-45 text-xl font-semibold leading-none cursor-pointer
         enabled:hover:bg-accent-08 disabled:bg-transparent disabled:text-faintest
@@ -191,22 +180,16 @@ export function Checkbox({ checked, onToggle, label }: {
 }
 
 /**
- * A small labelled button — undo/redo in the panel, "go to the print view" in the guide.
- *
- * It exists because `.btn` did NOT. The class was used from two files with a modifier each, and one
- * of those modifiers — `btn--ghost` — had been deleted from index.css when the buttons it belonged
- * to moved into the ☰ menu. The call site was never updated, so the guide shipped a button wearing
- * the BROWSER's default chrome (`background: #efefef; border: 2px outset black`) in a warm-toned
- * document, on main, through every gate: nothing checks a class name, it is a string.
- *
- * There is deliberately no `variant` prop. One look is defined and one is kept; a second is a change
- * to this component, made where the styles are, rather than a word invented at a call site.
+ * A small labelled button — undo/redo in the panel, "go to the print view" in the guide. It exists
+ * because the class it replaced did not: a modifier deleted from index.css left its call site
+ * shipping the browser's default chrome past every gate, since nothing checks a class name.
+ * Deliberately no `variant` prop: a second look is an edit here.
  */
 export function Button({ onClick, disabled, title, className = "", children }: {
   onClick: () => void; disabled?: boolean; title?: string;
   /** POSITION only — margin, alignment, order. Not a way to restyle the button from outside; the
-   *  look is the one above, and a second one is an edit here. `.guide-steps .btn { margin-top }`
-   *  was a rule in index.css doing exactly this, and it died silently when the class did. */
+   *  look is the one above, and a second one is an edit here. An index.css rule once did this from
+   *  outside and died silently when the class it targeted did. */
   className?: string;
   children: React.ReactNode;
 }) {
@@ -223,11 +206,9 @@ export function Button({ onClick, disabled, title, className = "", children }: {
 }
 
 /**
- * A status marker on something else — "beta" on a route, 「任意」 on a kit item.
- *
- * Outlined rather than filled so it reads as a note ABOUT the thing and not as a second thing to
- * press, and it takes `currentColor`, so every host — a segmented option, the welcome card's route
- * button, a viewport chip — needs nothing of its own, pressed (filled orange) state included.
+ * A status marker on something else — "beta" on a route, an optional badge on a kit item. Outlined
+ * rather than filled so it reads as a note ABOUT the thing, not a second thing to press, and it
+ * takes `currentColor`, so every host needs nothing of its own — pressed state included.
  */
 export function Badge({ children }: { children: React.ReactNode }) {
   return (
@@ -237,13 +218,10 @@ export function Badge({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The look of one segmented option, without its LAYOUT.
- *
- * Exported because the point bar's ◠ button wears the same skin at a different size, and utilities
- * cannot express that by overriding: they all have the same specificity, so `p-0` after `px-4 py-7`
- * in a class string does not win — Tailwind emits `p-*` BEFORE `px-*`/`py-*`, and the sheet's order
- * is what decides. Sharing the skin and letting each caller state its own box is the way that has
- * no order to get wrong.
+ * The look of one segmented option, without its LAYOUT. Exported because the point bar's ◠ button
+ * wears the same skin at a different size, and utilities cannot express that by overriding: they
+ * share a specificity, so the generated sheet's order decides (Tailwind emits `p-*` before
+ * `px-*`/`py-*`, so `p-0` written after `px-4 py-7` loses). Each caller states its own box.
  */
 export const SEG_SKIN = "rounded-md cursor-pointer bg-card text-text border border-card-edge "
   + "font-sans text-base font-semibold hover:border-accent-45 "
@@ -267,10 +245,8 @@ export function CTA({ label, onClick, outline }: { label: string; onClick: () =>
   const t = useT();
   return (
     <button onClick={onClick}
-      /* The border belongs to the OUTLINE branch, not to the base. `border` on both and
-         `border-transparent` on the filled one looks equivalent and is not: box-sizing is
-         border-box, so a transparent 1px border still eats 1px of padding on every side and the
-         button came out 2px taller than the one it replaced. */
+      /* The border belongs to the OUTLINE branch, not the base: box-sizing is border-box, so a
+         transparent 1px border on the filled one still eats 1px of padding per side — 2px taller. */
       className={`w-full p-12 rounded-lg cursor-pointer font-sans text-md font-bold
         tracking-[0.08em] hover:brightness-[1.06] ${outline
           ? "bg-card text-accent border border-accent-5 shadow-none"
@@ -285,10 +261,8 @@ export const NOTE_SKIN = "text-xs leading-[1.6] text-faint [&_strong]:text-text"
 
 /**
  * Small note under a control or CTA. Accepts rich children, so it is not translated here.
- *
- * `className` REPLACES the default margin rather than adding to it. Two margin utilities on one
- * element do not override by string order — they share a specificity, so the generated sheet's
- * order decides — and `mt-2 mt-9` is exactly the kind of coin-flip that reads as correct.
+ * `className` REPLACES the default margin rather than adding to it: two margin utilities on one
+ * element share a specificity, so the sheet's order decides which wins.
  */
 export function Note({ children, className = "mt-9" }: { children?: React.ReactNode; className?: string }) {
   return <div className={`${NOTE_SKIN} ${className}`}>{children}</div>;
