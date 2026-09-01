@@ -2,32 +2,22 @@
  * ============================================================================
  * Papercraft (cardboard) verification
  * ============================================================================
- * STL correctness is guaranteed by "watertight (manifold)", but papercraft is
- * paper, so the criteria differ. Three things that must not break in papercraft:
+ * STL correctness is "watertight"; papercraft is paper, so the criteria differ. Three things must
+ * not break:
  *
- *   1. **Full-scale (1:1)** — paper dimensions = real mm. If this drifts, the
- *      papercraft is worthless. Cross-check against geometry.ts invariants
- *      (rib total length / koma outer diameter / groove width / groove wall thickness).
- *   2. **No missing parts** — all N ribs + 2 komas appear on paper. A drop from
- *      page layout (row packing + page spanning) can only be caught here.
- *      Also checks "**do not emit glue tabs when no part spans pages**" (are we
- *      forcing unnecessary gluing? previously every page was uniformly overlapped).
- *   3. **No NaN/undefined** — a NaN in an SVG path makes that part vanish
- *      (the browser silently ignores it, so you only notice after printing = worst case).
+ *   1. **Full scale (1:1)** — paper dimensions = real mm, cross-checked against geometry.ts's own
+ *      invariants (rib length, koma outer diameter, groove width, groove wall). If this drifts the
+ *      template is worthless.
+ *   2. **No missing parts** — all N ribs + 2 koma appear, which only this can catch after row
+ *      packing and page spanning. Also that **no glue tabs are emitted when no part spans pages**.
+ *   3. **No NaN/undefined** — a NaN in an SVG path makes that part vanish silently, so you find out
+ *      after printing.
  *
- * The **washi template** (the paper skin's flat pattern) is checked by the same three, with its own
- * decisive invariant: the sheet's length is the **meridian arc length**, not the body height. Cutting
- * the washi to the straight height is the mistake the template exists to prevent, so section 4
- * asserts it against an independent integration of outerR. It is a **document of its own** on both
- * routes — its own PDF inside whichever ZIP you download — so section 4 also pins the two halves of
- * that split: the panel is not among the cardboard template's pages, and the copy that ships with
- * cardboard is cut from `paperP` (thick material can clamp the rib count, and the panel is one
- * rib-to-rib bay wide). Section 5 covers the **washi PDF** itself: a hand-rolled PDF is silently
- * wrong in two ways — a bad xref offset (viewers refuse it or open it blank) and a wrong scale — so
- * both are pinned there.
- *
- * Run:  npm run check:paper
- * Run this after touching the 2D side of papercraft.ts / geometry.ts.
+ * The **washi template** is checked by the same three plus its own decisive invariant: the sheet's
+ * length is the **meridian arc length**, not the body height — cutting to the straight height is the
+ * mistake the template exists to prevent, so section 4 asserts it against an independent integration
+ * of `outerR`. It is a document of its own on both routes, so section 4 also pins that its pages are
+ * NOT among the cardboard template's.
  * ============================================================================
  */
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
@@ -239,16 +229,17 @@ for (const preset of PRESETS)
         }
 
 // ---- 5. The template PDFs (both shipped deliverables) ----
-// Two files come out of here: the washi template bundled in the STL kit's ZIP, and the cardboard
-// template, which since the HTML page was dropped IS the cardboard route's entire output.
+// The washi template bundled in the STL kit's ZIP, and the cardboard template, which since the HTML
+// page was dropped IS the cardboard route's entire output.
 //
-// The PDF is hand-rolled (src/pdf.ts), so the checks are the two ways it can be silently wrong:
-// **a broken file** (a bad xref offset makes viewers refuse it, or open it blank) and **a wrong
-// scale** (the whole point of the template). Scale is pinned by the page CTM (mm→pt = 2.835) plus
-// the 50mm ruler being drawn as literally 50mm in user space.
-// One outlined character: a scale-and-flip matrix, a fill colour, the stored path, filled. Its
+// The PDF is hand-rolled (src/pdf.ts), so this checks the two ways it can be silently wrong: **a
+// broken file** (a bad xref offset makes viewers refuse it or open it blank) and **a wrong scale**
+// (the whole point of the template), pinned by the page CTM (mm→pt = 2.835) and by the 50mm ruler
+// being drawn as literally 50mm in user space.
+//
+// An outlined character is a scale-and-flip matrix, a fill colour, a stored path, filled — and its
 // operators are `m`/`l`/`c`/`h` like any other path, so every reader of the content stream has to
-// take it out first — a glyph is a word on the page, not a line to cut along.
+// strip glyph blocks first. A glyph is a word on the page, not a line to cut along.
 const GLYPH_RE = /q [-\d. ]+ cm [\d. ]+ rg [-\d. mlch]+ f Q/g;
 const pdfStructure = (s: string, tag: string, pages: number) => {
   if (!s.startsWith("%PDF-1.")) bad(`${tag}: no PDF header`);
@@ -325,21 +316,20 @@ for (const preset of PRESETS)
       if (drawn !== wanted) bad(`${tag} cardboard ja: ${wanted} outlined characters on screen, ${drawn} in the PDF`);
     }
 // ---- 6. One drawing, two encodings ----
-// Every page is built once as `pageOps` and then rendered as SVG or as PDF. The cardboard route's
-// SVG is what its print view shows before you download anything; the washi's is drawn nowhere and
-// exists for this comparison. Section 5 pins the page COUNT; this pins the drawing itself, so a
-// change to one renderer cannot quietly leave the other behind — which is the only thing standing
-// between a hand-rolled PDF and a file that disagrees with everything else here.
+// Every page is built once as `pageOps` and rendered as SVG or as PDF. Section 5 pins the page
+// COUNT; this pins the drawing itself, so a change to one renderer cannot quietly leave the other
+// behind — the only thing standing between a hand-rolled PDF and a file that disagrees with
+// everything else here.
 //
-// Compared as coordinates, not as bytes, because the two encodings legitimately differ in three
-// ways and only these three:
-//   · the SVG rounds to 2dp at generation, the PDF to 3dp — a coordinate ending .xx5 double-rounds
-//     0.01mm apart, so the compare carries a tolerance and the sort uses a coarse 0.1mm key
-//     (a lexicographic sort would reorder the two lists differently over that same 0.01, and a key
-//     built from only the first few points leaves genuinely distinct paths tied);
-//   · a part name is centred by `text-anchor: middle` in SVG and by a pre-shifted x in the PDF —
-//     the same place on the page, so its x is not comparable and text sorts on y + content;
+// Compared as coordinates, not bytes, because the two encodings legitimately differ in three ways
+// and ONLY these three:
+//   · SVG rounds to 2dp and the PDF to 3dp, so a coordinate ending .xx5 double-rounds 0.01mm apart:
+//     the compare carries a tolerance and sorts on a coarse 0.1mm key (a lexicographic sort would
+//     reorder the two lists over that same 0.01, and a key from the first few points ties paths);
+//   · a part name is centred by `text-anchor: middle` in SVG and by a pre-shifted x in the PDF, so
+//     its x is not comparable and text sorts on y + content;
 //   · SVG escapes `<` as `&lt;`.
+// A fourth difference appearing means a renderer has drifted, not that the tolerance needs widening.
 const r2 = (v: string | number) => (+v).toFixed(2);
 const pkey = (v: string) => String(v.split(" ").length).padStart(6) + "|"
   + v.split(" ").map((x: string) => (Math.round(+x * 10) / 10).toFixed(1).padStart(9)).join(",");

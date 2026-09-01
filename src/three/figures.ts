@@ -2,22 +2,14 @@
  * ============================================================================
  * FIGURES — the assembly guide's line drawings, rendered from the real parts
  * ============================================================================
- * Every figure on the guide page is drawn from a real design `p`: 8 ribs are drawn as 8 ribs, and a
- * 400mm body is drawn tall. (The guide hands the same FIXED design to every call these days — see
- * GuidePage. Nothing in this file knows that, and nothing here should.) The shapes come from `geometry.ts` like everything else here, so a
- * figure cannot show a mold the STL does not make — the failure a hand-drawn illustration guarantees
- * the day someone changes a part.
+ * Every figure is built from a design `p` and from `geometry.ts`, so a figure cannot show a mold the
+ * STL does not make. (GuidePage passes the same FIXED design to every call; nothing here knows that.)
  *
- * [Look] White faces plus their own outlines: `EdgesGeometry` over an opaque `MeshBasicMaterial`,
- *   which is a hidden-line drawing for free — the depth buffer hides the lines the faces cover. The
- *   part a step adds is drawn in the accent colour so the eye lands on it, the convention every
- *   assembly sheet uses.
- * [Camera] Orthographic and isometric. A perspective figure of a flat part reads as a wrong shape,
- *   and orthographic keeps the same part the same size wherever it sits in the frame.
- * [Output] A PNG data URL, not a live canvas. A page of eight figures would be eight WebGL contexts
- *   (browsers cap them at ~16 and drop the oldest), and an <img> costs nothing to scroll, survives a
- *   re-render, and is what the browser's own "Save as PDF" prints. One renderer draws them all in
- *   turn and hands back the pixels.
+ * [Look] White faces plus their own outlines — `EdgesGeometry` over an opaque `MeshBasicMaterial` is
+ *   a hidden-line drawing for free. The part a step adds is drawn in the accent colour.
+ * [Camera] Orthographic and isometric: a perspective view of a flat part reads as a wrong shape.
+ * [Output] A PNG data URL, not a live canvas — eleven figures would be eleven WebGL contexts (capped
+ *   at ~16). One renderer draws them all in turn.
  * ============================================================================
  */
 import type { Design } from "../types.ts";
@@ -65,20 +57,18 @@ function part(geo: THREE.BufferGeometry, hot: boolean): THREE.Group {
 
 /**
  * The rib as the reader's route actually makes it. Cardboard cuts a SMOOTH outer edge (you cannot
- * carve a 0.5mm V-notch into board, so the template marks the bamboo positions with ticks instead)
- * and no lightening windows, so drawing the printed rib on that route would show grooves and holes
- * nobody has cut. `smooth` carries the route in; everything else follows from `p`, which the guide
- * has already put through paperP.
+ * carve a 0.5mm V into board; the template marks the bamboo with ticks instead) and no lightening
+ * windows, so drawing the printed rib there would show grooves and holes nobody has cut. `smooth`
+ * carries the route in; everything else follows from `p`, already put through `paperP`.
  */
 const ribGeo = (p: Design, k: number, smooth: boolean) => ribGeometry(smooth ? { ...p, lighten: false } : p, k, { smooth });
 
 /**
- * The rubber bands that hold the assembly together while you work: one just outside each koma, round
- * the bundle of tabs. **The only thing in this file that is not a part** — it is not printed, not
- * cut and not in geometry.ts, so it is drawn as a plain torus sized off `komaR`, the radius the tabs
- * actually end at. Never drawn in ink, because it is not a part: full accent while the step is ABOUT
- * the bands, muted once it is not — otherwise the next step highlights its rings in the very orange
- * the bands are already wearing, and the figure stops saying which two things are new.
+ * The rubber bands that hold the assembly together while you work: one just outside each koma. **The
+ * only thing here that is not a part** — not printed, not cut, not in geometry.ts — so it is a plain
+ * torus sized off `komaR`, where the tabs end. Never drawn in ink: full accent while the step is
+ * ABOUT the bands, muted once it is not, or the next step highlights its rings in the orange the
+ * bands already wear and the figure stops saying which two things are new.
  */
 const BAND_OFF = 0xe3b39d;
 function bands(p: Design, hot: boolean): THREE.Group {
@@ -95,27 +85,20 @@ function bands(p: Design, hot: boolean): THREE.Group {
 }
 
 /**
- * The bamboo, wound into the grooves. Not a printed part either — but unlike the bands, not invented
- * either: the rings sit at `grooveList`'s heights on `outerR`'s radius, the same two functions that
- * cut the grooves, so a design with eleven grooves is drawn with eleven rings and a spiral one is
- * drawn as the single descending helix `higoSpiralPath` hands the lit view. **That is why this step
- * earns a figure rather than a photograph**: how many turns, and which way they run, is an answer
- * about this design.
+ * The bamboo, wound into the grooves. The rings sit at `grooveList`'s heights on `outerR`'s radius —
+ * the same two functions that cut the grooves — so a spiral design draws as the single descending
+ * helix `higoSpiralPath` hands the lit view.
  *
- * Centred ON the outer edge rather than sunk into it. The V is only 0.5mm wider at its mouth than
- * the rod (`grooveR` = higoD/2 + 0.25), so a round rib of that diameter wedges level with the
- * surface long before it reaches the tip — the lit preview centres it there for the same reason.
- * The cardboard route cuts no grooves at all and the bamboo simply lies on the smooth edge at the
- * template's ticks, which are these same heights: nothing here branches on the route.
+ * Centred ON the outer edge, not sunk into it: the V is only 0.5mm wider at its mouth than the rod
+ * (`grooveR` = higoD/2 + 0.25), so a round rib wedges level with the surface. Nothing branches on the
+ * route — cardboard cuts no grooves and the bamboo lies at the template's ticks, the same heights.
  */
 const HIGO_OFF = 0xbfa06a;      // bamboo tan, once the step has moved on (see `bands` for why muted)
-// `near` draws only the half of each ring that faces the camera. It is for the one see-through
-// figure: the bamboo is UNDER the paper, so the far side of the winding is inside the shade and no
-// wall can hide it — eight far rings crossing eight near ones turned a paper lantern into a rattan
-// basket, and it is the near half you would actually read as ribbing anyway. The arc ends exactly
-// at the silhouette, where a ring runs tangent to the eye, so the outline keeps its bamboo.
-// (A SPIRAL winding is left whole: it is one continuous path, and cutting it into arcs is a
-// different problem. This page's design has horizontal rings, so it cannot arise here.)
+// `near` draws only the half of each ring that faces the camera, for the one see-through figure: the
+// bamboo is UNDER the paper, so the far side is inside the shade and no wall can hide it — eight far
+// rings crossing eight near ones is a rattan basket. The arc ends exactly at the silhouette, where a
+// ring runs tangent to the eye, so the outline keeps its bamboo. (A SPIRAL winding is left whole: it
+// is one continuous path. This page's design has horizontal rings, so that cannot arise here.)
 function higoWinding(p: Design, hot: boolean, near = false): THREE.Group {
   const g = new THREE.Group();
   const r = p.higoD / 2;
@@ -132,12 +115,11 @@ function higoWinding(p: Design, hot: boolean, near = false): THREE.Group {
       const geo = near
         ? new THREE.TorusGeometry(outerR(p, y / p.height), r, 8, 64, Math.PI)
         : new THREE.TorusGeometry(outerR(p, y / p.height), r, 8, 96);
-      // The half-arc is aimed by turning the GEOMETRY in its own plane before laying it down, not by
-      // a second Euler angle on the mesh: composed with the quarter turn that lays the ring flat, a
-      // `rotation.y` tilts the ring out of the horizontal instead of spinning it about its axis, and
-      // every ring came out as a straight diagonal band across the shade. A torus's arc starts at
-      // its own 0 and spans `arc`, so its midpoint sits a quarter turn on; -45° lands that midpoint
-      // on the camera's own bearing once rotateX has mapped plane-angle to azimuth.
+      // Aim the half-arc by turning the GEOMETRY in its own plane, not with a second Euler angle on
+      // the mesh: composed with the quarter turn that lays the ring flat, a `rotation.y` tilts the
+      // ring out of the horizontal instead of spinning it about its axis, and every ring came out a
+      // straight diagonal band. A torus's arc starts at its own 0 and spans `arc`, so its midpoint
+      // sits a quarter turn on; -45° lands that midpoint on the camera's bearing after rotateX.
       if (near) geo.rotateZ(-Math.PI / 4);
       geo.rotateX(Math.PI / 2);
       const ring = new THREE.Mesh(geo, mat());
@@ -157,25 +139,13 @@ function higoWinding(p: Design, hot: boolean, near = false): THREE.Group {
 const ribPhi = (k: number, d: number) => Math.PI / 2 + k * d;
 /**
  * The washi, pasted. One `LatheGeometry` PER BAY rather than one skin with a slice missing, because
- * the seams are the instruction: real panels lap over each rib, and a single lathe would draw only
- * its two outer edges and read as one continuous wrapper. Each panel is its own surface, so every
- * seam draws.
+ * the seams are the instruction and a single lathe would read as a continuous wrapper.
  *
- * The surface is the mold's own, offset `higoD` clear of it — outside the bamboo, which is centred
- * on `outerR` (see `washiProfile` for why that offset has to follow the normal). It runs
- * `fukuroRange` only: the neck
- * carries no paper, exactly as the washi template's own panel does (papercraft.ts). The cover
- * allowance folded over the opening rings is not drawn; it is 3mm of paper, and drawing it would
- * only blunt the rim the figure is trying to show.
- *
- * Double-sided, unlike every part here: a panel turns its inside to the camera as it curves away,
- * and a culled one is a panel that is pasted and invisible.
- *
- * And **ivory rather than the white every part is drawn in** — the one place that rule is dropped.
- * The parts are white because they are the object; here the paper is a second surface laid OVER the
- * object, and white on white is a panel you cannot see against a white card: the first version drew
- * three pasted panels that read as bare air with a stray arc round them. A tint barely off the page
- * is enough to say "there is paper here" without competing with the panel going on now.
+ * The surface is the mold's own, offset `higoD` clear of it along the NORMAL, not x (see
+ * `washiProfile`). `fukuroRange` only: the neck carries no paper. The 3mm cover allowance is not
+ * drawn. Double-sided, unlike every part here — a panel turns its inside to the camera as it curves
+ * away — and IVORY rather than white, the one place that rule is dropped, because paper laid over a
+ * white object on a white card is invisible.
  */
 const WASHI_FACE = 0xf3ede2;
 function washiProfile(p: Design): THREE.Vector2[] {
@@ -184,11 +154,10 @@ function washiProfile(p: Design): THREE.Vector2[] {
   const out: THREE.Vector2[] = [];
   for (let i = 0; i <= N; i++) {
     const t = lo + (hi - lo) * (i / N);
-    // Offset along the surface NORMAL, not along x. Pushing the profile out horizontally leaves only
-    // `higoD·cos θ` of clearance on a face at angle θ, and the bamboo is a round rod of higoD across
-    // sitting ON that face: past θ ≈ 60° the rod comes out through the paper that is supposed to be
-    // lying over it. A squat, steep-sided body reaches that easily (r=120 over h=90 is dR/dy = 2),
-    // and it drew its bamboo as rings printed on the outside of the shade.
+    // Offset along the surface NORMAL, not along x: pushed out horizontally, a face at angle θ keeps
+    // only `higoD·cos θ` of clearance, so past θ ≈ 60° the rod comes out through the paper meant to
+    // lie over it. A squat body reaches that easily (r=120 over h=90 is dR/dy = 2), and drew its
+    // bamboo as rings printed on the outside of the shade.
     const t0 = Math.max(lo, t - dt), t1 = Math.min(hi, t + dt);
     const s = (outerR(p, t1) - outerR(p, t0)) / ((t1 - t0) * H);      // dR/dy
     const n = Math.hypot(1, s);
@@ -203,15 +172,13 @@ function washiSkin(p: Design, bays: number[], hotBay: number | null, face = WASH
   for (const k of bays) {
     const hot = k === hotBay;
     const geo = new THREE.LatheGeometry(prof, 16, ribPhi(k, d), d);
-    // A see-through shade is drawn in TWO passes, and the second one is what makes it a drawing
-    // rather than a wash. Pass one is the FAR wall — back faces only, opaque, writing depth, drawn
-    // first: it hides everything behind the lantern, which on a wound shade means the bamboo on the
-    // far side. (One pass with DoubleSide and no depth write leaves that showing, and eight rings of
-    // it crossing the near eight turns a paper lantern into a rattan basket — it was the first thing
-    // this was tried as.) Pass two is the NEAR wall, front faces, translucent and writing no depth,
-    // drawn last, so the fitting inside is already on the canvas when the paper tints over it. The
-    // bamboo on the NEAR side stays crisp: it is in front of that wall, so the wall fails the depth
-    // test where it lies and never paints over it.
+    // A see-through shade is TWO passes, and the second is what makes it a drawing rather than a
+    // wash. Pass one is the FAR wall — back faces only, opaque, writing depth — which hides the
+    // bamboo on the far side. (One DoubleSide pass with no depth write leaves it showing: eight far
+    // rings over the near eight, a rattan basket. That was the first attempt.) Pass two is the NEAR
+    // wall, front faces, translucent and writing no depth, drawn last, so the fitting inside is
+    // already on the canvas when the paper tints over it. The near bamboo stays crisp: it is in
+    // front of that wall, so the wall fails the depth test where it lies.
     const skin = (side: THREE.Side, o: number, order: number) => {
       const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
         color: hot ? HI_FACE : face, side,
@@ -229,21 +196,13 @@ function washiSkin(p: Design, bays: number[], hotBay: number | null, face = WASH
   return g;
 }
 /**
- * Panels on every other bay, and the yaw that makes that legible.
+ * Panels on every other bay, and the yaw that makes it legible: the mold is turned so a bay CENTRE
+ * sits on the camera axis, panel · gap · panel. A bay is 360/N wide, so any other phase lays one
+ * across the silhouette, where its inside shows through the bare bay with the near side's bamboo
+ * over it. A mold has no preferred rotation, so the yaw costs nothing.
  *
- * The mold is turned so that a bay CENTRE sits on the camera axis, and the panels go on the bays
- * either side of it: panel · gap · panel, the gap dead centre. A mold has no preferred rotation, so
- * this costs nothing — and it is the only way to get two alternating panels both fully front-facing.
- * A bay is 360/N wide, so leaving the phase to chance lands one of any such pair across the
- * silhouette, where the reader sees its INSIDE through the bare bay with the near side's bamboo
- * drawn over it: paper behind the bamboo, which is the one thing pasting is not. (Three placements
- * were tried by eye before this one — leading away from the camera hides the gap, and centring the
- * run on it puts ivory on both rims, which reads as one skin with a hole torn in it.)
- *
- * Alternating is what the step asks for — skip a bay, go round, then come back and fill the gaps, so
- * each overlap laps onto a panel that is no longer wet — and it is also the only pattern a still
- * figure can state: contiguous panels are just "a partly covered mold", while a gap between two
- * pasted bays is unmistakably deliberate.
+ * Alternating is what the step asks for, and the only pattern a still figure can state: a gap
+ * between two pasted bays reads as deliberate where contiguous panels read as "partly covered".
  */
 function washiYaw(p: Design, dir: THREE.Vector3): number {
   const d = (Math.PI * 2) / p.boards;
@@ -253,11 +212,10 @@ function washiYaw(p: Design, dir: THREE.Vector3): number {
   return camPhi - ribPhi(0, d) - d / 2;
 }
 /**
- * Every bay pasted — the shade as it is left to dry. Still one lathe per bay, not a single surface
- * of revolution: a full lathe has no crease anywhere, so `EdgesGeometry` finds nothing but its two
- * rims and the body comes out an ivory blob with no outline at all. Per bay, the seams draw, and the
- * outermost ones sit within half a bay of the silhouette — where meridians are seen edge-on, so they
- * land on it. The seams are worth drawing for their own sake anyway: a dry shade shows them.
+ * Every bay pasted — the shade left to dry. Still one lathe per bay: a full lathe has no crease
+ * anywhere, so `EdgesGeometry` finds only its two rims and the body comes out an ivory blob with no
+ * outline. Per bay the seams draw, and the outermost sit within half a bay of the silhouette, where
+ * meridians are seen edge-on. A dry shade shows them anyway.
  *
  * Nothing is highlighted: the step adds no part, it waits.
  */
@@ -395,21 +353,11 @@ function moldOnStand(p: Design, hot: string | null, smooth: boolean, washi: Wash
 }
 
 /**
- * The mold coming out, near the end of it: the shade dry, both koma off, and the LAST rib half drawn
- * out of the opening. **Lying on its side** — a rib leaves along the axis, so upright the whole
- * action points at the camera and draws as a stub over the mouth. Sideways it reads left to right.
- *
- * One rib rather than all of them, and it is not just tidier: the ribs come out one at a time, and
- * the last one is the only moment in that sequence where the mouth is a mouth. With the other seven
- * still in, the opening fills with rib edges seen end-on and the reader is looking at a turbine.
- * What is left inside is the bamboo, seen from within through the far wall, which is what a real
- * shade shows once the mold is out of it.
- *
- * The koma are set down flat rather than exploded along the axis, which is the usual convention for
- * a part being taken off: the axis here is exactly where the rib is coming out, so a disc floating
- * on it reads as being in the way. A part lying flat on the table reads as off and overlaps nothing.
- * The rubber bands are simply gone — with the koma off there is nothing left for them to hold, and a
- * figure that keeps them is a figure of a step not finished.
+ * The mold coming out: the shade dry, both koma off, the LAST rib half drawn out of the opening.
+ * **Lying on its side**, because a rib leaves along the axis and upright the action points at the
+ * camera. One rib, not all of them: with the other seven still in, the mouth fills with rib edges
+ * seen end-on and reads as a turbine. The koma lie flat rather than exploded along the axis, which
+ * is exactly where the rib is coming out. The bands are gone — with the koma off, nothing to hold.
  */
 // How far the mold is turned away from square-on to the camera. At 0° the open mouth faces the
 // reader and the frame fills with the inside of the lantern — every remaining rib edge-on, and the
@@ -457,14 +405,10 @@ function pullScene(p: Design, smooth: boolean): THREE.Group {
 }
 
 /**
- * The finished lantern, lit — the figures with no mold in them at all. There is one per way of
- * lighting it, because the lamp is the one part of this build the app does not make: you supply it,
- * and the three ways of doing that give three different objects.
- *
- * **Warm, not white.** The rest of the page is a white-parts drawing and the pasted washi is ivory;
- * a lit shade is the same paper with light behind it, so it is drawn the colour the lit view's own
- * emissive gives it. That is the whole of "the light is on" — no rays: this page is a set of
- * technical drawings, and a starburst is the one mark on it that would be decoration.
+ * The finished lantern, lit — no mold in it at all, one figure per way of lighting it, because the
+ * lamp is the one part of this build the app does not make. **Warm, not white**: a lit shade is the
+ * same paper with light behind it. No rays — on a page of technical drawings a starburst is the one
+ * mark that would be decoration.
  */
 const LIT_FACE = 0xf9d9a3;       // the lit view's warm emissive, as a flat fill
 const CORD_INK = 0x5c574f;       // lamp flex: dark, but the ink family rather than black
@@ -479,15 +423,12 @@ function litShade(p: Design, smooth: boolean, opacity = 1): THREE.Group {
 }
 
 /**
- * (2) Hung from a pendant cord, fixed at the top.
- *
- * Two things about the cord are deliberate: it is on the AXIS, and it enters by the TOP opening
- * whichever of the two openings is the wider — a hanging shade has an up, and it is the design's own
- * up, not its bigger mouth. It dips `CORD_DIP` below the rim so it meets the opening instead of
- * floating over it, and runs `CORD_UP` of the body height above the shade: far enough to read as
- * hanging, short enough not to eat the frame (the view fits the bounding box, cord included). Its
- * top is simply cut off — the drawing convention for "this continues" — rather than ending in a
- * ceiling rose, which would claim the lamp is wired in when it plugs into a socket.
+ * (2) Hung from a pendant cord. The cord is on the AXIS and enters by the TOP opening whichever
+ * mouth is wider: a hanging shade has an up, and it is the design's own up. It dips `CORD_DIP` below
+ * the rim so it meets the opening, and runs `CORD_UP` of the body height above — far enough to read
+ * as hanging, short enough not to eat the frame (the view fits the bounding box, cord included). The
+ * top is cut off, the convention for "this continues"; a ceiling rose would claim the lamp is wired
+ * in when it plugs into a socket.
  */
 const CORD_R = 1.6;              // mm — a lamp cord, thin enough to draw as a line, not a pipe
 const CORD_DIP = 6;              // mm below the opening rim, so the cord meets the ring
@@ -513,18 +454,10 @@ function lightHang(p: Design, smooth: boolean): THREE.Group {
 }
 
 /**
- * (1) No legs: a lamp stood on the floor and the shade dropped over it.
- *
- * **Drawn EXPLODED — the shade lifted clear of the lamp — because the method is the whole point of
- * the figure and the shade is opaque.** Set down, this way of doing it looks exactly like the other
- * two with their fittings cropped off: a lit shade on a surface. Lifted, it says put the lamp there
- * and cover it, which is the entire instruction. The floor is a thin disc, and it is what makes
- * "stood on the floor" different from "floating": without it the lamp reads as hanging too.
- *
- * The lamp is generic on purpose — a base and a dome, no socket and no bulb thread — because this
- * route takes whatever you own that stands up and glows. It is sized off the BOTTOM opening it has
- * to pass through (`LAMP_FIT` of that radius), so a design whose mouth is too small to swallow a
- * lamp does not get drawn one that could never go in.
+ * (1) No legs: a lamp stood on the floor and the shade dropped over it. **Drawn EXPLODED**, because
+ * set down it looks exactly like the other two with their fittings cropped off. The floor disc is
+ * what separates "stood on the floor" from "floating". The lamp is generic (a base and a dome, no
+ * thread) and sized off the BOTTOM opening it has to pass through (`LAMP_FIT`).
  */
 const LAMP_FIT = 0.62;           // x the bottom opening radius: it has to pass through the mouth
 const LAMP_MAX = 38;             // mm — beyond this it is a floor lamp, not something you cover
@@ -556,18 +489,14 @@ function lightSet(p: Design, smooth: boolean): THREE.Group {
 /**
  * (3) Stood on legs, with the lamp fixed up into the bottom opening.
  *
- * The legs are the lit view's legs (`scenes.ts` buildLit: 0.42·height drop, 0.35·drop splay) rooted
- * in the bottom ring's SOCKETS — `ringLegs` gives the pad centres — because that is the one place
- * this app actually makes for them. It returns null when the sockets are off and when the opening
- * is too small to hold them; the guide drops this option entirely in that case rather than drawing
- * a legless lantern under the words "add legs". It does NOT depend on the route: cardboard prints
- * no ring, but the finished lantern has one either way and the step says so in its own words.
+ * The legs are the lit view's (`scenes.ts` buildLit: 0.42·height drop, 0.35·drop splay) rooted in the
+ * bottom ring's SOCKETS — `ringLegs` gives the pad centres, and returns null when the sockets are off
+ * or the opening is too small, at which point the guide drops this option rather than draw a legless
+ * lantern under the words "add legs". It does NOT depend on the route: cardboard prints no ring, but
+ * the finished lantern has one either way.
  *
- * What makes it method (3) rather than (2) upside down: the socket is fixed UP INTO the bottom
- * mouth and the cord leaves DOWNWARDS, between the legs, which is the whole reason the lantern
- * needs the clearance the legs give it. The cord is cut off below the feet — it goes on to a plug.
- * Rods and socket rather than parts: you supply them, and an outlined cylinder is no help anyway
- * (12 facets draw as a hatched tube, 24 draw as nothing at all).
+ * What makes it (3) rather than (2) upside down: the socket is fixed UP into the bottom mouth and the
+ * cord leaves DOWNWARDS between the legs. Rods and socket rather than parts — you supply them.
  */
 const LEG_DROP = 0.42;           // x body height, and the splay is 0.35 of that: the lit view's own
 const LIT_THRU = 0.45;           // how much of the shade you see through, in this one figure
@@ -575,18 +504,14 @@ const LIT_THRU = 0.45;           // how much of the shade you see through, in th
 /**
  * (3) Stood on legs, with the lamp fixed up into the bottom mouth.
  *
- * **The shade is translucent here and nowhere else.** Every other figure on the page draws paper as
- * paper — opaque, and the thing behind it hidden, which is the honest drawing of a finished lantern.
- * This one has to explain a fitting that is entirely INSIDE the lantern: a socket, three legs and a
- * frame, worked through in three panels beside it, all of them behind the paper. Drawn opaque, the
- * figure showed a shade with legs under it and said nothing about any of it. So the skin drops to
- * `LIT_THRU` and the whole assembly is drawn inside — which is also what a lit paper shade actually
- * looks like, the bulb showing through as a shape.
+ * **The shade is translucent here and nowhere else.** This is the one figure that has to explain a
+ * fitting entirely INSIDE the lantern (socket, three legs, frame — the three panels beside it), and
+ * drawn opaque it showed a shade with legs under it and explained none of it. So the skin drops to
+ * `LIT_THRU` and the assembly is drawn in, which is also what a lit paper shade looks like.
  *
- * The parts inside are drawn WHITE, exactly as they are in the three close-ups, so the reader can
- * match them across; the legs stay the lantern-scale grey they always were. Nothing here is a new
- * object — the socket is `lampHolder`, the bulb is `ledBulb`, the frame is bent from the same
- * `frameSide` as the close-up's, sized to this lantern rather than redrawn.
+ * The parts inside are WHITE, as in the close-ups, so the reader can match them across; the legs stay
+ * lantern-scale grey. Nothing here is a new object — `lampHolder`, `ledBulb` and the same
+ * `frameSide`, sized to this lantern rather than redrawn.
  */
 function lightLegs(p: Design, smooth: boolean): THREE.Group {
   const g = new THREE.Group();
@@ -656,37 +581,24 @@ function lightLegs(p: Design, smooth: boolean): THREE.Group {
  * ============================================================================
  * THE KIT — the figures that are not this design
  * ============================================================================
- * Everything above is `p` made visible. These are not. A pot of paste, a roll of tape and a brush
- * are things you buy, and nothing about them is decided by the lantern — the same reason `KIT` in
- * GuidePage is plain strings with no numbers in them. So they are constants, and their dimensions
- * are PROPORTIONS rather than measurements: the frame is fitted per figure, so only the ratios
- * survive. Where a real one has a standard size, that is where the ratio comes from — a 糊刷毛 is
- * about 130mm wide with 30mm of bristle, a shoe brush about 160x45 with 20mm.
+ * Everything above is `p` made visible; these are not. Paste, tape and a brush are things you buy, so
+ * they are constants, and their dimensions are PROPORTIONS rather than measurements (the frame is
+ * fitted per figure, so only ratios survive). Where a real one has a standard size that is where the
+ * ratio comes from — a 糊刷毛 is ~130mm wide with 30mm of bristle, a shoe brush ~160x45 with 20mm.
  *
- * They are drawn exactly like a printed part — white face, `part()`'s own outline — rather than
- * given a colour of their own: a kit item and a mold part sit in the same card, in the same well,
- * and a kit rendered in fill colour would read as "this is a different kind of drawing" instead of
- * "this is a different kind of object", which is the wrong sentence for a page that is otherwise
- * all one visual language.
+ * They are drawn exactly like a printed part — white face, `part()`'s outline — because a kit item
+ * and a mold part share a card and a well, and a different fill would say "a different kind of
+ * drawing" where the point is "a different kind of object".
  *
- * A round PART in this app is always a flat plate — a koma, a rib, a ring — with its curve lying IN
- * the face the camera mostly looks at and a thickness of a few millimetres at most. `EdgesGeometry`
- * draws the whole curve there regardless of how finely it is sampled, because that edge sits between
- * a flat cap and a near-vertical wall (roughly a right angle) rather than between two neighbouring
- * points ON the curve (a shallow angle that only clears the 24deg threshold if the curve is coarse).
- * So the app's parts never needed a low-poly trick, and giving the kit's tall round volumes one —
- * a tub, a roll of tape, a spool — read as faceted where nothing in the mold ever is. Reverted: they
- * stay smooth (a plain cylinder radial count, no lower than a part ever uses), and where a shape is
- * tall enough that its own SIDE would otherwise vanish (see below), it gets two straight lines
- * instead of a polygon — the classic technical-drawing cylinder, two rims plus the pair of verticals
- * where the surface is tangent to the eye. `coil()` is the one exception: an open tube has no cap to
- * anchor a rim edge at all, so it still leans on facets — see its own comment.
+ * They stay SMOOTH, and that is a revert: a round part here is always a flat plate whose curve lies
+ * IN the face the camera looks at, so `EdgesGeometry` draws it whatever the sampling, and giving the
+ * kit's tall round volumes a low-poly trick read as faceted where nothing in the mold is. A shape
+ * tall enough that its SIDE would otherwise vanish gets `silhouetteLines` instead — the classic
+ * technical-drawing cylinder. `coil()` is the exception: an open tube has no cap to anchor a rim edge
+ * to, so it still leans on facets.
  *
- * A BRUSH is the one shape white cannot carry on its own: its whole identity is the bristles, and a
- * block of bristles is just another flat-faced solid — indistinguishable from the handle above it
- * without a fill to separate them. So a brush also gets `bristleFringe()`: short lines hung off the
- * bristle block's front-bottom edge, the same INK as every other line here. Not a texture, not a
- * colour — one more small fact drawn the way this file draws every fact, with a line.
+ * A BRUSH is the one shape white cannot carry alone, its identity being the bristles, so it also gets
+ * `bristleFringe()`: short INK lines off the block's front-bottom edge — a fact drawn with a line.
  * ============================================================================
  */
 
@@ -718,12 +630,11 @@ function bristleFringe(xMin: number, xMax: number, y: number, z: number, len: nu
 
 /**
  * The two straight lines that stand in for a tall round volume's side wall: at the pair of points
- * where the curve runs tangent to the eye, connecting the top rim to the bottom rim (they may be
- * different radii — a tapered tub). Every OTHER point on a smooth cylinder's wall is receding away
- * from the camera and is exactly the surface a real line drawing leaves bare; only the tangent pair
- * reads as an edge to begin with. `view` is `VIEW_DIR` expressed in whatever local frame the solid's
- * axis actually stands in — for a group rotated a quarter turn about Z, that is `(y,-x,z)`, the same
- * swap `DIR_ON_STAND` already does for the mold lying in its stand.
+ * where the curve runs tangent to the eye, joining the top rim to the bottom (they may differ — a
+ * tapered tub). Every other point on the wall recedes from the camera and is exactly the surface a
+ * real line drawing leaves bare. `view` is `VIEW_DIR` in whatever local frame the solid's axis
+ * stands in — for a group turned a quarter turn about Z that is `(y,-x,z)`, the swap `DIR_ON_STAND`
+ * already does for the mold in its stand.
  */
 function silhouetteLines(rTop: number, rBot: number, yTop: number, yBot: number, view = VIEW_DIR, cx = 0, cz = 0) {
   const az = Math.atan2(view.z, view.x);
@@ -794,15 +705,10 @@ function rollGeo(rOut: number, rIn: number, h: number) {
 }
 
 /**
- * Tape and thread, in one figure. They are one line on the list — either will hold the bamboo while
- * the paste dries — so they are one drawing; two cards saying the same thing is the list padding
- * itself. Set side by side ACROSS the view (`(1,0,-1)` projects horizontally), which is the only
- * offset that does not stack one behind the other, and set close enough to OVERLAP: the frame is
- * fitted to what is in it, so every millimetre of gap between them is drawn at the cost of both.
- * The reel is TIPPED OVER and set in front, its axis running diagonally. Two upright cylinders side
- * by side is one silhouette read twice, and the near one drawn upright ran into the roll rather
- * than in front of it — overlapping on the page is the point, intersecting in space is not, so the
- * two stay clear of each other in plan and let the projection do the overlapping.
+ * Tape and thread in one figure: they are one line on the list, so they are one drawing. Side by side
+ * ACROSS the view (`(1,0,-1)` projects horizontally) and overlapping — the frame is fitted to its
+ * contents, so any gap is drawn at the cost of both. The reel is TIPPED OVER and set in front, clear
+ * of the roll in plan; only the projection overlaps.
  */
 function tapeAndThread() {
   const g = new THREE.Group();
@@ -893,25 +799,20 @@ function smoothBrush() {
   br.rotateX(-Math.PI / 2);
   br.translate(0, -18, 0);                // spans y -18..0
   g.add(solid(br));
-  // The pad's bottom-front edge, exactly. `x = -56..56` is the STRAIGHT run between the two rounded
-  // ends (stadium(150, 38): half-width 19, so the arcs centre at x = ±(150/2 - 19) = ±56) — inside
-  // that span the front face sits at a constant z = 19 (the half-width), which is what makes a flat
-  // xMin..xMax fringe line up with it at all. Past x = ±56 the front face curves inward with the
-  // rounded end, and a straight fringe drawn there would run ahead of the block instead of along it.
+  // The pad's bottom-front edge, exactly. `x = -56..56` is the STRAIGHT run between the rounded ends
+  // (stadium(150, 38): half-width 19, so the arcs centre at ±(150/2 - 19) = ±56); inside that span
+  // the front face sits at a constant z = 19, which is what lets a flat fringe line up with it. Past
+  // ±56 the face curves inward and a straight fringe would run ahead of the block.
   g.add(bristleFringe(-56, 56, -18, 19, 8, 11));
   return g;
 }
 
 /**
- * One arm, in the PIVOT's own frame: the pivot at the origin, the jaw running out to x = -95 and
- * the handle away to x = +115. Pivot-relative rather than tip-relative because the arms are then
- * opened by simply rotating each about z — which is what a pair of pliers physically does, and it
- * gets the whole linkage right for free: one arm's jaw rises exactly as its own handle drops, and
- * the two handles splay by the same angle the jaws do.
- *
- * The shape is one lever, drawn for the arm whose jaw sits ABOVE the axis; the other is this
- * mirrored in y. The gripping face is the near-flat run along y ~ 0.3, so at zero rotation the two
- * faces meet and the jaws are shut.
+ * One arm, in the PIVOT's own frame: pivot at the origin, jaw out to x = -95, handle to x = +115.
+ * Pivot-relative because the arms then open by rotating each about z, which gets the linkage right
+ * for free — one arm's jaw rises exactly as its handle drops. The shape is one lever, for the arm
+ * whose jaw sits ABOVE the axis; the other is this mirrored in y. The gripping face is the near-flat
+ * run along y ~ 0.3, so at zero rotation the jaws are shut.
  */
 const PLIER_ARM = [
   [-95, 2.4], [-77, 3.8], [-55, 5.8], [-33, 8.4], [-15, 11.2], [-3, 14.5],  // jaw, back edge
@@ -966,15 +867,11 @@ function pliers() {
  * the page has one, from the first koma to the lantern lit on its cord.
  */
 /**
- * The razor: a 長柄カミソリ — the flat plastic handle with a guarded blade in its head, which is
- * what a lantern actually gets trimmed with. (A loose double-edge blade was drawn here first. It
- * is the more iconic object, but nobody trims a wet edge holding a bare blade in their fingers.)
- *
- * The shape is all in the outline: a slim stick, a SHOULDER a third of the way down where the head
- * widens out of the grip, and a slanted cut at the tail. On top of the head sits the guard rail,
- * and across it the comb teeth — the same kind of short INK stroke `bristleFringe` uses, and here
- * for the same reason: white on white, the rail alone is one more rectangle, and the teeth are
- * what say which end cuts.
+ * The razor: a 長柄カミソリ — a flat handle with a guarded blade in its head, which is what a lantern
+ * gets trimmed with (a bare double-edge blade is the more iconic object, and not what anyone trims a
+ * wet edge with). The shape is all outline: a slim stick, a SHOULDER a third of the way down where
+ * the head widens out of the grip, a slanted tail. The comb teeth across the guard rail are
+ * `bristleFringe`'s kind of INK stroke, and they are what say which end cuts.
  */
 const RAZOR_L = 180, RAZOR_HW = 11, RAZOR_GW = 8.5, RAZOR_T = 5;
 function razorBlade() {
@@ -1005,14 +902,11 @@ function razorBlade() {
 // and nut on show. Same object, so the same two numbers.
 const SOCKET_R = 17, SOCKET_H = 34;
 /**
- * The pendant lamp holder — the cord-and-socket that ways (2) and (3) hang the lamp from. It is
- * NOT a card of its own: on its own it is a fitting, and the list is a list of things you need in
- * front of you, so it is drawn with a bulb screwed into it and both are "a lamp" (see `lamps()`).
- *
- * Hanging, cord up, and the cord is simply CUT OFF at the top: the same convention the `lightHang`
- * figure uses for "this continues", and for the same reason — a plug or a ceiling rose would be
- * claiming something about the reader's wiring. The cord is CORD_INK rather than white, also
- * matching that figure: a 3mm white tube draws nothing at all, and this is the same cord.
+ * The pendant lamp holder — the cord-and-socket ways (2) and (3) hang the lamp from. NOT a card of
+ * its own: alone it is a fitting, and the list answers "what do I need in front of me", so it is
+ * drawn with a bulb screwed in and the pair is a lamp (see `lamps()`). Cord up and CUT OFF at the top
+ * — `lightHang`'s convention for "this continues" — and CORD_INK rather than white, since a 3mm white
+ * tube draws nothing at all.
  */
 function pendantSocket({ crop = false } = {}) {
   const g = new THREE.Group();
@@ -1068,18 +962,13 @@ function washiStack() {
 }
 
 /**
- * A trigger sprayer — the plant-mister kind, the one thing on this list that holds water.
+ * A trigger sprayer — the plant-mister kind. Three facts have to survive white-on-white: it is a
+ * bottle, it has a head you screw on, and you work it with a trigger. So the bottle is three stacked
+ * round volumes with `silhouetteLines` on each; the collar is one short cylinder WIDER than the neck,
+ * the only mark saying the head comes off; the head is one extruded profile dropping to the nozzle.
+ * The trigger reaches PAST the nozzle, where a real one reaches — drawn short it reads as a spout.
  *
- * Three facts have to survive white-on-white: it is a bottle, it has a head you screw on, and you
- * work it with a trigger. So the bottle is three stacked round volumes with `silhouetteLines` on
- * each (a straight base, the shoulder that narrows, the neck), the collar is one short cylinder
- * WIDER than the neck it sits on — the only mark that says the head comes off — and the head is a
- * single extruded profile, a wedge tall at the back and dropping to the nozzle. The trigger is a
- * second extrusion hanging under it, tapered and reaching PAST the nozzle, which is where a real
- * one reaches: drawn short it reads as a spout, and the object stops being a sprayer.
- *
- * Proportions are a 500ml sprayer's (⌀70 bottle, about 175 tall over all), not measurements — see
- * "THE KIT" above. Nothing about it is decided by the lantern.
+ * Proportions are a 500ml sprayer's (⌀70, ~175 tall), not measurements — see "THE KIT" above.
  */
 const SPRAY_R = 35;              // bottle radius: ⌀70, a 500ml sprayer
 function sprayBottle() {
@@ -1133,14 +1022,12 @@ function sprayBottle() {
 }
 
 /**
- * The bulb. Its globe is a smooth sphere with a `silhouetteCircle` for its outline, and the cap's
- * three raised bands are the screw thread — which is what stops the whole thing reading as a
- * doorknob. See `lamps()` below for why it is not the only thing on that card.
+ * The bulb. A smooth sphere with a `silhouetteCircle` outline, and the cap's three raised bands are
+ * the screw thread, which is what stops the whole thing reading as a doorknob.
  *
- * `view` is VIEW_DIR expressed in whatever frame the bulb ends up standing in, exactly as
- * `silhouetteLines` documents: EVERY line here is a silhouette, and a silhouette is a fact about
- * where the camera is, not about the solid. Hang the bulb upside down without it and the globe's
- * outline circle comes out tilted — drawn as an ellipse across the glass.
+ * `view` is VIEW_DIR in whatever frame the bulb ends up standing in: EVERY line here is a silhouette,
+ * and a silhouette is a fact about where the camera is. Hang the bulb upside down without it and the
+ * globe's outline draws as an ellipse across the glass.
  */
 const BULB_FOOT = 25;            // mm below the origin: where the cap ends, so it can be stood up
 function ledBulb(view = VIEW_DIR) {
@@ -1163,17 +1050,13 @@ function ledBulb(view = VIEW_DIR) {
 }
 
 /**
- * The other kind of lamp: the flat USB puck you set on the floor and drop the shade over.
+ * The other kind of lamp: the flat USB puck. Two shallow discs — the foot and the lens over it —
+ * because one cylinder is a hockey puck and the seam is what makes it a fitting. The lens is widest
+ * at its FOOT and narrows going up: it is the light that overhangs, not the base. The lead ends in a
+ * PLUG rather than being cut off, because a USB light comes with its cable.
  *
- * Two shallow discs — the foot it stands on and the lens over it — because one cylinder is a hockey
- * puck, and the seam between them is what makes it a fitting. The lens is widest at its FOOT and
- * narrows going up, which is the whole read: it is the light that overhangs, not the base. The port
- * housing sticks out of the rim, and the lead ends in a PLUG rather than being cut off — a USB
- * light comes with its cable, where the pendant's cord runs to a ceiling and never ends in frame.
- *
- * Its own proportion is a real one (IKEA's KAPPLAKE is 35mm across and 10mm high, so 3.5:1), but
- * it is drawn LARGER than true scale beside the bulb: at ⌀35 against a 110mm bulb it is a dot in a
- * 300px well, and the card's job is to show two shapes, not to compare their sizes.
+ * Its aspect is a real one (KAPPLAKE is ⌀35x10, so 3.5:1); its SIZE is not — at true scale beside a
+ * bulb it is a dot in a 300px well.
  */
 const PUCK_R = 38, PUCK_FOOT_H = 7, PUCK_LENS_H = 15;    // 76 across, 22 high = the real 3.5:1
 function puckLight() {
@@ -1222,13 +1105,10 @@ function pendantLamp() {
 }
 
 /**
- * BOTH lamps on one card, the way the tape and the thread share one. The three lighting ways want
- * different fittings — one stands a lamp on the floor, two hang a bulb in a socket — so rather
- * than picking one, the card says what the light has to BE: a bulb on a cord, or a flat USB one.
- *
- * Set side by side ACROSS the view, which is the one offset that does not stack them, and kept
- * clear of each other in plan so that only the drawing overlaps. That is `tapeAndThread`'s rule,
- * for its reason: overlapping on the page is what makes both of them big.
+ * BOTH lamps on one card, the way the tape and the thread share one: the three lighting ways want
+ * different fittings, so rather than pick one, the card says what the light has to BE. Side by side
+ * ACROSS the view and clear of each other in plan, so only the drawing overlaps — `tapeAndThread`'s
+ * rule, for its reason.
  */
 function lamps() {
   const g = new THREE.Group();
@@ -1252,36 +1132,26 @@ function lamps() {
  * ============================================================================
  * FIXING THE LAMP — the sub-figures under way (3), "legs, fixed from below"
  * ============================================================================
- * How the lamp is held to the lantern is the one thing the light step could not say. For the legs
- * the answer is the one the ready-made lantern kits use, and it needs no part this app prints: a
- * pendant holder's cord leaves through a THREADED STEM with a fixing nut on it, so a wire with a
- * loop bent in its end can be stacked on that stem and clamped under the nut. Three wires, three
- * loops, one nut — the lamp and its legs come off the bench as one piece.
+ * How the lamp is held on needs no part this app prints: a pendant holder's cord leaves through a
+ * THREADED STEM with a fixing nut, so a loop bent in the end of each wire stacks on that stem and one
+ * nut clamps the lot. These ignore `p` as the kit's figures do.
  *
- * These ignore `p` exactly as the kit's figures do, and for the same reason: a socket, a nut and a
- * metre of wire are things you buy, and nothing about them is decided by the lantern. Two things
- * they DO share with the drawings around them:
+ * [Orientation] The holder is drawn as this way leaves it: mouth UP so the bulb points into the
+ *   shade, cord and stem DOWN — the whole difference from (2) hung upside down, and why the nut is
+ *   reachable.
+ * [Colour] The wire is ACCENT here and grey in the option's own figure — `bands`' rule, that a thing
+ *   is hot while the step is ABOUT it and muted once it is not.
  *
- * [Orientation] The holder is drawn the way this way of doing it leaves it — mouth UP, so the bulb
- *   points into the shade, cord and stem DOWN. That is the whole difference between way (3) and
- *   way (2) hung upside down, and it is why the nut is reachable at all.
- * [Colour] The wire is ACCENT here and grey in the option's own figure — `bands`' rule, that a
- *   thing is drawn hot while the step is ABOUT it and muted once it is not. These three figures are
- *   about the wire; the figure above them is about the lantern.
- *
- * There is no arrow on the nut (the reference drawing for this has a red one). Nothing else on the
- * page has an arrow, and it does not need one: the nut is drawn OFF the thread in (2) and run up
- * tight in (3), which is the exploded-then-assembled pair the guide already uses for `lightSet`.
+ * No arrow on the nut: nothing else on the page has one, and the nut is drawn OFF the thread in (2)
+ * and run up tight in (3), the exploded-then-assembled pair `lightSet` already uses.
  */
 const STEM_R = 5.5, STEM_H = 28;      // the threaded stem the cord leaves by, and the nut runs on
 const NUT_R = 9.5, NUT_H = 6;         // across the corners: a hex draws its own edges, unlike a tube
 const WIRE_R = 1.3, LOOP_R = 8.6;     // the leg wire, and the loop bent in its end (it has to pass
-                                      // over the stem's thread: LOOP_R - WIRE_R > STEM_R + 0.5)
-// Where the stack of loops starts, and it is a long way down the stem for a reason that is about
-// the drawing rather than about the fitting: the shell is ⌀34 and the loops are ⌀20, so a loop up
-// against the shell's underside is UNDER it — the view looks down, and all three vanished, leaving
-// three arms coming out of thin air. This far down, all three clear the shell's edge. A real one
-// takes them anywhere along the thread.
+// Where the stack of loops starts, and it is a long way down the stem for a reason about the drawing
+// rather than the fitting: the shell is ⌀34 and the loops ⌀20, so a loop up against the shell's
+// underside is UNDER it — the view looks down, and all three vanished, leaving three arms coming out
+// of thin air. This far down they clear the shell's edge. A real one takes them anywhere.
 const LOOP_Y = -14;
 // One leg's shape — arm out, drop, and how far the foot lands outside the arm. The wire figure and
 // the assembled one draw the same leg; only the close-up cuts it short.
@@ -1324,15 +1194,12 @@ function hexNut() {
 }
 
 /**
- * One leg, bent to shape: the loop, the arm out to the opening, and the drop to the floor. Swept as
- * ONE tube through a point list rather than assembled from cylinders — the corners then come out as
- * bends, which is what a wire has, instead of as the notch two cylinders meeting leave.
- *
- * The loop lies flat, centred on the origin, so the wire is placed by simply dropping it onto the
- * stem's axis. It runs just under a full turn and leaves TANGENTIALLY: the tangent for a decreasing
- * angle is (sin a, -cos a), so ending at a = pi/2 is what sends the arm off along +x. That last
- * eighth of a turn is also what keeps the loop from closing on itself, which at wire thickness
- * would be two rods in the same place.
+ * One leg, bent to shape: the loop, the arm out to the opening, the drop to the floor. Swept as ONE
+ * tube through a point list, so the corners come out as bends rather than as the notch two cylinders
+ * leave. The loop lies flat and centred on the origin, so the wire is placed by dropping it onto the
+ * stem's axis; it runs just under a full turn and leaves TANGENTIALLY (the tangent for a decreasing
+ * angle is (sin a, -cos a), so ending at a = pi/2 sends the arm off along +x), which also keeps the
+ * loop from closing on itself.
  */
 function legWire(arm: number, drop: number, splay: number) {
   const pts = [];
@@ -1349,11 +1216,10 @@ function legWire(arm: number, drop: number, splay: number) {
     new THREE.Vector3(arm + splay, -drop, LOOP_R),                  // a bend and not a long curve
   );
   const curve = new THREE.CatmullRomCurve3(pts);
-  // 8 radial segments and drawn as a `part`, not as the plain filled tube the option's own figure
-  // uses for its legs. Filled, three loops stacked on one stem merge into a single orange blob —
-  // they are the same colour, they overlap in projection, and nothing separates them. As a part
-  // each gets its outline, and the 45deg facets clear the 24deg edge threshold the same way
-  // `coil()` leans on, so the wire reads as a rod with three turns rather than as a lump.
+  // 8 radial segments and drawn as a `part`, not the plain filled tube the option's own figure uses.
+  // Filled, three loops on one stem merge into a single orange blob: same colour, overlapping in
+  // projection, nothing separating them. As a part each gets its outline, and the 45° facets clear
+  // the 24° edge threshold the way `coil()` leans on, so the wire reads as a rod with three turns.
   const geo = new THREE.TubeGeometry(curve, pts.length * 3, WIRE_R, 8, false);
   const g = new THREE.Group();
   g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
@@ -1363,13 +1229,12 @@ function legWire(arm: number, drop: number, splay: number) {
   return g;
 }
 
-// A third of a turn between legs, and NO phase on the triad — which is a decision, because the
-// obvious tidy-up is to turn it. With three legs and one isometric camera, one of them always
-// points nearly along the view axis, and the two ways it can go are not equal: a leg pointing AWAY
-// has an arm that projects up the page (odd-looking, but three legs are still visible and countable)
-// while a leg pointing AT the reader collapses to a stub behind the socket and the figure is left
-// showing two. Turning the triad a quarter turn to balance the back pair was tried, and that is
-// exactly what it cost. So: legs on 0/120/240, gaps on 60/180/300 — see the cord for what uses them.
+// A third of a turn between legs, and NO phase on the triad — a decision, because turning it is the
+// obvious tidy-up. With three legs and one isometric camera one always points nearly along the view
+// axis, and the two ways it can go are not equal: pointing AWAY it projects up the page (odd, but
+// three legs stay visible and countable), pointing AT the reader it collapses to a stub behind the
+// socket and the figure shows two. Turning the triad to balance the back pair was tried and cost
+// exactly that. So legs on 0/120/240, gaps on 60/180/300 — see the cord for what uses them.
 const LEG_PHASE = 0;
 
 // The stack is FOUR eyes now, not three: the frame's goes on with the legs' and under the same nut.
@@ -1398,11 +1263,10 @@ function frameOnStem(g: THREE.Group, top: number) {
 }
 
 /**
- * The cord: out of the stem, down, then TURNED out of frame — `lightLegs` turns it for the reason
- * this one does too, that a dark line straight down between three legs is read as a fourth. `az` is
- * the compass bearing it leaves on, and it has to be one of the GAPS between the legs (60, 180 or
- * 300 as `LEG_PHASE` leaves them): out through a leg, the two lines cross and the cord is read as
- * part of the frame. 300 is the gap that projects to the right, where the frame has the room.
+ * The cord: out of the stem, down, then TURNED out of frame, because a dark line straight down
+ * between three legs reads as a fourth. `az` is the bearing it leaves on and has to be one of the
+ * GAPS between the legs (60, 180 or 300 as `LEG_PHASE` leaves them) — out through a leg, the two
+ * lines cross. 300 is the gap that projects to the right, where the frame has the room.
  */
 function lampCord(g: THREE.Group, y0: number, down: number, run: number, az = -Math.PI / 3) {
   const mat = new THREE.MeshBasicMaterial({ color: CORD_INK });
@@ -1438,24 +1302,18 @@ function wireTube(pts: THREE.Vector3[], { seg = 3, closed = false, rod = WIRE_R 
 }
 
 /**
- * The FRAME (枠): the one wire that holds the shade out to its full height. It stands in a vertical
- * plane — a tall closed hoop rising from a small eye, bellying out low and drawn in at the shoulders
- * to a small loop at the peak — with the SAME eye at its foot that the legs have, so it stacks on
- * the same stem under the same nut. The nut is its ONLY fixing: it presses nothing at the bottom,
- * and holding the top out against a foot that cannot move is what puts the shade in tension.
+ * The FRAME (枠): the wire that holds the shade out to its full height. A tall closed hoop standing
+ * in a vertical plane, rising from a small eye, bellying out low and drawn in at the shoulders to a
+ * small loop at the peak — with the SAME eye at its foot that the legs have, so it stacks on the same
+ * stem under the same nut. That nut is its ONLY fixing: holding the top out against a foot that
+ * cannot move is what puts the shade in tension.
  *
- * **The belly is the whole shape, and it is not decoration.** The frame's foot sits directly under
- * the socket, which is directly under the bulb, so a hoop with the flat bottom bar and straight
- * sides a photograph of one shows would rise past both with millimetres to spare — it clears by
- * accident rather than by design. Leaving the eye upward AND outward puts the lamp in the clear
- * from the first bend, which is the actual constraint on this wire; everything above it is free.
+ * **The belly is the shape, not decoration**: the foot sits under the socket, which sits under the
+ * bulb, so leaving the eye upward AND outward is what clears the lamp from the first bend.
  *
- * Two things about the path are deliberate. The eye lies FLAT (in xz) while everything else stands
- * in xy, because the eye has to drop over a vertical stem and the hoop has to stand up; the wire
- * twists a quarter turn between them, which is what a real one does. And the curve is CLOSED — it
- * is a hoop, and an open curve butted end to end left a visible kink at the shoulder where the two
- * tangents disagreed. The eye still steps down slightly through its turn so the wire does not lie
- * on top of itself; that step lives inside the path, not at the join.
+ * The eye lies FLAT (xz) while the hoop stands in xy — the eye drops over a vertical stem and the
+ * hoop has to stand up, so the wire twists a quarter turn between them, as a real one does. The curve
+ * is CLOSED: butted end to end it left a kink at the shoulder where the tangents disagreed.
  */
 const FRAME_W = 44, FRAME_H = 150;     // half-width at the belly, and overall height
 // One side, foot to shoulder: up and OUT off the eye, clear of the lamp, then in again at the top.
@@ -1500,12 +1358,11 @@ function frameWire(W = FRAME_W, H = FRAME_H) {
   return wireTube(pts, { closed: true });
 }
 
-// A flat hoop is ALL outline, so it is the one thing in this file that has to face the camera: on
-// the world axes the isometric view takes it at 45deg and the near side foreshortens into the far
-// one, which reads as a bent hoop rather than a flat one. A quarter turn puts its plane square to
-// the view's bearing (`hangBend` turns for the mirror-image reason — to lay its arms ACROSS the
-// view). The camera's own elevation still tips it, which is what keeps it a drawing and not a
-// diagram, and the eye at the foot then shows as an ellipse rather than as a line.
+// A flat hoop is ALL outline, so it is the one thing here that must face the camera: on the world
+// axes the isometric view takes it at 45° and the near side foreshortens into the far, which reads
+// as a bent hoop. A quarter turn puts its plane square to the view's bearing (`hangBend` turns for
+// the mirror-image reason, to lay its arms ACROSS the view). The camera's elevation still tips it,
+// which keeps it a drawing rather than a diagram, and the eye then shows as an ellipse.
 const FRAME_YAW = Math.PI / 4;
 
 /** (3b') The frame on its own, bent to shape. */
@@ -1518,11 +1375,9 @@ function frameBend() {
 }
 
 /**
- * The frame's FOOT: its eye and the first `top` mm of both arms, cut off. The two figures about the
- * stem are about the stem, and a 150mm hoop in either of them shrinks the socket to a detail — so
- * the frame is cropped there exactly as `pendantSocket` and the pendant cord are, the cut end being
- * this file's way of saying "this continues". It has to be the SAME wire, though, so it is bent from
- * the same `frameSide` the whole hoop is: crop the drawing, never redraw the object.
+ * The frame's FOOT: its eye and the first `top` mm of both arms, cut off, because the two figures
+ * about the stem are about the stem and a 150mm hoop shrinks the socket to a detail. It is the SAME
+ * wire, bent from the same `frameSide` as the whole hoop: crop the drawing, never redraw the object.
  */
 function frameFoot(top: number) {
   const side = (sx: number, y0: number) => frameSide(sx, y0, FRAME_W, FRAME_H).filter((v) => v.y <= top);
@@ -1566,35 +1421,21 @@ function legStood() {
 /**
  * ---- Hanging it: one wire, and nothing else ----
  *
- * This started as the ready-made kits' own fitting, and it was too much: a bought cord stopper
- * above the shade, three wires clamped under its nut between two packings, and a hook on each to
- * catch the ring at the opening — a designed joint, three times over, to hold up a paper shade that
- * weighs nothing. What replaced it is ONE wire, flat, with three bends in it:
+ * ONE wire with three bends, arrived at by stripping down the ready-made kits' cord stopper.
  *
- * [The U] The middle is bent into a U — NOT a closed loop. Its gap passes the CORD and stops the
- *   SOCKET: the holder hangs in the U by its own cap, and the shade hangs on the wire. That is what
- *   the whole fitting is, and it is why the gap has a size worth stating (a few millimetres wider
- *   than the cord, far narrower than the socket). Open rather than a closed eye, because the cord
- *   is dropped in sideways with the lamp already wired; an eye has to be threaded from the free end
- *   of the cord, and it was drawn that way first.
- * [The arc] The wire is not a flat bar. It ARCS, and it arcs the way the shade's own shoulder does
- *   — HIGHEST in the middle, falling away to the rim at both ends. It was drawn the other way up
- *   first (a hammock, dipping in the middle) and that is a bowl sitting in the opening, not a
- *   hanger spanning it. Before that it was flat, with two posts standing up out of it, which drew
- *   a wire lying ON the ring.
- * [The ends] They are not shaped at all — no hook, no turn: the arch simply keeps going, crossing
- *   the rim at the opening and carrying on out past the ring, UNDER it. That is what holds the
- *   shade up: the ends bear on the underside of the rim and the whole lantern hangs off them. They
- *   are drawn long enough to come out the far side of the hoop, because an end that stops beneath
- *   it is an end the ring hides, and then the figure cannot say where the wire goes. A terminal hook bent to fit the hoop was drawn twice and taken out twice, and so was
- *   an end carried over the TOP of the ring. It is also why nothing here is route-specific: a rim
- *   to catch from underneath is a rim either route has.
+ * [The U] The middle is a U, NOT a closed loop: its gap passes the CORD and stops the SOCKET, so the
+ *   holder hangs in the U by its own cap. Open rather than an eye, because the cord drops in sideways
+ *   with the lamp already wired.
+ * [The arc] It ARCS the way the shade's shoulder does — HIGHEST in the middle, falling to the rim.
+ *   The other way up is a hammock sitting in the opening rather than an arch spanning it.
+ * [The ends] Not shaped at all: the arch crosses the rim and carries on out past the ring, UNDER it,
+ *   and that is what holds the shade up. Drawn long enough to come out the far side, because an end
+ *   that stops beneath the hoop is an end the ring hides. Nothing here is route-specific — a rim to
+ *   catch from underneath is a rim either route has.
  *
- * The U sits off the wire's own line, so the whole wire is shifted by `HANG_OFF` to bring the
- * bottom of that U onto the axis, where the cord is. The arms are then a CHORD rather than a
- * diameter, and how far they reach is `armAt` — a chord half-length, not a
- * radius. Get that wrong and the tips land inside the opening at one design and outside the paper
- * at the next.
+ * The U sits off the wire's own line, so the whole wire is shifted by `HANG_OFF` to bring the bottom
+ * of the U onto the axis where the cord is. The arms are then a CHORD rather than a diameter, and
+ * `armAt` is a chord half-length, not a radius.
  */
 const BOWL_W = 4.5, BOWL_Z = 8;      // the U: half its mouth, and how far it reaches from the line
 const HANG_OFF = BOWL_Z - CORD_R - WIRE_R;      // ...so the cord rests in the bottom of the U
@@ -1611,17 +1452,16 @@ const armAt = (radius: number) => Math.sqrt(Math.max(radius * radius - HANG_OFF 
 function hangWire(radius: number) {
   const rimX = armAt(radius), endX = armAt(radius + UNDER_RIM);
   const high = radius * ARC_HIGH;
-  // The arch, as a parabola: `high` above the rim in the middle, back down through the rim's own
-  // level exactly at the opening, and on below and beyond it — the part that runs under the ring
-  // and out the other side. The curve steepens as it goes, which is roughly the angle the shade's
-  // own shoulder falls away at, so the ends lie along the paper rather than across it. Level at
-  // the apex, which is what lets the U lie flat in one plane the way a hand actually bends it.
+  // The arch, as a parabola: `high` above the rim in the middle, back through the rim's own level
+  // exactly at the opening, and on below and beyond it — the part that runs under the ring and out
+  // the far side. It steepens as it goes, roughly the angle the shade's shoulder falls away at, so
+  // the ends lie along the paper rather than across it. Level at the apex, which is what lets the U
+  // lie flat in one plane the way a hand actually bends it.
   const arc = (x: number) => high * (1 - (x / rimX) ** 2);
-  // z is NEGATED, so the U detours TOWARDS the camera. It is a horizontal bend, and a horizontal
-  // bend away from an isometric camera projects UP the page: drawn the other way round the U came
-  // out as a hump and the wire read as an M. Towards the reader it projects down, and a U is what
-  // it looks like. (The cord then passes a couple of millimetres behind the bend, which is the
-  // right way round as well — you can see it sitting in there.)
+  // z is NEGATED, so the U detours TOWARDS the camera. A horizontal bend away from an isometric
+  // camera projects UP the page: drawn the other way the U came out a hump and the wire read as an
+  // M. Towards the reader it projects down. (The cord then passes a couple of millimetres behind
+  // the bend, which is the right way round as well.)
   const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, -(z + HANG_OFF));
   const bowlY = arc(BOWL_W);
   ARC_APEX_Y = bowlY;
@@ -1706,17 +1546,16 @@ const SCENES: Record<string, Scene> = {
   // relationship, and eight orange ribs in a stand read as a tangle rather than as an instruction.
   onStand: (p, sm) => moldOnStand(p, null, sm),
   // The rings go on the ASSEMBLED MOLD, right after the second koma: the washi's cover allowance is
-  // folded over them, so they are in place long before anything is pasted, and they stay in the
-  // lantern when the mold comes out. Hence the mold here rather than the finished shade.
-  // The bands ride along from here on, muted: the text beside this step asks for them, and a
-  // figure that leaves them out is a figure of a mold that has already sprung apart.
+  // folded over them, so they are in place long before anything is pasted and they stay in the
+  // lantern when the mold comes out. Hence the mold here rather than the finished shade. The bands
+  // ride along from here on, muted — the text asks for them, and a figure without them is a figure
+  // of a mold that has already sprung apart.
   rings: (p, sm) => moldPieces(p, { smooth: sm, rings: true, hot: "rings", band: true }),
-  // Winding: the mold as the last three steps left it, with the bamboo on. Drawn standing upright,
-  // which is where it is wound — the stand comes out one step later, for the pasting.
-  // `smooth` is the cardboard route, and that route's guide has no ring step and no band advice (its
-  // koma holds by friction, the fibres crushing to a snug fit), so the figure must not show either:
-  // this is the only scene both routes draw, and a part the reader was never told to fit reads as a
-  // step they missed.
+  // Winding: the mold as the last three steps left it, with the bamboo on, standing upright — which
+  // is where it is wound; the stand comes out one step later, for the pasting. `smooth` is the
+  // cardboard route, whose guide has no ring step and no band advice (its koma holds by friction),
+  // so the figure must not show either: this is the only scene both routes draw, and a part the
+  // reader was never told to fit reads as a step they missed.
   higo: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, hot: "higo" }),
   // Pasting: the mold where the reader left it — IN THE STAND, which is what the stand is for (you
   // paste a panel, turn it, paste the next). The cardboard route has no stand, so there it is drawn
@@ -1790,12 +1629,11 @@ export function figureImage(p: Design, id: string, { width = 620, height = 460, 
     cam.updateMatrixWorld();
     // Fit the frustum to what is actually DRAWN, as projected: every vertex of every mesh and line
     // in the group, through the view matrix. Not to the largest dimension — a rib is long and thin,
-    // and sizing by its length leaves the drawing a fifth of the well — and not to the eight corners
-    // of the bounding box either, which is what this did first: those bound the projection, but only
+    // and sizing by its length leaves the drawing a fifth of the well — and not to the bounding
+    // box's eight corners either, which is what this did first: those bound the projection, but only
     // tightly for a solid that fills its box. An open pair of pliers is a diagonal Y whose box
-    // corners are all empty, and it came out at 44% of the frame's width where a shoe brush filled
-    // 77%. The frustum is then centred on the drawing rather than on the box, since those two
-    // coincide about as often.
+    // corners are all empty, and came out at 44% of the frame where a shoe brush filled 77%. The
+    // frustum is centred on the drawing rather than on the box, since the two rarely coincide.
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     const v = new THREE.Vector3(), mv = new THREE.Matrix4();
     group.updateMatrixWorld(true);

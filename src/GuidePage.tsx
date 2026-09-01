@@ -2,36 +2,30 @@
  * ============================================================================
  * GUIDE PAGE — how to build the lantern
  * ============================================================================
- * A document, not a view of the model: it takes the whole window and scrolls, the way an assembly
- * sheet reads. It is the one PAGE in this app — `/guide`, with an address of its own (src/route.ts)
- * — opened from the ☰ menu, closed with ×, Esc, or the browser's own back button, all three of
- * which do the same thing. It was a fifth view tab until it was noticed that the
- * other four are all renderings of YOUR design (move a ◇ and every one of them redraws) while this
- * one is not: its figures come from a fixed example, so it had to be excepted out of the dimension
- * chip, out of the viewport alerts, and out of the inspector, one gate at a time. An overlay needs
- * none of those exceptions, and it hands the phone's tab strip its fifth slot back.
+ * A document, not a view of the model: it takes the whole window and scrolls. It is the one PAGE in
+ * this app — `/guide`, with an address of its own (src/route.ts) — opened from the ☰ menu and closed
+ * with ×, Esc or the browser's back button, all three doing the same thing. **It was a fifth view tab
+ * and must not go back**: the other four each render YOUR design and this one does not, so as a tab
+ * it had to be excepted out of the dimension chip, the viewport alerts and the inspector, one gate at
+ * a time. A page needs none of them, and it hands the phone's tab strip its fifth slot back.
  *
  * **The page is generic, and its figures are always the same drawing.** It used to be built from the
- * design on screen: every dimension measured off the geometry the STL is written from, every figure
- * rebuilt when a slider moved. That cost eleven WebGL scenes on every edit and bought numbers nobody
- * needs — winding bamboo onto a mold and pasting paper over it is the same job at ⌀140 as at ⌀400.
- * So the drawings come from ONE fixed design (`GUIDE_P`), are built at most once per session and
- * kept, and no measurement is printed anywhere on the page.
+ * design on screen — every dimension measured off the geometry, every figure rebuilt on a slider
+ * move — which cost eleven WebGL scenes per edit and bought numbers nobody needs. The drawings now
+ * come from ONE fixed design (`GUIDE_P`), are built at most once per session, and **no measurement
+ * is printed anywhere**.
  *
- * What that gives up is the guarantee the old page had — that it could not describe a mold the
- * download does not contain — so nothing here may state a QUANTITY the design decides. The rib's
- * line reads "as many as your design has" rather than "×8" for exactly that reason: a fixed picture
- * of eight ribs is an illustration, but a printed 8 is a claim. What still follows the app is the
- * ROUTE, because that changes which parts exist at all, not how big they are.
+ * What that gives up is the old guarantee that the page could not describe a mold the download does
+ * not contain, so **nothing here may state a QUANTITY the design decides**: the rib's line reads "as
+ * many as your design has" rather than "×8", a fixed picture of eight ribs being an illustration
+ * where a printed 8 is a claim. The ROUTE still follows the app, because it changes which parts
+ * exist at all.
  *
- * [Every step is drawn] Every step gets a figure, because every one of them is easier to see than to
- *   read: which way the bamboo runs, where the washi seams fall, which rib comes out of the opening
- *   and how far in it has to come to get there, what the thing looks like lit and on its legs. They
- *   draw one representative lantern, not the reader's.
- * [Route] The cardboard route builds the same mold out of a different material and has no stand and
- *   no printed rings, so those steps are filtered rather than reworded.
- * [Print] The page carries print styles (index.css): the browser's own "Save as PDF" is the paper
- *   version, which is why the guide is not a PDF the app writes.
+ * [Every step is drawn] Which way the bamboo runs, where the seams fall, which rib comes out and how
+ *   far — all easier to see than to read. They draw one representative lantern, not the reader's.
+ * [Route] Cardboard has no stand and no printed rings, so those steps are filtered, not reworded.
+ * [Print] Print styles live in index.css: the browser's own "Save as PDF" is the paper version,
+ *   which is why the guide is not a PDF the app writes.
  * ============================================================================
  */
 import React, { useEffect, useMemo, useState } from "react";
@@ -46,19 +40,17 @@ import type { Design, Route } from "./types.ts";
 
 /**
  * The lantern every figure on this page is drawn from — the app's own starting design, not the one
- * being edited. See the header: the page explains a method, and a method does not change shape.
+ * being edited: the page explains a method, and a method does not change shape.
  *
- * The cardboard route keeps its own copy, because that route cuts a genuinely different mold: a
- * smooth outer edge, no lightening windows, no tab dent (`paperP`). That is a fact about the route,
- * not about anyone's measurements, so it is taken at a representative thickness rather than at the
- * `matT` the user measured — which is also why this page no longer asks for it.
+ * The cardboard route keeps its own copy, because that route cuts a genuinely different mold (smooth
+ * outer edge, no lightening windows, no tab dent — `paperP`). That is a fact about the route, so it
+ * is taken at a representative thickness rather than at the `matT` the user measured.
  *
- * **The leg sockets are pinned ON here, whatever `DEFAULTS` says.** They are a checkbox for someone
- * designing a lantern, and DEFAULTS turned them off — at which point `needs()` quietly dropped the
- * whole third way of lighting it, figure and all, off a page whose only job is to show the ways.
- * That is the hazard of drawing a document from a settings object: a default that is right for the
- * app can delete a section of the manual. Anything else this page must SHOW belongs in this
- * override too, and `needs()` stays exactly as it is — it is what would catch the next one.
+ * **The leg sockets are pinned ON here, whatever `DEFAULTS` says.** DEFAULTS turns them off, at which
+ * point `needs()` quietly dropped the whole third way of lighting it — figure and all — off a page
+ * whose only job is to show the ways. A default that is right for the app can delete a section of the
+ * manual. Anything else this page must SHOW belongs in this override, and `needs()` stays exactly as
+ * it is: it is what would catch the next one.
  */
 const GUIDE_MAT_T = 3;                                    // mm, ordinary single-wall cardboard
 const GUIDE_BASE = { ...DEFAULTS, legSockets: true };
@@ -146,19 +138,17 @@ const STEPS: Step[] = [
   {
     // Three ways, three SECTIONS — not three steps. They are alternatives: numbering them 11/12/13
     // would tell the reader to do all three. `options` is what makes a step render as sections, and
-    // each option carries its own figure, because the difference between the three IS the picture.
+    // each carries its own figure, because the difference between the three IS the picture.
     //
-    // This step carried a `wip` draft badge until all three ways had a fixing. They do now — (1)
-    // fixes nothing to anything, (3) clamps its legs under the socket's nut and (2) hangs the shade
-    // from a cord stopper — so the badge is gone rather than left standing over eleven drawn
-    // sub-figures. The mechanism is still there for the next unsettled step: `wip` on a step draws
-    // the badge beside its title and prints the field's own one-line reason under the body. If one
-    // comes back here, keep the wording clear of "口輪" — the cardboard route prints no rings, and
-    // a step must not name a part its own route never makes. The step also used to offer a ⌀65
-    // lamp-holder base to print (`tomoshibi_socket_base.stl`); a printable file is a decision, and
-    // this one has been made the other way: the fittings here are all things you buy. The STL was
-    // deleted from `public/` with the link — an asset nothing references still ships on every
-    // deploy, and the one thing worse than a dead download is a live one for an undecided part.
+    // This step carried a `wip` draft badge until all three ways had a fixing; they do now, so the
+    // badge is gone rather than left standing over eleven drawn sub-figures. **The mechanism stays
+    // for the next unsettled step** — `wip` draws the badge beside the title and prints the field's
+    // own one-line reason under the body — and if one lands back here, keep its wording clear of
+    // 「口輪」: the cardboard route prints no rings, and a step must not name a part its own route
+    // never makes. This step also used to offer a ⌀65 lamp-holder base to print; a printable file is
+    // a decision, and it has been made the other way (the fittings here are all things you buy). The
+    // STL was deleted from `public/` with the link, an unreferenced asset still shipping on every
+    // deploy — and the one thing worse than a dead download is a live one for an undecided part.
     id: "light", title: "灯りをつける",
     body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
     options: [
@@ -243,31 +233,23 @@ const STEPS: Step[] = [
 ];
 
 /**
- * What you supply yourself. The printed (or cut) parts are the list above this one; everything here
- * you buy, and the page is no use standing at a shop counter unless it says so. It is laid out like
- * that parts list, wells and all, because it answers the same question — what do I need in front of
- * me — and two different shapes for one question is two things to learn.
+ * What you supply yourself — the printed parts are the list above. Laid out like that parts list,
+ * wells and all, because it answers the same question (what do I need in front of me) and two shapes
+ * for one question is two things to learn.
  *
- * **Plain strings, no numbers.** Nothing here is derived and nothing should be: a wire gauge, a
- * brush and a pot of paste are not things the design decides. (A bamboo length summed over the
- * grooves was tried and taken straight back out — arithmetic nobody asked for, on a list whose job
- * is to be read in a shop.) The wire is just wire — not a gauge, not a material: it has to bend by
- * hand and hold a socket, and every note here that tried to be more specific than that came back
- * out. A note says WHEN you need the thing, not what to ask for at the counter.
+ * **Plain strings, no numbers, nothing derived**: a wire gauge, a brush and a pot of paste are not
+ * things the design decides. (A bamboo length summed over the grooves was tried and taken straight
+ * back out.) The wire is just wire — it has to bend by hand and hold a socket, and every note that
+ * tried to be more specific came back out. A note says WHEN you need the thing, not what to ask for.
  *
- * Order is by how much it matters, not by category: the paste is the one thing a bad choice of
- * which ruins the lantern, so it comes before the wire. `opt` marks what you may not need at all —
- * the wire and its pliers are only for the two lighting methods that fix something to an opening,
- * and the brushes and the mister are things you can finish a lantern without. (The mister sits with
- * the brushes rather than after the pliers because it belongs to the same moment they do — the
- * pasting — and this list is ordered by the work, not by the shelf it came off.) Everything else is
- * unconditional: without bamboo, washi, paste,
- * something to hold the bamboo while it dries, a blade to trim the paper and a lamp to put inside
- * it, there is no lantern at the end.
+ * Order is by how much it matters, not by category: a bad paste ruins the lantern, so it comes before
+ * the wire. `opt` marks what you may not need at all — the wire and pliers serve only the two
+ * lighting ways that fix something to an opening, and the brushes and mister can be done without.
+ * Everything else is unconditional: without bamboo, washi, paste, something to hold the bamboo while
+ * it dries, a blade and a lamp, there is no lantern at the end.
  *
- * The drawings are the one thing here that is not a string: `fig` names a scene in figures.ts, and
- * those scenes are the only ones in that file that are not made of this design (see "THE KIT"
- * there). An item with no `fig` keeps an empty well rather than a ragged card.
+ * `fig` names a scene in figures.ts — the only scenes there not made of this design (see "THE KIT").
+ * An item with no `fig` keeps an empty well rather than a ragged card.
  */
 const KIT: KitGroup[] = [
   { id: "materials", title: "材料", items: [
@@ -323,7 +305,7 @@ function Fig({ src, t, part = false }: { src?: string | null; t: T; part?: boole
 
 /**
  * Small wells for the two grids of thumbnails and for the sub-steps inside an option — those sit in
- * a 150px column (`.guide-detail` in index.css), where a step's own 620px figure is four times the
+ * a 150px column, where a step's own 620px figure is four times the
  * pixels the page will ever show. A big one for a step.
  */
 const SMALL_FIGS = new Set([
@@ -413,7 +395,7 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
      ground — radius, padding, the print rules — sits in the same string as the colours. */
   const card = "bg-card border border-card-edge rounded-2xl pt-10 px-12 pb-12 "
     + "print:[break-inside:avoid] print:shadow-none";
-  /* Prose inside a step. This was `.guide-steps p`, and it beat `.guide-note` on specificity for
+  /* Prose inside a step. This was `.guide-steps p`, and it beat the note style on specificity for
      every property it set — so a note inside a step never actually looked like a note. Utilities
      have no such accidents, which also means the accident has to be written out on purpose. */
   const stepP = "m-0 text-md leading-[1.8] text-text";

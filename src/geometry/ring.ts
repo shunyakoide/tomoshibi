@@ -7,7 +7,7 @@
  * other part.
  *
  * The BOTTOM ring doubles as the base of a leg stand for the finished lantern: inside the hoop sit
- * `legN` flat "onigiri" pads (rounded triangles), each with a bore at its middle that a leg rod
+ * `LEG_N` flat "onigiri" pads (rounded triangles), each with a bore at its middle that a leg rod
  * pushes into. Where the opening is too small to hold them the ring falls back to a plain hoop with
  * a marker tab, which is also what tells the printed pair apart when there are no sockets to do it.
  * ============================================================================
@@ -34,7 +34,7 @@ const RING_H = 2;      // hoop height (= Z extrusion, mm). A thin flat ring (wir
 const RING_FIT = 0.15;
 // ---- Leg sockets on the bottom opening ring ----
 // The bottom ring also serves as the base of a leg stand for the finished lantern. Inside the hoop,
-// `p.legN` "onigiri" pads (rounded triangles) sit evenly spaced, each pointing its vertex toward the
+// `LEG_N` "onigiri" pads (rounded triangles) sit evenly spaced, each pointing its vertex toward the
 // center, and a leg rod is inserted into the bore at each pad's middle. The pad's outer (rounded)
 // edge overlaps the hoop's inner rim so the whole thing prints as one piece.
 //

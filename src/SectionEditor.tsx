@@ -2,19 +2,17 @@
  * ============================================================================
  * SECTION EDITOR — direct manipulation
  * ============================================================================
- * An SVG editor for editing the lamp body silhouette directly on the drawing.
- * Instead of sliders:
+ * An SVG editor for the lamp body silhouette, edited on the drawing instead of with sliders:
  *   - Lamp body height … drag the top vertex circle vertically
- *   - Neck (opening) … drag the outermost control point ◇ (horizontal = flare /
- *                       vertical = neck height), independent top/bottom
- *   - Bulge … drag a curve control point ◇ in both axes / double-click a curve
- *             to add / double-click a point to delete / click to toggle
- *             corner (■) ⇄ smooth (◇)
- * Neck = the vertical rectangle at each end (present per neckBot/neckTop); the
- * curve starts just inside it. The radius function shares geometry.ts's outerR
- * (matching 3D/STL). Client → SVG user coordinate conversion uses getScreenCTM
- * so handle positions and drag amounts stay accurate even with letterboxing
- * (preserveAspectRatio).
+ *   - Neck (opening) … drag the outermost ◇ (horizontal = flare / vertical = neck height),
+ *                      independent top/bottom
+ *   - Bulge … drag a curve ◇ in both axes; double-click a curve to add a point, a point to delete
+ *             it, click to toggle corner (■) ⇄ smooth (◇)
+ *
+ * Neck = the vertical rectangle at each end (per `neckBot`/`neckTop`); the curve starts just inside
+ * it. The radius function is geometry.ts's own `outerR`, so this matches the 3D and the STL exactly.
+ * Client → SVG coordinates go through `getScreenCTM`, so handle positions and drag amounts stay
+ * accurate under letterboxing (`preserveAspectRatio`).
  * ============================================================================
  */
 import React, { useEffect, useRef, useState } from "react";
@@ -41,19 +39,16 @@ type Handle = {
 const VBW = 860, VBH = 780, CX = 430, Y0 = 710;
 
 // ---- Compact (phone) mode --------------------------------------------------------------------
-// On a wide screen the drawing sits in the fixed 860×780 frame with generous margins, and the
-// handles are mouse-sized. Neither survives a 375px-wide viewport: the frame is more than twice the
-// width the drawing actually uses, so the whole thing renders at 0.44× — which put every ◇ hit
-// target at ELEVEN pixels across, against the 44px both platform guidelines ask for. You could see
-// the editor perfectly well and not operate one control of it.
+// On a wide screen the drawing sits in the fixed 860×780 frame and the handles are mouse-sized.
+// Neither survives a 375px viewport: the frame is more than twice the width the drawing uses, so the
+// whole thing renders at 0.44×, which put every ◇ hit target at ELEVEN pixels across against the
+// 44px both platform guidelines ask for. You could see the editor perfectly and operate none of it.
 //
-// So `compact` changes two things and nothing else about the shape:
-//   1. the viewBox is fitted to the CONTENT instead of being the fixed frame, which is a no-op on a
-//      wide screen (the drawing is height-bound there, and cropping unused width changes no scale)
-//      and roughly doubles it on a phone — which is why it is applied on the narrow path only,
-//      where it is the difference between usable and not;
-//   2. the hit circles are sized from the measured on-screen scale rather than being constants in
-//      SVG units, so a target stays a target however far the drawing has been scaled down.
+// `compact` changes two things and nothing else about the shape:
+//   1. the viewBox is fitted to the CONTENT instead of the fixed frame — a no-op on a wide screen
+//      (the drawing is height-bound there) and roughly double on a phone;
+//   2. the hit circles are sized from the MEASURED on-screen scale rather than as SVG-unit constants,
+//      so a target stays a target however far the drawing has been scaled down.
 // Everything the app PRINTS is untouched: this file draws, it does not generate geometry.
 const HIT_PT = 30;      // control point / height handle / tangent grab — CSS px, diameter
 const HIT_ADD = 20;     // the "+" ghost: a secondary action, and it sits at the MIDPOINT between two
@@ -134,20 +129,18 @@ export default function SectionEditor({
   const Y = (t: number) => Y0 - t * H * s;
 
   // Client coordinates → SVG user coordinates (absorbs preserveAspectRatio letterboxing)
-  /**
+/**
    * The screen→model mapping, frozen at the instant a drag starts.
    *
-   * Both halves of that mapping depend on the design being dragged. `s` (mm → SVG units) shrinks as
-   * `maxRadius` grows, and in COMPACT mode the viewBox is fitted to the drawing, so the SVG→screen
-   * half stretches as the silhouette widens too. Read live on every move, that closes a positive
-   * feedback loop: the shape grows → the mapping stretches → the same finger movement buys more
-   * millimetres → the shape grows faster. Measured on a phone, dragging one control point 40px to
-   * the right took the design from ⌀192 to ⌀392 — the handle simply left the finger behind.
+   * Both halves depend on the design being dragged: `s` (mm → SVG units) shrinks as `maxRadius`
+   * grows, and in COMPACT mode the viewBox is fitted to the drawing, so the SVG→screen half stretches
+   * as the silhouette widens. Read live on every move, that closes a positive feedback loop — the
+   * shape grows, the mapping stretches, the same finger movement buys more millimetres — and dragging
+   * one control point 40px took the design from ⌀192 to ⌀392, the handle leaving the finger behind.
    *
-   * Freezing makes the gesture linear: millimetres per pixel is whatever it was when you touched
-   * down, for as long as you hold. The wide path barely showed this (its viewBox is fixed, and `s`
-   * is pinned at 2.0 until the body passes ~200mm radius), which is exactly why it arrived with the
-   * content-fitted frame and has to be fixed here rather than left to the next person to find.
+   * Frozen, millimetres per pixel is whatever it was when you touched down. The wide path barely
+   * showed this (fixed viewBox, `s` pinned at 2.0 until ~200mm radius), which is exactly why the bug
+   * arrived with the content-fitted frame and has to be fixed here.
    */
   const freezeMap = () => {
     const el = svgRef.current;
@@ -361,17 +354,15 @@ export default function SectionEditor({
   const rAdd = u(GLYPH_ADD, 11);         // "+" ghost
   const rTan = u(GLYPH_TAN, 5.5);        // tangent handle
   const markStroke = (2 * rPt / 5.5).toFixed(2);   // stroke weight, in step with the marks
-  // Compact hides the NAMES, never the NUMBERS. The names are read at leisure on a wide screen —
-  // the region bands (首/火袋/首, which the colours already say), the "羽根板" caption, the
-  // "開口/首" tag, the "火袋の高さ" caption — and on a phone they are what squeezes the drawing:
-  // the region ones hang off the LEFT of the widest part of the body, which `cx0` reserves nothing
-  // for, so they would be clipped as well as costly.
+  // Compact hides the NAMES, never the NUMBERS. Out go the region bands (首/火袋/首 — the colours
+  // already say it), the 羽根板 caption, the 開口/首 tag and the 火袋の高さ caption; the region ones
+  // also hang off the LEFT of the widest part of the body, which `cx0` reserves nothing for, so they
+  // would be clipped as well as costly.
   //
-  // The mm readouts stay. They are the answer to "how big is this", which is the question the
-  // drawing exists to answer, and they cost the frame **nothing**: `FIT_PAD.r` already reserves the
-  // width of one label on the right so the drawing does not jump sideways when a point is selected,
-  // and every point's label lands inside that same reservation. The height readout sits left of the
-  // axis at `CX - 22`, inside the `CX - 60` floor `cx0` already applies.
+  // The mm readouts stay: they answer "how big is this", which is the question the drawing exists to
+  // answer, and they cost the frame **nothing** — `FIT_PAD.r` already reserves the width of one label
+  // on the right so the drawing does not jump sideways when a point is selected, and every point's
+  // label lands inside that reservation.
   const showLabels = !compact;
   // The legend has to earn its corner. Pulled up to its tallest stop the sheet leaves the drawing a
   // 140px sliver, and a 34px pill parked in it is a fifth of what is left — sitting on the very

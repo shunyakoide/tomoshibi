@@ -1,19 +1,16 @@
 /**
  * ============================================================================
- * STATE PERSISTENCE (PERSIST)
+ * STATE PERSISTENCE
  * ============================================================================
- * Auto-saves the working state (shape p + machine settings bedW/bedD + printRibs)
- * to localStorage and restores it on startup. If a reload reverted to DEFAULTS, the
- * seam values needed to reuse the stand (boardT/tabLen/komaT/boards/fit) would also
- * be lost; preventing that is the main goal.
+ * Auto-saves the working state (the design `p` plus bedW/bedD/printRibs/route) to localStorage and
+ * restores it on startup. The point is the SEAM values — boardT / tabLen / komaT / boards / fit — a
+ * reload back to DEFAULTS would lose, and with them the ability to reuse a stand already printed.
  *
- * No dependency on React/DOM components (only localStorage and pure validation). Being
- * a separate file from geometry.ts, it also doesn't violate the "geometry stays pure"
- * constraint. Adds no dependencies (only the browser-standard localStorage).
+ * No React or DOM beyond localStorage, and no import of geometry.ts, so "geometry stays pure" holds.
  *
- * Restore always goes through sanitize: prevents externally-sourced (hand-written / old
- * version / JSON round-trip) corrupt values from making outerR NaN → non-manifold STL,
- * or an oversized boards producing a non-watertight koma on the first render.
+ * **Restore always goes through `sanitizeP`**: a hand-written, old-version or round-tripped file must
+ * not make `outerR` NaN (→ a non-manifold STL) or hand the first render an oversized `boards`
+ * (→ a koma whose notches overlap). Verified by `npm run check:persist`.
  * ============================================================================
  */
 import { DEFAULTS, LIMITS } from "./config.ts";
@@ -48,15 +45,15 @@ export function saveWelcomeSeen() {
   try { localStorage.setItem(WELCOME_KEY, "1"); } catch { /* the card simply shows again next time */ }
 }
 
-// Allowed range [min, max] per numeric field. Restored values don't pass through the
-// UI's clamping, so out-of-range values from corrupt localStorage or external JSON flow
-// straight into geometry and break it (in particular pitch:0 makes grooveList's
-// n=Math.round(span/pitch)=Infinity loop forever). Always clamp into range here.
-// Ranges match the UI slider/stepper allowed domains (unknowns get a safely wide range).
-// The two silhouette ranges come from LIMITS rather than being written out again: a saved design
-// is only "safe" if it is a design the editor could have produced, and r's floor in particular is
-// a geometric wall (below it the rib cannot close), not a UI preference — the 8 that used to sit
-// here let a corrupt file through at a radius the editor itself refuses.
+// Allowed range [min, max] per numeric field. Restored values do not pass through the UI's clamping,
+// so an out-of-range value from corrupt localStorage or external JSON flows straight into geometry —
+// in particular `pitch: 0` makes `grooveList`'s `n = Math.round(span/pitch)` Infinity and loops
+// forever. Ranges match the UI's own domains; unknown fields get a safely wide one.
+//
+// The two silhouette ranges come from `LIMITS` rather than being written out again: a saved design is
+// only safe if it is one the editor could have produced, and r's floor is a geometric wall (below it
+// the rib cannot close), not a UI preference — the 8 that used to sit here let a corrupt file through
+// at a radius the editor itself refuses.
 const BOUNDS: Record<NumericDesignKey, readonly [number, number]> = {
   height: LIMITS.height, rTop: LIMITS.r, rBot: LIMITS.r, boards: [4, 16],
   boardWidth: [10, 120], boardT: [1, 4], higoD: [1, 4], pitch: [8, 30],

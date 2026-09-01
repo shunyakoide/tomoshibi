@@ -2,21 +2,19 @@
  * ============================================================================
  * SCENE BUILDERS — what each view draws
  * ============================================================================
- * `buildScene(state, opts)` empties the viewport's group and refills it for the current view. One
- * builder per view:
+ * `buildScene(state, opts)` empties the viewport's group and refills it for the current view:
  *   mold  … the assembled mold lying in its stand, CAD-style, on a ground grid
  *   print … the parts laid flat on print plates, arranged as the slicer would see them
- * ("2d" draws no 3D: the section view is an SVG editor rendered over this canvas. Neither does the
- *  print view on the cardboard route — its output is a document, so PagePreview draws the template's
- *  own pages over this canvas the same way.)
  *   lit   … the finished lantern glowing in a dark room (no mold at all)
- * (The build guide is not in this list at all: it is an overlay rather than a view, and its figures
- *  are rendered off-screen by three/figures.ts and shown as images — eleven of them cost one WebGL
- *  context, not eleven.)
  *
- * Every shape comes from geometry.ts — nothing here computes a dimension of its own, or the preview
- * and the STL would drift apart. The print layout is the one thing that touches geometry: it
- * rotates each part in the bed plane for the preview only, which is why the export builds its own.
+ * Two views draw NO 3D and say so by returning early: `2d` (the section editor is an SVG over this
+ * canvas) and `print` on the cardboard route (its output is a document, so PagePreview draws the
+ * template's own pages over it the same way). The build guide is not a view at all — it is a page,
+ * and its figures are rendered off-screen by three/figures.ts as images.
+ *
+ * Every shape comes from geometry.ts; nothing here computes a dimension of its own, or the preview
+ * and the STL would drift. The one exception is the print layout, which rotates parts flat — and
+ * that is preview-only, the export laying its own plates out.
  * ============================================================================
  */
 import * as THREE from "three";

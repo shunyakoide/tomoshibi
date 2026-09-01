@@ -26,20 +26,19 @@ export function equatorY(p: Design): number {
   for (let i = 0; i <= 120; i++) { const t = i / 120, r = outerR(p, t); if (r > bestR) { bestR = r; bestT = t; } }
   return bestT * h;
 }
-// Outer-edge point list with the bamboo-rib grooves cut ALONG THE SURFACE NORMAL (not purely
-// radially). A purely radial notch (a depth subtracted from R at each y) loses its effective depth
-// and its catching wall where the profile turns steeply diagonal — a single-valued-in-y outline
-// literally cannot form the undercut that stops the bamboo from sliding. This builds the notch as a V of
-// constant *perpendicular* depth, offset inward along the fixed local normal at each groove center,
-// so the depth and the wall stay effective at any face angle. Returns [[x,y],...] from y=0 to y=h
-// (endpoints exact = the smooth opening radius). With grooves=[] it returns the plain smooth edge.
-// Single source of truth: shared by ribOutline2D (the printed rib) and the section drawing.
-// ・The basis is not "the groove center's outer radius" but the local outer radius at each y.
-//   → Even on a slope, the groove is not offset to one side; walls form above and below, and the
-//   bamboo rib catches without sliding off.
-// ・On a steep slope (a radial groove's effective depth shallows by a factor of cosθ), the depth
-//   is multiplied by 1/cosθ=√(1+slope²) (capped at 2.2) to secure the effective depth for the
-//   bamboo rib to seat even on a tilted face.
+// Outer-edge point list with the grooves cut ALONG THE SURFACE NORMAL, not radially. A radial notch
+// (a depth subtracted from R at each y) loses its effective depth and its catching wall where the
+// profile turns steeply diagonal — an outline that is single-valued in y literally cannot form the
+// undercut that stops the bamboo sliding. This builds the notch as a V of constant PERPENDICULAR
+// depth, offset inward along the local normal at each groove centre, so depth and wall stay
+// effective at any face angle. Returns [[x,y],…] from y=0 to y=h with the endpoints exact (the
+// smooth opening radius); `grooves=[]` returns the plain smooth edge.
+//
+// Single source of truth: shared by `ribOutline2D` (the printed rib) and the section drawing.
+// ・The basis is the local outer radius at each y, not the groove centre's — so on a slope the
+//   groove is not offset to one side, and walls form above and below it.
+// ・On a steep slope a radial groove's effective depth shallows by cosθ, so the depth is multiplied
+//   by 1/cosθ = √(1+slope²), capped at 2.2.
 export function grooveOuterPts(p: Design, grooves: number[], gR: number): Pt2[] {
   const h = p.height, mid = equatorY(p), STEP = 0.5;
   const info = grooves.map((g) => {
