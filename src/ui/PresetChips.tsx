@@ -20,7 +20,7 @@
 import React from "react";
 import { outerR } from "../geometry.ts";
 import { DEFAULTS, PRESETS } from "../config.ts";
-import { FS, useT } from "./theme.ts";
+import { useT } from "./theme.ts";
 import { SectionLabel } from "./controls.tsx";
 import type { Preset } from "../config.ts";
 import type { Design, Pt } from "../types.ts";
@@ -62,18 +62,18 @@ export default function PresetChips({ p, onPick }: { p: Design; onPick: (pr: Pre
   const t = useT();
   const active = matchPreset(p);
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div className="sec">
       <SectionLabel title="形" hint="ひな形 · 選んでから断面で調整" />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 7 }}>
+      <div className="chip-grid">
         {PRESETS.map((pr) => {
           const on = active === pr.key;
           return (
             <button key={pr.key} className="chip" aria-pressed={on} onClick={() => onPick(pr)}>
-              <svg viewBox="0 0 60 46" style={{ width: 40, height: 32, display: "block" }} aria-hidden="true">
+              <svg viewBox="0 0 60 46" className="chip-mini" aria-hidden="true">
                 <path d={miniPath(pr)} fill={on ? "rgba(255,255,255,0.25)" : "rgba(59,52,43,0.05)"}
                   stroke={on ? "#fff" : "#8a7c66"} strokeWidth="2" />
               </svg>
-              <span style={{ fontSize: FS.sm, fontWeight: 500 }}>{t(pr.name)}</span>
+              <span className="chip-name">{t(pr.name)}</span>
             </button>
           );
         })}

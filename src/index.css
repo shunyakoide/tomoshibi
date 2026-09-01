@@ -454,6 +454,69 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .note { font-size: 10px; line-height: 1.6; color: var(--faint); }
 .hint { font-size: 11px; line-height: 1.5; color: var(--faint); padding: 2px 0 4px; }
 
+/* ---- inspector composition -------------------------------------------------------------------
+   The panel is one long scroll of settings groups, and these are the shapes it is built from. They
+   were style={{ }} objects until they weren't: `marginBottom: 20` was written out six times, the
+   footer's readout carried six declarations plus one per cell, and every one had to be read at the
+   call site to find out it was the same spacing as the group above it. */
+.sec { margin-bottom: 20px; }
+/* A group opened by a rule rather than by air. `.sec-ruled` starts a top-level section (the print /
+   export block); `.sec-sub` starts a group INSIDE one, so it sits closer to what it follows. */
+.sec-ruled { border-top: 1px solid var(--edge); padding-top: 16px; margin-top: 4px; }
+.sec-sub { border-top: 1px solid var(--edge); padding-top: 14px; margin-top: 14px; }
+
+/* The footer's readout: label left, value right-aligned in mono. Wide layout only — the phone's
+   summary is one mono line in the sheet's bar (see "Narrow screens" in CLAUDE.md). */
+.sum { display: grid; grid-template-columns: auto 1fr; row-gap: 5px; column-gap: 12px; font-size: 12px; margin-bottom: 14px; }
+.sum-k { color: var(--faint); }
+.sum-v { font-family: var(--mono); font-weight: 600; text-align: right; }
+.sum-v--warn { color: var(--warn); }
+
+.mono { font-family: var(--mono); }                /* a filename or a part code — retyped or searched for */
+.qty-of { color: var(--faintest); font-weight: 400; }   /* the greyed remainder after a count: " 枚", " / 8" */
+.note strong { color: var(--text); }               /* the one word in a note carrying the consequence */
+.kit-note { margin-top: 9px; }
+
+/* The selected-point card (ui/PointCard.tsx) and its empty state. Solid when a ◇ is selected,
+   dashed when none is — the dash is what says "this fills in", rather than a sentence saying so. */
+.pt-box { border: 1px solid var(--card-edge); border-radius: 10px; background: var(--card); padding: 12px 12px 10px; }
+.pt-empty { border: 1px dashed var(--card-edge); border-radius: 10px; padding: 14px; font-size: 11px; color: var(--faint); line-height: 1.6; }
+.pt-segs { display: flex; gap: 6px; margin-bottom: 10px; }
+.pt-segs--mid { margin: 4px 0 10px; }
+
+/* The shape templates (ui/PresetChips.tsx): four to a row, each a miniature over its name. */
+.chip-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.chip-mini { width: 40px; height: 32px; display: block; }
+.chip-name { font-size: 11px; font-weight: 500; }
+/* The wordmark at the END of the scroll — identity, so it may not take the first 40px of a pull. */
+.wordmark-foot { padding: 22px 0 14px; opacity: 0.5; }
+
+/* ---- viewport alerts (TomoshibiStudio) --------------------------------------------------------
+   A card in the wide layout's bottom-right column; on a phone the same alerts fold into one strip
+   in flow above the panel. See "Narrow screens" in CLAUDE.md for why the strip starts collapsed. */
+.alert {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  background: var(--card); border: 1px solid var(--accent-4); border-radius: 10px;
+  box-shadow: 0 3px 12px rgba(59,52,43,0.1);
+  font-family: var(--sans); font-size: 12px; color: var(--text); text-align: left;
+}
+.alert-mark { flex: none; font-size: 14px; }
+.alert-hint { color: var(--sub); }
+
+.alert-strip { flex: none; background: var(--panel); border-top: 1px solid var(--edge); }
+.alert-strip > button {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px;
+  padding: 6px 12px; background: var(--accent-07); border: none;
+  border-left: 3px solid var(--accent-5);
+  cursor: pointer; font: inherit; font-size: 12px; color: var(--text); text-align: left;
+}
+/* min-width 0 is what lets the ellipsis happen at all: a flex item's automatic minimum size is its
+   own content, so without it the headline pushes the count and the caret off the strip. */
+.alert-strip-head { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alert-strip-n { flex: none; font-family: var(--mono); font-size: 11px; color: var(--sub); }
+.alert-strip-caret { flex: none; color: var(--faint); }
+.alert-strip-body { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 8px; }
+
 /* ---- page preview (cardboard route's print view) ---- */
 /* A document viewer over the (empty) 3D canvas: the pages flow and the whole thing scrolls. The
    sheets are the template's own SVG, so only their size on screen is set here.
