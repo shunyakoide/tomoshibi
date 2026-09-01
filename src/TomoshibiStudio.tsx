@@ -44,7 +44,7 @@ import GuidePage from "./GuidePage.tsx";
 import Welcome from "./Welcome.tsx";
 import { DEFAULTS, LIMITS, SIL_ROWS } from "./config.ts";
 import type { T } from "./i18n.ts";
-import { UI, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.ts";
+import { UI, FS, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.ts";
 import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note } from "./ui/controls.tsx";
 import PresetChips from "./ui/PresetChips.tsx";
 import PointCard from "./ui/PointCard.tsx";
@@ -158,9 +158,9 @@ function Alert({ head, hint }: { head: string; hint?: string }) {
       display: "flex", alignItems: "center", gap: 10,
       padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
       borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
-      fontSize: 12.5, color: UI.text, textAlign: "left",
+      fontSize: FS.base, color: UI.text, textAlign: "left",
     }}>
-      <span style={{ fontSize: 15 }}>⚠️</span>
+      <span style={{ fontSize: FS.lg }}>⚠️</span>
       <span>{head}{hint && <><br /><span style={{ color: UI.sub }}>{hint}</span></>}</span>
     </div>
   );
@@ -669,16 +669,16 @@ export default function TomoshibiStudio() {
       <button onClick={() => setAlertsOpen((v) => !v)} aria-expanded={alertsOpen} style={{
         display: "flex", alignItems: "center", gap: 8, width: "100%", minHeight: 36,
         padding: "6px 12px", background: accentA(0.07), border: "none", borderLeft: `3px solid ${accentA(0.5)}`,
-        cursor: "pointer", font: "inherit", fontSize: 12, color: UI.text, textAlign: "left",
+        cursor: "pointer", font: "inherit", fontSize: FS.base, color: UI.text, textAlign: "left",
       }}>
-        <span style={{ fontSize: 14, flex: "none" }}>⚠️</span>
+        <span style={{ fontSize: FS.lg, flex: "none" }}>⚠️</span>
         {/* minWidth 0 is what lets the ellipsis happen at all: a flex item's automatic minimum size
             is its content, so without it the headline pushes the count and caret off the strip. */}
         <span style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {alerts[0].head}
         </span>
         {alerts.length > 1 && (
-          <span style={{ flex: "none", fontFamily: mono, fontSize: 11, color: UI.sub }}>+{alerts.length - 1}</span>
+          <span style={{ flex: "none", fontFamily: mono, fontSize: FS.sm, color: UI.sub }}>+{alerts.length - 1}</span>
         )}
         <span aria-hidden="true" style={{ flex: "none", color: UI.faint }}>{alertsOpen ? "▾" : "▸"}</span>
       </button>
@@ -718,9 +718,9 @@ export default function TomoshibiStudio() {
           alignItems: "center", justifyContent: "center", gap: 10, padding: 24,
           textAlign: "center", pointerEvents: "none",
         }}>
-          <div style={{ fontSize: 13, color: "#e0a060", fontWeight: 600 }}>{t("⚠ 3Dプレビューを初期化できませんでした")}</div>
-          <div style={{ fontSize: 11, color: "#8a8a96", fontFamily: mono, wordBreak: "break-word" }}>{glError}</div>
-          <div style={{ fontSize: 11, color: "#6f6f7a" }}>
+          <div style={{ fontSize: FS.md, color: "#e0a060", fontWeight: 600 }}>{t("⚠ 3Dプレビューを初期化できませんでした")}</div>
+          <div style={{ fontSize: FS.sm, color: "#8a8a96", fontFamily: mono, wordBreak: "break-word" }}>{glError}</div>
+          <div style={{ fontSize: FS.sm, color: "#6f6f7a" }}>
             {t("お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。")}
           </div>
         </div>
@@ -748,7 +748,7 @@ export default function TomoshibiStudio() {
           either way, so it reads as a status line rather than as another control. */}
       <div style={{
         position: "absolute", top: narrow ? 10 : 24, right: narrow ? 12 : 24,
-        fontSize: narrow ? 11 : 12, color: chip.txt,
+        fontSize: narrow ? FS.sm : FS.base, color: chip.txt,
         fontFamily: mono, letterSpacing: "0.05em", textAlign: "right", pointerEvents: "none",
       }}>
         ⌀{maxDia} × H{p.height} mm
@@ -767,7 +767,7 @@ export default function TomoshibiStudio() {
 
       {isLit && (
         <div style={{
-          position: "absolute", bottom: 20, left: 20, fontSize: 11.5, color: "#8a8a96",
+          position: "absolute", bottom: 20, left: 20, fontSize: FS.sm, color: "#8a8a96",
           fontFamily: sans, pointerEvents: "none",
         }}>
           {t("鑑賞モード — 編集はタブで「断面」へ")}
@@ -835,7 +835,7 @@ export default function TomoshibiStudio() {
                 would have been centred on everything except them, i.e. on nothing. */}
             <span style={{
               display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0 12px",
-              fontFamily: mono, fontSize: 11, color: UI.faint,
+              fontFamily: mono, fontSize: FS.sm, color: UI.faint,
             }}>
               <span>⌀{maxDia}</span>
               <span style={{ color: !bedRules || ribFits ? UI.faint : UI.warn }}>{t("羽根板")} {ribLen}</span>
@@ -1009,7 +1009,7 @@ export default function TomoshibiStudio() {
                     aria-label={t("定番サイズ")}
                     onChange={(e) => { const v = +e.target.value; if (v) { setBedW(v); setBedD(v); } }}
                     style={{
-                      width: 150, padding: "6px 8px", borderRadius: 8, fontFamily: sans, fontSize: 12.5,
+                      width: 150, padding: "6px 8px", borderRadius: 8, fontFamily: sans, fontSize: FS.base,
                       color: UI.text, background: UI.card, border: `1px solid ${UI.cardEdge}`, cursor: "pointer",
                     }}>
                     {!(bedW === bedD && BED_PRESETS.includes(bedW)) && <option value="custom">{t("カスタム")}</option>}
@@ -1082,7 +1082,7 @@ export default function TomoshibiStudio() {
         borderTop: `1px solid ${UI.edge}`,
       }}>
         {!narrow && (
-        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 5, columnGap: 12, fontSize: 12, marginBottom: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 5, columnGap: 12, fontSize: FS.base, marginBottom: 14 }}>
           <span style={{ color: UI.faint }}>{t("最大径")}</span>
           <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>⌀{maxDia} mm</span>
           <span style={{ color: UI.faint }}>{t("羽根板の全長")}</span>
