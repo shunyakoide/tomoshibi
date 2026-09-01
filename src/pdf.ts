@@ -4,7 +4,7 @@
  * ============================================================================
  * Writes a vector-only, self-contained PDF at exact 1:1 scale with no dependencies (same spirit as
  * the hand-rolled ZIP in stl.ts). It takes the **same drawing-op list the SVG renderer consumes**
- * (papercraft.ts `pageOps`), so the PDF and the printed HTML are literally the same drawing — the
+ * (papercraft.ts `pageOps`), so the PDF and the in-app SVG preview are literally the same drawing — the
  * template can't be full scale in one and off in the other.
  *
  * [Coordinates] Ops are in **mm with y DOWN from the sheet's top-left** (the SVG convention). Each
@@ -54,8 +54,8 @@ export type Op =
 /** A sheet's size in mm (A4 here, but nothing below assumes it). */
 export type Page = { w: number; h: number };
 
-// Advance widths (1/1000 em) for Helvetica, ASCII 32..126. Used to place centred / right-aligned
-// text: without real metrics the footer would drift off the margin.
+// Advance widths (1/1000 em) for Helvetica, ASCII 32..126. Used to CENTRE a label — a part's name
+// inside its own outline — which without real metrics would sit off-centre.
 const HELV = [
   278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278,
   556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556,
@@ -64,7 +64,9 @@ const HELV = [
   333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556,
   556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
 ];
-// Symbols the UI uses that have no WinAnsi code point → ASCII stand-ins. "×" (U+00D7) is kept: it
+// Symbols this writer cannot encode → ASCII stand-ins. Several DO have WinAnsi code points (— – “ ”
+// ‘ ’ live in 0x91..0x97); `winAnsi()` below emits only 0x20..0x7E and 0xA0..0xFF, never WinAnsi's
+// 0x80..0x9F block, so they are folded rather than written. "×" (U+00D7) is kept: it
 // is a single WinAnsi byte (0xD7).
 const FOLD: Record<string, string> = { "←": "<-", "→": "->", "↑": "^", "▼": "v", "⚠": "!", "·": "-", "—": "-", "–": "-", "“": '"', "”": '"', "‘": "'", "’": "'", "≥": ">=", "≤": "<=" };
 /** Fold a UI string down to WinAnsi. Anything still unrepresentable is dropped rather than written
@@ -123,9 +125,10 @@ function runsWidth(runs: Run[], size: number) {
 
 const MM = 72 / 25.4;                                     // mm → pt
 const n3 = (v: number) => (Math.round(v * 1000) / 1000).toString();
-// Millimetres round to 3dp happily; a glyph's scale factor does not. It is size/1000 — 0.0034 for a
-// 3.4mm label — and 3dp rounds that to 0.003, which draws every character 12% oversized and laps it
-// over the next one. Matrix entries get their own precision.
+// Millimetres round to 3dp happily; a glyph's scale factor does not. It is size/1000, so 3dp rounds
+// the 2.6mm note's 0.0026 UP to 0.003 (15% too large) and a 3.4mm label's 0.0034 DOWN to the same
+// 0.003 (12% too small) — every glyph drawn off its label's size, in either direction. The advance is
+// computed in mm independently, so the run does not compensate. Matrix entries get their own precision.
 const n6 = (v: number) => (Math.round(v * 1e6) / 1e6).toString();
 const rgb = (hex: string) => {
   const h = hex.replace("#", "");

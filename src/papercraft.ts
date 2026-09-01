@@ -70,12 +70,11 @@ export const A4 = { w: 210, h: 297, name: "A4" };
 export const MARGIN = 5;
 const FOOTER = 0;    // No band at the foot of every page: the parts get the full height between the margins.
 // Instead the FIRST page starts this far down, and the strip that opens up carries the check square.
-// Reserved once for the whole document rather than 14mm on every sheet. 36mm is what the try
-// square's short arm plus its labels need, and it sits inside a flat step in the cost curve: the
-// `check:paper` sweep prints 736 sheets for anything from 20mm to 40mm, against 726 at 4mm.
+// Reserved once for the whole document rather than 14mm on every sheet, and only when nothing
+// anywhere fits (see `scaleSpot`). 36mm is what the try square's short arm plus its labels need.
 export const TOPBAR = 36;
-// Sheets BUTT together, they do not overlap. A glue tab would put the join line OVERLAP inside the
-// trim edge, so every sheet at a seam would carry two blue lines a centimetre apart — one to cut on
+// Sheets BUTT together, they do not overlap. A glue tab would put the join line a centimetre inside
+// the trim edge, so every sheet at a seam would carry two blue lines a centimetre apart — one to cut on
 // and one to align on — and no drawing can make that pair unambiguous. Trimming both sheets on the
 // one line and taping behind is the same join the reference patterns describe ("trim any white
 // printer border first, then the frames coincide"), and it hands each continuation sheet 10mm of
@@ -83,10 +82,13 @@ export const TOPBAR = 36;
 const GAP = 6;       // Gap between parts (mm). Margin for cutting them apart.
 const TICK = 5;      // Length of the bamboo-rib tick line (mm). Drawn inward from the outer edge.
 
-// ---- Tab-tip dent (koma stop) ----
-// The koma stop is the tab-tip inner-corner dent (both tabs) mated to the koma's shallow notch, shared
-// with the 3D print via geometry.ts (ribOutline2D dents the tabs, komaShape/notchR match it). Nothing
-// cardboard-specific to tune: the dent is a fixed size and applies whenever tabDented(pk) has room.
+// ---- Tab-tip dent (koma stop): NOT cut on cardboard ----
+// On the 3D route the koma stop is the tab-tip inner-corner dent mated to the koma's shallower notch
+// (ribOutline2D dents, komaShape/notchR match, both from tabTipRi). Cardboard does NOT get it:
+// `paperP` sets `noTabDent`, so `tabDented(pk)` is always false here and the tab is a plain tongue in
+// a full-depth notch. The dent takes 6x6mm out of the tip's inner corner, which is exactly where a
+// cardboard tab tears along its flutes — this route trades the stop for tab strength, and the koma is
+// held by friction instead (`fit: 0`, the fibres crushing to a snug fit). `check:paper` asserts it.
 
 // Bounding box of a point list
 function bbox(pts: Pt2[]) {
@@ -135,7 +137,9 @@ function ribPart(pk: Design, k: number, name: string): RawPart {
   return { name, outline, marks };
 }
 
-// Koma: the same komaShape as 3D (= same notch bottom notchR, same notch width). Only the thickness differs.
+// Koma: the same `komaShape` as 3D, but built from `paperP()` — so the notch WIDTH is the material
+// thickness (boardT = matT, fit = 0) and the notch is FULL-DEPTH, the tab being undented here. Three
+// inputs differ, not just the thickness; `check:paper` pins notchR(pk) === innerRi(pk) - 0.5.
 function komaPart(pk: Design, name: string): RawPart {
   const pts = komaShape(pk).extractPoints(1).shape.map((v): Pt2 => [v.x, v.y]);
   return { name, outline: pts };
@@ -170,7 +174,7 @@ export function paperP(p: Design, matT: number): Design {
  *   otherwise overlap at the koma's centre.
  *
  * Kept separate from paperParts (which returns the same numbers alongside the parts) so that asking
- * costs a couple of divisions rather than an outline of every rib, koma and washi panel.
+ * costs a couple of divisions rather than an outline of every rib and koma.
  */
 export function paperFit(p: Design, matT: number) {
   const pk = paperP(p, matT);
@@ -217,8 +221,9 @@ export function paperParts(p: Design, matT: number, t: T = tid) {
 // ============ Page layout ============
 // Two stages: (1) pack parts top-down into "rows" without considering pages, (2) assign rows to
 // pages. Both run twice — once in the order the parts arrive and once by decreasing height — and the
-// cheaper result wins. Over the `check:paper` sweep that takes 966 sheets down to 761, halving the
-// count on 123 of 360 designs and raising it on none.
+// cheaper result wins. It cost pages when the washi panel was laid out here too (a third group, of a
+// different height); with ribs and koma alone it currently saves nothing on any design in the sweep.
+// Kept because it can never cost one — see "Which order to pack in".
 //
 // Layout principle: **never let a row that fits on one page span pages.** If it does not fit, start
 // the next page at the top of that row, so there is nothing to join. A seam happens only for a row
@@ -294,14 +299,14 @@ function layout(parts: RawPart[], page: Page): Layout {
   // thrown away: a koma (a disc a few tens of mm across) sharing a row with a rib (the whole body
   // height) leaves the rest of that sheet blank under it. Packing by decreasing height — the classic
   // first-fit-decreasing-height shelf heuristic — puts parts of similar height in the same row
-  // instead. Same-type parts share a height, so in practice this reorders the GROUPS (ribs / washi /
-  // komas) and leaves each one contiguous rather than shuffling the sheet.
+  // instead. Same-type parts share a height, so in practice this reorders the two GROUPS (ribs and
+  // koma) and leaves each one contiguous rather than shuffling the sheet.
   const byHeight = oriented
     .map((q, i): [PagePart, number] => [q, i])
     .sort((a, b) => b[0].h - a[0].h || a[1] - b[1])   // stable: the original index breaks ties
     .map(([q]) => q);
   // It is a heuristic, not a proof, so take whichever order actually costs fewer sheets and keep the
-  // given order on a tie (羽根板 → コマ → 和紙 is the order they are cut and assembled in). That makes
+  // given order on a tie (羽根板 → コマ is the order they are cut and assembled in). That makes
   // the reordering unable to ever cost a page, which is what lets it apply unconditionally — to the
   // printed template, the PDF and the in-app preview alike, all of which come through here.
   const pick = (topbar: number) => {
@@ -310,10 +315,10 @@ function layout(parts: RawPart[], page: Page): Layout {
   };
   // Where the check square goes. It is a mark, not a part, so it belongs in room the layout has
   // ALREADY left — most designs finish with half a sheet blank, and reserving a strip for it up
-  // front costs a page on designs that had the room all along. Only when nothing anywhere fits does
-  // sheet 1 give up TOPBAR for it. Both halves matter: an earlier version reserved the strip
-  // unconditionally and spent 10 sheets in 736 for it, and the version before THAT only looked for
-  // gaps and silently shipped 16% of designs with no check square at all.
+  // front used to cost a page on designs that had the room all along. Only when nothing anywhere fits
+  // does sheet 1 give up TOPBAR for it. Keep BOTH halves: the version that only looked for gaps
+  // silently shipped 16% of designs with no check square at all, which is the failure you find out
+  // about with scissors in your hand.
   const free = pick(0);
   const spot = scaleSpot(free);
   if (spot) return { ...free, spot };
@@ -354,7 +359,7 @@ function scaleSpot(lay: Omit<Layout, "spot">): Spot | null {
 // A page is built once as a list of **drawing ops in mm page coordinates** (y down from the sheet's
 // top-left), and the two renderers only translate ops into their own syntax. The rules that decide
 // whether the print is usable — the clip band, the trim box, the check square, the seam
-// crosses — therefore exist exactly once, and the PDF cannot silently disagree with the HTML.
+// half-diamonds — therefore exist exactly once, and the PDF cannot silently disagree with the preview.
 //
 // Line/text styles live here too (not in the stylesheet) for the same reason: the CSS block is
 // generated from this table, and the PDF reads the same numbers.
@@ -362,8 +367,8 @@ export const STYLE = {
   cut: { stroke: "#000", w: 0.25 },                              // cut line
   tick: { stroke: "#000", w: 0.25, dash: [1.2, 1] },             // bamboo-rib ticks (do not cut)
   guide: { stroke: "#777", w: 0.25, dash: [4, 2.5] },            // alignment guides (do not cut)
-  scale: { stroke: "#000", w: 0.6 },                             // the full-scale check bar (thick: a ruler gets laid on it)
-  frame: { stroke: "#1769c8", w: 0.2 },                          // alignment frame of a sheet that joins another
+  scale: { stroke: "#000", w: 0.6 },                             // the full-scale check square (thick: a ruler gets laid on it)
+  frame: { stroke: "#1769c8", w: 0.2 },                          // the sheet's trim box — drawn on every sheet, seam or not
   join: { stroke: "#1769c8", w: 0.25 },                          // sheet-join half-diamonds (blue = align, never cut)
   pname: { fill: "#999", size: 3.4, anchor: "middle" },          // part name, faint, inside the part
   note: { fill: "#888", size: 2.6, anchor: "start" },
@@ -465,9 +470,9 @@ function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
     // prints a SQUARE rather than a line, and the reason is real: a printer can scale the two axes by
     // different amounts, and a horizontal bar cannot see that at all.
     //
-    // An L and not a full square because the two axes do not cost the same: width is free, height
-    // comes straight out of the parts. A full 3in square costs 800 sheets over the `check:paper`
-    // sweep against 712 for this L.
+    // An L and not a full square because the two axes do not cost the same: width is free (200mm of it
+    // mostly unused), height comes straight out of the parts. Enough to catch an axis that scaled
+    // differently, no more.
     //
     // Both units ride the SAME arms rather than taking a mark each — a tick where the metric figure
     // falls and another where the imperial one does. Patterns normally print one square labelled
@@ -505,8 +510,8 @@ function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
  * comes out of the printer, page count included. The preview never lays parts out itself; a second
  * opinion about the layout is exactly how a preview starts lying about how many pages there are.
  *
- * Returns the pages' markup plus the stylesheet it needs (the styles live in STYLE, and the printable
- * HTML generates its CSS from the same table). Pure, like the rest of this module: it builds strings,
+ * Returns the pages' markup plus the stylesheet it needs (the styles live in STYLE, and the CSS is
+ * generated from that same table). Pure, like the rest of this module: it builds strings,
  * and the caller decides where they go.
  */
 export function paperPagesSVG(p: Design, matT: number, t: T = tid, page: Page & { name?: string } = A4) {
@@ -517,7 +522,7 @@ export function paperPagesSVG(p: Design, matT: number, t: T = tid, page: Page & 
   return { svg: svgs.join(""), css: styleCSS(".pages "), pages: lay.pages.length, pk, clamped, nMax };
 }
 
-// ============ SVG / HTML generation ============
+// ============ SVG generation ============
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
 const esc = (s: string) => String(s).replace(/[&<>]/g, (c) => ESC[c]);
 const n2 = (v: number) => (Math.round(v * 100) / 100).toString();
@@ -544,7 +549,7 @@ function pageSVG(ops: Op[], i: number, page: Page): string {
 }
 
 /**
- * Parts → a print-ready PDF (Uint8Array) of the same pages the HTML shows, labelled in whatever
+ * Parts → a print-ready PDF (Uint8Array) of the same pages the preview shows, labelled in whatever
  * language `t` speaks: Latin is Helvetica, and the rest is drawn from the outlines pdf.ts carries.
  * Nothing dimensional depends on the labels — the drawing itself is identical.
  */

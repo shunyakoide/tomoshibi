@@ -8,8 +8,9 @@
  * [Look] White faces plus their own outlines — `EdgesGeometry` over an opaque `MeshBasicMaterial` is
  *   a hidden-line drawing for free. The part a step adds is drawn in the accent colour.
  * [Camera] Orthographic and isometric: a perspective view of a flat part reads as a wrong shape.
- * [Output] A PNG data URL, not a live canvas — eleven figures would be eleven WebGL contexts (capped
- *   at ~16). One renderer draws them all in turn.
+ * [Output] A PNG data URL, not a live canvas — `SCENES` holds thirty-odd of these, which as live
+ *   canvases would be thirty-odd WebGL contexts against a browser cap of ~16. One renderer draws
+ *   them all in turn.
  * ============================================================================
  */
 import type { Design } from "../types.ts";
@@ -26,9 +27,9 @@ import {
 // (see `washiYaw`).
 const VIEW_DIR = new THREE.Vector3(1, 0.85, 1).normalize();
 
-const INK = 0x33302b;        // edge lines: the UI's ink, not pure black
+const INK = 0x33302b;        // edge lines: a shade off the UI's ink (#3b342b), and not pure black
 const PAPER = 0xffffff;      // faces: opaque white, so edges behind them are hidden
-const HI = 0xd4622a;         // the part this step adds (the app's accent)
+const HI = 0xd4622a;         // the part this step adds (a shade off the app's accent, #D95B18)
 const HI_FACE = 0xfae3d6;
 
 // One renderer for every figure on the page, created on first use and kept. Its canvas is sized per
@@ -505,7 +506,7 @@ const LIT_THRU = 0.45;           // how much of the shade you see through, in th
  * (3) Stood on legs, with the lamp fixed up into the bottom mouth.
  *
  * **The shade is translucent here and nowhere else.** This is the one figure that has to explain a
- * fitting entirely INSIDE the lantern (socket, three legs, frame — the three panels beside it), and
+ * fitting entirely INSIDE the lantern (socket, three legs, frame — the four panels beside it), and
  * drawn opaque it showed a shade with legs under it and explained none of it. So the skin drops to
  * `LIT_THRU` and the assembly is drawn in, which is also what a lit paper shade looks like.
  *
@@ -615,8 +616,8 @@ function inkLines(pts: number[]): THREE.LineSegments {
 
 /**
  * A fringe of bristle strokes hanging off a block's front-bottom edge — the one thing a flat white
- * solid cannot say for itself. `xs` are strand positions along the edge; each hangs straight down
- * by `len` from (x, y, z). Real bristles fan out and blur together; four or five evenly spaced
+ * solid cannot say for itself. `n` strands are spaced evenly from `xMin` to `xMax`, each hanging
+ * straight down by `len` at height `y`, depth `z`. Real bristles fan out and blur together; a dozen
  * strokes read as "there are bristles here" without pretending to count them.
  */
 function bristleFringe(xMin: number, xMax: number, y: number, z: number, len: number, n: number) {
@@ -808,7 +809,7 @@ function smoothBrush() {
 }
 
 /**
- * One arm, in the PIVOT's own frame: pivot at the origin, jaw out to x = -95, handle to x = +115.
+ * One arm, in the PIVOT's own frame: pivot at the origin, jaw out to x = -95, handle to x ≈ +123.
  * Pivot-relative because the arms then open by rotating each about z, which gets the linkage right
  * for free — one arm's jaw rises exactly as its handle drops. The shape is one lever, for the arm
  * whose jaw sits ABOVE the axis; the other is this mirrored in y. The gripping face is the near-flat
@@ -863,7 +864,8 @@ function pliers() {
   return g;
 }
 /**
- * What each figure shows. Keys are the guide's step ids; the value builds the group — every step on
+ * What each figure shows (this documents `SCENES`, far below). Keys are the guide's part, step,
+ * option, sub-step and kit ids; the value builds the group — every step that HAS a figure names one on
  * the page has one, from the first koma to the lantern lit on its cord.
  */
 /**
@@ -1051,8 +1053,9 @@ function ledBulb(view = VIEW_DIR) {
 
 /**
  * The other kind of lamp: the flat USB puck. Two shallow discs — the foot and the lens over it —
- * because one cylinder is a hockey puck and the seam is what makes it a fitting. The lens is widest
- * at its FOOT and narrows going up: it is the light that overhangs, not the base. The lead ends in a
+ * because one cylinder is a hockey puck and the seam is what makes it a fitting. The lens is
+ * straight-sided and WIDER than the foot, so the overhang reads as one clean step (tapering it as
+ * well was tried and put a bulge at its foot). The lead ends in a
  * PLUG rather than being cut off, because a USB light comes with its cable.
  *
  * Its aspect is a real one (KAPPLAKE is ⌀35x10, so 3.5:1); its SIZE is not — at true scale beside a
@@ -1216,9 +1219,9 @@ function legWire(arm: number, drop: number, splay: number) {
     new THREE.Vector3(arm + splay, -drop, LOOP_R),                  // a bend and not a long curve
   );
   const curve = new THREE.CatmullRomCurve3(pts);
-  // 8 radial segments and drawn as a `part`, not the plain filled tube the option's own figure uses.
-  // Filled, three loops on one stem merge into a single orange blob: same colour, overlapping in
-  // projection, nothing separating them. As a part each gets its outline, and the 45° facets clear
+  // 8 radial segments, so the wire is faceted enough to draw its own outline. Smooth, three loops on
+  // one stem merge into a single orange blob: same colour, overlapping in projection, nothing
+  // separating them. As a part each gets its outline, and the 45° facets clear
   // the 24° edge threshold the way `coil()` leans on, so the wire reads as a rod with three turns.
   const geo = new THREE.TubeGeometry(curve, pts.length * 3, WIRE_R, 8, false);
   const g = new THREE.Group();
@@ -1289,8 +1292,8 @@ function legBend() {
 }
 
 /** The wire's own material, shared by every bend in this group: a filled accent rod with its own
- * outline over 8 facets. See `legWire` for why it is not the plain filled tube the option's main
- * figure uses — stacked turns of one colour merge into a blob without the lines. */
+ * outline over 8 facets. See `legWire` for why the facet count matters where turns overlap: stacked
+ * turns of one colour merge into a blob without the lines. */
 function wireTube(pts: THREE.Vector3[], { seg = 3, closed = false, rod = WIRE_R }: { seg?: number; closed?: boolean; rod?: number } = {}) {
   const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, closed), pts.length * seg, rod, 8, closed);
   const g = new THREE.Group();
@@ -1360,7 +1363,7 @@ function frameWire(W = FRAME_W, H = FRAME_H) {
 
 // A flat hoop is ALL outline, so it is the one thing here that must face the camera: on the world
 // axes the isometric view takes it at 45° and the near side foreshortens into the far, which reads
-// as a bent hoop. A quarter turn puts its plane square to the view's bearing (`hangBend` turns for
+// as a bent hoop. A 45° yaw puts its plane square to the view's bearing (`hangBend` turns for
 // the mirror-image reason, to lay its arms ACROSS the view). The camera's elevation still tips it,
 // which keeps it a drawing rather than a diagram, and the eye then shows as an ellipse.
 const FRAME_YAW = Math.PI / 4;
@@ -1575,7 +1578,7 @@ const SCENES: Record<string, Scene> = {
   lightSet: (p, sm) => lightSet(p, sm),
   lightHang: (p, sm) => lightHang(p, sm),
   lightLegs: (p, sm) => lightLegs(p, sm),
-  // What you supply yourself — see "THE KIT" above. These are the only scenes that ignore `p`.
+  // What you supply yourself — see "THE KIT" above. These ignore `p` entirely.
   kitHigo: () => coil(2.5, 52, 8, 3.2, 16),
   kitPaste: () => pasteTub(),
   kitStick: () => tapeAndThread(),
@@ -1587,7 +1590,8 @@ const SCENES: Record<string, Scene> = {
   kitRazor: () => razorBlade(),
   kitLight: () => lamps(),
   kitSpray: () => sprayBottle(),
-  // Fixing the lamp — the sub-steps under way (3). Like the kit's, these ignore `p`: what holds a
+  // Fixing the lamp — the sub-steps under way (3). Like the kit's, these ignore `p` (except `hangSet`, which is
+  // sized from the top opening and draws the ring): what holds a
   // lamp to the paper is hardware you buy, not something the mold decides.
   legBend: () => legBend(),
   frameBend: () => frameBend(),

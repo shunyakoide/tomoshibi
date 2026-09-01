@@ -106,7 +106,8 @@ const EN: Record<string, string> = {
   // size, so the printer's own scaling is the only way left to lose that.
   "原寸 100% で印刷": "Print at 100%",
   "(「用紙に合わせる」は不可)": " — never \"fit to page\"",
-  // The PDF's own title line. English on purpose: base-14 Helvetica cannot draw Japanese (see paperPDF).
+  // The PDF's own title line. It prints in whichever language the app is showing — the writer draws
+  // the Japanese from outlines (pdf.ts / pdf-glyphs.ts) rather than through base-14 Helvetica.
   "TOMOSHIBI 段ボール型紙 {name} 原寸": "TOMOSHIBI cardboard template {name} (full scale)",
   // Printed on every sheet. Both languages reach paper now (the writer carries outlines for the
   // Japanese), so keep both SHORT: the note shares its band with the right-aligned footer.
@@ -158,7 +159,8 @@ const EN: Record<string, string> = {
   "首": "Neck",
   "火袋": "Body",
   "開口/首": "Opening/Neck",
-  // Legend at the bottom-left of the section view (glyph / verb / description columns).
+  // Legend at the top-right of the section view — a bottom-left pill on a phone (glyph / verb /
+  // description columns).
   // Keep the description column short — it sits next to a fixed-width verb column in a corner card.
   "点の操作": "Editing the points",
   "カーブ調整中": "Curve mode",
@@ -214,8 +216,6 @@ const EN: Record<string, string> = {
   "枚(各1枚)": " (one file each)",
   // ---- Papercraft (cardboard) ----
   "コマ": "Koma",
-  // Kept short: it shares the bottom band with the right-aligned footer, and the PDF draws either
-  // language at the same size (a longer line collides with the footer).
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
   "羽根板の間 1面分 · beta": "one rib-to-rib panel · beta",

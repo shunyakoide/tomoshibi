@@ -11,8 +11,9 @@
  * `bodyMinR`'s self-intersection guard). Splitting them would buy two files and an import cycle.
  *
  * This is also where the **print-fit invariants** are aggregated (see CLAUDE.md "Part joints"):
- * `innerRi()` fixes the tab tip AND the koma notch bottom, `notchR()` is shared by the part that
- * cuts the dent and the part that cuts the notch. Those single definitions are the only reason a
+ * `innerRi()` fixes the tab BASE, and through `tabTipRi()` the koma notch bottom too. `tabTipRi()` is
+ * the quantity the two parts share: rib.ts cuts the dent from `innerRi + TAB_DENT_W`, koma.ts cuts
+ * the notch from `notchR() = tabTipRi() - 0.5`. Those single definitions are the only reason a
  * reprinted rib still fits a koma printed last month. Change one and check both.
  *
  * Pure arithmetic — no three.js, no React, no DOM. Nothing here builds geometry.
@@ -231,8 +232,9 @@ function ribCoreFloor(p: Design): number {
   return Math.max(6, rNotchMin + 0.5);
 }
 // The rib-count ceiling: the most boards whose koma notch walls still clear `MIN_WALL` at this
-// opening / board thickness / tolerance. Notches are cut near `notchR = nominalRi - 0.5`, and
-// wall = 2π·notchR/boards − notchW. Without it, a small opening plus a thick board plus many boards
+// opening / board thickness / tolerance. The bound is evaluated at the legacy `nominalRi - 0.5`
+// rather than at the real notch bottom (`notchR()`, which is `innerRi + TAB_DENT_W - 0.5` when the
+// tab is dented), because it has to be independent of `boards`; wall = 2π·r/boards − notchW. Without it, a small opening plus a thick board plus many boards
 // overlaps the notches near the centre and the koma comes out non-watertight (wall negative).
 // `nominalRi` does not depend on `boards`, so neither does this — it is a monotone upper bound.
 export function maxBoards(p: Design): number {

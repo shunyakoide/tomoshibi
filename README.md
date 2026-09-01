@@ -23,8 +23,8 @@ output is static files.
 
 | Assembly | Print | Lit |
 | --- | --- | --- |
-| ![The assembled mold cradled on its stand](docs/screenshots/assembly.png) | ![Print plates laid out on the bed, with the washi template docked beside them](docs/screenshots/print.png) | ![The finished lantern, lit, standing on three legs](docs/screenshots/lit.png) |
-| The mold on its stand, held clear of the table so you can turn it as you wind. | Every part laid out on your bed, the washi template alongside. | What you are building towards. |
+| ![The assembled mold cradled on its stand](docs/screenshots/assembly.png) | ![Print plates laid out on the bed](docs/screenshots/print.png) | ![The finished lantern, lit, standing on three legs](docs/screenshots/lit.png) |
+| The mold on its stand, held clear of the table so you can turn it as you wind. | Every part laid out on your bed. | What you are building towards. |
 
 ---
 
@@ -49,8 +49,8 @@ opening**. This app generates that mold as 3D-printable split parts.
 - **Spiral winding (螺旋巻き)** — optional mode that offsets grooves per rib so the bamboo forms one continuous descending helix. Each rib is then unique, so it's exported as a separate STL and **engraved with its serial number** (7-segment cut) so you can place them in order.
 - **Cardboard papercraft mode** (beta) — for those without a 3D printer: full-scale (1:1) A4 print pages to cut the ribs and koma hubs from cardboard. Notch widths follow the thickness you measured, so the parts still mesh.
 - **Washi template (和紙の型紙)** (beta) — the paper skin itself, developed flat: one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. Includes the side overlap, the cover allowance past the openings, and dashed guides for the rib lines and bamboo positions. It ships with whichever output you choose, as its own PDF inside that download.
-- **Assembly guide** — a step-by-step page for **your** design: the parts list counts the ribs you are printing and measures the parts you are printing, and the figures are drawn from the same geometry the STLs are written from. It runs past the mold, too — winding the bamboo, pasting the washi, pulling the mold, and putting a light in it — and it lists what you supply yourself (bamboo, paste, something to hold the bamboo, brushes), each one drawn. The steps whose difficulty is in the hand fold out a **detail block** with a photograph in it. Print it from the browser if you want it on paper — folded blocks open on paper, so nothing you can read on screen is missing from the sheet.
-- **English / Japanese UI** — toggle in the top bar. Both templates print in the language the app is showing.
+- **Build guide** — a step-by-step page at `/guide`, every step drawn from the same `geometry.ts` the STLs are written from. It runs past the mold — winding the bamboo, pasting the washi, drying, pulling the mold out, and putting a light in it — and lists what you supply yourself (bamboo, washi, paste, a razor, a lamp…), each one drawn. The drawings are of one example lantern rather than of your design, and no dimension is printed on the page: the method does not change with the shape. Print it straight from the browser if you want it on paper.
+- **English / Japanese UI** — a row in the ☰ menu. Both templates print in the language the app is showing.
 - **Watertight by construction** — every exported part is a closed manifold, verified by an automated sweep (see [CONTRIBUTING](CONTRIBUTING.md)).
 
 ---
@@ -73,11 +73,11 @@ life in April 2026. An older Node fails at `npm install` rather than degrading.
 
 ## Using it
 
-- **Top tabs** — switch between **Section / Assembly / Print / Guide / Lit** views.
-- **Right panel** — pick a preset, then drag the section's control points to reshape; open the accordions (Frame, Bamboo, Print bed…) for finer settings.
+- **View tabs** — switch between **Section / Assembly / Print / Lit**. (The build guide is a page of its own, at `/guide`, opened from the **☰** menu.)
+- **Right panel** — pick a preset, then drag the section's control points to reshape; the sections below (Frame, Bamboo ribs, Washi, Print bed…) hold the finer settings.
 - **Preview** — drag to orbit, wheel / pinch to zoom.
 - **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `config.json` backup of your design. (STL compresses well: a default kit is about 190 KB zipped.)
-- **If you're lost** — a card on your first visit says what the object on screen actually is (the mold, not the lantern); the **?** in the panel header reopens it any time. The legend at the top-right of the section view redraws the ◇ marks themselves, and follows the edit mode you are in.
+- **If you're lost** — a card on your first visit says what the object on screen actually is (the mold, not the lantern); the **☰** menu's first row reopens it any time. The legend at the top-right of the section view redraws the ◇ marks themselves, and follows the edit mode you are in.
 
 ### From print to lantern
 
@@ -91,16 +91,14 @@ life in April 2026. An older Node fails at `npm install` rather than degrading.
 > **制作フロー**: 印刷 → コマ2枚のノッチに羽根板を差し込む → 溝に竹ひごを巻く → 糊＋和紙を
 > 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を貼る → 照明化。
 
-The app says the same thing in the **Guide** view — every step drawn, and a list of what you
+The app says the same thing on its **build guide** page — every step drawn, and a list of what you
 supply yourself (bamboo, washi, paste, a razor, a lamp) drawn beside it. The drawings are of one
-example lantern rather than of your design: the method does not change with the shape, and the
-sizes and counts are the ones you set in the app. Winding the bamboo and pasting the washi each fold out a
-further paragraph and a photograph — the two steps whose difficulty is in the hand, where a
-drawing cannot help — and they open by themselves when you print. The last step gives the **three ways to light it** — cover a lamp
+example lantern rather than of your design, and the page prints no dimensions at all: the method
+does not change with the shape. The last step gives the **three ways to light it** — cover a lamp
 stood on the floor, hang it from a pendant cord, or add legs and fix the lamp in from below — each
 drawn, and the third only where the bottom ring has the leg sockets to take it. The two that need a
-fitting are worked through in sub-steps of their own, each with a detail block of its own beneath
-them, and neither needs anything you have to print — a length of wire does both. On legs: bend a loop in the end of three wires, stack them on the lamp
+fitting are worked through in numbered sub-steps of their own, and neither needs anything you have
+to print — a length of wire does both. On legs: bend a loop in the end of three wires, stack them on the lamp
 holder's threaded stem and tighten its nut, and the lamp and its legs come off the bench as one
 piece. Hanging: bow one wire into a shallow arch with a U in the middle, drop the cord into the U — its
 gap passes the cord and stops the socket — and run the wire's two ends under the rim of the top
@@ -153,8 +151,8 @@ what you see is exactly what you print.
 ## Contributing
 
 Geometry changes must stay **watertight**. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
-dev setup, the verification gates (`npm run lint` / `check:manifold` / `check:hash` /
-`check:persist` / `check:paper` / `check:i18n`), and the design invariants to preserve.
+dev setup, the verification gates (`npm run lint` / `typecheck` / `check:manifold` / `check:hash` /
+`check:persist` / `check:paper` / `check:glyphs` / `check:i18n` / `check:style`), and the design invariants to preserve.
 CI runs them on every push and pull request.
 
 ## License
@@ -181,5 +179,5 @@ CI runs them on every push and pull request.
 
 **使い方**: 上部タブで **断面/組立/印刷/点灯** を切替、右パネルで断面の制御点をドラッグして
 形を調整、印刷ビューから全パーツの STL（ZIP）を書き出し。初回に出る案内カードは
-パネル右上の **?** でいつでも開き直せます。作り方は上記「From print to lantern」を参照。
+ヘッダーの **☰** メニューからいつでも開き直せます。作り方は上記「From print to lantern」を参照。
 ライセンスは [MIT](LICENSE)。アプリは **[こちら](https://shunyakoide.github.io/tomoshibi/)**（インストール不要・ブラウザのみで動作）。

@@ -11,7 +11,7 @@
  * does not fit either. The panel and the drawing were competing for one screen, which is a bad trade
  * for a direct-manipulation editor.
  *
- * In flow (like `alertBar`), never over the canvas: it costs the section view 52px while a point is
+ * In flow (like `alertBar`), never over the canvas: it costs the section view 57px while a point is
  * selected and nothing at all otherwise, and tapping empty canvas already clears the selection, so it
  * dismisses itself.
  *

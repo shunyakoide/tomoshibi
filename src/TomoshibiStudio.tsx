@@ -58,7 +58,7 @@ import type { Design, Route } from "./types.ts";
 
 /** Which viewport the middle of the screen is showing. Only `route` outlives the session. */
 type View = "2d" | "mold" | "print" | "lit";
-/** Which onboarding card is open: the first-visit one, the one reopened from "?", or neither. */
+/** Which onboarding card is open: the first-visit one, the one reopened from the ☰ menu, or neither. */
 type WelcomeCard = "first" | "help" | null;
 
 // (The inspector's width is the aside's own `w-336 flex-[0_0_336px]`, written nowhere else.)
@@ -77,7 +77,8 @@ const TAB_SKIN = "px-14 py-7 border-0 rounded-sm cursor-pointer transition-all d
   + "aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:font-bold";
 // ---- The narrow layout's bottom sheet ----------------------------------------------------------
 // On a phone the inspector is a sheet you pull up over the viewport, so the section editor gets the
-// screen. Three stops: `peek` (the grabber bar alone) and these two fractions. `full` stops short of
+// screen. Three stops: `peek` (the grabber bar alone), the one fraction below, and `full`, which is
+// the shared budget minus `MIN_VIEW`. `full` stops short of
 // covering everything, because the drawing you are editing should never leave the screen — the sheet
 // is a set of controls FOR it.
 //
@@ -343,7 +344,8 @@ export default function TomoshibiStudio() {
   // Read from the same function the geometry does, so the two cannot disagree about the part.
   const legsFit = useMemo(() => ringLegsFit(p), [p]);
   // Opening radii, shown for reference only. Ribs come out by removing a koma and tilting them, so
-  // "opening ≥ rib width" would not actually decide whether they clear — no check, no false warning.
+  // "opening ≥ rib width" would not actually decide whether they clear; `ribPullFit` answers that,
+  // and raises its own viewport alert. These two readouts are informational.
   const topOpen = Math.round(outerR(p, 1));
   const botOpen = Math.round(outerR(p, 0));
 
@@ -462,7 +464,8 @@ export default function TomoshibiStudio() {
   // than SHEET_TAP is a tap, so the whole header is also the button.
   const dragRef = useRef<{ y0: number; h0: number; moved: boolean } | null>(null);
   const onSheetDown = useCallback((e: React.PointerEvent) => {
-    // Let the two real buttons in the header (? and the language toggle) be pressed normally.
+    // Let any real <button> inside the bar be pressed normally. Defensive: the bar holds none today
+    // (the header controls moved to the chip bar), and this is what would keep one pressable.
     if ((e.target as HTMLElement).closest("button")) return;
     const el = e.currentTarget.parentElement as HTMLElement | null;
     if (!el) return;
@@ -512,14 +515,15 @@ export default function TomoshibiStudio() {
   // unreachable altogether).
   //
   // It replaced a "?" and a language toggle standing in the row itself. Both are secondary by
-  // nature, and in Japanese they were the difference between a chip bar that fits and one that has
-  // nothing left: 99 + 144 + 88 + 24 of gaps + 20 of padding is 375 on the nose. See ui/Menu.tsx for
-  // why the glyph is a "☰" when none of the contents is navigation, and for what stayed out of it.
+  // nature, and in ENGLISH they were the difference between a chip bar that fits and one that has
+  // nothing left: 99 + 144 + 88 + 24 of gaps + 20 of padding is 375 on the nose (Japanese, whose
+  // labels are shorter, had 55px spare). See ui/Menu.tsx for
+  // why the glyph is a "☰" now that 「作り方」 IS a destination in it, and for what stayed out.
   const menuItems: MenuItem[] = [
     { kind: "item", label: t("はじめかた"), onClick: () => setWelcome("help") },
-    // A DOCUMENT, not a destination — it opens over whatever you were doing and closing it puts you
-    // back there, exactly as the card above does. That distinction is what lets the menu keep the
-    // "☰ with no navigation in it" trade intact; see ui/Menu.tsx.
+    // A real page with an address of its own (`/guide`, see route.ts) — so this menu DOES hold a
+    // destination, and that is what makes a ☰ the honest glyph for it. What still holds is that the
+    // app's primary navigation stays visible: do not fold a VIEW in here. See ui/Menu.tsx.
     { kind: "item", label: t("作り方"), onClick: () => goPage("guide") },
     // A setting, not a verb, so it reads as one: the row names the thing and the right-hand side
     // shows what it would become. (The old control was a button captioned with its own opposite.)
@@ -536,7 +540,7 @@ export default function TomoshibiStudio() {
 
   // ============ Narrow: the chips move OUT of the viewport, and become dropdowns ============
   // Floating over the canvas the two rows were ~100px of a 357px pane, laid over exactly where the
-  // top opening's ◇ is. In a bar above the pane they covered nothing, but eight chips still wrapped
+  // top opening's ◇ is. In a bar above the pane they covered nothing, but six chips still wrapped
   // to two rows (85px) in English — and the labels are the app's top-level navigation, so shortening
   // them was never on. As dropdowns the same two choices cost ONE row in every language.
   //
@@ -667,7 +671,7 @@ export default function TomoshibiStudio() {
   // ============ Left: viewport ============
   const viewport = (
     // The pane has no share of the screen — it has everything the sheet is not using. On a phone the
-    // inspector is a bottom sheet resting at `peek` (its bar and the CTA), so the section editor gets
+    // inspector is a bottom sheet resting at `peek` (its bar alone), so the section editor gets
     // ~717px of an 812px screen instead of the 325px a fixed 40vh gave it, and pulling the sheet up
     // trades that back a stop at a time. Lit was already the exception and now needs no exception.
     <main ref={mainRef} className="relative min-w-0 min-h-0 flex-auto h-auto">
@@ -749,7 +753,7 @@ export default function TomoshibiStudio() {
         height: sheetHeight,
         transition: sheetH == null ? "height 0.22s cubic-bezier(0.32,0.72,0,1)" : undefined,
       } : undefined}>
-      {/* ---- The sheet's header: the grabber, the live summary, and the two icon buttons ----
+      {/* ---- The sheet's header: the grabber and the live summary ----
           Everything above the fold at `peek`. It is the drag surface and, for a press that never
           travels, the button that cycles to the next stop. `touchAction: none` so the browser does
           not claim the vertical gesture before the pointer handlers see it. */}
@@ -759,8 +763,8 @@ export default function TomoshibiStudio() {
           className="flex-none relative flex items-center px-14 pt-14 pb-9 border-b border-edge
             cursor-grab [touch-action:none]">
           {/* The grabber pill is positioned against the BAR, not laid out inside the row: centred in
-              the row it would be centred on everything except the two buttons, landing at 37% of the
-              sheet and reading as a mistake rather than as a handle. */}
+              the row it would be centred on the summary alone rather than on the sheet. (It was 37%
+              off centre while the bar still carried two buttons.) */}
           <span aria-hidden="true" className="absolute top-6 left-1/2 -translate-x-1/2 w-38 h-4
             rounded-xs bg-edge" />
           {/* The grabber is a div with role=button, not a <button>, and that is not a shortcut: the
@@ -802,10 +806,10 @@ export default function TomoshibiStudio() {
       )}
 
       {/* Scroll area — between the bar and the pinned CTA, on both layouts. That is what makes
-          `peek` work without reordering anything: at rest the sheet is exactly bar + CTA tall, so
+          `peek` work without reordering anything: at rest the sheet is exactly bar-tall, so
           this collapses to zero, and every stop above it grows this and only this. */}
       {/* No VERTICAL padding on a phone: `min-height: 0` floors the border box at padding + border, so
-          4+14 of it is 18px this element cannot shrink past — and `peek` is measured as bar + CTA,
+          4+14 of it is 18px this element cannot shrink past — and `peek` is the bar's own height,
           which then overflowed the sheet by exactly that and cut the bottom off the CTA. The spacing
           it bought is given back by the wordmark block at the end of the list.
           `overscroll-behavior: contain` because iOS momentum scrolling stops dead at the last row
@@ -972,7 +976,7 @@ export default function TomoshibiStudio() {
               </>
             ) : (
               /* Cardboard: the A4 full-scale template for building without a 3D printer. Only the
-                 material thickness lives here; "open the template" is the footer CTA. */
+                 material thickness lives here; "download the template ZIP" is the footer CTA. */
               <>
                 <SectionLabel title="型紙(段ボール)" hint="A4 原寸 · beta" />
                 <Note className="mb-12">
@@ -1005,8 +1009,8 @@ export default function TomoshibiStudio() {
           It was briefly moved above the scroll area on a phone, to be part of what `peek` shows; that
           put a full-width button between the drag handle and the first control, and left the list
           sliding under it with no boundary — a half-cut row reads as a rendering fault. Pinning it at
-          the bottom shows it at `peek` just the same (the scroll area between them is zero tall
-          there), keeps it where a next-step action belongs and where the thumb is, and gives the list
+          the bottom keeps it where a next-step action belongs and where the thumb is, and gives the
+          list
           the edge to disappear behind that it always had.
           The summary is dropped here on a phone because the sheet's bar carries it, and `peek` is
           measured from that bar ALONE (`barRef`) — this footer sits below it and is clipped. */}
