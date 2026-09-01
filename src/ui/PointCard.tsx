@@ -13,7 +13,7 @@
 import React from "react";
 import { LIMITS } from "../config.ts";
 import { clamp } from "../util.ts";
-import { UI, FS, useT } from "./theme.ts";
+import { useT } from "./theme.ts";
 import { SectionLabel, NumInput, SegButton } from "./controls.tsx";
 import { pointOps, makeSetMode } from "./pointEdit.ts";
 import type { EditMode } from "./pointEdit.ts";
@@ -42,11 +42,11 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode,
   if (compact) return null;
 
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div className="sec">
       <SectionLabel title="選択中の点" hint={pt ? (isEnd ? "開口/首" : `#${sel! + 1}`) : undefined} />
       {pt ? (
-        <div style={{ border: `1px solid ${UI.cardEdge}`, borderRadius: 10, background: UI.card, padding: "12px 12px 10px" }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+        <div className="pt-box">
+          <div className="pt-segs">
             <SegButton label="✥ 点を動かす" active={editMode === "move"} onClick={() => setMode("move")} />
             <SegButton label="◠ カーブ調整" active={editMode === "curve"} onClick={() => setMode("curve")} />
           </div>
@@ -54,17 +54,14 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode,
             onChange={(v) => patch({ r: clamp(...LIMITS.r, v) })} />
           <NumInput label="高さ位置" value={Math.round(pt.t * p.height)} min={1} max={p.height}
             onChange={setHeightMm} />
-          <div style={{ display: "flex", gap: 6, margin: "4px 0 10px" }}>
+          <div className="pt-segs pt-segs--mid">
             <SegButton label="◇ なめらか" active={!pt.sharp} onClick={() => patch({ sharp: false })} />
             <SegButton label="■ 角" active={!!pt.sharp} onClick={() => patch({ sharp: true })} />
           </div>
           <button className="block-btn" onClick={del} disabled={!canDelete}>{t("この点を削除")}</button>
         </div>
       ) : (
-        <div style={{
-          border: `1px dashed ${UI.cardEdge}`, borderRadius: 10, padding: "14px 14px",
-          fontSize: FS.sm, color: UI.faint, lineHeight: 1.6,
-        }}>{t("断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。")}</div>
+        <div className="pt-empty">{t("断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。")}</div>
       )}
     </div>
   );
