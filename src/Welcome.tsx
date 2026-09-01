@@ -124,7 +124,7 @@ export default function Welcome({ route = null, onPick, onClose }: {
           // An auto margin resolves to 0 once the free space goes negative, so the card starts at
           // the padding edge and the whole of it scrolls into reach.
           margin: "auto",
-          width: "min(560px, 100%)", background: ui.panel, color: ui.text, fontFamily: "var(--sans)",
+          width: "min(560px, 100%)", background: ui.panel, color: ui.text, fontFamily: "var(--font-sans)",
           boxShadow: "0 18px 50px rgba(43,36,26,0.3)",
           border: `1px solid ${ui.edge}`, position: "relative",
         }}>
