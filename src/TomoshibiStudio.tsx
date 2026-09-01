@@ -44,7 +44,7 @@ import GuidePage from "./GuidePage.tsx";
 import Welcome from "./Welcome.tsx";
 import { DEFAULTS, LIMITS, SIL_ROWS } from "./config.ts";
 import type { T } from "./i18n.ts";
-import { UI, FS, accent, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.ts";
+import { accent, vpBg, chipStyle, TContext } from "./ui/theme.ts";
 import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note, Badge, NOTE_SKIN } from "./ui/controls.tsx";
 import PresetChips from "./ui/PresetChips.tsx";
 import PointCard from "./ui/PointCard.tsx";
@@ -61,13 +61,20 @@ type View = "2d" | "mold" | "print" | "lit";
 /** Which onboarding card is open: the first-visit one, the one reopened from "?", or neither. */
 type WelcomeCard = "first" | "help" | null;
 
-const PANEL = 336;          // inspector width (px)
-// Where the two floating chip rows sit on the viewport. One table because three things have to agree
-// about it — the two rows themselves and `.pages`' top padding (index.css), which is the clearance
-// the cardboard preview leaves so its first sheet does not slide underneath. Wide only: on a phone
-// the chips are not floating at all but a bar above the viewport (see `chipBar`), so there is no
-// position to share and nothing to leave clearance for.
-const CHIP = { top: 16, left: 16, row2: 62 } as const;
+// (The inspector's width is the aside's own `w-336 flex-[0_0_336px]`, written nowhere else.)
+//
+// The floating chip row's shell — the same box twice (mode tabs at `top-16`, route tabs at `top-62`),
+// minus the two colours, which follow `isLit` and are handed in as a style. Wide only: on a phone the
+// chips are not floating but a bar above the viewport (see `chipBar`).
+// PagePreview's `pt-124` is the clearance the cardboard preview leaves under the LOWER of these two
+// rows so its first sheet does not slide beneath it — 62 plus the row's own height. Anything that
+// changes a tab's padding or font size moves that number too.
+const CHIP_BOX = "absolute left-16 flex gap-2 p-4 rounded-lg border backdrop-blur-[6px] "
+  + "shadow-[0_2px_10px_rgba(59,52,43,0.07)]";
+// One skin for both floating tab rows. It was this string, written out twice, character for character.
+const TAB_SKIN = "px-14 py-7 border-0 rounded-sm cursor-pointer transition-all duration-150 "
+  + "bg-transparent text-[#6f6350] font-sans text-base font-medium "
+  + "aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:font-bold";
 // ---- The narrow layout's bottom sheet ----------------------------------------------------------
 // On a phone the inspector is not a panel below the viewport any more but a sheet you pull up over
 // it, so the section editor gets the screen. Three stops: `peek` (the sheet's own header — the live
@@ -501,18 +508,12 @@ export default function TomoshibiStudio() {
   // off, so it tracks the finger; otherwise it is the current stop and the transition animates.
   const sheetHeight = `${Math.round(sheetH ?? sheetStops[sheet])}px`;
   const chip = chipStyle(isLit);
-  // The floating chip's shell, minus where it sits — the same box twice, and it used to be the same
-  // eight declarations twice.
-  const chipBox: React.CSSProperties = {
-    position: "absolute", display: "flex", gap: 2, padding: 4, background: chip.bg,
-    backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
-    border: `1px solid ${chip.edge}`, boxShadow: "0 2px 10px rgba(59,52,43,0.07)",
-  };
+  const chipTone = { background: chip.bg, borderColor: chip.edge };
   const modeTabs = VIEWS.map(([k, l]) => (
-    <button key={k} className="px-14 py-7 border-0 rounded-sm cursor-pointer transition-all duration-150 bg-transparent text-[#6f6350] font-sans text-base font-medium aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:font-bold" aria-pressed={view === k} onClick={() => setView(k)}>{t(l)}</button>
+    <button key={k} className={TAB_SKIN} aria-pressed={view === k} onClick={() => setView(k)}>{t(l)}</button>
   ));
   const routeTabs = ROUTES.map(([k, l, badge]) => (
-    <button key={k} className="px-14 py-7 border-0 rounded-sm cursor-pointer transition-all duration-150 bg-transparent text-[#6f6350] font-sans text-base font-medium aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:font-bold" aria-pressed={route === k} onClick={() => setRoute(k)}>
+    <button key={k} className={TAB_SKIN} aria-pressed={route === k} onClick={() => setRoute(k)}>
       {t(l)}{badge && <Badge>{badge}</Badge>}
     </button>
   ));
@@ -581,16 +582,13 @@ export default function TomoshibiStudio() {
     </span>
   );
   const chipBar = narrow ? (
-    <nav style={{
-      flex: "none", display: "flex", alignItems: "center", gap: 8,
-      padding: "6px 10px", background: UI.panel, borderBottom: `1px solid ${UI.edge}`,
-    }}>
+    <nav className="flex-none flex items-center gap-8 px-10 py-6 bg-panel border-b border-edge">
       {modeSelect}
       {/* Lit drops the route control for the same reason it drops the whole inspector — it is a
           viewing mode. The view control stays: in lit the panel is hidden, so this bar is the only
           way back out of it. */}
       {!isLit && routeSelect}
-      <span style={{ flex: "1 1 auto" }} />
+      <span className="flex-auto" />
       {headerBtns}
     </nav>
   ) : null;
@@ -673,8 +671,6 @@ export default function TomoshibiStudio() {
           border-l-3 border-l-accent-5 border-solid cursor-pointer [font:inherit] text-base
           text-text text-left">
         <span className="flex-none text-lg">⚠️</span>
-        {/* minWidth 0 is what lets the ellipsis happen at all: a flex item's automatic minimum size
-            is its content, so without it the headline pushes the count and caret off the strip. */}
         {/* min-width 0 is what lets the ellipsis happen at all: a flex item's automatic minimum
             size is its own content, so without it the headline pushes the count and the caret off. */}
         <span className="flex-auto min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
@@ -695,16 +691,15 @@ export default function TomoshibiStudio() {
 
   // ============ Left: viewport ============
   const viewport = (
-    <main ref={mainRef} style={{
-      position: "relative", minWidth: 0, minHeight: 0,
-      // The pane no longer has a share of the screen — it has everything the sheet is not using. On
-      // a phone the inspector is a bottom sheet resting at `peek` (its bar and the CTA, ~110px), so
-      // the section editor gets roughly 600px of a 812px screen instead of the 325px a fixed 40vh
-      // gave it, and pulling the sheet up trades that back a stop at a time. Lit was already the
-      // exception for the same reason and now needs no exception at all.
-      flex: "1 1 auto", height: "auto",
-    }}>
-      <div ref={mountRef} style={{ position: "absolute", inset: 0, background: vpBg(isLit), transition: "background 0.3s" }} />
+    // The pane has no share of the screen — it has everything the sheet is not using. On a phone the
+    // inspector is a bottom sheet resting at `peek` (its bar and the CTA), so the section editor gets
+    // ~717px of an 812px screen instead of the 325px a fixed 40vh gave it, and pulling the sheet up
+    // trades that back a stop at a time. Lit was already the exception and now needs no exception.
+    <main ref={mainRef} className="relative min-w-0 min-h-0 flex-auto h-auto">
+      {/* The gradient stays a style: it is a VALUE that follows `isLit`, and as an arbitrary class it
+          would be ninety characters of punctuation saying the same thing. */}
+      <div ref={mountRef} className="absolute inset-0"
+        style={{ background: vpBg(isLit), transition: "background 0.3s" }} />
       {/* Section view: the direct-manipulation editor, overlaid on the WebGL canvas */}
       {view === "2d" && (
         <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag}
@@ -716,14 +711,11 @@ export default function TomoshibiStudio() {
       {paperPreview && <PagePreview p={p} matT={matT} lang={lang} />}
 
       {glError && (
-        <div style={{
-          position: "absolute", inset: 0, display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 10, padding: 24,
-          textAlign: "center", pointerEvents: "none",
-        }}>
-          <div style={{ fontSize: FS.md, color: "#e0a060", fontWeight: 600 }}>{t("⚠ 3Dプレビューを初期化できませんでした")}</div>
-          <div style={{ fontSize: FS.sm, color: "#8a8a96", fontFamily: mono, wordBreak: "break-word" }}>{glError}</div>
-          <div style={{ fontSize: FS.sm, color: "#6f6f7a" }}>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-10 p-24
+          text-center pointer-events-none">
+          <div className="text-md font-semibold text-[#e0a060]">{t("⚠ 3Dプレビューを初期化できませんでした")}</div>
+          <div className="text-sm font-mono text-[#8a8a96] break-words">{glError}</div>
+          <div className="text-sm text-[#6f6f7a]">
             {t("お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。")}
           </div>
         </div>
@@ -731,7 +723,7 @@ export default function TomoshibiStudio() {
 
       {/* Mode tabs. Floating over the canvas on a wide screen; in the bar above it on a phone —
           see `chipBar` below for why. */}
-      {!narrow && <div className="rounded-lg" style={{ ...chipBox, top: CHIP.top, left: CHIP.left }}>{modeTabs}</div>}
+      {!narrow && <div className={`${CHIP_BOX} top-16`} style={chipTone}>{modeTabs}</div>}
 
       {/* The route switch lives here, on the viewport, and not in the panel: it changes what this
           whole view IS (print plates vs template pages), and buried at the bottom of the inspector's
@@ -743,36 +735,27 @@ export default function TomoshibiStudio() {
           and its cause on another — someone shortening a body to fit a bed they don't own. Lit is
           excluded because it is a viewing mode (the whole inspector is hidden there too). */}
       {!isLit && !narrow && (
-        <div className="rounded-lg" style={{ ...chipBox, top: CHIP.row2, left: CHIP.left }}>{routeTabs}</div>
+        <div className={`${CHIP_BOX} top-62`} style={chipTone}>{routeTabs}</div>
       )}
 
       {/* Dimension chip (always live). On a phone it sits tighter to the corner: at 375px the tab
           strip reaches far enough right that the readout was printing through it. Right-aligned
           either way, so it reads as a status line rather than as another control. */}
-      <div style={{
-        position: "absolute", top: narrow ? 10 : 24, right: narrow ? 12 : 24,
-        fontSize: narrow ? FS.sm : FS.base, color: chip.txt,
-        fontFamily: mono, letterSpacing: "0.05em", textAlign: "right", pointerEvents: "none",
-      }}>
+      <div className="absolute top-24 right-24 text-base narrow:top-10 narrow:right-12 narrow:text-sm
+        font-mono tracking-[0.05em] text-right pointer-events-none" style={{ color: chip.txt }}>
         ⌀{maxDia} × H{p.height} mm
       </div>
 
       {/* The alert column, floating in the canvas's bottom-right (declared above; on a phone it is
           a strip below the viewport instead — see `alertBar`). */}
       {!narrow && alerts.length > 0 && (
-        <div style={{
-          position: "absolute", bottom: 20, right: 20, maxWidth: "60%",
-          display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10,
-        }}>
+        <div className="absolute bottom-20 right-20 max-w-[60%] flex flex-col items-end gap-10">
           {alertCards}
         </div>
       )}
 
       {isLit && (
-        <div style={{
-          position: "absolute", bottom: 20, left: 20, fontSize: FS.sm, color: "#8a8a96",
-          fontFamily: sans, pointerEvents: "none",
-        }}>
+        <div className="absolute bottom-20 left-20 font-sans text-sm text-[#8a8a96] pointer-events-none">
           {t("鑑賞モード — 編集はタブで「断面」へ")}
         </div>
       )}
@@ -781,22 +764,19 @@ export default function TomoshibiStudio() {
 
   // ============ Right: inspector (hidden in lit mode) ============
   const inspector = isLit ? null : (
-    <aside ref={asideRef} className="narrow:rounded-t-2xl" style={{
-      display: "flex", flexDirection: "column",
-      width: narrow ? "auto" : PANEL,
-      // As a sheet the panel is sized, not flexed: its height IS the stop it is parked at, and the
-      // viewport takes whatever is left. The transition is off mid-drag so it tracks the finger.
-      flex: narrow ? "none" : `0 0 ${PANEL}px`,
-      height: narrow ? sheetHeight : undefined,
-      transition: narrow && sheetH == null ? "height 0.22s cubic-bezier(0.32,0.72,0,1)" : undefined,
-      minHeight: 0, background: UI.panel, color: UI.text,
-      borderLeft: narrow ? "none" : `1px solid ${UI.edge}`,
-      borderTop: narrow ? `1px solid ${UI.edge}` : "none",
-      boxShadow: narrow ? "0 -6px 22px rgba(59,52,43,0.13)" : undefined,
-      // At `peek` the sheet is only as tall as its bar, so the pinned CTA below the (zero-height)
-      // scroll area sits past the sheet's own bottom edge. Clip it rather than let it hang there.
-      overflow: narrow ? "hidden" : undefined,
-    }}>
+    // As a sheet the panel is SIZED, not flexed: its height is the stop it is parked at and the
+    // viewport takes whatever is left, so that pair alone stays a style — the height is a live px
+    // number and the transition is off mid-drag so the sheet tracks the finger. Everything else is
+    // the wide panel with `narrow:` overrides: `overflow-hidden` because at `peek` the sheet is only
+    // as tall as its bar, which leaves the pinned CTA hanging past its own bottom edge.
+    <aside ref={asideRef}
+      className="flex flex-col min-h-0 w-336 flex-[0_0_336px] bg-panel text-text border-l border-edge
+        narrow:w-auto narrow:flex-none narrow:border-l-0 narrow:border-t narrow:rounded-t-2xl
+        narrow:overflow-hidden narrow:shadow-[0_-6px_22px_rgba(59,52,43,0.13)]"
+      style={narrow ? {
+        height: sheetHeight,
+        transition: sheetH == null ? "height 0.22s cubic-bezier(0.32,0.72,0,1)" : undefined,
+      } : undefined}>
       {/* ---- The sheet's header: the grabber, the live summary, and the two icon buttons ----
           Everything above the fold at `peek`. It is the drag surface and, for a press that never
           travels, the button that cycles to the next stop. `touchAction: none` so the browser does
@@ -804,11 +784,8 @@ export default function TomoshibiStudio() {
       {narrow && (
         <div ref={barRef} onPointerDown={onSheetDown} onPointerMove={onSheetMove}
           onPointerUp={onSheetUp} onPointerCancel={onSheetUp}
-          style={{
-            flex: "none", position: "relative", padding: "14px 14px 9px", touchAction: "none",
-            cursor: "grab", display: "flex", alignItems: "center",
-            borderBottom: `1px solid ${UI.edge}`,
-          }}>
+          className="flex-none relative flex items-center px-14 pt-14 pb-9 border-b border-edge
+            cursor-grab [touch-action:none]">
           {/* The grabber pill is positioned against the BAR, not laid out inside the row: centred in
               the row it would be centred on everything except the two buttons, landing at 37% of the
               sheet and reading as a mistake rather than as a handle. */}
@@ -825,20 +802,14 @@ export default function TomoshibiStudio() {
           <div role="button" tabIndex={0} aria-label={t("設定パネル")} title={t("設定パネル")}
             aria-expanded={sheet !== "peek"}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cycleSheet(); } }}
-            style={{
-              flex: "1 1 auto", display: "flex", alignItems: "center", justifyContent: "center",
-              minHeight: 20, cursor: "pointer",
-            }}>
+            className="flex-auto flex items-center justify-center min-h-20 cursor-pointer">
             {/* The summary the pinned footer used to carry. It is the readout you watch while
                 dragging a ◇, so it is the whole of what the sheet shows at rest. Centred now that
                 the header controls have moved to the chip bar: with them in the row it
                 would have been centred on everything except them, i.e. on nothing. */}
-            <span style={{
-              display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0 12px",
-              fontFamily: mono, fontSize: FS.sm, color: UI.faint,
-            }}>
+            <span className="flex flex-wrap justify-center gap-x-12 gap-y-0 font-mono text-sm text-faint">
               <span>⌀{maxDia}</span>
-              <span style={{ color: !bedRules || ribFits ? UI.faint : UI.warn }}>{t("羽根板")} {ribLen}</span>
+              <span className={!bedRules || ribFits ? "text-faint" : "text-warn"}>{t("羽根板")} {ribLen}</span>
               <span>{t("開口")} {topOpen}/{botOpen}</span>
               <span>mm</span>
             </span>
@@ -852,11 +823,8 @@ export default function TomoshibiStudio() {
           Not rendered on a phone: the two buttons moved to the sheet's bar above, and the wordmark
           moved into the scroll area — pure identity is the one thing that can wait for a pull. */}
       {!narrow && (
-      <div style={{
-        padding: "20px 20px 14px",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <Logo variant="full" height={44} style={{ color: UI.head }} />
+      <div className="flex items-center justify-between px-20 pt-20 pb-14">
+        <Logo variant="full" height={44} className="text-head" />
         {headerBtns}
       </div>
       )}
@@ -864,17 +832,14 @@ export default function TomoshibiStudio() {
       {/* Scroll area — between the bar and the pinned CTA, on both layouts. That is what makes
           `peek` work without reordering anything: at rest the sheet is exactly bar + CTA tall, so
           this collapses to zero, and every stop above it grows this and only this. */}
-      <div style={{
-        flex: "1 1 auto", minHeight: 0, overflowY: "auto", touchAction: "pan-y",
-        // No VERTICAL padding on a phone: `min-height: 0` floors the border box at padding + border,
-        // so 4+14 of it is 18px this element cannot shrink past — and `peek` is measured as bar + CTA,
-        // which then overflowed the sheet by exactly that and cut the bottom off the CTA. The spacing
-        // it was buying is given back by the wordmark block at the end of the list.
-        padding: narrow ? "0 14px" : "6px 20px 16px",
-        // iOS momentum scrolling stops dead at the last row without this; the panel is the only
-        // scrollable thing on the page (body is touch-action: none).
-        overscrollBehavior: "contain",
-      }}>
+      {/* No VERTICAL padding on a phone: `min-height: 0` floors the border box at padding + border, so
+          4+14 of it is 18px this element cannot shrink past — and `peek` is measured as bar + CTA,
+          which then overflowed the sheet by exactly that and cut the bottom off the CTA. The spacing
+          it bought is given back by the wordmark block at the end of the list.
+          `overscroll-behavior: contain` because iOS momentum scrolling stops dead at the last row
+          without it, and this is the only scrollable thing on the page (body is touch-action: none). */}
+      <div className="flex-auto min-h-0 overflow-y-auto [touch-action:pan-y] [overscroll-behavior:contain]
+        px-20 pt-6 pb-16 narrow:px-14 narrow:py-0">
         <Toolbar undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
 
         {/* The lit chip is derived from p.pts inside PresetChips, so it goes dark as soon as the
@@ -937,9 +902,9 @@ export default function TomoshibiStudio() {
             key: "pitch", label: "ひごピッチ", value: p.pitch,
             min: 8, max: 30, round: 1, unit: "mm", onChange: (v) => setP((o) => ({ ...o, pitch: v })),
           }} />
-          <div style={{ marginTop: 4 }}>
+          <div className="mt-4">
             <Checkbox checked={p.spiral ?? false} onToggle={() => setP((o) => ({ ...o, spiral: !(o.spiral ?? false) }))}
-              label={<>{t("螺旋巻き")} <span style={{ color: UI.faint }}>{t("(溝を下へ連続させる)")}</span></>} />
+              label={<>{t("螺旋巻き")} <span className="text-faint">{t("(溝を下へ連続させる)")}</span></>} />
           </div>
         </div>
 
@@ -964,7 +929,7 @@ export default function TomoshibiStudio() {
               {Math.round(2 * washiG.wMax)} × {Math.round(washiG.sTot + 2 * washiEnd)} mm × {p.boards}
             </span>
           </div>
-          <Note style={{ marginTop: 2 }}>
+          <Note className="mt-2">
             {t("貼る前に和紙を切るための原寸型紙です。どちらの出力にも別 PDF で同梱されます。")}
             <br />{t("この型紙は検証中です。全面を切る前に、まず 1 面だけ合わせてみてください。")}
           </Note>
@@ -1006,12 +971,10 @@ export default function TomoshibiStudio() {
                 <div className="flex items-center justify-between mb-12">
                   <span className="text-base text-text">{t("定番サイズ")}</span>
                   <select value={bedW === bedD && BED_PRESETS.includes(bedW) ? String(bedW) : "custom"}
-                    aria-label={t("定番サイズ")} className="rounded-md"
+                    aria-label={t("定番サイズ")}
                     onChange={(e) => { const v = +e.target.value; if (v) { setBedW(v); setBedD(v); } }}
-                    style={{
-                      width: 150, padding: "6px 8px", fontFamily: sans, fontSize: FS.base,
-                      color: UI.text, background: UI.card, border: `1px solid ${UI.cardEdge}`, cursor: "pointer",
-                    }}>
+                    className="w-150 px-8 py-6 font-sans text-base text-text bg-card border
+                      border-card-edge rounded-md cursor-pointer">
                     {!(bedW === bedD && BED_PRESETS.includes(bedW)) && <option value="custom">{t("カスタム")}</option>}
                     {BED_PRESETS.map((sz) => <option key={sz} value={sz}>{sz} × {sz} mm</option>)}
                   </select>
@@ -1040,7 +1003,7 @@ export default function TomoshibiStudio() {
                  material thickness lives here; "open the template" is the footer CTA. */
               <>
                 <SectionLabel title="型紙(段ボール)" hint="A4 原寸 · beta" />
-                <Note style={{ marginTop: 0, marginBottom: 12 }}>
+                <Note className="mb-12">
                   {t("この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。")}
                 </Note>
                 <Stepper label="材料の厚み" value={matT} min={1} max={10} step={0.5} onChange={setMatT}>
@@ -1061,7 +1024,7 @@ export default function TomoshibiStudio() {
             control. At the bottom it is a signature: still there, costs nothing at any stop. */}
         {narrow && (
           <div className="pt-22 pb-14 opacity-50">
-            <Logo variant="full" height={26} style={{ color: UI.head }} />
+            <Logo variant="full" height={26} className="text-head" />
           </div>
         )}
       </div>
@@ -1076,11 +1039,8 @@ export default function TomoshibiStudio() {
           The summary is dropped here on a phone because the sheet's bar carries it. `ctaRef` is half
           of the `peek` measurement (the bar is the other half), so the resting height follows the
           note the print view adds rather than clipping it. */}
-      <div style={{
-        flex: "none",
-        padding: narrow ? "10px 14px 12px" : "16px 20px 18px",
-        borderTop: `1px solid ${UI.edge}`,
-      }}>
+      <div className="flex-none border-t border-edge px-20 pt-16 pb-18
+        narrow:px-14 narrow:pt-10 narrow:pb-12">
         {!narrow && (
         <div className="grid grid-cols-[auto_1fr] gap-x-12 gap-y-5 text-base mb-14">
           <span className="text-faint">{t("最大径")}</span>
@@ -1127,17 +1087,14 @@ export default function TomoshibiStudio() {
 
   return (
     <TContext.Provider value={t}>
-      <div style={{
-        display: "flex", flexDirection: narrow ? "column" : "row",
-        height: "100%", overflow: "hidden",
-        background: "#f2ecdf", color: UI.text, fontFamily: sans,
-      }}>
+      <div className="flex flex-row narrow:flex-col h-full overflow-hidden
+        bg-[#f2ecdf] text-text font-sans">
         {chipBar}
         {viewport}
         {pointBar}
         {alertBar}
         {inspector}
-        <input ref={designFile} type="file" accept=".json,application/json" style={{ display: "none" }}
+        <input ref={designFile} type="file" accept=".json,application/json" className="hidden"
           onChange={(e) => { importDesign(e.target.files?.[0]); e.target.value = ""; }} />
         {welcome && (
           <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome}

@@ -154,7 +154,7 @@ export function NumInput({ label, value, onChange, min, max }: {
   return (
     <div className="flex items-center justify-between mb-9">
       <span className="text-base text-text">{t(label)}</span>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div className="flex items-center gap-6">
         {/* key={value} re-mounts on an external change so defaultValue follows it */}
         <input key={value} type="number" defaultValue={value} min={min} max={max} step={1}
           className="w-66 px-8 py-6 rounded-md text-right bg-card border border-card-edge
@@ -283,9 +283,13 @@ export function CTA({ label, onClick, outline }: { label: string; onClick: () =>
 /** The small-print look. Shared with the export manifest, which is a note that is not a `Note`. */
 export const NOTE_SKIN = "text-xs leading-[1.6] text-faint [&_strong]:text-text";
 
-/** Small note under a control or CTA. Accepts rich children, so it is not translated here. */
-export function Note({ children, style }: { children?: React.ReactNode; style?: React.CSSProperties }) {
-  return (
-    <div className={NOTE_SKIN} style={{ marginTop: 9, ...style }}>{children}</div>
-  );
+/**
+ * Small note under a control or CTA. Accepts rich children, so it is not translated here.
+ *
+ * `className` REPLACES the default margin rather than adding to it. Two margin utilities on one
+ * element do not override by string order — they share a specificity, so the generated sheet's
+ * order decides — and `mt-2 mt-9` is exactly the kind of coin-flip that reads as correct.
+ */
+export function Note({ children, className = "mt-9" }: { children?: React.ReactNode; className?: string }) {
+  return <div className={`${NOTE_SKIN} ${className}`}>{children}</div>;
 }

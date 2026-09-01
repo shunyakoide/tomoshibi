@@ -39,7 +39,7 @@ import { ringLegs } from "./geometry.ts";
 import { DEFAULTS } from "./config.ts";
 import { paperP } from "./papercraft.ts";
 import { figureImage, disposeFigures } from "./three/figures.ts";
-import { UI, accent, useT } from "./ui/theme.ts";
+import { useT } from "./ui/theme.ts";
 import { Badge, Button } from "./ui/controls.tsx";
 import type { T } from "./i18n.ts";
 import type { Design, Route } from "./types.ts";
@@ -409,7 +409,10 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const card = { background: UI.card, border: `1px solid ${UI.cardEdge}` };
+  /* The kit and parts cards. A class rather than a style object, so the box that goes with the
+     ground — radius, padding, the print rules — sits in the same string as the colours. */
+  const card = "bg-card border border-card-edge rounded-2xl pt-10 px-12 pb-12 "
+    + "print:[break-inside:avoid] print:shadow-none";
   /* Prose inside a step. This was `.guide-steps p`, and it beat `.guide-note` on specificity for
      every property it set — so a note inside a step never actually looked like a note. Utilities
      have no such accidents, which also means the accident has to be written out on purpose. */
@@ -418,8 +421,9 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
   return (
     /* `.guide` stays a class: the print rule that hides everything else keys off it from
        OUTSIDE the guide (`#root > div > *:not(.guide)`), which no utility can express. */
-    <div className="guide print:static print:overflow-visible print:bg-[#fff]" role="dialog" aria-modal="true" aria-label={t("作り方")}
-      style={{ position: "fixed", inset: 0, zIndex: 40, overflowY: "auto", background: UI.panel }}>
+    <div role="dialog" aria-modal="true" aria-label={t("作り方")}
+      className="guide fixed inset-0 z-40 overflow-y-auto bg-panel
+        print:static print:overflow-visible print:bg-[#fff]">
       {/* Fixed to the window rather than scrolled with the document: this is the way out, and a way
           out that leaves the screen after two paragraphs is not one. */}
       <button onClick={onClose}
@@ -437,7 +441,7 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
         <h2 className="mt-40 mx-0 mb-14 text-md font-bold tracking-[0.08em] text-head border-b border-b-edge pb-8 print:[break-after:avoid]">{t("部品")}</h2>
         <ul className="list-none m-0 p-0 grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-12">
           {parts.map((q) => (
-            <li key={q.id} style={card} className="rounded-2xl pt-10 px-12 pb-12 print:[break-inside:avoid] print:shadow-none">
+            <li key={q.id} className={card}>
               <div className="flex items-center justify-center overflow-hidden rounded-lg aspect-[3/2] mb-8 border border-transparent bg-transparent">
                 {figs[q.id] ? <img src={figs[q.id]!} alt="" className="w-full h-full object-contain" /> : <span />}
               </div>
@@ -461,7 +465,7 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
             <h3 className="mt-0 mx-0 mb-8 text-base font-bold tracking-[0.06em] text-fine">{t(g.title)}</h3>
             <ul className="list-none m-0 p-0 grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-12">
               {g.items.map((it) => (
-                <li key={it.name} style={card} className="rounded-2xl pt-10 px-12 pb-12 print:[break-inside:avoid] print:shadow-none">
+                <li key={it.name} className={card}>
                   <Fig src={it.fig ? figs[it.fig] : undefined} t={t} part />
                   <div className="flex items-baseline justify-between gap-8 text-md">
                     <strong>{t(it.name)}</strong>
@@ -479,9 +483,10 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
         <h2 className="mt-40 mx-0 mb-14 text-md font-bold tracking-[0.08em] text-head border-b border-b-edge pb-8 print:[break-after:avoid]">{t("手順")}</h2>
         <ol className="list-none m-0 p-0 flex flex-col gap-14">
           {steps.map((s, i) => (
-            <li key={s.id} style={card}
-              className={`rounded-2xl grid grid-cols-[minmax(0,300px)_minmax(0,1fr)] gap-20 p-16 items-start
-                narrow:grid-cols-[minmax(0,1fr)] narrow:gap-12 [&>:only-child]:col-span-full
+            <li key={s.id}
+              className={`bg-card border border-card-edge rounded-2xl grid items-start gap-20 p-16
+                grid-cols-[minmax(0,300px)_minmax(0,1fr)] narrow:grid-cols-[minmax(0,1fr)] narrow:gap-12
+                [&>:only-child]:col-span-full
                 print:shadow-none print:grid-cols-[minmax(0,38%)_minmax(0,1fr)]
                 ${s.options ? "print:[break-inside:auto]" : "print:[break-inside:avoid]"}`}>
               {/* No well when the step has nothing to show — an empty box reads as a figure that
@@ -490,8 +495,8 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
               {s.fig && <Fig src={figs[s.fig]} t={t} />}
               <div>
                 <h3 className="flex items-center gap-10 mt-2 mx-0 mb-8 text-xl font-bold text-head">
-                  <span className="flex-none w-24 h-24 rounded-full text-[#fff] flex items-center justify-center text-base font-bold"
-                    style={{ background: accent }}>{i + 1}</span>
+                  <span className="flex-none w-24 h-24 rounded-full bg-accent text-[#fff] flex
+                    items-center justify-center text-base font-bold">{i + 1}</span>
                   {/* Title and badge in one flex item, so the badge keeps its own 5px against the
                       words instead of taking the h3's 10px gap as well. */}
                   <span>{t(s.title)}{s.wip && <Badge>{t("編集中")}</Badge>}</span>
