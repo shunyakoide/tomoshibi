@@ -9,10 +9,14 @@
  * `t` IS state (it follows the language toggle), so it travels through a context instead: one
  * provider at the root, `useT()` at each leaf, and no `t={t}` on every call site.
  *
- * The values are defined HERE and published to CSS, not the other way round: SVG presentation
- * attributes (the section editor's strokes, the preset icons) need a real colour — `var(--accent)`
- * does not resolve in an XML attribute. Publishing them lets index.css style the things inline
- * styles cannot express at all: :hover, :active, :disabled, :focus-visible.
+ * The values are defined HERE, and index.css's `@theme` block mirrors them: this file is what SVG
+ * presentation attributes read (a `var()` does not resolve in an XML attribute) and `@theme` is what
+ * the utilities resolve through. `npm run check:style` compares the two.
+ *
+ * This file used to WRITE those custom properties onto <html> at startup, because index.css needed
+ * the palette and nothing else supplied it. `@theme` emits the same values statically into the
+ * built stylesheet, so that block is gone — and with it the window between first paint and the
+ * module running, in which every colour in the app was whatever it inherited.
  *
  * Colours: warm washi neutrals for the inspector, with the orange of lamplight as the accent.
  * ============================================================================
@@ -41,12 +45,15 @@ export const sans = "'IBM Plex Sans JP', 'Hiragino Sans', system-ui, sans-serif"
  * `2xs` is NOT a rounding artefact and must not be folded into `xs`: it is the PointBar's caption
  * size, whose width was measured against a 46px button, and the badge and the select carets.
  *
- * This is the source of truth, and `npm run check:style` is what makes it one — the scale is
- * exported to JS for inline styles and SVG attributes, index.css writes the same numbers as
- * literals, and the check reads both sides and fails on any font size that is not a member. It is
- * NOT published as a CSS custom property: a `var()` for a colour degrades to an inherited colour
- * before the module runs, but a `var()` for a font size degrades to inherited TEXT SIZE, and the
- * whole page would visibly resize on boot.
+ * This is the source of truth. It is exported to JS for inline styles and SVG attributes, and
+ * mirrored into index.css's `@theme` block as `--text-*`, which is where `text-base` and friends
+ * resolve; `npm run check:style` reads both sides and fails on any drift. index.css itself sets no
+ * font size any more — every one of them is a `text-<step>` on the element.
+ *
+ * Note the two kinds of custom property in this file's orbit, because they behave differently:
+ * `@theme`'s are emitted STATICALLY into the built stylesheet and are safe to `var()` anywhere
+ * (the radius scale does exactly that), while the ones the block at the bottom of this file
+ * publishes at RUNTIME are not there until the module has run.
  */
 export const FS = {
   "2xs": 9,     // badges, the select carets, the point bar's button captions
@@ -58,6 +65,29 @@ export const FS = {
   xl: 16,       // icon glyphs (☰, ±, arrows), the guide's step headings
   "2xl": 20,    // the overlay close X
   "3xl": 25,    // the guide's title
+} as const;
+
+/**
+ * The corner scale, in px. Six steps, and nothing else may be used.
+ *
+ * It used to be thirteen — 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16 — which is not a scale, it is
+ * every integer somebody reached for. The same fold the type scale got: values round DOWN, and the
+ * two smallest (2 and 3, on a 4px grabber and a 5px slider track) come out identical either way,
+ * because a browser clamps a radius to half the box.
+ *
+ * The pairs that had to keep MATCHING still do: the ☰ button is a rounded square precisely so it
+ * does not read as a different kind of control beside the row of `.tab-sel` selects, and both were
+ * 9px and are now both `md`.
+ *
+ * A circle is not on this scale — `rounded-full` says circle, and says it whatever the box is.
+ */
+export const RADII = {
+  xs: 4,       // badges, the checkbox, anything whose box is a few px tall
+  sm: 6,       // small fields, the ± squares, the wide layout's tabs
+  md: 8,       // buttons, selects, segmented options
+  lg: 10,      // cards, chips, alerts, the CTA, figure wells
+  xl: 12,      // the overflow menu's popover
+  "2xl": 14,   // the big overlays: the welcome card, the guide's cards, the sheet's top corners
 } as const;
 
 export const UI = {
@@ -79,24 +109,6 @@ const rgba = (hex: string, a: number) => {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 };
 export const accentA = (a: number) => rgba(accent, a);
-
-// Publish the palette as CSS custom properties so index.css can express :hover / :disabled etc.
-// The alpha variants are published too — CSS could derive them with rgb(from …), but that syntax is
-// recent enough that an older browser would drop the whole declaration and lose the border.
-const ALPHAS = [0.06, 0.07, 0.08, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55];
-if (typeof document !== "undefined") {
-  const css = document.documentElement.style;
-  const set = (k: string, v: string) => css.setProperty(k, v);
-  set("--accent", accent);
-  set("--sans", sans);
-  set("--mono", mono);
-  for (const [k, v] of Object.entries(UI)) set("--" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase()), v);
-  for (const a of ALPHAS) {
-    const suffix = String(a).slice(2);   // 0.45 → "45", 0.3 → "3"
-    set(`--accent-${suffix}`, rgba(accent, a));
-    set(`--warn-${suffix}`, rgba(UI.warn, a));
-  }
-}
 
 // Viewport background. Assembly/print use a cool-neutral CAD grey, lit is a dark room.
 // (The section view paints its own; SectionEditor covers the canvas entirely.)

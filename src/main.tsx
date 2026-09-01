@@ -14,9 +14,12 @@ class ErrorBoundary extends React.Component<BoundaryProps, BoundaryState> {
     const e = this.state.error;
     if (!e) return this.props.children;
     return (
-      <div className="crash">
-        <b>⚠ A rendering error occurred</b>
-        <pre>{e.stack || e.message || String(e)}</pre>
+      // Literal colours, not the palette tokens: whatever went wrong may well BE the theme, and
+      // this screen must not depend on anything the app sets up at startup.
+      <div className="fixed inset-0 p-20 overflow-auto bg-[#0c0c0d] text-[#e8e8ec]
+        [font:13px/1.6_ui-monospace,SFMono-Regular,Menlo,monospace] select-text">
+        <b className="block mb-8 text-[#e0a060] font-semibold">⚠ A rendering error occurred</b>
+        <pre className="m-0 whitespace-pre-wrap break-words">{e.stack || e.message || String(e)}</pre>
       </div>
     );
   }
