@@ -20,6 +20,13 @@
  *   3. an `FS.<name>` that does not exist (a typo — `FS.xxl` is `undefined`, which React drops
  *      silently and CSS never sees, so the text renders at the inherited size and nothing warns)
  *   4. an FS step nothing uses — the drift that says a size was retired without being removed
+ *   5. a class index.css styles that nothing in src/ renders, or a `--` modifier used but never defined
+ *
+ * Tailwind adds a THIRD encoding of the same scale — `@theme { --text-* }` at the top of
+ * index.css, which is what `text-base` and friends resolve through — and a second of the palette.
+ * Those are checked here too, both ways: a token in `@theme` that theme.ts does not define, and a
+ * theme.ts value `@theme` does not carry. A stale `@theme` does not fail a build or throw; it just
+ * renders one label at the wrong size or one border in last month's grey.
  *
  * It does NOT read font sizes out of three/figures.ts or papercraft.ts. Those draw into a WebGL
  * frame and onto A4 at 1:1, where the unit is mm or a world unit and 12 has nothing to do with 12px.
@@ -27,7 +34,7 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { FS } from "../src/ui/theme.ts";
+import { FS, RADII, UI, accent, sans, mono } from "../src/ui/theme.ts";
 
 const SIZES = new Set<number>(Object.values(FS));
 const NAMES = new Set<string>(Object.keys(FS));
@@ -35,7 +42,12 @@ const fail: string[] = [];
 const used = new Set<string>();
 
 // ---- 1. index.css: every font-size must be a member ----------------------------------------
-const css = readFileSync("src/index.css", "utf8").split("\n");
+// Comments are blanked first, newlines kept so line numbers still point at the real line. This
+// file DOCUMENTS the rules it is checked against — the layer note below quotes the reset verbatim
+// — so a scanner that reads prose finds the thing it is looking for in the paragraph explaining it.
+// (That is not hypothetical: it is how the layer guard first failed, on a correct stylesheet.)
+const strip = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
+const css = strip(readFileSync("src/index.css", "utf8")).split("\n");
 css.forEach((line, i) => {
   for (const m of line.matchAll(/font-size:\s*([0-9.]+)px/g)) {
     const px = Number(m[1]);
@@ -44,10 +56,21 @@ css.forEach((line, i) => {
   }
 });
 
+// ---- 1b. no raw corner radius, in either file kind -------------------------------------------
+// The same fold the type scale got, and the same reason to gate it: there were thirteen radii, one
+// per integer somebody reached for. index.css writes `var(--radius-*)` (safe, unlike a font size,
+// because `@theme` emits these STATICALLY into the stylesheet rather than at runtime), and a .tsx
+// writes `rounded-<step>`. A raw `rounded-[9px]` is how the thirteenth value comes back.
+css.forEach((line, i) => {
+  for (const m of line.matchAll(/border-radius:\s*(\d[\d.]*)px/g)) {
+    fail.push(`src/index.css:${i + 1}  border-radius: ${m[1]}px — use var(--radius-<step>)`);
+  }
+});
+
 // ---- 2/3. src/**/*.tsx: fontSize must be an FS member, spelled correctly --------------------
-const walk = (dir: string): string[] => readdirSync(dir).flatMap((e) => {
+const walk = (dir: string, exts: string[] = [".tsx"]): string[] => readdirSync(dir).flatMap((e) => {
   const p = join(dir, e);
-  return statSync(p).isDirectory() ? walk(p) : p.endsWith(".tsx") ? [p] : [];
+  return statSync(p).isDirectory() ? walk(p, exts) : exts.some((x) => p.endsWith(x)) ? [p] : [];
 });
 
 for (const f of walk("src")) {
@@ -56,12 +79,169 @@ for (const f of walk("src")) {
     for (const m of line.matchAll(/fontSize(?::\s*|=")([0-9.]+)/g)) {
       fail.push(`${f}:${i + 1}  fontSize ${m[1]} is a raw number — use an FS member`);
     }
+    for (const m of line.matchAll(/rounded-\[(\d[\d.]*)px\]/g)) {
+      fail.push(`${f}:${i + 1}  rounded-[${m[1]}px] is a raw radius — use a RADII step`);
+    }
+    for (const m of line.matchAll(/borderRadius:\s*([0-9"'][^,}\n]*)/g)) {
+      fail.push(`${f}:${i + 1}  borderRadius ${m[1].trim()} inline — use a rounded-* utility`);
+    }
+    // A Tailwind `text-<step>` uses the step just as `FS.<step>` does.
+    for (const m of line.matchAll(/\btext-(2xs|xs|sm|base|md|lg|xl|2xl|3xl)\b/g)) {
+      used.add(String(FS[m[1] as keyof typeof FS]));
+    }
     for (const m of line.matchAll(/FS(?:\.([A-Za-z][A-Za-z0-9]*)|\["([^"]+)"\])/g)) {
       const name = m[1] ?? m[2];
       if (!NAMES.has(name)) fail.push(`${f}:${i + 1}  FS.${name} does not exist`);
       else used.add(String(FS[name as keyof typeof FS]));
     }
   });
+}
+
+// ---- 3b. @theme must carry exactly what theme.ts declares ------------------------------------
+const cssText = css.join("\n");
+const theme = cssText.slice(cssText.indexOf("@theme {"), cssText.indexOf("\n}", cssText.indexOf("@theme {")));
+const tokens = new Map<string, string>();
+for (const m of theme.matchAll(/^\s*--([a-z0-9-]+(?:-\*)?):\s*([^;]+);/gm)) tokens.set(m[1], m[2].trim());
+
+const kebab = (k: string) => k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
+const expect = new Map<string, string>([
+  ...Object.entries(FS).map(([k, v]) => [`text-${k}`, `${v}px`] as [string, string]),
+  ...Object.entries(RADII).map(([k, v]) => [`radius-${k}`, `${v}px`] as [string, string]),
+  ...Object.entries(UI).map(([k, v]) => [`color-${kebab(k)}`, v] as [string, string]),
+  ["color-accent", accent], ["font-sans", sans.replace(/'/g, '"')], ["font-mono", mono.replace(/'/g, '"')],
+  // The alpha ladder: same list, and the same suffix rule, as theme.ts's ALPHAS loop.
+  ...[0.06, 0.07, 0.08, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55].flatMap((a) => {
+    const suffix = String(a).slice(2);
+    const rgba = (hex: string) => {
+      const n = parseInt(hex.slice(1), 16);
+      return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    };
+    return [[`color-accent-${suffix}`, rgba(accent)], [`color-warn-${suffix}`, rgba(UI.warn)]] as [string, string][];
+  }),
+]);
+for (const [name, want] of expect) {
+  const got = tokens.get(name);
+  if (got === undefined) fail.push(`@theme is missing --${name} (theme.ts says ${want})`);
+  else if (got !== want) fail.push(`@theme --${name} is "${got}", theme.ts says "${want}"`);
+}
+for (const name of tokens.keys()) {
+  if (/^(text|color|radius)-/.test(name) && !name.endsWith("-*") && !expect.has(name)) {
+    fail.push(`@theme declares --${name}, which theme.ts does not`);
+  }
+}
+// A cleared namespace is what stops `text-red-500` / `text-xs` from silently existing.
+for (const ns of ["color-*", "text-*", "radius-*"]) {
+  if (tokens.get(ns) !== "initial") fail.push(`@theme must clear --${ns} with \`initial\` before declaring ours`);
+}
+
+// ---- 3c. the app's CSS must stay inside @layer components ------------------------------------
+// This is the bug that made the Tailwind migration real work, and it is invisible: an UNLAYERED
+// rule beats every layered one whatever the specificity, so with the app's reset outside a layer
+// `* { padding: 0 }` defeated every spacing utility in the app. `px-12` computed to 0px with the
+// class in the DOM and the rule in the stylesheet, and nothing anywhere said so.
+{
+  const open = cssText.indexOf("@layer components {");
+  const reset = cssText.indexOf("* { margin: 0");
+  if (open < 0) fail.push("src/index.css: the app's CSS must be wrapped in `@layer components { … }`");
+  else if (reset >= 0 && reset < open) fail.push("src/index.css: the reset is OUTSIDE @layer components — unlayered rules beat every utility");
+}
+
+// ---- 3d. BEM modifiers must exist in both directions -----------------------------------------
+// `.btn--ghost` was deleted from index.css when the buttons it belonged to moved into the ☰ menu,
+// and GuidePage's one use of it was not. That button then rendered in the BROWSER's default chrome
+// — grey, 2px outset black — inside a warm-toned document, on main, past every gate here, because a
+// class attribute is a string and nothing in this project read it. The button is a component now
+// (`Button` in ui/controls.tsx) so this particular case cannot recur, but the shape can.
+//
+// Two directions, and they need different rules because only one of them is decidable here.
+//
+// DEFINED BUT UNUSED covers EVERY class in index.css. It is what catches a rule whose element has
+// moved to utilities and left the rule behind — `.guide-steps .btn { margin-top: 12px }` outlived
+// the `.btn` it targeted by exactly one commit, and the guide's button silently lost its 12px.
+// A selector naming a class nothing renders is, as the CSS's own comment put it, a claim about the
+// UI that is not true.
+//
+// USED BUT UNDEFINED can only be checked for `x--y` modifiers. A bare class in JSX is far more
+// likely to be a Tailwind utility than a project class, and telling them apart without running
+// Tailwind's own scanner is guesswork; a `--` modifier is a project class by construction.
+//
+// Both read comment-stripped source, for the reason index.css's scan does: this repo documents the
+// rules it enforces, and the component that replaced `.btn--ghost` names it in its own docblock.
+{
+  const noComments = (t: string) =>
+    t.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")).replace(/\/\/.*$/gm, "");
+  // `@import "tailwindcss/theme.css"` would otherwise contribute a class called `css`.
+  const selectors = css.join("\n").replace(/@import[^;]*;/g, "");
+  const declared = [...selectors.matchAll(/\.([a-z][\w-]*)/g)].map((m) => m[1]);
+  // papercraft generates its own stylesheet from the STYLE table and scopes it under `.pages`.
+  const paper = new Set([...noComments(readFileSync("src/papercraft.ts", "utf8"))
+    .matchAll(/"?([a-z][\w-]*)"?\s*:\s*\{/g)].map((m) => m[1]));
+  // Every whitespace-separated token that appears inside a STRING LITERAL anywhere in src/. Only
+  // literals: an earlier version accepted a match delimited by whitespace in the raw source, which
+  // made `const btn = useRef(...)` in Menu.tsx count as a use of `.btn` and quietly passed a dead
+  // `.guide-steps .btn` rule — the exact bug the check exists for.
+  const rendered = new Set<string>();
+  for (const f of walk("src", [".ts", ".tsx"])) {
+    for (const m of noComments(readFileSync(f, "utf8")).matchAll(/"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`/g)) {
+      // Split on quotes and angle brackets too: a class can sit inside a `${…}` in a template, or
+      // inside markup a module builds as a string (papercraft writes `<svg class="pg" …>`).
+      for (const tok of (m[1] ?? m[2] ?? m[3] ?? "").split(/[\s${}"'<>=]+/)) if (tok) rendered.add(tok);
+    }
+  }
+  const MOD = /\b[a-z][a-z0-9]*(?:-[a-z0-9]+)*--[a-z0-9-]+\b/g;
+
+  for (const c of new Set(declared)) {
+    if (c.startsWith("pages") || paper.has(c)) continue;
+    if (!rendered.has(c)) {
+      fail.push(`src/index.css: .${c} is in a selector but nothing in src/ renders it`);
+    }
+  }
+  const declaredMods = new Set(declared.filter((c) => c.includes("--")));
+  for (const f of walk("src", [".tsx"])) {
+    noComments(readFileSync(f, "utf8")).split("\n").forEach((line, i) => {
+      for (const m of line.matchAll(MOD)) {
+        if (!declaredMods.has(m[0])) fail.push(`${f}:${i + 1}  class "${m[0]}" is not defined in index.css`);
+      }
+    });
+  }
+}
+
+// ---- 3e. every utility written in JSX must exist in the built stylesheet ----------------------
+// The Tailwind half of "a class attribute is a string". `text-md` is a size in this app and not in
+// stock Tailwind; `rounded-8` looks obviously fine and generates NOTHING, because v4's `rounded-*`
+// reads a --radius-* namespace rather than the spacing scale. A utility that does not exist is not
+// an error anywhere: it is a class in the DOM with no rule behind it, which is the same silence
+// `.btn--ghost` shipped in.
+//
+// This needs the BUILD, since only Tailwind knows what it generated. CI builds before it runs the
+// checks. If dist is missing this FAILS rather than skipping — a gate that quietly does nothing is
+// the one failure mode worth designing against (see eslint.config.ts for the same argument).
+{
+  let built: string[] = [];
+  try { built = readdirSync("dist/assets").filter((n) => n.endsWith(".css")); } catch { /* reported below */ }
+  if (!built.length) {
+    fail.push("no built stylesheet in dist/assets — run `npm run build` before check:style");
+  } else {
+    const sheet = readFileSync(join("dist/assets", built[0]), "utf8");
+    const esc = (c: string) => "." + c.replace(/[:[\]().,'#/%!&>~*+=]/g, (ch) => "\\" + ch);
+    const seen = new Set<string>();
+    for (const f of walk("src", [".tsx"])) {
+      readFileSync(f, "utf8").split("\n").forEach((line, i) => {
+        for (const m of line.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
+          for (const c of (m[1] ?? m[2] ?? "").replace(/\$\{[^}]*\}/g, " ").split(/\s+/)) {
+            // EVERY token, not just Tailwind-shaped ones. Narrowing this to utilities left a hole
+            // the orphan check does not cover from the other side: `className="sec"` kept working
+            // after `.sec` was deleted from index.css, because nothing asks whether a bare project
+            // class still resolves. It does not — the built sheet is the whole truth about what a
+            // class name means, project rule and generated utility alike.
+            if (!c || seen.has(c)) continue;
+            seen.add(c);
+            if (!sheet.includes(esc(c))) fail.push(`${f}:${i + 1}  class "${c}" matches no rule in the built stylesheet`);
+          }
+        }
+      });
+    }
+  }
 }
 
 // ---- 4. a step nothing uses -----------------------------------------------------------------
@@ -76,4 +256,4 @@ if (fail.length) {
   console.error(`\n  the scale is ${Object.entries(FS).map(([k, v]) => `${k}=${v}`).join("  ")}\n`);
   process.exit(1);
 }
-console.log(`✓ type scale: ${n} steps, every font size in src/ is a member  (0 FAIL)`);
+console.log(`✓ style: ${n} type steps, ${Object.keys(RADII).length} radii, every font size in src/ is a member; @theme carries ${expect.size} tokens, all matching theme.ts  (0 FAIL)`);

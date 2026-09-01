@@ -1,7 +1,8 @@
-import { copyFileSync } from "node:fs";
+import { copyFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig, type Plugin, type ResolvedConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwind from "@tailwindcss/vite";
 
 /**
  * Publish the built document a second time as 404.html.
@@ -26,7 +27,16 @@ function spa404(): Plugin {
     configResolved(c) { config = c; },
     closeBundle() {
       const out = resolve(config.root, config.build.outDir);
-      copyFileSync(resolve(out, "index.html"), resolve(out, "404.html"));
+      const html = resolve(out, "index.html");
+      // closeBundle runs even when the bundle was never written — a CSS parse error upstream, say.
+      // Copying blind then reports `ENOENT … dist/index.html -> dist/404.html`, which reads as a
+      // fault in THIS plugin and buries the real one; an unbalanced brace in index.css cost a long
+      // detour that way. Say what actually happened instead.
+      if (!existsSync(html)) {
+        throw new Error("spa-404: no dist/index.html to copy — the build produced no output, so the "
+          + "real failure is above this line (a stylesheet that does not parse will do it).");
+      }
+      copyFileSync(html, resolve(out, "404.html"));
     },
   };
 }
@@ -37,7 +47,9 @@ function spa404(): Plugin {
 // unmatched paths will 404 on /guide itself, though the app's own root still works everywhere.
 export default defineConfig({
   base: "./",
-  plugins: [react(), spa404()],
+  // Tailwind scans the source for class names and generates only the utilities that appear. It
+  // brings NO preflight here — see the import in index.css for why the app keeps its own reset.
+  plugins: [react(), tailwind(), spa404()],
   // A dedicated port instead of Vite's default 5173, which every other Vite project also wants.
   // strictPort makes a collision fail loudly rather than silently drifting to 5174/5175… (the real
   // annoyance: you can no longer tell which project is on which port). Same offset for preview.

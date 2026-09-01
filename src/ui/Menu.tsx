@@ -112,9 +112,14 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
   return (
     // Escape is caught here rather than on the rows: opened by pointer, focus is still on the
     // trigger, and a menu you cannot dismiss from the keyboard is a trap.
-    <div className="menu" ref={box}
+    <div className="relative inline-flex" ref={box}
       onKeyDown={(e) => { if (e.key === "Escape" && open) { e.preventDefault(); shut(); } }}>
-      <button ref={btn} className="icon-btn" aria-haspopup="menu" aria-expanded={open}
+      <button ref={btn} aria-haspopup="menu" aria-expanded={open}
+        /* A rounded SQUARE, not a circle: it stands at the end of a row of `.tab-sel` selects whose
+           corners are 9px, and a lone circle among them read as a different kind of thing. */
+        className="w-36 h-36 p-0 rounded-md flex items-center justify-center
+          bg-card text-sub border border-card-edge font-mono font-bold text-xl leading-none
+          cursor-pointer hover:text-accent hover:border-accent-45"
         aria-label={label} title={label}
         onClick={(e) => { setByKey(e.detail === 0); setOpen((v) => !v); }}
         onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); setByKey(true); setOpen(true); } }}>
@@ -126,22 +131,30 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
         </svg>
       </button>
       {open && (
-        <div className="menu-pop" role="menu" aria-label={label}>
+        <div role="menu" aria-label={label}
+          /* Right-anchored: the trigger is the last thing in its row on both layouts, and a
+             left-anchored popover would open off the edge of the phone. */
+          className="absolute top-[calc(100%+6px)] right-0 z-40 min-w-208 flex flex-col p-5
+            bg-panel border border-edge rounded-xl shadow-[0_10px_28px_rgba(59,52,43,0.18)]">
           {items.map((it, i) => (it.kind === "sep" ? (
-            <div key={`s${i}`} className="menu-sep" role="separator" />
+            <div key={`s${i}`} className="h-1 mx-6 my-5 bg-edge" role="separator" />
           ) : (
             <button key={it.label} role="menuitem" tabIndex={-1}
               ref={(n) => { rows.current[i] = n; }}
-              className={`menu-item${it.danger ? " menu-item--danger" : ""}`}
+              className={`flex items-center gap-10 min-h-44 px-10 py-6 bg-transparent border-0
+                rounded-md cursor-pointer text-left font-sans text-base
+                ${it.danger ? "text-warn hover:bg-warn-08 hover:text-warn"
+                            : "text-text hover:bg-accent-06 hover:text-accent"}`}
               onKeyDown={(e) => onKey(e, i)}
               // The action runs first: `onClick` may open a file picker, and that has to happen
               // inside the user gesture rather than after a state update has re-rendered the row away.
               onClick={() => { it.onClick(); setOpen(false); }}>
-              <span className="menu-item-l">
+              <span className="flex-auto min-w-0 flex flex-col gap-2">
                 {it.label}
-                {it.hint && <em>{it.hint}</em>}
+                {/* The consequence line for the destructive row. It was a title= before, which a phone has not got. */}
+                {it.hint && <em className="not-italic text-xs leading-[1.35] text-faint">{it.hint}</em>}
               </span>
-              {it.value && <span className="menu-item-v">{it.value}</span>}
+              {it.value && <span className="flex-none font-mono text-sm text-faint">{it.value}</span>}
             </button>
           )))}
         </div>
