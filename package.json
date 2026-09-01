@@ -35,6 +35,7 @@
     "check:paper": "node scripts/paper.test.mts",
     "check:glyphs": "node scripts/glyphs.test.mts",
     "check:i18n": "node scripts/i18n.test.mts",
+    "check:style": "node scripts/style.test.mts",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
