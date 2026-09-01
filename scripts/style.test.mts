@@ -181,7 +181,7 @@ for (const ns of ["color-*", "text-*", "radius-*"]) {
 // utility that does not exist is just a class with no rule behind it. Needs the BUILD, since only
 // Tailwind knows what it generated (CI builds first); if dist is missing this FAILS rather than
 // skipping, a gate that quietly does nothing being the one failure mode worth designing against
-// (see eslint.config.ts for the same argument).
+// (see eslint.config.js for the same argument).
 {
   let built: string[] = [];
   try { built = readdirSync("dist/assets").filter((n) => n.endsWith(".css")); } catch { /* reported below */ }
