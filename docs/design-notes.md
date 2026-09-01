@@ -491,6 +491,15 @@ Both the CSS scan and the source scan **strip comments first**: this repo docume
 **Verification for a change here is a screenshot diff over 29 states** — 2 viewports × section / menu open / point selected / sheet pulled / assembly / print / lit / welcome / guide ×3, **plus 8 on the CARDBOARD ROUTE** (print preview, scrolled, guide, guide scrolled) — and a **computed-style diff over every element** (264 in the guide, ~230 in the app) for anything touching those. The 21 wide-route states do not exercise the cardboard route at all: `route` defaults to `stl`, so the print state is the 3D plates and `PagePreview` never renders. The rigs live in the session scratchpad rather than the repo; rebuild them if you need them. **Take every capture TWICE**: one screen in about twenty comes out with a few hundred anti-aliased pixels different for no reason, and a single capture will send you looking for a bug that is not there. It did.
 ## Conventions
 
+**Proving an edit is comment-only.** Transpile each changed file with TypeScript's `removeComments`
+and diff against `git show HEAD:<file>`; a parse failure is a FAILURE, never a pass (two empty
+strings compare equal). Two things will fail that check for real reasons rather than a broken
+verifier: merging two ADJACENT `{/* … */}` blocks removes an expression container from the emitted
+child list, and **the built bundle is not a valid proof at all** — Tailwind v4 scans this project by
+TEXT, `.md` files and comments included, so a class-like token written in prose ships a real CSS
+rule (`p-[9px]` below is one; the comment explaining why not to write it is what generates it).
+
+
 - **The type scale is `FS` in `ui/theme.ts`, nine steps, and nothing else may set a font size.** 9 / 10 / 11 / 12 / 13 / 14 / 16 / 20 / 25 px, named `2xs`…`3xl`. `npm run check:style` fails on a CSS `font-size` off the scale, a JS `fontSize` written as a raw number, an `FS.<name>` that does not exist (a typo is `undefined`, which React drops and CSS never sees — the text renders at the inherited size and nothing warns), and a step nothing uses.
   - **It used to be sixteen steps, five of them half-pixel**, carrying 36 of the app's 84 type declarations — `12.5px` alone on sixteen, which was every label in the inspector. None of them was chosen; each was a nudge that stuck, and once there are two the next one is free. The `.5`s were folded **down** and the sparse top end (15 / 15.5 / 17) merged into 16.
   - **Down rather than up, deliberately.** Several things here fit by a hair — the chip bar in English measured exactly 375px on a 375px phone — and every one of them has room for smaller text while none is guaranteed room for larger. Measured after the fold: the welcome card lost 4–5px, the chip bar's spare width went 52 → 58px in English, and the three numbers the narrow layout is specified by (chip bar 51, section view 717, inspector peek 44) did not move at all.
