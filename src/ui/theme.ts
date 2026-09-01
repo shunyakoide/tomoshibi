@@ -83,7 +83,7 @@ export const accentA = (a: number) => rgba(accent, a);
 // Publish the palette as CSS custom properties so index.css can express :hover / :disabled etc.
 // The alpha variants are published too — CSS could derive them with rgb(from …), but that syntax is
 // recent enough that an older browser would drop the whole declaration and lose the border.
-const ALPHAS = [0.06, 0.08, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55];
+const ALPHAS = [0.06, 0.07, 0.08, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55];
 if (typeof document !== "undefined") {
   const css = document.documentElement.style;
   const set = (k: string, v: string) => css.setProperty(k, v);
