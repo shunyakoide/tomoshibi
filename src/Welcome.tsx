@@ -113,8 +113,8 @@ export default function Welcome({ route = null, onPick, onClose }: {
       <div role="dialog" aria-modal="true" aria-label={t("はじめかた")} onClick={(e) => e.stopPropagation()}
         /* `m-auto` centres this, NOT the overlay's align-items — and that is the whole point.
            Centred by align-items, a card taller than the window overflows in BOTH directions, and a
-           scroll container cannot reach what is above its start edge: at 375x667 the card is 720px
-           and the logo was cut off with no way to scroll up to it. An auto margin resolves to 0 once
+           scroll container cannot reach what is above its start edge: at 375x667 the card was 720px
+           and the logo was cut off with no way to scroll up to it (it is 595 now). An auto margin resolves to 0 once
            the free space goes negative, so the card starts at the padding edge and all of it scrolls
            into reach. Width is 560 rather than 520 because below that the three step captions wrap
            onto a second line with a single character stranded on it in Japanese. */

@@ -13,7 +13,7 @@
  * [Text] Latin is base-14 Helvetica, which every reader has and no file has to carry. Everything
  *   WinAnsi cannot encode — the Japanese, the arrows — is drawn as **filled outlines** from
  *   `pdf-glyphs.ts`, extracted from an OFL font by `tools/pdffont` for exactly the characters the
- *   templates print (two dozen of them, 7kB). Embedding a whole CJK font would dwarf the file; this
+ *   templates print (two dozen of them, 12kB). Embedding a whole CJK font would dwarf the file; this
  *   is the same trade `tools/logo` makes for the wordmark. A character with no outline still goes
  *   through `winAnsi()`, which folds what it can (←, ▼) and drops the rest rather than writing a
  *   broken byte. **This is why the templates are no longer English-only**: hand them the Japanese

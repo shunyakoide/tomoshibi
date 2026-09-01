@@ -18,12 +18,11 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { outerR } from "./profile.ts";
 
 // ============ Opening ring (kuchiwa) ============
-// A thin ring inserted into the top and bottom openings of the finished washi lantern. Fitted into
-// the opening to keep it perfectly round, and the bamboo rib ends are wound and fastened around its
-// outer edge. The opening position/diameter is decided by the outermost control point, so it comes
-// automatically from openingR (outer diameter = opening diameter). Not a thick washer nor a tall band,
-// but a thin wire-like hoop (thin both radially and in height). A new part independent of the existing
-// parts (rib/koma/stand).
+// A thin hoop that goes AROUND the outside of the finished lantern's opening (see RING_FIT below —
+// its INNER diameter matches the opening's outer one), holding the mouth round after the mold has
+// been pulled out. The opening's position and diameter come from the outermost control point, so the
+// ring follows from `openingR`. Not a thick washer nor a tall band but a thin wire-like hoop, thin
+// both radially and in height, and independent of the mold's own parts.
 const RING_WALL = 2;   // hoop wall thickness (radial, mm). Thin = the bamboo rib can wind around the outer edge.
 const RING_H = 2;      // hoop height (= Z extrusion, mm). A thin flat ring (wire-like).
 // Fit clearance (radius, mm). The opening ring fits on the **outside** of the opening, so the ring's

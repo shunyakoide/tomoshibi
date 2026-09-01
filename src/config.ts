@@ -2,9 +2,9 @@
  * ============================================================================
  * PRESETS / PARAMETER DEFINITIONS (CONFIG)
  * ============================================================================
- * Collects the shape presets (control-point templates) and initial values. The silhouette
- * is edited not with sliders but by directly dragging handles / control points on the
- * section view (SectionEditor). This file holds only the initial-placement templates for pts.
+ * The shape presets (control-point templates), `DEFAULTS`, the silhouette scrub rows and `LIMITS`.
+ * The silhouette itself is edited by dragging control points on the section view, not with sliders,
+ * so what a preset holds is only the initial PLACEMENT of `pts`.
  * ============================================================================
  */
 import type { Design, NumericDesignKey, Pt } from "./types.ts";

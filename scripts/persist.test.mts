@@ -45,8 +45,8 @@ const openEdges = (g: import("three").BufferGeometry) => {
 const finiteP = (p: any) => Object.entries(p).every(([k, v]) => k === "shape" || k === "pts" || typeof v === "boolean" || Number.isFinite(v))
   && p.pts.every((q: any) => Number.isFinite(q.t) && Number.isFinite(q.r));
 const manifoldOK = (p: any) => {
-  // The rings are in here because legN/legD are persisted and feed a mesh: a corrupt pair is the
-  // one way a restore can hand the bottom ring pads it cannot build.
+  // The rings are in here because `legSockets` is persisted and decides which of two solids the
+  // bottom ring is — the pads' own dimensions are constants in geometry/ring.ts and cannot be corrupt.
   try { return [G.ribGeometry(p, 0), G.komaGeometry(p), G.standGeometry(p), G.boardGeometry(p),
     G.ringGeometry(p, false), G.ringGeometry(p, true)].every((g) => openEdges(g) === 0); }
   catch (e) { return "EXC:" + (e as Error).message; }
