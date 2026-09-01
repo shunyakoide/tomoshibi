@@ -8,8 +8,7 @@
  * a stroke of ink says for free). The section view already establishes the pattern: when a view is
  * flat, it is an SVG over the (empty) 3D canvas.
  *
- * The markup comes from `paperPagesSVG` — the same ops, through the same renderer, as the printable
- * HTML and the PDF. So this is not a picture *of* the template, it is the template: same page count,
+ * The markup comes from `paperPagesSVG` — the same ops, through the same renderer, as the PDF. So this is not a picture *of* the template, it is the template: same page count,
  * same parts per page, same part split across two sheets at the same line. A preview that laid the parts
  * out its own way would be a second opinion about a layout that already has one, and the first
  * time they disagreed the user would trust the wrong one.

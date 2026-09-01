@@ -370,7 +370,7 @@ export const STYLE = {
   jlabel: { fill: "#1769c8", size: 2.4, anchor: "start" },        // a seam's code (1A, 1B, 2A …), beside its diamond
 } satisfies StyleTable;
 // `scope` prefixes every selector, because the only consumer is the in-app preview, which injects
-// these rules into the app's own stylesheet — where a bare `.note` would hit the inspector's notes
+// these rules into the app's own stylesheet — where bare names like `.note` would hit the app's own
 // and shrink them to 2.6px.
 const styleCSS = (scope: string) => Object.entries(STYLE as StyleTable).map(([k, s]) => ("size" in s
   ? `${scope}.${k} { font-size: ${s.size}px; fill: ${s.fill}; text-anchor: ${s.anchor}; font-family: sans-serif }`
@@ -501,7 +501,7 @@ function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
 
 /**
  * The template's pages as SVG, for the print view's in-app preview: the same pages, from the same
- * ops, through the same renderer as the printable HTML — so what is on screen is the sheet that
+ * ops, through the same renderer as the PDF — so what is on screen is the sheet that
  * comes out of the printer, page count included. The preview never lays parts out itself; a second
  * opinion about the layout is exactly how a preview starts lying about how many pages there are.
  *

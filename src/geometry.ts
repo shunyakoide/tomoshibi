@@ -39,7 +39,7 @@ export {
   tabDented, notchR,
 } from "./geometry/profile.ts";
 // (TAB_DENT_W/H stay internal: rib.ts imports them from profile.ts directly. The public surface here
-//  is deliberately the same 40 names it was before the split, so no caller can tell it happened.)
+//  was deliberately left exactly as it was before the split, so no caller could tell it happened.)
 
 // ---- Bamboo-rib grooves ----
 export { equatorY, grooveOuterPts, grooveR, grooveList, higoSpiralPath } from "./geometry/groove.ts";

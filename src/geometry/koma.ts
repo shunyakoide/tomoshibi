@@ -5,6 +5,10 @@
  * Two identical hubs, top and bottom. Notches around the rim take the tabs; the stand cradles the
  * rim. The notch width is the board thickness plus the print tolerance, and its bottom radius comes
  * from `notchR()` — the same function the rib's tab tip is built from, which is what makes them mate.
+ *
+ * The notch does NOT reach the tab's inner end when the tab is dented: `notchR` sits at the DENT
+ * radius, so the wider tab base (further in, at `innerRi`) catches the koma's solid hub. That is the
+ * koma stop, and it cannot drift between the two parts because both derive from `tabTipRi`.
  * ============================================================================
  */
 import type { Design } from "../types.ts";
@@ -12,9 +16,8 @@ import * as THREE from "three";
 import { komaR, notchR } from "./profile.ts";
 
 // ============ Koma (the small gear hub that bundles the tabs) ============
-// Like the main one, a small gear with edge-open notches (parallel walls). The tab (inner end
-// Ri〜Ri+td) meets the koma's edge. The notch reaches the tab's inner end (Ri), and the rib extends
-// out through the notch. The stand receives the koma.
+// A small gear with edge-open notches (parallel walls). The tab (inner end Ri〜Ri+td) meets the
+// koma's edge and the rib extends out through the notch; the stand receives the koma.
 export function komaShape(p: Design): THREE.Shape {
   const { boards, boardT } = p;
   const R = komaR(p);
@@ -24,7 +27,7 @@ export function komaShape(p: Design): THREE.Shape {
   const sw = boardT + Math.max(0, p.fit ?? 0);
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
-  const nR = notchR(p); // depth reaching the tab's inner end (Ri). Shared with komaStop2D (the projection is inside this).
+  const nR = notchR(p); // notch bottom = the dented tab tip, relieved 0.5. Shared with ribOutline2D.
   const shape = new THREE.Shape();
   shape.moveTo(R * Math.cos(eps), R * Math.sin(eps));
   for (let k = 0; k < boards; k++) {
