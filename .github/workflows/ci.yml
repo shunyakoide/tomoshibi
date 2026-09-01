@@ -53,6 +53,7 @@ jobs:
       - run: npm run check:persist
       - run: npm run check:paper
       - run: npm run check:glyphs
+      - run: npm run check:style
 
   manifold:
     name: watertightness sweep

@@ -27,7 +27,7 @@
  * ============================================================================
  */
 import React, { useEffect, useRef } from "react";
-import { UI as ui, accent, accentA, useT } from "./ui/theme.ts";
+import { UI as ui, FS, accent, accentA, useT } from "./ui/theme.ts";
 import Logo from "./ui/Logo.tsx";
 import type { Route } from "./types.ts";
 
@@ -132,7 +132,7 @@ export default function Welcome({ route = null, onPick, onClose }: {
             the escape from a modal is chrome, not an alternative to the thing it is asking. */}
         <button className="welcome-x" onClick={onClose} title={t("閉じる")} aria-label={t("閉じる")}>×</button>
         <Logo variant="full" className="welcome-logo" style={{ color: ui.head }} />
-        <div style={{ fontSize: 13, color: ui.sub, marginTop: 8 }}>{t("和紙提灯の「張型」をつくる")}</div>
+        <div style={{ fontSize: FS.md, color: ui.sub, marginTop: 8 }}>{t("和紙提灯の「張型」をつくる")}</div>
 
         {/* The three steps, with arrows between them: design → output → build by hand */}
         <div className="welcome-steps">
@@ -150,7 +150,7 @@ export default function Welcome({ route = null, onPick, onClose }: {
 
         <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
           {POINTS.map((s) => (
-            <li key={s} style={{ display: "flex", gap: 9, fontSize: 12.5, lineHeight: 1.6, color: ui.text }}>
+            <li key={s} style={{ display: "flex", gap: 9, fontSize: FS.base, lineHeight: 1.6, color: ui.text }}>
               <span aria-hidden="true" style={{
                 width: 5, height: 5, borderRadius: "50%", background: accent, flex: "none", marginTop: 7,
               }} />
@@ -163,8 +163,8 @@ export default function Welcome({ route = null, onPick, onClose }: {
             "start" action, so nobody has to choose and then confirm. */}
         <div style={{ marginTop: 18 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 11.5, color: ui.sub }}>{t("どちらでつくりますか?")}</span>
-            <span style={{ fontSize: 10.5, color: ui.faintest }}>{t("後からいつでも変更できます")}</span>
+            <span style={{ fontSize: FS.sm, color: ui.sub }}>{t("どちらでつくりますか?")}</span>
+            <span style={{ fontSize: FS.xs, color: ui.faintest }}>{t("後からいつでも変更できます")}</span>
           </div>
           {/* Stacked, not side by side: full width, each one is unmistakably a button rather than a
               tile, and the two captions stop wrapping to different heights for no reason. */}

@@ -13,7 +13,7 @@
 import React from "react";
 import { LIMITS } from "../config.ts";
 import { clamp } from "../util.ts";
-import { UI, useT } from "./theme.ts";
+import { UI, FS, useT } from "./theme.ts";
 import { SectionLabel, NumInput, SegButton } from "./controls.tsx";
 import { pointOps, makeSetMode } from "./pointEdit.ts";
 import type { EditMode } from "./pointEdit.ts";
@@ -63,7 +63,7 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode,
       ) : (
         <div style={{
           border: `1px dashed ${UI.cardEdge}`, borderRadius: 10, padding: "14px 14px",
-          fontSize: 11.5, color: UI.faint, lineHeight: 1.6,
+          fontSize: FS.sm, color: UI.faint, lineHeight: 1.6,
         }}>{t("断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。")}</div>
       )}
     </div>

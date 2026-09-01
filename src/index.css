@@ -74,7 +74,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 /* ---- buttons ---- */
 .btn {
   display: flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; border-radius: 8px;
-  font-family: var(--sans); font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  font-family: var(--sans); font-size: 12px; font-weight: 600; white-space: nowrap;
   cursor: pointer; transition: background 0.13s, border-color 0.13s;
 }
 /* One variant, because there is one consumer: undo/redo. `--ghost` (export/import) and `--warn`
@@ -93,7 +93,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   width: 26px; height: 26px; padding: 0; border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
   background: var(--card); color: var(--accent); border: 1px solid var(--accent-45);
-  font-size: 15px; font-weight: 600; line-height: 1; cursor: pointer;
+  font-size: 16px; font-weight: 600; line-height: 1; cursor: pointer;
 }
 .step-btn:hover:not(:disabled) { background: var(--accent-08); }
 
@@ -129,7 +129,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .route-btn > b { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; }
 /* Pushed to the far edge of the title row, so it is the last thing read on the line. */
 .route-btn .route-go { margin-left: auto; color: var(--accent); font-size: 14px; line-height: 1; }
-.route-btn > i { font-size: 10.5px; font-style: normal; line-height: 1.45; color: var(--sub); }
+.route-btn > i { font-size: 10px; font-style: normal; line-height: 1.45; color: var(--sub); }
 .route-btn:hover { background: #fffaf5; border-color: var(--accent); box-shadow: 0 4px 14px var(--accent-25); }
 .route-btn:active { box-shadow: 0 1px 4px var(--accent-25); transform: translateY(1px); }
 /* The saved route, when the card is reopened from the ☰ menu — aria-current rather than aria-pressed,
@@ -140,7 +140,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .cta {   /* full-width call to action at the foot of the panel */
   width: 100%; padding: 12px; border: none; border-radius: 10px; cursor: pointer;
   background: var(--accent); color: #fff; box-shadow: 0 3px 10px var(--accent-3);
-  font-family: var(--sans); font-size: 13.5px; font-weight: 700; letter-spacing: 0.08em;
+  font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
 }
 .cta:hover { filter: brightness(1.06); }
 .cta--outline { background: #fff; color: var(--accent); border: 1px solid var(--accent-5); box-shadow: none; }
@@ -165,7 +165,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .tab {   /* viewport mode tabs, floating over the canvas */
   padding: 7px 14px; border: none; border-radius: 7px; cursor: pointer; transition: all 0.15s;
   background: transparent; color: #6f6350;
-  font-family: var(--sans); font-size: 12.5px; font-weight: 500;
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
 }
 .tab[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 700; }
 
@@ -189,7 +189,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .tab-sel > select {
   -webkit-appearance: none; appearance: none;
   min-height: 38px; padding: 0 26px 0 11px; border-radius: 9px;
-  font-family: var(--sans); font-size: 12.5px; font-weight: 700; line-height: 1;
+  font-family: var(--sans); font-size: 12px; font-weight: 700; line-height: 1;
   background: var(--card); color: var(--text); border: 1px solid var(--card-edge); cursor: pointer;
 }
 .tab-sel--on > select { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -230,7 +230,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   background: var(--card); border: 1px solid var(--card-edge); border-radius: 14px;
   padding: 14px 10px 13px;
 }
-.welcome-arrow { align-self: center; color: var(--faintest); font-size: 17px; padding: 0 2px; }
+.welcome-arrow { align-self: center; color: var(--faintest); font-size: 16px; padding: 0 2px; }
 /* NO card, NO border, NO radius — and that is the whole point. These carried the same white card
    with a 1px edge and an 11px radius as `.route-btn` directly below them, so the three things you
    cannot press looked exactly like the two you must, and they came first. An icon and two lines of
@@ -240,8 +240,8 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px;
   text-align: center; padding: 4px 6px;
 }
-.welcome-step-t { font-size: 12.5px; font-weight: 700; }
-.welcome-step-c { font-size: 10.5px; color: var(--sub); line-height: 1.45; }
+.welcome-step-t { font-size: 12px; font-weight: 700; }
+.welcome-step-c { font-size: 10px; color: var(--sub); line-height: 1.45; }
 
 @media (max-width: 480px) {
   /* Three columns of ~85px is where this card fell apart: at 375px every caption wrapped to three
@@ -273,7 +273,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .note-toggle {
   display: flex; align-items: center; gap: 5px; min-height: 36px; margin-top: 2px;
   padding: 0; background: none; border: none; cursor: pointer;
-  font-family: var(--sans); font-size: 11.5px; font-weight: 600; color: var(--sub);
+  font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--sub);
 }
 .note-toggle:hover { color: var(--accent); }
 .note-toggle > span { font-size: 9px; color: var(--faint); }
@@ -316,12 +316,12 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 .menu-item {
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px;
   background: none; border: none; border-radius: 8px; cursor: pointer; text-align: left;
-  font-family: var(--sans); font-size: 12.5px; color: var(--text);
+  font-family: var(--sans); font-size: 12px; color: var(--text);
 }
 .menu-item:hover { background: var(--accent-06); color: var(--accent); }
 .menu-item-l { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 /* The consequence line for the destructive row. It was a title= before, which a phone cannot show. */
-.menu-item-l > em { font-style: normal; font-size: 10.5px; line-height: 1.35; color: var(--faint); }
+.menu-item-l > em { font-style: normal; font-size: 10px; line-height: 1.35; color: var(--faint); }
 .menu-item-v { flex: none; font-family: var(--mono); font-size: 11px; color: var(--faint); }
 .menu-item--danger { color: var(--warn); }
 .menu-item--danger:hover { background: var(--warn-08); color: var(--warn); }
@@ -332,20 +332,20 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 0;
 }
 .scrub-row[data-active="true"] { background: var(--accent-06); }
-.scrub-row > label { flex: 0 0 auto; white-space: nowrap; font-size: 12.5px; color: var(--text); }
+.scrub-row > label { flex: 0 0 auto; white-space: nowrap; font-size: 12px; color: var(--text); }
 .scrub-row input[type="range"] { flex: 1 1 auto; min-width: 60px; }
 .scrub-row[data-active="true"] .val-btn { color: var(--accent); }
 
 .val-btn {   /* looks like text, behaves like a field */
   min-width: 62px; padding: 4px 2px; flex: 0 0 auto; text-align: right;
   background: transparent; border: none; color: var(--text); cursor: text;
-  font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
 }
 .val-btn:hover { color: var(--accent); }
 .val-field {   /* replaces the value while it is being typed into */
   width: 62px; padding: 4px 6px; border-radius: 6px; flex: 0 0 auto; text-align: right;
   background: #fff; border: 1px solid var(--accent); color: var(--text);
-  font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
 }
 
 .field-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
@@ -424,7 +424,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
    inherits the value's size, so the right-aligned readout keeps its width */
 
 .row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; }
-.row-label { font-size: 12.5px; color: var(--text); }
+.row-label { font-size: 12px; color: var(--text); }
 .row-value { font-family: var(--mono); font-size: 11px; color: var(--faint); }
 .step-group { display: flex; align-items: center; gap: 10px; }
 .step-val {
@@ -442,16 +442,16 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   background: var(--card); border: 1px solid rgba(59, 52, 43, 0.3);
 }
 .check[aria-checked="true"] .check-box { background: var(--accent); border-color: transparent; }
-.check-label { font-size: 12.5px; color: var(--text); }
+.check-label { font-size: 12px; color: var(--text); }
 
 /* ---- headings and notes ---- */
 .sec-label { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
-.sec-label > b { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint); }
+.sec-label > b { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint); }
 .sec-label > i { font-size: 10px; font-style: normal; color: var(--faintest); }
 .tool-group { display: flex; flex-direction: column; gap: 7px; }
-.tool-group > span { font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint); }
+.tool-group > span { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: var(--faint); }
 .tool-group > div { display: flex; gap: 6px; }
-.note { font-size: 10.5px; line-height: 1.6; color: var(--faint); }
+.note { font-size: 10px; line-height: 1.6; color: var(--faint); }
 .hint { font-size: 11px; line-height: 1.5; color: var(--faint); padding: 2px 0 4px; }
 
 /* ---- page preview (cardboard route's print view) ---- */
@@ -553,7 +553,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px;
 }
 .guide-parts > li { padding: 10px 12px 12px; }
-.guide-part-name { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13.5px; }
+.guide-part-name { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
 /* The count — or, on the rib, the words that stand in for one (see PARTS). Mono because it is
    usually "x2"; a CJK phrase falls through to the system mono and still sits on the same line. */
 .guide-part-name > span { font-family: var(--mono); font-size: 12px; color: var(--sub); }
@@ -571,11 +571,11 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 /* A step with nothing to show (its only child is the text) spans the column instead of leaving a
    300px hole where the figure would be. */
 .guide-steps > li > :only-child { grid-column: 1 / -1; }
-.guide-steps h3 { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; font-size: 15.5px; font-weight: 700; color: var(--head); }
-.guide-steps p { margin: 0; font-size: 13.5px; line-height: 1.8; color: var(--text); }
+.guide-steps h3 { display: flex; align-items: center; gap: 10px; margin: 2px 0 8px; font-size: 16px; font-weight: 700; color: var(--head); }
+.guide-steps p { margin: 0; font-size: 13px; line-height: 1.8; color: var(--text); }
 .guide-num {
   flex: none; width: 24px; height: 24px; border-radius: 50%; color: #fff;
-  display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
 }
 /* The figure well. It keeps its box whether the drawing has arrived, has failed, or
    neither exists — a step that reflows when its image loads is a step you lose your place in. */
@@ -594,7 +594,7 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
 /* Title AND body span both columns, above the figure. That is what separates one way from the next:
    beside the figure the title is just the first line of a paragraph in a column of paragraphs, and
    what is left in the right-hand column is then only the numbered work, level with the drawing. */
-.guide-opts h4 { grid-column: 1 / -1; margin: 0; font-size: 13.5px; font-weight: 700; color: var(--head); }
+.guide-opts h4 { grid-column: 1 / -1; margin: 0; font-size: 13px; font-weight: 700; color: var(--head); }
 /* Spanning the columns buys the alignment; the measure has to be given back by hand. Without the
    cap this one paragraph runs the full 828px card while every other body on the page sits in a
    ~460px column — nearly 100 characters a line against 57. */
@@ -611,8 +611,8 @@ input[type="range"]:focus-visible { outline-offset: 4px; }
   content: counter(gd); display: inline-block; margin-right: 6px;
   font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--fine);
 }
-.guide-detail h5 { display: inline; margin: 0; font-size: 12.5px; font-weight: 700; color: var(--head); }
-.guide-detail p { font-size: 12.5px; }
+.guide-detail h5 { display: inline; margin: 0; font-size: 12px; font-weight: 700; color: var(--head); }
+.guide-detail p { font-size: 12px; }
 .guide-note { margin: 12px 0 0; font-size: 12px; line-height: 1.7; color: var(--sub); }
 .guide-steps .btn { margin-top: 12px; }
 

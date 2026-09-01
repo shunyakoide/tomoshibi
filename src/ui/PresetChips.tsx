@@ -20,7 +20,7 @@
 import React from "react";
 import { outerR } from "../geometry.ts";
 import { DEFAULTS, PRESETS } from "../config.ts";
-import { useT } from "./theme.ts";
+import { FS, useT } from "./theme.ts";
 import { SectionLabel } from "./controls.tsx";
 import type { Preset } from "../config.ts";
 import type { Design, Pt } from "../types.ts";
@@ -73,7 +73,7 @@ export default function PresetChips({ p, onPick }: { p: Design; onPick: (pr: Pre
                 <path d={miniPath(pr)} fill={on ? "rgba(255,255,255,0.25)" : "rgba(59,52,43,0.05)"}
                   stroke={on ? "#fff" : "#8a7c66"} strokeWidth="2" />
               </svg>
-              <span style={{ fontSize: 11, fontWeight: 500 }}>{t(pr.name)}</span>
+              <span style={{ fontSize: FS.sm, fontWeight: 500 }}>{t(pr.name)}</span>
             </button>
           );
         })}
