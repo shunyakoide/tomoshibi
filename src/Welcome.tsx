@@ -27,7 +27,7 @@
  * ============================================================================
  */
 import React, { useEffect, useRef } from "react";
-import { UI as ui, FS, accent, accentA, useT } from "./ui/theme.ts";
+import { UI as ui, accent, accentA, useT } from "./ui/theme.ts";
 import { Badge } from "./ui/controls.tsx";
 import Logo from "./ui/Logo.tsx";
 import type { Route } from "./types.ts";
@@ -40,7 +40,7 @@ type StepKind = "section" | "export" | "build";
 function StepIcon({ kind }: { kind: StepKind }) {
   const faint = ui.faint;
   return (
-    <svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true" style={{ display: "block" }}>
+    <svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true" className="block">
       {kind === "section" && (
         <>
           <path d="M22 5c-9 6-13 13-13 21 0 7 5 12 13 12s13-5 13-12c0-8-4-15-13-21z"
@@ -107,27 +107,20 @@ export default function Welcome({ route = null, onPick, onClose }: {
   }, [onClose]);
 
   return (
-    <div onClick={onClose} style={{
-      position: "fixed", inset: 0, zIndex: 50, display: "flex", justifyContent: "center",
-      padding: 20, background: "rgba(43,36,26,0.42)", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)",
-      overflowY: "auto",
-    }}>
+    <div onClick={onClose}
+      className="fixed inset-0 z-50 flex justify-center overflow-y-auto p-20
+        bg-[rgba(43,36,26,0.42)] backdrop-blur-[3px]">
       <div role="dialog" aria-modal="true" aria-label={t("はじめかた")} onClick={(e) => e.stopPropagation()}
-        className="rounded-2xl pt-26 px-26 pb-22 max-[480px]:pt-18 max-[480px]:px-16 max-[480px]:pb-16"
-        style={{
-          // 560 rather than 520: below that the three step captions wrap onto a second line with a
-          // single character stranded on it in Japanese.
-          // `margin: auto` centres this, NOT the overlay's align-items — and that is the whole
-          // point. Centred by align-items, a card taller than the window overflows in BOTH
-          // directions, and a scroll container cannot reach what is above its start edge: at
-          // 375x667 the card is 720px and the logo was cut off with no way to scroll up to it.
-          // An auto margin resolves to 0 once the free space goes negative, so the card starts at
-          // the padding edge and the whole of it scrolls into reach.
-          margin: "auto",
-          width: "min(560px, 100%)", background: ui.panel, color: ui.text, fontFamily: "var(--font-sans)",
-          boxShadow: "0 18px 50px rgba(43,36,26,0.3)",
-          border: `1px solid ${ui.edge}`, position: "relative",
-        }}>
+        /* `m-auto` centres this, NOT the overlay's align-items — and that is the whole point.
+           Centred by align-items, a card taller than the window overflows in BOTH directions, and a
+           scroll container cannot reach what is above its start edge: at 375x667 the card is 720px
+           and the logo was cut off with no way to scroll up to it. An auto margin resolves to 0 once
+           the free space goes negative, so the card starts at the padding edge and all of it scrolls
+           into reach. Width is 560 rather than 520 because below that the three step captions wrap
+           onto a second line with a single character stranded on it in Japanese. */
+        className="relative m-auto w-[min(560px,100%)] rounded-2xl border border-edge bg-panel
+          text-text font-sans shadow-[0_18px_50px_rgba(43,36,26,0.3)]
+          pt-26 px-26 pb-22 max-[480px]:pt-18 max-[480px]:px-16 max-[480px]:pb-16">
         {/* The only way out that is not also a choice. It replaced a 「とりあえず見る」 button on the
             footer row, which cost a full row and read like a third option beside the two routes —
             the escape from a modal is chrome, not an alternative to the thing it is asking. */}
@@ -135,8 +128,8 @@ export default function Welcome({ route = null, onPick, onClose }: {
           className="absolute top-10 right-10 w-36 h-36 p-0 flex items-center justify-center
             bg-transparent border-0 rounded-full cursor-pointer font-sans text-2xl leading-none
             text-faint hover:bg-card hover:text-text" title={t("閉じる")} aria-label={t("閉じる")}>×</button>
-        <Logo variant="full" className="h-62 w-auto max-[480px]:h-44" style={{ color: ui.head }} />
-        <div style={{ fontSize: FS.md, color: ui.sub, marginTop: 8 }}>{t("和紙提灯の「張型」をつくる")}</div>
+        <Logo variant="full" className="h-62 w-auto text-head max-[480px]:h-44" />
+        <div className="mt-8 text-md text-sub">{t("和紙提灯の「張型」をつくる")}</div>
 
         {/* The three steps, with arrows between them: design → output → build by hand */}
         <div className="flex items-stretch gap-4 my-18 mb-16 bg-card border border-card-edge
@@ -160,11 +153,10 @@ export default function Welcome({ route = null, onPick, onClose }: {
           ))}
         </div>
 
-        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+        <ul className="list-none flex flex-col gap-8">
           {POINTS.map((s) => (
-            <li key={s} style={{ display: "flex", gap: 9, fontSize: FS.base, lineHeight: 1.6, color: ui.text }}>
-              <span aria-hidden="true" className="w-5 h-5 rounded-full flex-none mt-7"
-                style={{ background: accent }} />
+            <li key={s} className="flex gap-9 text-base leading-[1.6] text-text">
+              <span aria-hidden="true" className="w-5 h-5 rounded-full flex-none mt-7 bg-accent" />
               <span>{t(s)}</span>
             </li>
           ))}
@@ -172,10 +164,10 @@ export default function Welcome({ route = null, onPick, onClose }: {
 
         {/* The setup question. Two buttons rather than a segmented toggle: each one is also the
             "start" action, so nobody has to choose and then confirm. */}
-        <div style={{ marginTop: 18 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: FS.sm, color: ui.sub }}>{t("どちらでつくりますか?")}</span>
-            <span style={{ fontSize: FS.xs, color: ui.faintest }}>{t("後からいつでも変更できます")}</span>
+        <div className="mt-18">
+          <div className="flex items-baseline justify-between mb-8">
+            <span className="text-sm text-sub">{t("どちらでつくりますか?")}</span>
+            <span className="text-xs text-faintest">{t("後からいつでも変更できます")}</span>
           </div>
           {/* Stacked, not side by side: full width, each one is unmistakably a button rather than a
               tile, and the two captions stop wrapping to different heights for no reason. */}
