@@ -10,7 +10,7 @@
  *   stays in ascending order. Fork this and one surface lets you drag a point past its neighbour
  *   while the other does not, and `fukuroTangents` sees a list it was promised is sorted.
  * - **A point can only be deleted while more than two remain** — `outerR` needs two to interpolate
- *   between, and `splineR`'s div-0 guard exists because that was once reachable.
+ *   between, and `fukuroSpline`'s div-0 guard exists because that was once reachable.
  * - **Deleting clears the selection**, or the card and the bar both keep pointing at an index that
  *   is now a different point.
  *

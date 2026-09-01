@@ -2,21 +2,13 @@
  * ============================================================================
  * THEME + TRANSLATION CONTEXT
  * ============================================================================
- * The palette and type stack were locals inside TomoshibiStudio, so every control it rendered had to
- * be handed `ui`, `accent`, `mono` and `sans` as props. None of them are state — they are constants
- * — so they live here and are imported directly by whoever draws something.
+ * The palette, the type stack and the two scales, as constants imported directly by whoever draws
+ * something. `t` IS state (it follows the language toggle), so it travels through a context instead:
+ * one provider at the root, `useT()` at each leaf, and no `t={t}` on every call site.
  *
- * `t` IS state (it follows the language toggle), so it travels through a context instead: one
- * provider at the root, `useT()` at each leaf, and no `t={t}` on every call site.
- *
- * The values are defined HERE, and index.css's `@theme` block mirrors them: this file is what SVG
+ * The values are defined HERE and index.css's `@theme` block mirrors them — this file is what SVG
  * presentation attributes read (a `var()` does not resolve in an XML attribute) and `@theme` is what
  * the utilities resolve through. `npm run check:style` compares the two.
- *
- * This file used to WRITE those custom properties onto <html> at startup, because index.css needed
- * the palette and nothing else supplied it. `@theme` emits the same values statically into the
- * built stylesheet, so that block is gone — and with it the window between first paint and the
- * module running, in which every colour in the app was whatever it inherited.
  *
  * Colours: warm washi neutrals for the inspector, with the orange of lamplight as the accent.
  * ============================================================================
@@ -29,26 +21,21 @@ export const mono = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monos
 export const sans = "'IBM Plex Sans JP', 'Hiragino Sans', system-ui, sans-serif";
 
 /**
- * The type scale, in px. Nine steps, and nothing else may be used.
+ * The type scale, in px. Nine steps, and nothing else may set a font size.
  *
- * It used to be sixteen — 9, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 15, 15.5, 16, 17, 20, 25
- * — and five of those were half-pixel sizes carrying 36 of the app's 84 type declarations, with
- * 12.5px alone on sixteen of them (every label in the inspector). A half pixel is not a size anyone
- * chooses; it is what you get when a value is nudged rather than picked, and once there are two of
- * them the next one is free. The .5s were folded DOWN and the sparse top end (15, 15.5, 17) merged
- * into 16.
+ * It used to be sixteen, five of them half-pixel and carrying 36 of the app's 84 type declarations
+ * (12.5px alone on sixteen). A half pixel is not a size anyone chooses — it is what you get when a
+ * value is nudged rather than picked, and once there are two the next one is free.
  *
- * Rounding down rather than up is deliberate: several places in this app fit by a hair (the chip
- * bar in English measured exactly 375px on a 375px phone), and every one of them has room for
- * smaller text and none is guaranteed room for larger.
+ * **Rounding down rather than up is deliberate**: several places here fit by a hair (the chip bar in
+ * English measured exactly 375px on a 375px phone), and every one has room for smaller text where
+ * none is guaranteed room for larger. **`2xs` is not a rounding artefact** and must not be folded
+ * into `xs`: it is the PointBar's caption size, measured against a 46px button, plus the badge and
+ * the select carets.
  *
- * `2xs` is NOT a rounding artefact and must not be folded into `xs`: it is the PointBar's caption
- * size, whose width was measured against a 46px button, and the badge and the select carets.
- *
- * This is the source of truth. It is exported to JS for inline styles and SVG attributes, and
- * mirrored into index.css's `@theme` block as `--text-*`, which is where `text-base` and friends
- * resolve; `npm run check:style` reads both sides and fails on any drift. index.css itself sets no
- * font size any more — every one of them is a `text-<step>` on the element.
+ * This is the source of truth, mirrored into `@theme` as `--text-*`; `check:style` fails on drift,
+ * on a raw JS `fontSize`, on an `FS.<name>` that does not exist (a typo is `undefined`, which React
+ * drops and CSS never sees) and on a step nothing uses.
  */
 export const FS = {
   "2xs": 9,     // badges, the select carets, the point bar's button captions
@@ -63,18 +50,13 @@ export const FS = {
 } as const;
 
 /**
- * The corner scale, in px. Six steps, and nothing else may be used.
+ * The corner scale, in px. Six steps, and nothing else may be used. Plus `rounded-full` for a
+ * circle, which is not on the scale because a circle is not a size.
  *
- * It used to be thirteen — 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16 — which is not a scale, it is
- * every integer somebody reached for. The same fold the type scale got: values round DOWN, and the
- * two smallest (2 and 3, on a 4px grabber and a 5px slider track) come out identical either way,
- * because a browser clamps a radius to half the box.
- *
- * The pairs that had to keep MATCHING still do: the ☰ button is a rounded square precisely so it
- * does not read as a different kind of control beside the row of `.tab-sel` selects, and both were
- * 9px and are now both `md`.
- *
- * A circle is not on this scale — `rounded-full` says circle, and says it whatever the box is.
+ * It used to be thirteen — every integer somebody reached for. The same fold the type scale got, and
+ * values round DOWN. The pairs that had to keep MATCHING still do: the ☰ is a rounded square
+ * precisely so it does not read as a different kind of control beside the row of selects, and both
+ * were 9px and are now both `md`.
  */
 export const RADII = {
   xs: 4,       // badges, the checkbox, anything whose box is a few px tall

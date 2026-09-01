@@ -2,45 +2,26 @@
  * ============================================================================
  * SELECTED POINT — the contextual bar (phones only)
  * ============================================================================
- * The one row that appears between the viewport and the sheet while a ◇ is selected in the section
- * view, and disappears the moment nothing is.
+ * The one row between the viewport and the sheet while a ◇ is selected in the section view.
  *
- * **Why it exists, measured.** `PointCard` sits 185px into a 1333px inspector list. Reaching it is
- * not the problem — at the sheet's `full` stop the window is 507px, so no scrolling is needed. The
- * problem is what reaching it costs: `full` leaves the viewport at `MIN_VIEW` (140px), so the phone
- * trades the drawing for the controls and **you cannot see the point you are editing**. At `half`
- * the window is ~212px and the 256px card does not fit either. The panel and the drawing were
- * competing for one screen, which is a bad trade for a direct-manipulation editor.
+ * **Why it exists, measured.** `PointCard` sits 185px into a 1333px inspector list, and reaching it
+ * is not the problem — at the sheet's `full` stop no scrolling is needed. What reaching it COSTS is:
+ * `full` leaves the viewport at `MIN_VIEW` (140px), so the phone trades the drawing for the controls
+ * and **you cannot see the point you are editing**; at `half` the window is ~212px and the 256px card
+ * does not fit either. The panel and the drawing were competing for one screen, which is a bad trade
+ * for a direct-manipulation editor.
  *
  * In flow (like `alertBar`), never over the canvas: it costs the section view 52px while a point is
- * selected — 717px becomes 665 — and nothing at all the rest of the time. Tapping the empty canvas
- * already clears the selection (`SectionEditor`'s wrapper `onPointerDown`), so it dismisses itself.
+ * selected and nothing at all otherwise, and tapping empty canvas already clears the selection, so it
+ * dismisses itself.
  *
- * What is in it, and what is not:
- * - **H, and only H.** The section view already prints every point's RADIUS beside its ◇, on both
- *   layouts and in compact — so a radius field here was the same number twice, 20px apart, and it
- *   cost 63px of a 375px row. Height position is the one dimension the drawing does not state
- *   anywhere, which is exactly what makes it worth a field. The radius is still typeable on the card
- *   the badge opens. The tag is a mono letter and the value a number, deliberately language-neutral,
- *   so this row cannot change height between Japanese and English the way `.lang-btn` once did.
- * - **◇ smooth / ■ corner**, the one property of a point you reach for constantly.
+ * **It carries H and not R.** The section view prints every point's radius beside its ◇, so a radius
+ * field would be the same number twice 20px apart; height position is the one dimension the drawing
+ * states nowhere, and radius is set by dragging, which is the app's primary gesture.
  *
- * All three glyph buttons carry a 9px caption under the mark. The glyphs are the marks the section
- * view already draws, so they carry the meaning — but a row of bare glyphs is the discoverability
- * problem the ☰ menu's rows avoid by being labelled, and it costs 4px of width and none of the
- * height to not have it here either.
- * - **Delete**, separated by a rule and in warn colour, icon-only with an `aria-label`. It is one
- *   tap from a persistent bar, which is only acceptable because ⌘Z covers it.
- * - **The curve-adjust mode**, as a TOGGLE rather than a segmented pair, and the distinction is not
- *   cosmetic: "move" is the resting state of the editor and "curve" is something you turn on, so a
- *   pressed button says it in one 44px square where two segments would cost 88. It is also the one
- *   control here whose effect is visible the instant you press it — the tangent handles appear and
- *   the `+` ghosts go. It sits after the
- *   point's own properties because it is a mode of the EDITOR, not a property of this ◇.
- * - **Everything, in fact.** `PointCard` renders nothing on a phone: the radius was the last thing
- *   left in it, and the radius is what dragging a ◇ sideways does, printed live beside the mark. A
- *   field for it bought exact entry and nothing else, for a section you had to pull the sheet up and
- *   scroll to reach. Delete therefore lives here unconditionally — this row is the only place it is.
+ * Everything in it is a 44px target — it exists so nobody has to go and find the 44px controls in the
+ * sheet — and the editing rules live in `pointEdit.ts`, shared with `PointCard`, because two surfaces
+ * editing one ◇ is exactly where a clamp written twice rots.
  * ============================================================================
  */
 import React from "react";
@@ -59,7 +40,7 @@ import { pointOps, makeSetMode } from "./pointEdit.ts";
 import type { EditMode } from "./pointEdit.ts";
 import type { Design } from "../types.ts";
 
-/** One compact numeric field: a mono letter, the shared `.mm-field`, and its unit. */
+/** One compact numeric field: a mono letter, the input, and its unit. */
 function Num({ tag, title, value, min, max, onChange }: {
   tag: string; title: string; value: number; min: number; max: number; onChange: (v: number) => void;
 }) {

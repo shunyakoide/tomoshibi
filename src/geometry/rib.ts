@@ -16,25 +16,19 @@ import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, tabDepth, tabD
 import { grooveDepth, grooveList, grooveOuterPts, grooveR, profileSlope } from "./groove.ts";
 import { shapeFromPts } from "./shape.ts";
 
-// [Rib inner-edge curve = banana (crescent) shape] To make the rib easier to pull out from the
-// opening after drying, the inner edge is also curved along the outer edge, narrowing at the
-// center. The outer edge (= the lamp body face) is not changed at all, so it does not propagate to
-// the mold shape / tab / koma / stand (only the inner material is reduced).
+// [Rib inner edge = crescent] So the rib pulls out of the opening after drying, the inner edge is
+// hollowed toward the centre. The outer edge (the lamp body face) is untouched, so this reaches
+// neither the mold shape, the tab, the koma nor the stand — only the inner material is reduced.
 //
-// Definition: the inner edge basically stays a "straight core Ri." **Only near the center** an
-// inward curve is added to narrow it (bending the whole rib would give the ends an unreasonable
-// shape, so it is kept local).
-//   ・The curve applies only inside t∈[tC-HW, tC+HW]. Outside that, bump=0 ⇒ the inner edge stays
-//     strictly Ri ⇒ the end shapes / the connection to the tab (koma) do not change at all.
-//   ・bump=(1-u²)² has both value and slope 0 at the ends ⇒ connects smoothly to the straight core
-//     (no corner appears).
-//   ・Amplitude A is "the rib depth at the center (outer − core) × RIB_CURVE_D." On the real mold
-//     (reference photo) the scoop is about 20% of the depth at that position, not carved to the
-//     limit. Determining it by a depth ratio keeps the same visual proportion even when the
-//     profile changes.
-//   ・Finally clamped to "an upper limit that does not break the band width W" ⇒ guarantees the
-//     inner edge does not cross the outer edge (no self-intersection), and it automatically becomes
-//     modest where the center narrows.
+// The inner edge stays a straight core `Ri`, with an inward bump **only near the centre** (bending
+// the whole rib gives the ends an impossible shape):
+//   ・inside t∈[tC-HW, tC+HW] only; outside, bump = 0, so the ends and the tab joint are unchanged.
+//   ・bump = (1-u²)² has value AND slope 0 at its ends, so it meets the straight core with no corner.
+//   ・amplitude A = the rib's depth at the centre (outer − core) × `RIB_CURVE_D`. A real mold scoops
+//     about 20% of the depth at that point, not to the limit; a depth RATIO keeps that proportion
+//     when the profile changes.
+//   ・clamped to an upper limit that cannot break the band width W, which guarantees the inner edge
+//     never crosses the outer one and makes the scoop modest by itself where the centre narrows.
 const RIB_MIN_BAND = 12;  // minimum band thickness (mm). Remains even after subtracting the groove depth (max higoD*1.5).
 const RIB_CURVE_C = 0.5;  // curve center (t) = the rib center
 const RIB_CURVE_HW = 0.3; // curve half-width (t). Applies only to the middle 60%; the top/bottom 20% each stay core.
@@ -65,16 +59,15 @@ export function ribInnerX(p: Design): (y: number) => number {
 
 // ============ Pulling the ribs out ============
 // Once the paste has dried the koma come off and the ribs leave through an opening, one at a time.
-// A rib is fed out lengthwise, so the mouth's plane cuts ACROSS the plate: what has to pass through
-// is the plate's BAND — outer edge minus hollowed inner edge — and not its distance from the axis.
-// That band is exactly what the hollow inner edge exists to narrow (see ribInnerX above), and a
-// deep body on a small mouth is the one shape this app will happily draw that cannot be taken
-// apart again. The tabs are never the binding part: they span Ri..kR, and kR is at most the
-// SMALLER opening, so they clear any mouth this band clears.
+// A rib is fed out lengthwise, so the mouth's plane cuts ACROSS the plate: what has to pass is the
+// plate's BAND — outer edge minus hollowed inner edge — not its distance from the axis. That band is
+// exactly what the hollow inner edge exists to narrow (`ribInnerX`), and a deep body on a small mouth
+// is the one shape this app will happily draw that cannot be taken apart again. The tabs never bind:
+// they span Ri..kR, and kR is at most the SMALLER opening.
 //
-// The cut is a boardT-wide rectangle rather than a line, so what the plate actually gets is the
-// chord at its own half-thickness, 2√(R²−(t/2)²). PULL_CLEAR is what is left over for it to turn
-// in: the band is curved, so it rotates as it goes, and a rib exactly as wide as the chord binds.
+// The cut is a `boardT`-wide rectangle rather than a line, so what the plate gets is the chord at its
+// own half-thickness, 2√(R²−(t/2)²). `PULL_CLEAR` is what is left for it to turn in — the band is
+// curved, so it rotates as it goes, and a rib exactly as wide as the chord binds.
 const PULL_CLEAR = 2;   // mm of slack left for the plate to turn as it comes out
 export function ribPullFit(p: Design): { band: number; chord: number; openR: number; ok: boolean } {
   const h = p.height, innerX = ribInnerX(p);
@@ -86,15 +79,11 @@ export function ribPullFit(p: Design): { band: number; chord: number; openR: num
   return { band, chord, openR: R, ok: band + PULL_CLEAR <= chord };
 }
 
-// Returns the rib's outline point list (shared by the 2D cross-section drawing and the 3D rib
-// geometry = the two always match). k = rib index. Normally all ribs have the same shape (grooves
-// are horizontal rings), but with spiral winding (p.spiral), grooveList shifts the grooves by k, so
-// the groove positions change per rib (= k affects the shape).
-// With opts.smooth = true, returns "a smooth outer edge with no grooves carved" (for the paper
-// template). Since 0.5mm-precision V notches can't be cut into cardboard, the paper template cuts
-// the outer edge as a plain curve and shows the grooves as scale marks.
-// opts.stop adjusts the upper tab's inner stopper (passed straight to komaStop2D). Both default to
-// unspecified, so the 3D/STL-side calls do not change at all.
+// The rib's outline point list, shared by the 2D section drawing and the 3D geometry, so the two
+// always match. `k` is the rib index: normally every rib is the same shape (grooves are horizontal
+// rings), but with spiral winding `grooveList` shifts them by k, which makes every rib a different
+// part. `opts.smooth` returns a smooth outer edge with no grooves cut — the cardboard template,
+// which marks the bamboo positions with ticks instead, 0.5mm V notches not being cuttable in board.
 export function ribOutline2D(p: Design, k = 0, opts: { smooth?: boolean } = {}): Pt2[] {
   const h = p.height, tl = p.tabLen, gR = grooveR(p);
   // Bamboo rib grooves are made over the whole lamp body (between the outermost control points).
@@ -196,16 +185,15 @@ export function lightenHoles2D(p: Design): { holes: Pt2[][]; spineW: number; ban
 }
 
 // ============ Rib ============
-// [For spiral winding] Engrave a serial number (k+1) on the rib = a mark of the arrangement order
-// around the circumference. In a spiral, the groove positions differ per rib, and unless they are
-// arranged in the correct order the bamboo rib does not form a continuous spiral, yet the printed
-// physical parts are indistinguishable. So the number is engraved on the solid band at the bottom end.
-// ・Each digit cuts the lit segments of "7 segments" as **independent thin rectangular through-holes.**
-//   Since there are gaps (G) between segments, even enclosing digits like 0/8 keep the center island
-//   connected to the body through the corner gaps = watertight like the lightening windows (engraving
-//   = holes, to avoid adding solid volume = non-manifold).
-// ・Normal (non-spiral) returns an empty array ⇒ existing STL is completely unchanged (hash match).
-// ・For an extremely small opening where there is no room (width), give up on the number (the mold function is unchanged).
+// [Spiral winding] The serial number (k+1) engraved on the rib is its position around the
+// circumference: in a spiral every rib has different groove positions, so out of order the bamboo
+// does not form a continuous helix — and the printed parts are indistinguishable. It is cut into the
+// solid band at the bottom end.
+// ・Each digit cuts the lit segments of a 7-segment display as **independent thin through-holes**.
+//   The gaps (G) between segments keep the centre island of a 0 or an 8 connected to the body
+//   through the corners, so it stays watertight exactly as the lightening windows do.
+// ・Non-spiral returns an empty array, so existing STLs are unchanged (hash match).
+// ・Where an extremely small opening leaves no width for it, the number is given up on.
 export function ribNumberHoles2D(p: Design, k: number): Pt2[][] {
   if (!p.spiral) return [];
   const h = p.height, Ri = innerRi(p), s = String(k + 1);

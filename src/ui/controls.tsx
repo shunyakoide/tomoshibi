@@ -6,13 +6,14 @@
  * inside TomoshibiStudio's render, rebuilt on every keystroke, each carrying an inline style object
  * with a ternary per property for its active state.
  *
- * The looks now live in index.css (.btn, .seg, .scrub-row …), which is what makes :hover, :active
- * and :disabled possible at all — an inline style cannot express them. What stays inline is only
- * what genuinely varies per instance.
+ * The looks are **Tailwind utilities on the elements here**, plus the two shared skins `SEG_SKIN`
+ * and `NOTE_SKIN` — which is what makes `:hover`, `:active` and `:disabled` possible at all, an
+ * inline style being unable to express them. What stays inline is only what genuinely varies per
+ * instance (the slider's `--pct`).
  *
- * All of them are native interactive elements (<input>, <button>) rather than styled <div>s, so
- * keyboard, screen readers and touch targets work without re-implementing any of it. Minimum touch
- * target is 44px wherever the control is the primary way to change a value.
+ * All of them are native interactive elements (`<input>`, `<button>`) rather than styled `<div>`s,
+ * so keyboard, screen readers and touch targets work without re-implementing any of it. Minimum
+ * touch target is 44px wherever the control is the primary way to change a value.
  * ============================================================================
  */
 import React, { useEffect, useId, useRef, useState } from "react";
@@ -195,12 +196,11 @@ export function Checkbox({ checked, onToggle, label }: {
  * It exists because `.btn` did NOT. The class was used from two files with a modifier each, and one
  * of those modifiers — `btn--ghost` — had been deleted from index.css when the buttons it belonged
  * to moved into the ☰ menu. The call site was never updated, so the guide shipped a button wearing
- * the BROWSER's default chrome (`background: #efefef; border: 2px outset black`) in the middle of a
- * warm-toned document, on main, through every gate. Nothing checks a class name: it is a string,
- * and a string that names nothing is indistinguishable from one that names something.
+ * the BROWSER's default chrome (`background: #efefef; border: 2px outset black`) in a warm-toned
+ * document, on main, through every gate: nothing checks a class name, it is a string.
  *
- * There is deliberately no `variant` prop. One look was defined and one is kept; a second is a
- * change to this component, made where the styles are, rather than a word invented at a call site.
+ * There is deliberately no `variant` prop. One look is defined and one is kept; a second is a change
+ * to this component, made where the styles are, rather than a word invented at a call site.
  */
 export function Button({ onClick, disabled, title, className = "", children }: {
   onClick: () => void; disabled?: boolean; title?: string;

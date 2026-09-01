@@ -76,17 +76,15 @@ const TAB_SKIN = "px-14 py-7 border-0 rounded-sm cursor-pointer transition-all d
   + "bg-transparent text-[#6f6350] font-sans text-base font-medium "
   + "aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:font-bold";
 // ---- The narrow layout's bottom sheet ----------------------------------------------------------
-// On a phone the inspector is not a panel below the viewport any more but a sheet you pull up over
-// it, so the section editor gets the screen. Three stops: `peek` (the sheet's own header — the live
-// summary and the CTA — and nothing else), and these two fractions of the window. `full` stops at
-// 85% rather than covering everything, because the drawing you are editing should never leave the
-// screen entirely: the sheet is a set of controls FOR it, and losing sight of the thing you are
-// changing is what makes a full-screen settings page feel like a different app.
+// On a phone the inspector is a sheet you pull up over the viewport, so the section editor gets the
+// screen. Three stops: `peek` (the grabber bar alone) and these two fractions. `full` stops short of
+// covering everything, because the drawing you are editing should never leave the screen — the sheet
+// is a set of controls FOR it.
+//
 // `half` is a fraction of the height the sheet SHARES WITH THE VIEWPORT, not of the window, and
-// `full` is that budget minus a fixed sliver left for the drawing. Measuring from the window looks
-// equivalent and is not: the chip bar above the two of them is one row in Japanese and two in
-// English, so a window-relative `full` handed English a 37px section view where Japanese got 76.
-// A budget-relative one gives both exactly MIN_VIEW.
+// `full` is that budget minus a fixed sliver. Those look equivalent and are not: the chip bar above
+// is one row in Japanese and two in English, so a window-relative `full` handed English a 37px
+// section view where Japanese got 76. Budget-relative, both get exactly MIN_VIEW.
 const SHEET = { half: 0.45 } as const;
 // The drawing never leaves the screen, at any stop. The sheet is a set of controls FOR it, and
 // losing sight of the thing you are changing is what makes a settings page feel like another app.
@@ -119,27 +117,19 @@ const ROUTES: [Route, string, string | null][] = [["stl", "3Dプリント", null
  * What comes out of the export, under its CTA: one line of what you must not get wrong, and the
  * contents of the ZIP folded behind it.
  *
- * All of this used to be a paragraph pinned under the button — five lines on a phone, about 95px of
- * a sheet whose whole job is to leave room for the drawing. It was also the wrong shape for what it
- * says: **none of it helps you decide to press the button**. "Duplicate the koma in your slicer",
- * "set the printer to 100%", "a config.json rides along" are things that matter once you HAVE the
- * file, in another application. Pinning them above the button is Apple HIG's overwhelm-upfront in
- * miniature (`progressive-disclosure`).
+ * It used to be a paragraph pinned under the button — five lines on a phone, ~95px of a sheet whose
+ * job is to leave room for the drawing — and it was the wrong shape for what it says: **none of it
+ * helps you decide to press the button.** "Duplicate the koma", "print at 100%", "a config.json
+ * rides along" all matter once you HAVE the file, in another application. So the block renders
+ * NOTHING until the export has run, and appears — manifest open — as the download's own
+ * confirmation, which hands the pinned footer back ~60px at every sheet stop. **Do not put it back
+ * on screen "so people see it".**
  *
- * So the split is by consequence, not by length. Louder: the one step that ruins the output if it
- * is missed — printing at anything but 100%, or printing one koma where two are needed. Quieter:
- * the manifest, which is reference material and folds behind a disclosure.
+ * Within it the split is by CONSEQUENCE, not by length: loud for the one step that ruins the output
+ * if missed, folded for the manifest, which is reference material.
  *
- * But the same argument goes one step further than that, and this is the whole shape of it now:
- * **every word here is about the file you already have**, in your slicer or at your printer. None
- * of it is a reason to press the button, and until you press it there is nothing to say. So the
- * block renders NOTHING until the export has actually run, and appears — manifest open — as the
- * download's own confirmation (`success-feedback`). That is worth more than a paragraph nobody
- * reads on the way past, and it hands the pinned footer back ~60px at every sheet stop.
- *
- * `state` is therefore three-valued and not a boolean: `null` = no export yet (draw nothing),
- * "open" / "shut" = the manifest's fold. Two booleans would allow "folded but never downloaded",
- * which is a state this has no drawing for.
+ * `state` is three-valued and not a boolean — `null` = no export yet (draw nothing), "open"/"shut" =
+ * the manifest's fold. Two booleans would allow "folded but never downloaded", which has no drawing.
  */
 function KitNote({ warn, state, onToggle, t, children }: {
   warn: React.ReactNode; state: null | "open" | "shut"; onToggle: () => void; t: T; children: React.ReactNode;
@@ -216,15 +206,15 @@ export default function TomoshibiStudio() {
   const [mountRef, three] = useViewport(setGlError);
   const prevView = useRef<View | null>(null);   // detects a view switch, to set that view's opening camera angle
 
-  // First-run onboarding card: auto-opens until dismissed once. Deliberately keyed on the dismissal
-  // flag ALONE and not on "is there a saved design" — the autosave flushes on pagehide, so a
-  // first-time visitor who merely reloads already has saved state and would never see the card,
-  // which is exactly the person it is for. The cost is that an existing user meets it once.
-  // Which card it is, not just whether one is open: "first" = auto-opened on the first visit,
-  // "help" = reopened from the ☰ menu (null = closed). The two differ in one way — the first-run card
-  // marks NEITHER route, because "stl" there is a default nobody chose and colouring it would answer
-  // the question the card is asking ("どちらでつくりますか?"). Once past that, the card is a place to
-  // switch, so the route in effect is marked. No second persisted flag: the mode carries it.
+  // First-run onboarding card, auto-opening until dismissed once. Keyed on the dismissal flag ALONE
+  // and not on "is there a saved design": the autosave flushes on pagehide, so a first-time visitor
+  // who merely reloads already has saved state and would never see the card, which is exactly the
+  // person it is for.
+  //
+  // WHICH card it is, not just whether one is open: "first" = auto-opened, "help" = reopened from
+  // the ☰ menu. They differ in one way — the first-run card marks NEITHER route, because "stl" there
+  // is a default nobody chose and colouring it would answer the question the card is asking. No
+  // second persisted flag: the mode carries it.
   const [welcome, setWelcome] = useState<WelcomeCard>(() => (loadWelcomeSeen() ? null : "first"));
   const closeWelcome = () => { saveWelcomeSeen(); setWelcome(null); };
   // The build guide. Not a view: it is a document about making a lantern, and its figures come
@@ -419,14 +409,11 @@ export default function TomoshibiStudio() {
   const pull = useMemo(() => ribPullFit(moldSrc), [moldSrc]);
 
   // ---- The sheet's geometry -----------------------------------------------------------------
-  // `peek` is the grabber bar and nothing else — measured rather than assumed, because the summary
-  // it carries wraps to two lines on a narrow enough screen. It used to include the CTA as well,
-  // which made it 128px; at that size the sheet is 16% of the phone doing nothing but resting, and
-  // the section editor is what that space is for. The CTA is one tap away and, now that the view is
-  // a dropdown in the bar above, the one it shows outside the print view was navigation the bar
-  // already offers. Measured the same way and for the same reason as the section editor's pane: a
-  // layout read to seed it (an observer stays silent for an element the browser is not laying out)
-  // and a ResizeObserver to keep it in step as the language changes the text inside it.
+  // `peek` is the grabber bar and nothing else — MEASURED rather than assumed, because the summary
+  // it carries wraps on a narrow enough screen. It used to include the CTA, which made it 128px: at
+  // that size the sheet is 16% of the phone doing nothing but resting. Measured the same way and for
+  // the same reason as the section editor's pane — a layout read to seed it (an observer stays
+  // silent for an element the browser is not laying out) plus a ResizeObserver for language changes.
   useEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
@@ -548,17 +535,14 @@ export default function TomoshibiStudio() {
   const headerBtns = <OverflowMenu label={t("メニュー")} items={menuItems} />;
 
   // ============ Narrow: the chips move OUT of the viewport, and become dropdowns ============
-  // Floating over the canvas, the two rows were ~100px of a 357px pane — 28% of it, laid straight
-  // over the top of the silhouette, which is exactly where the top opening's ◇ is. In a bar above
-  // the pane they stopped covering anything, but eight chips still wrapped to two rows (85px) in
-  // English, and the labels are the app's top-level navigation so shortening them was never on.
+  // Floating over the canvas the two rows were ~100px of a 357px pane, laid over exactly where the
+  // top opening's ◇ is. In a bar above the pane they covered nothing, but eight chips still wrapped
+  // to two rows (85px) in English — and the labels are the app's top-level navigation, so shortening
+  // them was never on. As dropdowns the same two choices cost ONE row in every language.
   //
-  // As dropdowns the same two choices cost ONE row in every language, and the row has space left
-  // over for the header menu — which is where it now lives, out of the sheet's bar.
-  // They are NATIVE `<select>`s, deliberately: on a phone that opens the OS picker, which is a
-  // better touch target than anything hand-rolled here, arrives with keyboard and screen-reader
-  // behaviour already correct, and costs no focus-trap or outside-click machinery. The `beta` badge
-  // becomes text in the option, because an <option> cannot carry markup.
+  // NATIVE `<select>`s, deliberately: on a phone that opens the OS picker, a better touch target
+  // than anything hand-rolled, with keyboard and screen-reader behaviour already correct and no
+  // focus-trap code to own. The `beta` badge becomes text, an <option> not being able to carry markup.
   const modeSelect = (
     <span className="relative inline-flex">
       <select value={view} aria-label={t("表示")} onChange={(e) => setView(e.target.value as View)}
@@ -602,22 +586,18 @@ export default function TomoshibiStudio() {
   ) : null;
 
   // ---- Viewport alerts ----------------------------------------------------------------------
-  // The three of them are one COLUMN, wherever it is placed. The first two are gated on opposite
-  // routes (bed = 3D print, koma wall = cardboard) and could never have collided, but the pull-out
-  // warning belongs to both routes, so stacking them is the only arrangement that does not overprint.
+  // One COLUMN, wherever it is placed: the first two are gated on opposite routes (bed = 3D print,
+  // koma wall = cardboard) and could never collide, but the pull-out warning belongs to both, so
+  // stacking is the only arrangement that does not overprint.
   //
-  // They are built as DATA rather than as markup, because the narrow layout has to count them and
-  // quote one headline, and a fragment cannot be asked either question. (It also retires the
-  // separate `hasAlert` predicate that a fragment needed — a fragment is truthy even when every
-  // card inside it is false, so gating on it rendered an empty bordered band.)
+  // Built as DATA rather than as markup, because the narrow layout has to count them and quote one
+  // headline, and a fragment can answer neither. (That also retired a `hasAlert` predicate: a
+  // fragment is truthy even when every card inside it is false, so it rendered an empty band.)
   //
-  // WHERE the column goes is the responsive part. On a wide screen it floats in the canvas's
-  // bottom-right, as it always has (bottom-left is the lit-mode hint's). On a phone it cannot: a
-  // three-line card is a quarter of a 357px-tall pane, and it lands squarely on the bottom opening's
-  // ◇ — an alert reading "widen the opening in the section view" while sitting on top of the handle
-  // that widens it. There it goes in flow between the viewport and the panel instead: never over a
-  // handle, always on screen, and adjacent both to the drawing it is about and to the controls that
-  // answer it.
+  // WHERE the column goes is the responsive part. Wide, it floats in the canvas's bottom-right
+  // (bottom-left is the lit hint's). On a phone it cannot: a three-line card is a quarter of a 357px
+  // pane and lands squarely on the bottom opening's ◇ — an alert reading "widen the opening in the
+  // section view" while sitting on the handle that widens it. So it goes in flow instead.
   const alerts: { key: string; head: string; hint?: string }[] = [];
   if (!isLit) {
     // Bed-overflow. Each part lies along a different axis, so the bed is width×depth. Gated on the
@@ -651,19 +631,14 @@ export default function TomoshibiStudio() {
   const alertCards = alerts.map((a) => <Alert key={a.key} head={a.head} hint={a.hint} />);
 
   // ============ Narrow: the alert column is a strip you tap open ============
-  // In flow, an expanded alert costs 115px and two cost ~200 — out of the SAME budget as the
-  // inspector, which is the scarce half (1216px of controls). Measured on a 375×812 phone, one
-  // open alert cut the panel's scroll window from 261px to 146, and in the print view — where the
-  // footer is taller and the koma-wall warning fires on the default cardboard design — to 88px.
-  // That is 7% of the controls visible at once: the exact "every control exists and there is no
-  // room to reach one" failure this whole layout was written to remove, reappearing through the
-  // thing meant to help.
+  // In flow an expanded alert costs 115px and two cost ~200, out of the SAME budget as the inspector
+  // — the scarce half. Measured on a 375×812 phone, one open alert cut the panel's scroll window
+  // from 261px to 146, and in the print view (taller footer, and the koma-wall warning fires on the
+  // default cardboard design) to 88px: 7% of the controls reachable at once, i.e. the exact failure
+  // this layout was written to remove, arriving through the thing meant to help.
   //
-  // So on a phone the column folds to one line — the same tap-open shape as the section editor's
-  // legend — and costs ~36px instead. Collapsed still SAYS it: the strip keeps the alert tint,
-  // the ⚠, and the first alert's headline (the sentence that names what is wrong; the "→ do this"
-  // hint is what the tap is for), plus a count when more than one is waiting. Do not make it open
-  // by default to be safe — that is just the 115px band again, and it takes the panel with it.
+  // Folded it costs ~36px and still SAYS it: the alert tint, the ⚠, the first headline (the "→ do
+  // this" hint is what the tap is for) and a count. **Do not make it open by default to be safe.**
   const alertBar = narrow && alerts.length > 0 ? (
     <div className="flex-none bg-panel border-t border-edge">
       <button onClick={() => setAlertsOpen((v) => !v)} aria-expanded={alertsOpen}
@@ -725,15 +700,12 @@ export default function TomoshibiStudio() {
           see `chipBar` below for why. */}
       {!narrow && <div className={`${CHIP_BOX} top-16`} style={chipTone}>{modeTabs}</div>}
 
-      {/* The route switch lives here, on the viewport, and not in the panel: it changes what this
-          whole view IS (print plates vs template pages), and buried at the bottom of the inspector's
-          scroll it was several seconds of hunting for the one control most likely to be wrong.
-          Shown on every view except lit, not just the print view, because the route reaches further
-          than its own view: `bedRules` below gates the bed-overflow warning, the "keep the height
-          under N mm" hint and the rib-length warning colour, all of which surface while you are in
-          the SECTION view. Leaving the switch behind in the print view put the effect on one screen
-          and its cause on another — someone shortening a body to fit a bed they don't own. Lit is
-          excluded because it is a viewing mode (the whole inspector is hidden there too). */}
+      {/* The route switch lives on the viewport and not in the panel: it changes what this whole
+          view IS (print plates vs template pages). Shown on every view except lit, not just the
+          print view, because the route reaches further than its own view — `bedRules` gates the
+          bed-overflow warning, the height hint and the rib-length warning colour, all of which
+          surface in the SECTION view, so leaving the switch behind put the effect on one screen and
+          its cause on another. Lit is excluded because it is a viewing mode. */}
       {!isLit && !narrow && (
         <div className={`${CHIP_BOX} top-62`} style={chipTone}>{routeTabs}</div>
       )}
@@ -1036,9 +1008,8 @@ export default function TomoshibiStudio() {
           the bottom shows it at `peek` just the same (the scroll area between them is zero tall
           there), keeps it where a next-step action belongs and where the thumb is, and gives the list
           the edge to disappear behind that it always had.
-          The summary is dropped here on a phone because the sheet's bar carries it. `ctaRef` is half
-          of the `peek` measurement (the bar is the other half), so the resting height follows the
-          note the print view adds rather than clipping it. */}
+          The summary is dropped here on a phone because the sheet's bar carries it, and `peek` is
+          measured from that bar ALONE (`barRef`) — this footer sits below it and is clipped. */}
       <div className="flex-none border-t border-edge px-20 pt-16 pb-18
         narrow:px-14 narrow:pt-10 narrow:pb-12">
         {!narrow && (

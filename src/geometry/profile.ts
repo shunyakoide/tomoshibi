@@ -58,17 +58,15 @@ function fukuroSpline(P: Pt[], x: number, T?: number[]): number {
 }
 
 // ---- Bézier tangent handles (optional) ----
-// Like Illustrator's pen tool, direction lines (handles ho=next-point side / hi=prev-point side)
-// are drawn from each control point so the curve's angle/tension can be edited. Handles are
-// relative vectors {dt,dr} in (t,r) space.
-// **If even one point has a handle, the lamp body curve switches to Bézier evaluation.** With
-// none, it stays the previous monotone Hermite (fukuroSpline) = STL of existing presets and
-// saved data is completely unchanged.
+// Like a pen tool's direction lines: handles (`ho` = next-point side, `hi` = prev-point side) are
+// relative vectors {dt,dr} in (t,r) space. **If even one point has a handle the lamp body switches
+// to Bézier evaluation**; with none it stays the monotone Hermite (`fukuroSpline`), so existing
+// presets and saved designs produce byte-identical STLs.
 //
-// Single-valuedness (height t → radius r unique) is guaranteed by clamping the t-component of
-// the segment's control points to be non-decreasing (ho.dt∈[0,Δt] / hi.dt∈[-Δt,0], and shrinking
-// the total to within Δt so they don't cross). This makes t(u) monotone in u ⇒ the u for t=x is
-// found uniquely by bisection, without breaking the t-monotone assumption of grooves/extrusion.
+// Single-valuedness (height t → one radius r) is guaranteed by clamping the t-component of the
+// segment's control points to be non-decreasing (ho.dt∈[0,Δt] / hi.dt∈[-Δt,0], and shrinking the
+// total to within Δt so they cannot cross). t(u) is then monotone in u, so the u for t=x is found
+// uniquely by bisection without breaking the t-monotone assumption grooves and extrusion rely on.
 function anyHandle(pts: Pt[]): boolean { for (const q of pts) if (q && (q.ho || q.hi)) return true; return false; }
 // Default for points with no handle specified (equivalent to Catmull-Rom; endpoints use one-sided
 // 1/3, sharp corner points use 0 = straight line).
@@ -104,15 +102,11 @@ function fukuroBezierR(P: Pt[], x: number): number {
 // function, so they always match.
 function profileR(P: Pt[], x: number): number { return anyHandle(P) ? fukuroBezierR(P, x) : fukuroSpline(P, x); }
 
-// Bakes each point's Bézier handles (ho/hi) from the current Hermite curve and returns them
-// (pts unchanged). Called the moment curve-adjust mode is entered. A cubic Hermite is exactly
-// equal to "a cubic Bézier with the control point shifted Δt/3 along the tangent," so the curve
-// shape is unchanged after baking (a seamless transition into handle editing). From then on
-// anyHandle=true and evaluation switches to Bézier (only the shape that was touched; untouched
-// shapes stay the same). All points, including sharp ones, are baked from the current Hermite
-// tangent T[i] (= exactly reproduces the current shape). After baking, "sharp" is limited to
-// meaning "the handles are not mirrored left/right (the corner can move independently)" and has
-// no direct effect on the curve itself (evaluation always uses ho/hi).
+// Bakes each point's Bézier handles from the current Hermite curve and returns them (pts unchanged),
+// the moment curve-adjust mode is entered. A cubic Hermite IS a cubic Bézier with the control point
+// shifted Δt/3 along the tangent, so the shape does not move — a seamless transition into handle
+// editing, and only for the shape that was touched. After baking, `sharp` means only "the handles
+// are not mirrored, so the corner can move independently"; evaluation always uses ho/hi.
 export function bakeBezierHandles(pts: Pt[]): Pt[] {
   if (!pts || pts.length < 2) return pts;
   const T = fukuroTangents(pts), n = pts.length;
@@ -122,16 +116,13 @@ export function bakeBezierHandles(pts: Pt[]): Pt[] {
     return { ...q, ho: { dt: dtN, dr: T[i] * dtN }, hi: { dt: -dtP, dr: -T[i] * dtP } };
   });
 }
-// Effective outer radius. t∈[0,1] → radius in mm. Makes a single continuous spline from the
-// ends (t=0/1) to the apex (no vertical neck is created). Inserting a neck would produce a
-// "flat → sharp curve" kink angle, so the ends are included in the spline as control points
-// (rBot/rTop), keeping the outline smooth even with few points.
-// The upper/lower end bands (neck) with no bamboo ribs wound on them are handled separately via
-// cutT/cutY (the radius stays continuous).
-// The lamp body (curve + bamboo rib grooves) t-range = between the outermost control points.
-// The neck is outside (toward the opening) the outermost control point.
-// The opening (= neck) radius exactly matches the outermost control point → no wasted
-// flare/S-curve appears between neck and lamp body.
+// Effective outer radius: t∈[0,1] → mm. One continuous spline from the ends (t=0/1) to the apex, no
+// vertical neck inserted — a neck would put a flat-to-curve kink at the joint, so the ends are
+// control points of the spline (rBot/rTop) and the outline stays smooth even with few points.
+// The end bands that carry no bamboo (the neck) are handled separately via cutT/cutY, the radius
+// staying continuous. The lamp body — curve plus grooves — is the t-range BETWEEN the outermost
+// control points; the neck is outside them, and its radius matches the outermost point exactly, so
+// no flare or S-curve appears between neck and body.
 export function fukuroRange(p: Design): { lo: number; hi: number } {
   const pts = (p.pts && p.pts.length >= 2) ? p.pts : null;
   if (!pts) return { lo: cutTbot(p), hi: 1 - cutTtop(p) };
@@ -209,14 +200,14 @@ export function effBoardWidth(p: Design): number {
 }
 
 // ============ 2D cross-section (final shape) ============
-// The inner edge is a straight core (radius Ri), with tabs on its inside at the same top/bottom
-// positions. The outer edge is the body curve + neck. The center is lightened (keeping the outer
-// band = grooves, and the inner core = tab support). Used in the rib's cross-section view.
+// Inner edge: a straight core (radius Ri) with the tabs on its inside at the same top/bottom
+// positions. Outer edge: the body curve plus the neck. The centre is lightened, keeping the outer
+// band (the grooves) and the inner core (the tab support).
 //
-// The previous-basis tab inner end (= the basis for computing the koma outer radius komaR).
-// Includes a self-intersection guard. Control-point-based = independent of the neck. The actual
-// tab tip / notch bottom is deepened further toward the center by innerRi (but komaR stays fixed
-// on this nominalRi basis).
+// `nominalRi` is the legacy tab inner end and the basis for `komaR`, with a self-intersection guard.
+// It is control-point-based, so it is independent of the neck. The actual tab tip and notch bottom
+// are deepened further inward by `innerRi`, but `komaR` stays on this nominal basis — which is what
+// keeps deepening the tab from moving the stand.
 function nominalRi(p: Design): number {
   const td = tabDepth(p);
   // Keep the core (Ri) within the lamp body's minimum outer radius (self-intersection prevention).
@@ -239,13 +230,11 @@ function ribCoreFloor(p: Design): number {
   const rNotchMin = (MIN_WALL + notchWidth(p)) * p.boards / (2 * Math.PI);
   return Math.max(6, rNotchMin + 0.5);
 }
-// The maximum rib count for which the koma's notch walls can stay at or above MIN_WALL, for this
-// opening/board-thickness/tolerance. Notches are cut near notchR=nominalRi-0.5, and
-// wall = 2π·notchR/boards − notchW. This is the upper bound on boards that keeps that ≥ MIN_WALL.
-// Used as the UI's count limit, to prevent the notches from overlapping near the center and making
-// the koma non-watertight (wall going negative) in the combination of small opening / thick board /
-// many boards. nominalRi does not depend on boards, so this value also does not depend on the
-// current boards (a monotone upper bound).
+// The rib-count ceiling: the most boards whose koma notch walls still clear `MIN_WALL` at this
+// opening / board thickness / tolerance. Notches are cut near `notchR = nominalRi - 0.5`, and
+// wall = 2π·notchR/boards − notchW. Without it, a small opening plus a thick board plus many boards
+// overlaps the notches near the centre and the koma comes out non-watertight (wall negative).
+// `nominalRi` does not depend on `boards`, so neither does this — it is a monotone upper bound.
 export function maxBoards(p: Design): number {
   const notchR = nominalRi(p) - 0.5;
   return Math.max(4, Math.floor((2 * Math.PI * notchR) / (MIN_WALL + notchWidth(p))));

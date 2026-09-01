@@ -2,34 +2,22 @@
  * ============================================================================
  * TYPE SCALE — every font size in the app must be a member of it
  * ============================================================================
- * The scale is `FS` in src/ui/theme.ts (nine steps). Nothing else may set a font size, and the
- * reason this is a check rather than a convention is that the old scale had SIXTEEN steps, five of
- * them half-pixel, and not one of them arrived by decision — each was a nudge that stuck. A scale
- * with no gate is a scale that grows back.
+ * The scale is `FS` in src/ui/theme.ts (nine steps). This is a CHECK rather than a convention
+ * because the old scale had sixteen steps, five of them half-pixel, and not one arrived by decision:
+ * a scale with no gate is a scale that grows back.
  *
- * Two encodings have to agree and neither can see the other:
- *   - JS  — `fontSize: FS.base` in a style object, `fontSize={FS.base}` on an SVG <text>
- *   - CSS — `font-size: 12px` in index.css, written as a LITERAL
- * The literal is deliberate (see the FS comment: a `var()` that is not set yet degrades to inherited
- * TEXT SIZE, and the whole page would resize on boot), so nothing at runtime links the two. This
- * script is the link.
+ * Two encodings have to agree and neither can see the other — JS (`fontSize: FS.base`, and SVG
+ * `fontSize={…}`) and CSS (`font-size: 12px` in index.css, written as a LITERAL). This script is the
+ * only link between them.
  *
  * What it fails on:
  *   1. a CSS `font-size` whose px value is not in FS
- *   2. a JS `fontSize` written as a raw number instead of an FS member
- *   3. an `FS.<name>` that does not exist (a typo — `FS.xxl` is `undefined`, which React drops
- *      silently and CSS never sees, so the text renders at the inherited size and nothing warns)
- *   4. an FS step nothing uses — the drift that says a size was retired without being removed
- *   5. a class index.css styles that nothing in src/ renders, or a `--` modifier used but never defined
- *
- * Tailwind adds a THIRD encoding of the same scale — `@theme { --text-* }` at the top of
- * index.css, which is what `text-base` and friends resolve through — and a second of the palette.
- * Those are checked here too, both ways: a token in `@theme` that theme.ts does not define, and a
- * theme.ts value `@theme` does not carry. A stale `@theme` does not fail a build or throw; it just
- * renders one label at the wrong size or one border in last month's grey.
- *
- * It does NOT read font sizes out of three/figures.ts or papercraft.ts. Those draw into a WebGL
- * frame and onto A4 at 1:1, where the unit is mm or a world unit and 12 has nothing to do with 12px.
+ *   2. a JS `fontSize` written as a raw number
+ *   3. an `FS.<name>` that does not exist — a typo is `undefined`, which React drops and CSS never
+ *      sees, so the text renders at the inherited size and nothing warns
+ *   4. an FS step nothing uses: the drift that says a size was retired without being removed
+ *   5. the palette, the corner scale, the `@layer components` wrapper, and every class — see the
+ *      section comments below, each of which was added after a bug got through
  * ============================================================================
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -148,25 +136,21 @@ for (const ns of ["color-*", "text-*", "radius-*"]) {
 
 // ---- 3d. BEM modifiers must exist in both directions -----------------------------------------
 // `.btn--ghost` was deleted from index.css when the buttons it belonged to moved into the ☰ menu,
-// and GuidePage's one use of it was not. That button then rendered in the BROWSER's default chrome
-// — grey, 2px outset black — inside a warm-toned document, on main, past every gate here, because a
-// class attribute is a string and nothing in this project read it. The button is a component now
-// (`Button` in ui/controls.tsx) so this particular case cannot recur, but the shape can.
+// and GuidePage's one use of it was not. That button then rendered in the BROWSER's default chrome —
+// grey, 2px outset black — inside a warm-toned document, on main, past every gate here, because a
+// class attribute is a string and nothing in this project read it.
 //
-// Two directions, and they need different rules because only one of them is decidable here.
-//
-// DEFINED BUT UNUSED covers EVERY class in index.css. It is what catches a rule whose element has
-// moved to utilities and left the rule behind — `.guide-steps .btn { margin-top: 12px }` outlived
-// the `.btn` it targeted by exactly one commit, and the guide's button silently lost its 12px.
-// A selector naming a class nothing renders is, as the CSS's own comment put it, a claim about the
-// UI that is not true.
-//
-// USED BUT UNDEFINED can only be checked for `x--y` modifiers. A bare class in JSX is far more
-// likely to be a Tailwind utility than a project class, and telling them apart without running
-// Tailwind's own scanner is guesswork; a `--` modifier is a project class by construction.
+// Two directions, needing different rules because only one is decidable here. **Defined but unused**
+// covers EVERY class in index.css, which is what catches a rule whose element moved to utilities and
+// left the rule behind (`.guide-steps .btn { margin-top: 12px }` outlived its `.btn` by one commit,
+// and the guide's button silently lost its 12px). **Used but undefined** can only be checked for
+// `x--y` modifiers: a bare class in JSX is far more likely to be a Tailwind utility, and telling
+// them apart without running Tailwind's own scanner is guesswork, while a `--` modifier is a project
+// class by construction.
 //
 // Both read comment-stripped source, for the reason index.css's scan does: this repo documents the
-// rules it enforces, and the component that replaced `.btn--ghost` names it in its own docblock.
+// rules it enforces, and the guard first failed on a correct file by finding a class quoted in the
+// paragraph explaining it.
 {
   const noComments = (t: string) =>
     t.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")).replace(/\/\/.*$/gm, "");

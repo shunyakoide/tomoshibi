@@ -2,54 +2,31 @@
  * ============================================================================
  * OVERFLOW MENU — the app-level actions that are not navigation
  * ============================================================================
- * A "☰" button and the popover it opens. It holds the handful of things that act on the APP or on
- * the design AS A FILE — the intro card, the language, JSON export/import, reset — as opposed to
- * the design itself (the inspector) or where you are in it (the two selects to its left).
+ * A "☰" button and its popover, holding what acts on the APP or on the design AS A FILE — the intro
+ * card, the language, backup save/restore, reset — as opposed to the design itself (the inspector)
+ * or where you are in it (the two selects to its left).
  *
  * **The ☰ was a knowing departure from the convention and no longer is.** ☰ means a navigation
- * drawer and ⋯/⋮ means an overflow of actions, and when this menu held only help, language, backup
- * and reset, the convention said ⋯. It was a ☰ anyway, because ⋯ is materially harder to find — it
- * reads as "more options for the thing next to me" — while ☰ is read as "this app's menu" by
- * everyone, and the case against hamburgers (NN/g) is about hiding NAVIGATION, of which there was
- * none in here. The rule written alongside that reasoning was "do not put a destination in here".
+ * drawer and ⋯/⋮ an overflow of actions, and while this menu held only help, language, backup and
+ * reset the convention said ⋯. It was a ☰ anyway, because ⋯ reads as "more options for the thing
+ * next to me" while ☰ is read as "this app's menu" by everyone, and the case against hamburgers
+ * (NN/g) is about hiding NAVIGATION, of which there was none in here.
  *
- * 「作り方」 is now a destination — a real page at `/guide` with an address of its own (src/route.ts)
- * — so that rule is spent, and the glyph it was protecting turns out not to have needed protecting:
- * a menu with one place to go in it is a navigation menu, which is what ☰ has meant all along. What
- * remains true is the thing the rule was really guarding, so keep this instead: **the app's primary
- * navigation stays VISIBLE.** The two selects to the left are how you move between views and they
- * are never folded away; what may live in here is the occasional document, alongside the settings.
+ * 「作り方」 is now a destination — a real page at `/guide` — so the rule that came with that
+ * reasoning ("do not put a destination in here") is spent, and the glyph turns out not to have
+ * needed protecting: a menu with a place to go in it is a navigation menu. **What the rule was
+ * really guarding is what to keep: the app's primary navigation stays VISIBLE.** The two selects to
+ * the left are never folded away. Do not fold a VIEW in here; a document may join the settings.
  *
- * What justifies folding them away at all is space, measured rather than assumed: on a 375px phone
- * the chip bar in ENGLISH came to exactly 375px — the view select (99, "Assembly") + the route
- * select (144, "Cardboard (beta)") + the "?" and language buttons (88) + gaps (24) + padding (20) —
- * with its flex spacer collapsed to zero. Japanese, whose labels are shorter (64 / 129), had 55px to
- * spare. One 36px button in place of those two hands back 52px / 47px, and the row that carries the
- * app's top-level navigation stops being full in the language that fills it.
+ * What justified folding anything away was measured. On a 375px phone the chip bar in **English**
+ * came to exactly 375px — view select 99 + route select 144 + two buttons 88 + 24 of gaps + 20 of
+ * padding — with its flex spacer collapsed to ZERO. One 36px button in place of those two returns
+ * 52px. **The binding language here is English, not Japanese**, which is the opposite of the usual
+ * assumption in this project: re-measure both before adding anything to that bar.
  *
- * Undo and redo deliberately did NOT move in here. They are the recovery path for the direct-
- * manipulation editor that fills the screen, and an overflow menu is for what is rare.
- *
- * The trigger's ☰ is DRAWN, not typed. U+2630 is not in the mono stack this button asks for, so it
- * fell through to whatever the platform substitutes, and a substituted glyph sits wherever THAT
- * font's metrics put it in the em box: measured in Chrome on macOS, the ink landed ~2px below and
- * ~1px right of the centre of the 36px square, which is plainly visible at that size.
- * `align-items: center` cannot fix it — that centres the LINE BOX, and the glyph is off-centre
- * inside the line box. Nudging with padding or line-height only moves the error to the next
- * platform, since the substituted face differs per OS (Apple Symbols here, Segoe UI Symbol on
- * Windows) and none of them agrees on where in the em to sit. Three strokes in an SVG are centred
- * because they are drawn centred, on every platform — 0.00px on both axes, against the button's own
- * box — and the app already draws its marks this way (Logo, the section editor's legend).
- *
- * Rules of the shape:
- * - **Every row carries a text label.** The trigger is the only icon-only control, and it has an
- *   `aria-label`; a menu of glyphs would just be the discoverability problem one level deeper.
- * - **The destructive row is separated and states its consequence.** Reset sits below a rule, in
- *   warn colour, with the sentence that used to be its `title=` as a second line — a tooltip is not
- *   a thing a phone has.
- * - **A row is 44px.** This is the one place in the app where new touch targets were being drawn
- *   from scratch, so they are drawn at the size the guidelines ask for rather than the 36 the older
- *   header buttons grew to.
+ * **Undo and redo deliberately stayed out.** They are the recovery path for a direct-manipulation
+ * editor that fills the screen — the frequent case an overflow menu exists to make room FOR — and
+ * they do not fit the bar either (`⋯` + undo + redo is 124px against 88 available in English).
  * ============================================================================
  */
 import React, { useEffect, useRef, useState } from "react";
@@ -69,9 +46,9 @@ export type MenuItem =
 
 export default function OverflowMenu({ label, items }: { label: string; items: MenuItem[] }) {
   const [open, setOpen] = useState(false);
-  // Whether this opening came from the keyboard. A pointer user who taps "⋯" should not have a row
-  // light up under a focus ring; a keyboard user must land inside the menu or they have to Tab into
-  // a list that just appeared. `detail === 0` is how a click says it came from Enter/Space.
+  // Whether this opening came from the keyboard. A pointer user who taps ☰ should not have a row
+  // light up under a focus ring; a keyboard user must land inside the menu, or they Tab into a list
+  // that just appeared. `detail === 0` is how a click says it came from Enter/Space.
   const [byKey, setByKey] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
@@ -115,8 +92,8 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
     <div className="relative inline-flex" ref={box}
       onKeyDown={(e) => { if (e.key === "Escape" && open) { e.preventDefault(); shut(); } }}>
       <button ref={btn} aria-haspopup="menu" aria-expanded={open}
-        /* A rounded SQUARE, not a circle: it stands at the end of a row of `.tab-sel` selects whose
-           corners are 9px, and a lone circle among them read as a different kind of thing. */
+        /* A rounded SQUARE, not a circle: it stands at the end of a row of view/route selects with
+           the same `md` corners, and a lone circle read as a different kind of control. */
         className="w-36 h-36 p-0 rounded-md flex items-center justify-center
           bg-card text-sub border border-card-edge font-mono font-bold text-xl leading-none
           cursor-pointer hover:text-accent hover:border-accent-45"

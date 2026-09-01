@@ -2,39 +2,30 @@
  * ============================================================================
  * PAPERCRAFT — 1:1 printable pages for building the mold from cardboard/thick paper
  * ============================================================================
- * So the mold can be made without a 3D printer, this generates printable HTML that
- * lays out each part's 2D outline at **full scale (1:1)** on A4. Open it in the browser,
- * print at "no scaling (100%)", glue to cardboard, and cut it out to assemble the same mold.
+ * So the mold can be made without a 3D printer, this lays each part's 2D outline out at **full scale
+ * (1:1)** on A4 and writes it as a **PDF** (pdf.ts). Print at 100%, cut, assemble the same mold.
  *
  * Design policy:
- * ・The shape comes **only** from geometry.ts's pure functions. Don't reimplement dimensions here
- *   (same rule as SectionEditor; a mismatch here would make the papercraft and STL molds differ).
- * ・**Don't cut the grooves (higo-me)**. A 0.5mm-precision V-notch can't be scored into cardboard, so the
- *   outer edge is cut as a smooth curve (`ribOutline2D(p,k,{smooth:true})`), and the bamboo-rib winding
- *   positions are shown as dashed **tick lines**. The groove positions themselves come from the same `grooveList()` as the STL.
- * ・The material thickness `matT` is the measured cardboard thickness. Since it sets the koma notch width,
- *   pass `{...p, boardT: matT, komaT: matT, fit: 0}` **the same way to every part** so the parts within the
- *   papercraft always mesh together (the 3D-side p is never modified). `fit=0` means adding no print
- *   tolerance; cardboard crushes its fibers going in, so a snug nominal fit meshes more firmly.
- * ・**Don't emit the stand**. The 3D-print stand is designed to support the koma on thin posts, which in
- *   cardboard lacks the rigidity to stand on its own (it crushes/bends). Rather than printing a half-baked
- *   stand, the papercraft is limited to "the mold itself (ribs + koma)". Users are expected to provide their own stand.
+ * ・The shape comes **only** from geometry.ts's pure functions. Do not reimplement a dimension here
+ *   — if this drifts, the papercraft and the STL produce different molds.
+ * ・**Don't cut the grooves (higo-me).** A 0.5mm V cannot be scored into cardboard, so the outer edge
+ *   is cut smooth (`ribOutline2D(p,k,{smooth:true})`) and the bamboo positions are marked with dashed
+ *   ticks from the same `grooveList()` as the STL.
+ * ・**Material thickness `matT` goes to every part identically** — `{...p, boardT: matT, komaT: matT,
+ *   fit: 0}` — so the parts always mesh (the 3D side's `p` is never modified). `fit: 0` because
+ *   cardboard crushes its fibres going in, so a nominal-exact fit meshes more firmly.
+ * ・**Don't emit the stand.** The papercraft is the mold itself (ribs + koma); the user provides
+ *   their own. A cardboard cross stand was generated once and removed at the user's request.
  *
+ * The **washi template** (`washiParts` / `washiPDF`) — the paper skin's own flat pattern, so it can
+ * be cut BEFORE pasting rather than trimmed after — rides along with both routes as its **own PDF**
+ * inside whichever ZIP they produce. Its own file rather than more pages of this one, because the
+ * two are printed at different moments and `pagesPDF` numbers and seams the sheets of ONE document.
+ * On the cardboard route it must be built from `paperP()`, not from the design as edited (see there).
+ * It has **no on-screen preview**; `washiPagesSVG` survives only as the verification's second encoding.
  *
- * The **washi template** (`washiParts` / `washiPDF`) — the flat pattern of the paper skin itself, so
- * the washi can be cut BEFORE pasting instead of trimmed after — rides along with both routes rather
- * than being a separate download: it is its **own PDF** inside the download either route produces
- * (the STL kit's ZIP, and the cardboard template's ZIP beside `tomoshibi_katagami_a4.pdf`). It is a
- * file of its own rather than a few more pages of the cardboard template because the two are printed
- * at different moments — the mold once, the skin once per lantern, often on different paper — and
- * because one deliverable per document is what lets `pagesPDF` number and seam the sheets sensibly.
- * On the cardboard route it must be built from `paperP()`, not from the design as edited: see there.
- * It has **no on-screen preview** — one sheet of one shape, which a PDF viewer shows better than the
- * app can. `washiPagesSVG` survives that removal as the verification's second encoding; see it.
- *
- * Every page is built once as a list of drawing ops (`pageOps`) and then rendered as **SVG for the
- * browser** or as **PDF for the kit ZIP** (pdf.ts). One drawing, two encodings — a full-scale bug
- * cannot hide in only one of them.
+ * Every page is built once as drawing ops (`pageOps`) and rendered as **SVG** or as **PDF**. One
+ * drawing, two encodings — a full-scale bug cannot hide in only one of them.
  *
  * A React/DOM-free pure module (returns strings / byte arrays; stl.ts opens or downloads them).
  * ============================================================================
@@ -154,10 +145,10 @@ function komaPart(pk: Design, name: string): RawPart {
  * The design as the CARDBOARD route builds it: measured material thickness in place of the printed
  * board thickness, and the rib count clamped to what that thickness still allows.
  *
- * fit=0: add no print tolerance (nominal = exactly the material thickness). Cardboard crushes its fibers going in, so
- * adding the 3D-print fit (0.3mm default) would instead make it wobble and the tab couldn't hold the koma.
- * noTabDent: cardboard skips the tab-tip dent (the koma stop) — cardboard favors keeping the tab strong (the
- * dent removes tab material) over the inward stop; the koma notch then stays full-depth so the plain tab fits.
+ * `fit: 0` adds no print tolerance, because cardboard crushes its fibres going in and the 3D-print
+ * fit (0.3mm) would make the joint wobble instead. `noTabDent` skips the tab-tip dent: the dent
+ * removes material exactly where a cardboard tab is weakest, so this route trades the koma stop for
+ * tab strength and takes a full-depth notch.
  *
  * Exported because the **washi PDF that ships with this route must be built from it too**: the
  * panel's width is the rib-to-rib arc, so a clamped rib count means wider panels, and a skin cut from
@@ -224,16 +215,16 @@ export function paperParts(p: Design, matT: number, t: T = tid) {
 }
 
 // ============ Page layout ============
-// Done in two stages. (1) Pack parts top-down into "rows" without considering pages. (2) Assign rows to pages.
-// Both stages run twice — once in the order the parts arrive and once ordered by decreasing height —
-// and the cheaper result wins (see "Which order to pack in" below). Over the check:paper sweep that
-// takes 966 sheets down to 761, halving the count on 123 of 360 designs and raising it on none.
+// Two stages: (1) pack parts top-down into "rows" without considering pages, (2) assign rows to
+// pages. Both run twice — once in the order the parts arrive and once by decreasing height — and the
+// cheaper result wins. Over the `check:paper` sweep that takes 966 sheets down to 761, halving the
+// count on 123 of 360 designs and raising it on none.
 //
-// Layout principle: **never let a row that fits on one page span pages**. If it doesn't fit, just start the next page at
-// the top of that row (cut it out without joining paper at all). A seam happens only for
-// "a row taller than one page" = a part that doesn't fit on one sheet, like a long rib, and only then do pages overlap by
-// they butt at the trim line. Previously every page overlapped uniformly, so a glue-tab band appeared on every page even with
-// no spanning part, and the effective height was wastefully reduced on all of them.
+// Layout principle: **never let a row that fits on one page span pages.** If it does not fit, start
+// the next page at the top of that row, so there is nothing to join. A seam happens only for a row
+// taller than one page — a part that does not fit on one sheet, like a long rib — and the sheets
+// then BUTT at the trim line rather than overlapping. Every page used to overlap uniformly, which
+// put a glue-tab band on every sheet even with no spanning part and wasted the height on all of them.
 function layout(parts: RawPart[], page: Page): Layout {
   const CW = page.w - 2 * MARGIN;              // content width
   const CH = page.h - 2 * MARGIN - FOOTER;     // content height (usable height per page)
@@ -427,22 +418,17 @@ function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
   path([[R, 0], [R, page.h]], "frame");
 
   // ---- Joining sheets ----
-  // Only where a part actually spans pages; with no spanning part the sheets don't overlap and none
-  // of this is drawn.
+  // Only where a part actually spans pages; with no spanning part the sheets do not overlap and none
+  // of this is drawn. A seam is read from the ROW — sheets butt, so there is no overlap to detect.
   //
   // The convention is the one home-print sewing patterns use, and it is worth following exactly:
   // HALF-diamonds that complete into a whole ◇ when two sheets are laid up correctly. Two lines laid
   // on each other hide a half-millimetre of error; two half-diamonds that fail to close do not. Each
-  // carries a short code (1A, 1B, 2A …) so there is no doubt which edge meets which — no sentence,
-  // because a sentence printed across the drawing is unreadable and the codes say it all.
+  // carries a short code (1A, 1B, 2A …) so there is no doubt which edge meets which.
   //
-  // The seam IS the trim box, and that is why sheets butt rather than overlap. With a glue tab the
-  // join line necessarily sits a centimetre inside the trim edge, so every sheet at a seam carries
-  // two blue lines — one to cut on, one to align on — and nothing about the drawing can make that
-  // pair unambiguous. One line does both jobs: cut both sheets on it, butt the cut edges, and the
-  // two chevrons meet base-to-base.
-  // A seam is where the NEXT sheet carries on the same row — i.e. a part too tall for one sheet. It is
-  // read from the row, not from an overlap: sheets butt, so there is no overlap left to detect.
+  // **The seam IS the trim box, which is why sheets butt rather than overlap.** A glue tab puts the
+  // join line a centimetre inside the trim edge, so every sheet at a seam carries two blue lines —
+  // one to cut on, one to align on — and no drawing makes that pair unambiguous. One line does both.
   const next = lay.pages[i + 1], prev = lay.pages[i - 1];
   const cutsBelow = !!(next && row && next.row === row);
   const cutsAbove = !!(prev && row && prev.row === row);
@@ -476,21 +462,20 @@ function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
   }
   if (i === lay.spot.page) {
     // Full-scale check, drawn as an L — a try square, not a bar. Every printable sewing pattern
-    // prints a SQUARE rather than a line, and the reason is real: a printer can scale the two axes
-    // by different amounts, and a horizontal bar cannot see that at all.
+    // prints a SQUARE rather than a line, and the reason is real: a printer can scale the two axes by
+    // different amounts, and a horizontal bar cannot see that at all.
     //
-    // It is an L and not a full square because the two axes do not cost the same. Width is free
-    // (200mm of it, mostly unused), height comes straight out of the parts, so the long arm goes
-    // across and the short arm goes down — enough to catch an axis that scaled differently, no more.
-    // A full 3in square costs 800 sheets over the `check:paper` sweep against 736 for this L.
+    // An L and not a full square because the two axes do not cost the same: width is free, height
+    // comes straight out of the parts. A full 3in square costs 800 sheets over the `check:paper`
+    // sweep against 712 for this L.
     //
-    // Both units ride the SAME arms rather than taking a mark each: a tick where the metric figure
+    // Both units ride the SAME arms rather than taking a mark each — a tick where the metric figure
     // falls and another where the imperial one does. Patterns normally print one square labelled
     // "10cm (4in)", but 4in is 101.6mm, so that label is wrong by 1.6mm and the reader cannot tell
     // which unit it is true to. Two ticks on one arm are exact in both.
     //
-    // Its position comes from the layout (`scaleSpot`), not from here — it lands in room already
-    // going spare, which is why no sheet is set aside for it.
+    // Its position comes from the layout (`scaleSpot`), not from here: it lands in room already going
+    // spare, which is why no sheet is set aside for it.
     const x0 = lay.spot.x, ys = lay.spot.y, AX = 76.2, AY = 30;   // 3in across, 3cm down
     path([[x0, ys], [x0 + AX, ys]], "scale");
     path([[x0, ys], [x0, ys + AY]], "scale");
@@ -575,14 +560,13 @@ export function pagesPDF(parts: RawPart[], page: Page, t: T, title: string): Uin
  * the route's ZIP next to the washi PDF, the same way the STL kit carries its own.
  *
  * It replaced a self-contained HTML page whose entire preamble existed to talk the reader through
- * printing an HTML at exactly 1:1 ("Actual size / 100%", no margins, fit-to-page off, and a
- * "save as HTML" button for later). A PDF is already A4 at exact size, so all of that went with it;
+ * printing an HTML at exactly 1:1. A PDF is already A4 at exact size, so all of that went with it;
  * what is left worth saying is the one printer setting, and the app says it beside the download.
  *
  * `t` is the UI's translator: the writer carries outlines for the characters WinAnsi cannot encode
  * (pdf.ts / tools/pdffont), so the sheet prints in the language the app was showing. It used to be
- * forced to English because a Japanese label was dropped rather than drawn — " x8" with the word
- * silently gone. Nothing dimensional depends on the labels; the drawing is identical either way.
+ * forced to English because a Japanese label was DROPPED rather than drawn — `" ×8"` with the word
+ * silently gone. Nothing dimensional depends on the labels.
  */
 export function paperPDF(p: Design, matT: number, page = A4, t: T = tid): Uint8Array {
   const { parts } = paperParts(p, matT, t);
