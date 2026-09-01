@@ -2,13 +2,11 @@
  * ============================================================================
  * INSPECTOR TOOLBAR — undo / redo
  * ============================================================================
- * Undo and redo, and nothing else. Reset, export and import moved into the overflow menu in the
- * header (`ui/Menu.tsx`) — they are rare, one of them is destructive, and none of them is about the
- * design you are editing right now.
+ * Undo and redo, and nothing else. Reset, export and import moved into the header's overflow menu
+ * (`ui/Menu.tsx`): they are rare, one is destructive, and none is about the design being edited now.
  *
- * These two stayed out of that menu on purpose. They are the recovery path for a direct-manipulation
- * editor that fills the screen, so they are the frequent case an overflow menu exists to make room
- * for, not an example of it.
+ * These two stayed out of that menu on purpose — the recovery path for a direct-manipulation editor
+ * that fills the screen is the frequent case an overflow menu exists to make room FOR.
  * ============================================================================
  */
 import React from "react";

@@ -40,14 +40,16 @@ There is no unit-test runner. Correctness is guaranteed by **"the build passes"*
 | `npm run check:persist` | Confirms that corrupted `localStorage` / imported JSON is sanitized safely (no crash, no non-watertight parts). |
 | `npm run check:paper` | Confirms the cardboard papercraft output and the washi template are full-scale (1:1), that no part is dropped, and that no `NaN` reaches the SVG or a bad offset the PDF. |
 | `npm run check:glyphs` | Confirms every character the PDFs print has an outline in `src/pdf-glyphs.ts`. The writer sets Latin in Helvetica and draws the rest from those outlines; a character with none is **dropped**, so a new Japanese label prints as a blank space and nothing else notices. Regenerate the table with `tools/pdffont` rather than editing it. |
+| `npm run check:style` | Confirms every font size is a member of the type scale, every corner radius a member of the corner scale, and every class in the DOM has a rule behind it. Needs `npm run build` first, since only Tailwind knows what it generated -- and it FAILS rather than skips without `dist`. |
 | `npm run check:i18n` | Confirms no UI wording lost its translation. The dictionary is keyed by the Japanese string itself, so **rewording a label does not make its translation stale -- it deletes it**, silently, and the app shows Japanese to an English visitor. Also catches entries left orphaned by the reword, and `{placeholder}` mismatches. |
 
 CI runs all of these on every push and pull request, but run them locally first --
 `check:manifold` is the slow one and it is the one that matters most.
 
-Manifold verification has a known blind spot: it does **not** catch a hole that is
-topologically closed but visually filled (wrong-winding caps). For meshes with holes,
-also eyeball the render.
+Manifold verification has a known blind spot: edge counting cannot see a hole that got
+filled in -- the shell stays closed either way. The leg sockets are the one place this is
+tested directly (`check:manifold` shoots a ray up each pad and counts the faces); for any
+other mesh with holes, eyeball the render.
 
 ## Architecture (where things live)
 
@@ -98,9 +100,10 @@ also eyeball the render.
 - The section editor and papercraft must reuse `geometry.ts` functions rather than
   re-deriving dimensions.
 - The mold's part definitions and relationships (rib / koma / stand / groove / neck / tab /
-  opening ring) are fixed — see [`CLAUDE.md`](CLAUDE.md) for the full design rules and the
-  print-fit invariants (the shared values that let a reprinted part still fit a previously
-  printed one). Read it before changing shapes.
+  opening ring) are fixed — see [`docs/design-notes.md`](docs/design-notes.md) for the full design
+  rules and the print-fit invariants (the shared values that let a reprinted part still fit a
+  previously printed one). **Read the note for the area you are changing before you change it**:
+  most of what is in there is there because it was got wrong once.
 
 ## Adding a shape preset
 

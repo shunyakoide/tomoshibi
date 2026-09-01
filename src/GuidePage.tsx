@@ -2,36 +2,24 @@
  * ============================================================================
  * GUIDE PAGE — how to build the lantern
  * ============================================================================
- * A document, not a view of the model: it takes the whole window and scrolls, the way an assembly
- * sheet reads. It is the one PAGE in this app — `/guide`, with an address of its own (src/route.ts)
- * — opened from the ☰ menu, closed with ×, Esc, or the browser's own back button, all three of
- * which do the same thing. It was a fifth view tab until it was noticed that the
- * other four are all renderings of YOUR design (move a ◇ and every one of them redraws) while this
- * one is not: its figures come from a fixed example, so it had to be excepted out of the dimension
- * chip, out of the viewport alerts, and out of the inspector, one gate at a time. An overlay needs
- * none of those exceptions, and it hands the phone's tab strip its fifth slot back.
+ * A document, not a view of the model: it takes the whole window and scrolls, and it is the one PAGE
+ * in this app — `/guide`, with an address of its own (src/route.ts) — opened from the ☰ menu and
+ * closed with ×, Esc or the browser's back button, all three the same gesture. **It was a fifth view
+ * tab and must not go back**: the other four each render YOUR design and this one does not, so as a
+ * tab it had to be excepted out of the dimension chip, the viewport alerts and the inspector, and it
+ * cost the phone's tab strip its fifth slot.
  *
- * **The page is generic, and its figures are always the same drawing.** It used to be built from the
- * design on screen: every dimension measured off the geometry the STL is written from, every figure
- * rebuilt when a slider moved. That cost eleven WebGL scenes on every edit and bought numbers nobody
- * needs — winding bamboo onto a mold and pasting paper over it is the same job at ⌀140 as at ⌀400.
- * So the drawings come from ONE fixed design (`GUIDE_P`), are built at most once per session and
- * kept, and no measurement is printed anywhere on the page.
+ * **The page is generic: every figure is drawn from ONE fixed design (`GUIDE_P`), at most once per
+ * ROUTE per session, and no measurement is printed anywhere.** Built from the design on screen it
+ * cost two dozen WebGL scenes per edit for numbers nobody needs — but it also guaranteed the page
+ * could not describe a mold the download does not contain, so **nothing here may state a QUANTITY
+ * the design decides**: the rib's line reads "as many as your design has" rather than "×8". The
+ * ROUTE still follows the app, because it changes which parts exist at all — cardboard has no stand
+ * and no printed rings, so those steps are filtered, not reworded.
  *
- * What that gives up is the guarantee the old page had — that it could not describe a mold the
- * download does not contain — so nothing here may state a QUANTITY the design decides. The rib's
- * line reads "as many as your design has" rather than "×8" for exactly that reason: a fixed picture
- * of eight ribs is an illustration, but a printed 8 is a claim. What still follows the app is the
- * ROUTE, because that changes which parts exist at all, not how big they are.
- *
- * [Every step is drawn] Every step gets a figure, because every one of them is easier to see than to
- *   read: which way the bamboo runs, where the washi seams fall, which rib comes out of the opening
- *   and how far in it has to come to get there, what the thing looks like lit and on its legs. They
- *   draw one representative lantern, not the reader's.
- * [Route] The cardboard route builds the same mold out of a different material and has no stand and
- *   no printed rings, so those steps are filtered rather than reworded.
- * [Print] The page carries print styles (index.css): the browser's own "Save as PDF" is the paper
- *   version, which is why the guide is not a PDF the app writes.
+ * Every step is drawn — where the bamboo runs, where the seams fall, which rib comes out and how far
+ * are easier to see than to read. Print styles live in index.css: the browser's own "Save as PDF" is
+ * the paper version, which is why the guide is not a PDF the app writes.
  * ============================================================================
  */
 import React, { useEffect, useMemo, useState } from "react";
@@ -46,19 +34,15 @@ import type { Design, Route } from "./types.ts";
 
 /**
  * The lantern every figure on this page is drawn from — the app's own starting design, not the one
- * being edited. See the header: the page explains a method, and a method does not change shape.
+ * being edited: the page explains a method, and a method does not change shape. The cardboard route
+ * keeps its own copy, at a representative thickness rather than the `matT` the user measured, because
+ * that route cuts a genuinely different mold (smooth outer edge, no lightening windows, no tab dent —
+ * `paperP`).
  *
- * The cardboard route keeps its own copy, because that route cuts a genuinely different mold: a
- * smooth outer edge, no lightening windows, no tab dent (`paperP`). That is a fact about the route,
- * not about anyone's measurements, so it is taken at a representative thickness rather than at the
- * `matT` the user measured — which is also why this page no longer asks for it.
- *
- * **The leg sockets are pinned ON here, whatever `DEFAULTS` says.** They are a checkbox for someone
- * designing a lantern, and DEFAULTS turned them off — at which point `needs()` quietly dropped the
- * whole third way of lighting it, figure and all, off a page whose only job is to show the ways.
- * That is the hazard of drawing a document from a settings object: a default that is right for the
- * app can delete a section of the manual. Anything else this page must SHOW belongs in this
- * override too, and `needs()` stays exactly as it is — it is what would catch the next one.
+ * **The leg sockets are pinned ON here, whatever `DEFAULTS` says.** With them off, `needs()` quietly
+ * dropped the whole third way of lighting it — figure and all — off a page whose only job is to show
+ * the ways. Anything else this page must SHOW belongs in this override, and `needs()` stays as it is,
+ * to catch the next one.
  */
 const GUIDE_MAT_T = 3;                                    // mm, ordinary single-wall cardboard
 const GUIDE_BASE = { ...DEFAULTS, legSockets: true };
@@ -83,12 +67,11 @@ type Step = {
 type KitItem = { name: string; fig?: string; note?: string; opt?: boolean };
 type KitGroup = { id: string; title: string; items: KitItem[] };
 
-// The parts the mold is made of. `n` is how many, and it is either a CONSTANT or it is not printed
-// at all: two koma, two posts, one base and one ring at each end are facts about the mold, while how
-// many ribs it takes is the reader's own decision — so that one says so in words rather than naming
-// a number this page cannot know. The cardboard route cuts only the mold itself (see paperParts) —
-// no stand, and no rings, which are printed parts of the finished lantern rather than of the
-// template.
+// The parts the mold is made of. `n` is either a CONSTANT or it is not printed at all: two koma, two
+// posts, one base and one ring at each end are facts about the mold, while how many ribs it takes is
+// the reader's own decision — so that one says so in words rather than naming a number this page
+// cannot know. The cardboard route cuts only the mold itself (see paperParts): no stand, and no
+// rings, which belong to the finished lantern rather than to the template.
 const PARTS: PartRow[] = [
   { id: "rib", name: "羽根板", note: "設計した枚数" },
   { id: "koma", name: "コマ", n: 2 },
@@ -98,8 +81,8 @@ const PARTS: PartRow[] = [
   { id: "ringTop", name: "口輪(上)", n: 1, stl: true },
 ];
 
-// The build, in order. `fig` names a scene in three/figures.ts; `more` is the folded detail block
-// (see the header); `stl` marks a step the cardboard route does not have. Bodies are i18n keys like
+// The build, in order. `fig` names a scene in three/figures.ts; `stl` marks a step the cardboard
+// route does not have; an option's `detail` holds its numbered sub-steps. Bodies are i18n keys like
 // every other string.
 const STEPS: Step[] = [
   {
@@ -144,48 +127,35 @@ const STEPS: Step[] = [
     body: "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。",
   },
   {
-    // Three ways, three SECTIONS — not three steps. They are alternatives: numbering them 11/12/13
-    // would tell the reader to do all three. `options` is what makes a step render as sections, and
-    // each option carries its own figure, because the difference between the three IS the picture.
+    // Three ways, three SECTIONS — not three steps: they are alternatives, and numbering them
+    // 11/12/13 would tell the reader to do all three. `options` is what renders a step as sections,
+    // each with its own figure, because the difference between the three IS the picture.
     //
-    // This step carried a `wip` draft badge until all three ways had a fixing. They do now — (1)
-    // fixes nothing to anything, (3) clamps its legs under the socket's nut and (2) hangs the shade
-    // from a cord stopper — so the badge is gone rather than left standing over eleven drawn
-    // sub-figures. The mechanism is still there for the next unsettled step: `wip` on a step draws
-    // the badge beside its title and prints the field's own one-line reason under the body. If one
-    // comes back here, keep the wording clear of "口輪" — the cardboard route prints no rings, and
-    // a step must not name a part its own route never makes. The step also used to offer a ⌀65
-    // lamp-holder base to print (`tomoshibi_socket_base.stl`); a printable file is a decision, and
-    // this one has been made the other way: the fittings here are all things you buy. The STL was
-    // deleted from `public/` with the link — an asset nothing references still ships on every
-    // deploy, and the one thing worse than a dead download is a live one for an undecided part.
+    // Nothing carries `wip` now, but **keep the mechanism for the next unsettled step** — it draws
+    // the badge beside the title and prints the field's own one-line reason under the body — and
+    // keep that wording clear of 「口輪」: the cardboard route prints no rings, and a step must not
+    // name a part its own route never makes. A ⌀65 lamp-holder base to print was offered here and
+    // taken back out with its STL: a printable file is a decision, and these fittings are bought.
     id: "light", title: "灯りをつける",
     body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
     options: [
       {
-        // No `more`: there is no fitting to photograph. You set the lamp down and drop the shade
-        // over it, which is the whole method and is already the figure. The other two ways bend
-        // wire, and that is what a photograph is for here.
+        // No `detail`: there is no fitting to work through — you set the lamp down and drop the shade
+        // over it, which is the whole method and is already the figure.
         id: "set", fig: "lightSet", title: "置いたライトに被せる",
         body: "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。",
       },
       {
         id: "hang", fig: "lightHang", title: "上から吊るす",
-        // What carries the shade is NOT the lamp — the lamp hangs on its own cord inside it. The
-        // text used to say the socket is fixed to an opening "with wire or the like", which was the
-        // sentence standing in for a method nobody had worked out.
-        //
-        // Two slots, not the three the legs take, because there is less to it: bend one wire, lay
-        // it on. It went the other way first — a bought cord stopper, three wires clamped under its
-        // nut, a hook on each for the opening's ring — and that was three joints too many for a
-        // paper shade. Nothing here is clamped and nothing is hooked onto the ring, so nothing here
-        // is route-specific either: both routes have an opening with an edge to rest on, which is
-        // why this option needs no `paperBody` where the legs do.
+        // What carries the shade is NOT the lamp — the lamp hangs on its own cord inside it. Two
+        // slots, not the four the legs take, because there is less to it: bend one wire, lay it on.
+        // Nothing is clamped and nothing is hooked onto the ring, so nothing here is route-specific
+        // either — both routes have an opening with an edge to rest on, which is why this option
+        // needs no `paperBody` where the legs do.
         body: "ソケットを大きいほうの開口から入れ、コードを上の開口から出します。吊り線1本のUにコードを入れてソケットを引っ掛け、両端を上の開口の縁の下に入れます。",
-        // The one thing this fitting cannot promise. It is held by nothing but its own shape against
-        // the rim, so how well it sits depends on how big that opening is — and the opening is the
-        // reader's own design, which this page no longer knows anything about (see the header). It
-        // says so once, as a footnote at the foot of this way (see the JSX).
+        // The one thing this fitting cannot promise: held by nothing but its own shape against the
+        // rim, how well it sits depends on the size of an opening this page knows nothing about (see
+        // the header). Said once, as a footnote at the foot of this way (see the JSX).
         note: "上の開口の大きさによっては安定しないことがあります。長さや曲げ方は現物に合わせて調整してください。",
         detail: [
           { id: "wire1", fig: "hangBend", title: "吊り線を曲げる",
@@ -195,40 +165,31 @@ const STEPS: Step[] = [
         ],
       },
       {
-        // Needs the leg sockets: they are where the legs go. Without them the figure would draw a
-        // legless lantern under the words "add legs", so the option is dropped instead. It does not
-        // need the 3D route, though — the cardboard one prints no ring, but the finished lantern
-        // has one either way, so that route gets the same option with the hoop left to the builder.
+        // Needs the leg sockets: without them the figure would draw a legless lantern under the words
+        // "add legs", so the option is dropped instead. Not the 3D route, though — cardboard prints
+        // no ring, but the finished lantern has one either way, the hoop just being the builder's.
         id: "legs", fig: "lightLegs", title: "脚を付けて下から留める", needs: (q) => !!ringLegs(q),
-        // The lamp and the legs go in as ONE piece — that is what the sub-steps below build, and the
-        // text used to describe two fixings (legs into the sockets, and the socket "fixed into the
-        // opening" by nothing named). There is one fixing: the nut. The cardboard line has to say
-        // where the leg ends go too, since a hoop cut from card has no bores in it.
+        // The lamp and the legs go in as ONE piece — what the sub-steps below build — and there is
+        // one fixing, the nut. The cardboard line has to say where the leg ends go as well, since a
+        // hoop cut from card has no bores in it.
         body: "脚と枠を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは脚のあいだから下へ逃がします。",
         paperBody: "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚と枠を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。",
-        // The wire work, and it is the one fixing on this page that is actually settled: a pendant
-        // holder's cord leaves through a threaded stem with a nut on it, so a loop bent in the
-        // wire's end stacks on that stem and the nut clamps all three at once. Nothing is printed
-        // for it and nothing is invented — it is how the ready-made lantern kits do it.
-        //
-        // The three read the same on BOTH routes on purpose. They stop at the bench: what the legs
-        // are then pushed into is the opening's ring, which is a printed part on one route and cut
-        // from card on the other, and the option's own body/paperBody above already says which.
-        // (A slot has no `paperBody` of its own, and should not need one.)
+        // The wire work: a pendant holder's cord leaves through a threaded stem with a nut on it, so
+        // a loop bent in the wire's end stacks on that stem and one nut clamps the lot, which is how
+        // the ready-made lantern kits do it. The slots read the same on BOTH routes on purpose: they
+        // stop at the bench, and what the legs are then pushed into — a printed ring on one route,
+        // card on the other — is what the option's own body/paperBody says. (A slot has no
+        // `paperBody`, and should not need one.)
         detail: [
           { id: "wire1", fig: "legBend", title: "脚を曲げる",
             body: "ペンチで先端を輪に曲げます。輪はソケットのネジが通る大きさに。残りは外へ渡してから下へ折り、床に届く長さにします。3本とも同じ形に。" },
-          // The frame is the part that keeps the shade at its full height — a paper bag with a ring
-          // at each end and nothing between them sags shut. It is bent from the same wire and fixed
-          // by the same nut as the legs, which is why it belongs in this way rather than beside it,
-          // and why its own step sits between bending the legs and going onto the stem.
-          //
-          // Its size is stated as a RELATION, never as a number: it follows the shade the reader
-          // built, and this page knows nothing about that shade (see the header). "Clear of the bulb
-          // and the socket" and "a little proud of the top opening" are things you can offer up and
-          // check. Clearing the LAMP is the one real constraint on the shape — the frame's foot sits
-          // directly under the socket, which sits directly under the bulb — and the nut is its only
-          // fixing: it presses nothing at the bottom, and holding the top out against a foot that
+          // The frame keeps the shade at its full height — a paper bag with a ring at each end and
+          // nothing between them sags shut. Bent from the same wire and fixed by the same nut as the
+          // legs, which is why it is a step of this way rather than a way of its own, and why it sits
+          // between bending the legs and going onto the stem. Its size is stated as a RELATION, never
+          // a number: it follows a shade this page knows nothing about (see the header). Clearing the
+          // LAMP is the one real constraint on the shape (the foot sits under the socket, which sits
+          // under the bulb), and the nut is its only fixing — holding the top out against a foot that
           // cannot move is what puts the shade in tension.
           { id: "wire4", fig: "frameBend", title: "枠を曲げる",
             body: "もう1本を輪に曲げます。下は両端を合わせて脚と同じ大きさの輪にし、そこから電球とソケットに当たらないよう外へ開いて立ち上げます。上の端は小さな輪に。高さは、その輪が上の開口から少し出るくらいに。" },
@@ -243,31 +204,21 @@ const STEPS: Step[] = [
 ];
 
 /**
- * What you supply yourself. The printed (or cut) parts are the list above this one; everything here
- * you buy, and the page is no use standing at a shop counter unless it says so. It is laid out like
- * that parts list, wells and all, because it answers the same question — what do I need in front of
- * me — and two different shapes for one question is two things to learn.
+ * What you supply yourself — the printed parts are the list above, and this is laid out like it,
+ * wells and all, because it answers the same question: what do I need in front of me.
  *
- * **Plain strings, no numbers.** Nothing here is derived and nothing should be: a wire gauge, a
- * brush and a pot of paste are not things the design decides. (A bamboo length summed over the
- * grooves was tried and taken straight back out — arithmetic nobody asked for, on a list whose job
- * is to be read in a shop.) The wire is just wire — not a gauge, not a material: it has to bend by
- * hand and hold a socket, and every note here that tried to be more specific than that came back
- * out. A note says WHEN you need the thing, not what to ask for at the counter.
+ * **Plain strings, no numbers, nothing derived** — a wire gauge, a brush and a pot of paste are not
+ * things the design decides (a bamboo length summed over the grooves was tried and taken straight
+ * back out), and a note says WHEN you need the thing, not what to ask for.
  *
- * Order is by how much it matters, not by category: the paste is the one thing a bad choice of
- * which ruins the lantern, so it comes before the wire. `opt` marks what you may not need at all —
- * the wire and its pliers are only for the two lighting methods that fix something to an opening,
- * and the brushes and the mister are things you can finish a lantern without. (The mister sits with
- * the brushes rather than after the pliers because it belongs to the same moment they do — the
- * pasting — and this list is ordered by the work, not by the shelf it came off.) Everything else is
- * unconditional: without bamboo, washi, paste,
- * something to hold the bamboo while it dries, a blade to trim the paper and a lamp to put inside
- * it, there is no lantern at the end.
+ * Order is by how much it matters, not by category: a bad paste ruins the lantern, so it comes before
+ * the wire. `opt` marks what you may not need at all — the wire and pliers serve only the two
+ * lighting ways that fix something to an opening, and the brushes and mister can be done without.
+ * Everything else is unconditional (no bamboo, washi, paste, something to hold the bamboo while it
+ * dries, blade or lamp, no lantern at the end).
  *
- * The drawings are the one thing here that is not a string: `fig` names a scene in figures.ts, and
- * those scenes are the only ones in that file that are not made of this design (see "THE KIT"
- * there). An item with no `fig` keeps an empty well rather than a ragged card.
+ * `fig` names a scene in figures.ts — the only scenes there not made of this design (see "THE KIT").
+ * An item with no `fig` keeps an empty well rather than a ragged card.
  */
 const KIT: KitGroup[] = [
   { id: "materials", title: "材料", items: [
@@ -286,15 +237,12 @@ const KIT: KitGroup[] = [
   { id: "tools", title: "道具", items: [
     { name: "のりを塗るはけ", fig: "kitPasteBrush", opt: true, note: "障子貼り用の糊刷毛など" },
     { name: "紙を張るブラシ", fig: "kitBrush", opt: true, note: "靴磨き用など" },
-    // Sits with the brushes rather than at the end: it belongs to the same moment they do, the
-    // pasting, where the pliers belong to two of the lighting ways.
-    //
-    // The note names TWO moments because the craft uses it at two. A chochin maker damps the sheet
-    // with it as she lays it (三国提灯いとや: 「和紙を貼る時に霧吹きで湿らせるのですが、力を入れすぎると薄く」),
-    // and the standard shoji finish is to mist the whole thing once it is pasted and let it dry out
-    // of the sun, where the paper shrinks and pulls taut. Neither is a mechanism this line explains
-    // — it says when you reach for the thing, like every other note here — but "after" alone, which
-    // is what this first said, describes only the second of the two and would have sent a reader
+    // Sits with the brushes rather than at the end: it belongs to the pasting, as they do, where the
+    // pliers belong to two of the lighting ways. The note names TWO moments because the craft uses it
+    // at two. A chochin maker damps the sheet as she lays it
+    // (三国提灯いとや: 「和紙を貼る時に霧吹きで湿らせるのですが、力を入れすぎると薄く」), and the
+    // standard shoji finish is to mist the whole thing once pasted and dry it out of the sun, where
+    // the paper shrinks and pulls taut. "After" alone names only the second, and would send a reader
     // past the moment the paper is hardest to handle.
     { name: "霧吹き", fig: "kitSpray", opt: true, note: "貼るときと、貼ったあとに" },
     { name: "ペンチ", fig: "kitPliers", opt: true, note: "ワイヤーを曲げる" },
@@ -307,8 +255,8 @@ const KIT_FIGS = KIT.flatMap((g) => g.items.map((i) => i.fig).filter((f): f is s
 /**
  * The figure well. It keeps its box whether the drawing has arrived, has failed, or neither exists:
  * a step that reflows when its image loads is a step you lose your place in. `null` (not undefined)
- * means the drawing FAILED rather than not having arrived, and saying so beats an empty well — a
- * figure that silently vanishes is a gap nobody reads as a bug. It cost an hour here once.
+ * means the drawing FAILED rather than not having arrived, and saying so beats an empty well, which
+ * nobody reads as a bug.
  */
 function Fig({ src, t, part = false }: { src?: string | null; t: T; part?: boolean }) {
   return (
@@ -323,8 +271,8 @@ function Fig({ src, t, part = false }: { src?: string | null; t: T; part?: boole
 
 /**
  * Small wells for the two grids of thumbnails and for the sub-steps inside an option — those sit in
- * a 150px column (`.guide-detail` in index.css), where a step's own 620px figure is four times the
- * pixels the page will ever show. A big one for a step.
+ * a 150px column, where a step's own 620px figure is four times the pixels the page will ever show.
+ * A big one for a step.
  */
 const SMALL_FIGS = new Set([
   ...PARTS.map((q: PartRow) => q.id),
@@ -335,10 +283,8 @@ const sizeOf = (id: string) => (SMALL_FIGS.has(id) ? { width: 300, height: 220 }
 
 /**
  * Every figure ever rendered, for the life of the tab. Nothing they are drawn from can change any
- * more (see the header), so a figure is built at most once per route per session: leaving the guide
- * and coming back is free, where it used to be another second of WebGL and a rebuilt geometry for
- * each of two dozen scenes. `null` — the drawing failed — is cached too; retrying it would fail the
- * same way, and the well says so either way.
+ * more (see the header), so a figure is built at most once per route per session and coming back to
+ * the guide costs no WebGL. `null` — the drawing failed — is cached too; a retry would fail alike.
  */
 const CACHE = new Map<string, string | null>();
 const cacheKey = (id: string, smooth: boolean) => `${id}|${smooth ? "paper" : "stl"}`;
@@ -360,9 +306,9 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
   const parts = PARTS.filter((s) => stl || !s.stl);
   const p = stl ? GUIDE_P.stl : GUIDE_P.paper;
 
-  // The options a step actually offers HERE. An option can need something the route does not have —
-  // the legs go in the bottom ring's sockets, and cardboard prints no rings — and drawing it anyway
-  // would put a legless lantern under the words "add legs".
+  // The options a step actually offers HERE. `needs` gates on the DESIGN, not the route: sockets off
+  // — or an opening too small for them — drops the legs way. Both routes offer all three when the
+  // sockets are there, cardboard included.
   const options = useMemo(
     () => Object.fromEntries(STEPS.filter((s) => s.options)
       .map((s) => [s.id, s.options!.filter((o) => !o.needs || o.needs(p))])) as Record<string, Way[]>,
@@ -371,9 +317,8 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
 
   // Figures are rendered ONE AT A TIME, into state, rather than in a memo: two dozen of them is a
   // second of geometry building, and doing that inside a render freezes the page before it has
-  // painted a word of the text — which is the part someone can start reading. Once they are in the
-  // cache none of that applies, so a return visit fills the whole page in one pass instead of
-  // yielding twenty-odd times to hand back images it already has.
+  // painted the text someone could start reading. Cached, none of that applies, so a return visit
+  // fills the page in one pass instead of yielding twenty-odd times for images it already has.
   const [figs, setFigs] = useState<Record<string, string | null>>({});
   useEffect(() => {
     let cancelled = false;
@@ -401,8 +346,8 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
   // The renderer holds a WebGL context; the guide is the only thing that uses it.
   useEffect(() => disposeFigures, []);
 
-  // Esc closes, as it does on the welcome card. No focus move on open: this is a document you read
-  // from the top, and pulling focus to the × would scroll a long page to its corner instead.
+  // Esc closes, as on the welcome card. No focus move on open: this is a document you read from the
+  // top, and pulling focus to the × would scroll a long page to its corner.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -413,9 +358,9 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
      ground — radius, padding, the print rules — sits in the same string as the colours. */
   const card = "bg-card border border-card-edge rounded-2xl pt-10 px-12 pb-12 "
     + "print:[break-inside:avoid] print:shadow-none";
-  /* Prose inside a step. This was `.guide-steps p`, and it beat `.guide-note` on specificity for
-     every property it set — so a note inside a step never actually looked like a note. Utilities
-     have no such accidents, which also means the accident has to be written out on purpose. */
+  /* Prose inside a step. As `.guide-steps p` it beat the note style on specificity for every
+     property it set, so a note inside a step never looked like a note. Utilities have no such
+     accidents, which also means the accident has to be written out on purpose. */
   const stepP = "m-0 text-md leading-[1.8] text-text";
   const optP = `${stepP} col-span-full max-w-[60ch] mb-2`;
   return (
@@ -489,9 +434,9 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
                 [&>:only-child]:col-span-full
                 print:shadow-none print:grid-cols-[minmax(0,38%)_minmax(0,1fr)]
                 ${s.options ? "print:[break-inside:auto]" : "print:[break-inside:avoid]"}`}>
-              {/* No well when the step has nothing to show — an empty box reads as a figure that
-                  failed to load, which is exactly what it looks like next to ten that did. A step
-                  with `options` puts its figures in the sections instead, one per way of doing it. */}
+              {/* No well when the step has nothing to show: beside ten drawn figures an empty box
+                  reads as one that failed. A step with `options` puts its figures in the sections
+                  instead, one per way of doing it. */}
               {s.fig && <Fig src={figs[s.fig]} t={t} />}
               <div>
                 <h3 className="flex items-center gap-10 mt-2 mx-0 mb-8 text-xl font-bold text-head">
@@ -502,16 +447,15 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
                   <span>{t(s.title)}{s.wip && <Badge>{t("編集中")}</Badge>}</span>
                 </h3>
                 {/* The count comes from the options actually offered here, not from the list: one
-                    of them needs the leg sockets, and "three ways" over two sections is a lie the
-                    reader can see. */}
+                    needs the leg sockets, and "three ways" over two sections is a visible lie. */}
                 <p className={stepP}>{t(!stl && s.paperBody ? s.paperBody : s.body, s.options && { n: options[s.id].length })}</p>
                 {s.wip && <p className={stepP}>{t(s.wip)}</p>}
                 {s.options && (
                   <ul className="list-none mt-16 mx-0 mb-0 p-0 flex flex-col gap-20">
                     {options[s.id].map((o) => (
                       // The title sits ABOVE the figure, spanning both columns: that is what
-                      // separates one way from the next. Beside the figure it is just the first
-                      // line of a paragraph in a column of paragraphs.
+                      // separates one way from the next. Beside it, the title is only the first line
+                      // of a paragraph in a column of paragraphs.
                       <li key={o.id}
                         className="grid grid-cols-[minmax(0,300px)_minmax(0,1fr)] gap-x-20 gap-y-6
                           items-start narrow:grid-cols-[minmax(0,1fr)] narrow:gap-12
@@ -546,10 +490,9 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
                           </div>
                         )}
                         {/* A caveat about the way itself rather than a step in it, so it is a
-                            FOOTNOTE: last in the block, marked with an asterisk, in the same voice
-                            the step-level `wip` note uses. Above the figure it read as another
-                            sentence of the body — as a condition on doing this at all, which it is
-                            not: you do it, and then you may have to adjust it. */}
+                            FOOTNOTE: last in the block, asterisked, in the step-level `wip` note's
+                            voice. Above the figure it read as another sentence of the body, i.e. a
+                            condition on doing this at all — which it is not. */}
                         {o.note && <p className={`${optP} mt-10`}>*{t(o.note)}</p>}
                       </li>
                     ))}

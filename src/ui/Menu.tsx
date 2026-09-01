@@ -2,54 +2,17 @@
  * ============================================================================
  * OVERFLOW MENU — the app-level actions that are not navigation
  * ============================================================================
- * A "☰" button and the popover it opens. It holds the handful of things that act on the APP or on
- * the design AS A FILE — the intro card, the language, JSON export/import, reset — as opposed to
- * the design itself (the inspector) or where you are in it (the two selects to its left).
+ * A "☰" button and its popover, holding what acts on the APP or on the design AS A FILE — intro
+ * card, language, backup save/restore, reset.
  *
- * **The ☰ was a knowing departure from the convention and no longer is.** ☰ means a navigation
- * drawer and ⋯/⋮ means an overflow of actions, and when this menu held only help, language, backup
- * and reset, the convention said ⋯. It was a ☰ anyway, because ⋯ is materially harder to find — it
- * reads as "more options for the thing next to me" — while ☰ is read as "this app's menu" by
- * everyone, and the case against hamburgers (NN/g) is about hiding NAVIGATION, of which there was
- * none in here. The rule written alongside that reasoning was "do not put a destination in here".
+ * **☰ rather than the conventional ⋯**, which reads as "more options for the thing next to me"
+ * where ☰ reads as "this app's menu". **The app's primary navigation stays VISIBLE**: do not fold a
+ * VIEW into this menu — the two selects beside it — though a document (`/guide`) may.
  *
- * 「作り方」 is now a destination — a real page at `/guide` with an address of its own (src/route.ts)
- * — so that rule is spent, and the glyph it was protecting turns out not to have needed protecting:
- * a menu with one place to go in it is a navigation menu, which is what ☰ has meant all along. What
- * remains true is the thing the rule was really guarding, so keep this instead: **the app's primary
- * navigation stays VISIBLE.** The two selects to the left are how you move between views and they
- * are never folded away; what may live in here is the occasional document, alongside the settings.
- *
- * What justifies folding them away at all is space, measured rather than assumed: on a 375px phone
- * the chip bar in ENGLISH came to exactly 375px — the view select (99, "Assembly") + the route
- * select (144, "Cardboard (beta)") + the "?" and language buttons (88) + gaps (24) + padding (20) —
- * with its flex spacer collapsed to zero. Japanese, whose labels are shorter (64 / 129), had 55px to
- * spare. One 36px button in place of those two hands back 52px / 47px, and the row that carries the
- * app's top-level navigation stops being full in the language that fills it.
- *
- * Undo and redo deliberately did NOT move in here. They are the recovery path for the direct-
- * manipulation editor that fills the screen, and an overflow menu is for what is rare.
- *
- * The trigger's ☰ is DRAWN, not typed. U+2630 is not in the mono stack this button asks for, so it
- * fell through to whatever the platform substitutes, and a substituted glyph sits wherever THAT
- * font's metrics put it in the em box: measured in Chrome on macOS, the ink landed ~2px below and
- * ~1px right of the centre of the 36px square, which is plainly visible at that size.
- * `align-items: center` cannot fix it — that centres the LINE BOX, and the glyph is off-centre
- * inside the line box. Nudging with padding or line-height only moves the error to the next
- * platform, since the substituted face differs per OS (Apple Symbols here, Segoe UI Symbol on
- * Windows) and none of them agrees on where in the em to sit. Three strokes in an SVG are centred
- * because they are drawn centred, on every platform — 0.00px on both axes, against the button's own
- * box — and the app already draws its marks this way (Logo, the section editor's legend).
- *
- * Rules of the shape:
- * - **Every row carries a text label.** The trigger is the only icon-only control, and it has an
- *   `aria-label`; a menu of glyphs would just be the discoverability problem one level deeper.
- * - **The destructive row is separated and states its consequence.** Reset sits below a rule, in
- *   warn colour, with the sentence that used to be its `title=` as a second line — a tooltip is not
- *   a thing a phone has.
- * - **A row is 44px.** This is the one place in the app where new touch targets were being drawn
- *   from scratch, so they are drawn at the size the guidelines ask for rather than the 36 the older
- *   header buttons grew to.
+ * Measured: on a 375px phone the chip bar in **English** came to exactly 375px (view select 99 +
+ * route select 144 + two buttons 88 + 24 gaps + 20 padding), flex spacer at ZERO; one 36px button
+ * for those two returns 52px. **The binding language here is English, not Japanese** — re-measure
+ * both before adding to that bar. **Undo/redo stayed out**: 124px will not fit the 88px left.
  * ============================================================================
  */
 import React, { useEffect, useRef, useState } from "react";
@@ -69,9 +32,9 @@ export type MenuItem =
 
 export default function OverflowMenu({ label, items }: { label: string; items: MenuItem[] }) {
   const [open, setOpen] = useState(false);
-  // Whether this opening came from the keyboard. A pointer user who taps "⋯" should not have a row
-  // light up under a focus ring; a keyboard user must land inside the menu or they have to Tab into
-  // a list that just appeared. `detail === 0` is how a click says it came from Enter/Space.
+  // Whether this opening came from the keyboard (`detail === 0` on the click is how Enter/Space
+  // announces itself). A tap must not light a row under a focus ring; a keyboard open must land
+  // inside the menu, or the user Tabs into a list that just appeared.
   const [byKey, setByKey] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
@@ -79,8 +42,8 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
   // The indices that can hold focus, in DOM order — separators are skipped when arrowing.
   const focusable = items.map((it, i) => (it.kind === "item" ? i : -1)).filter((i) => i >= 0);
 
-  // Close on a press anywhere outside. pointerdown rather than click, so the menu is already gone
-  // by the time the press lands on whatever is underneath.
+  // Close on a press outside. pointerdown rather than click, so the menu is gone by the time the
+  // press lands on whatever is underneath.
   useEffect(() => {
     if (!open) return;
     const away = (e: PointerEvent) => {
@@ -110,21 +73,21 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
   };
 
   return (
-    // Escape is caught here rather than on the rows: opened by pointer, focus is still on the
+    // Escape is caught here as well as on the rows: after a pointer open focus is still on the
     // trigger, and a menu you cannot dismiss from the keyboard is a trap.
     <div className="relative inline-flex" ref={box}
       onKeyDown={(e) => { if (e.key === "Escape" && open) { e.preventDefault(); shut(); } }}>
       <button ref={btn} aria-haspopup="menu" aria-expanded={open}
-        /* A rounded SQUARE, not a circle: it stands at the end of a row of `.tab-sel` selects whose
-           corners are 9px, and a lone circle among them read as a different kind of thing. */
+        /* A rounded SQUARE, not a circle: it stands at the end of a row of selects with the same
+           `md` corners, and a lone circle read as a different kind of control. */
         className="w-36 h-36 p-0 rounded-md flex items-center justify-center
           bg-card text-sub border border-card-edge font-mono font-bold text-xl leading-none
           cursor-pointer hover:text-accent hover:border-accent-45"
         aria-label={label} title={label}
         onClick={(e) => { setByKey(e.detail === 0); setOpen((v) => !v); }}
         onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); setByKey(true); setOpen(true); } }}>
-        {/* `display: block` so the svg brings no inline baseline gap of its own — with that, the
-            flex centring above lands the box exactly, and the box is the mark. */}
+        {/* `display: block` so the svg brings no inline baseline gap and the flex centring above
+            lands the box exactly. */}
         <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" className="block">
           <path d="M2.5 5h13M2.5 9h13M2.5 13h13" fill="none" stroke="currentColor"
             strokeWidth="2" strokeLinecap="round" />
@@ -132,8 +95,8 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
       </button>
       {open && (
         <div role="menu" aria-label={label}
-          /* Right-anchored: the trigger is the last thing in its row on both layouts, and a
-             left-anchored popover would open off the edge of the phone. */
+          /* Right-anchored: the trigger is last in its row on both layouts, so a left-anchored
+             popover would open off the edge of the phone. */
           className="absolute top-[calc(100%+6px)] right-0 z-40 min-w-208 flex flex-col p-5
             bg-panel border border-edge rounded-xl shadow-[0_10px_28px_rgba(59,52,43,0.18)]">
           {items.map((it, i) => (it.kind === "sep" ? (
@@ -146,12 +109,12 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
                 ${it.danger ? "text-warn hover:bg-warn-08 hover:text-warn"
                             : "text-text hover:bg-accent-06 hover:text-accent"}`}
               onKeyDown={(e) => onKey(e, i)}
-              // The action runs first: `onClick` may open a file picker, and that has to happen
-              // inside the user gesture rather than after a state update has re-rendered the row away.
+              // The action runs first: `onClick` may open a file picker, which has to happen inside
+              // the user gesture rather than after a state update re-rendered the row away.
               onClick={() => { it.onClick(); setOpen(false); }}>
               <span className="flex-auto min-w-0 flex flex-col gap-2">
                 {it.label}
-                {/* The consequence line for the destructive row. It was a title= before, which a phone has not got. */}
+                {/* The consequence line for the destructive row; it was a title=, which a phone has not got. */}
                 {it.hint && <em className="not-italic text-xs leading-[1.35] text-faint">{it.hint}</em>}
               </span>
               {it.value && <span className="flex-none font-mono text-sm text-faint">{it.value}</span>}

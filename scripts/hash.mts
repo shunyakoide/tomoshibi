@@ -3,10 +3,9 @@
  * Geometry vertex hash (STL regression detection)
  * ============================================================================
  * Hashes (SHA1) the vertex coordinates of every part at representative
- * parameters and prints one line each. For a "refactor that should not change
- * the STL", diffing the output before and after detects any moved vertex, even
- * a single one (manifold only checks watertightness, so shape identity is
- * guaranteed here).
+ * parameters, one line each. For a refactor that should not change the STL,
+ * diffing before and after catches a single moved vertex — check:manifold only
+ * proves watertightness, so shape identity is this script's job.
  *
  * Usage (e.g. take a baseline before a refactor, then compare afterward):
  *   git stash            # or check out the target branch's base

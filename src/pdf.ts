@@ -4,20 +4,17 @@
  * ============================================================================
  * Writes a vector-only, self-contained PDF at exact 1:1 scale with no dependencies (same spirit as
  * the hand-rolled ZIP in stl.ts). It takes the **same drawing-op list the SVG renderer consumes**
- * (papercraft.ts `pageOps`), so the PDF and the printed HTML are literally the same drawing — the
- * template can't be full scale in one and off in the other.
+ * (papercraft.ts `pageOps`), so the template cannot be full scale in one and off in the other.
  *
  * [Coordinates] Ops are in **mm with y DOWN from the sheet's top-left** (the SVG convention). Each
  *   page sets one CTM that flips y and scales mm→pt, so every number below stays in mm. Text sets
  *   its own flipped text matrix so the glyphs come out upright.
  * [Text] Latin is base-14 Helvetica, which every reader has and no file has to carry. Everything
  *   WinAnsi cannot encode — the Japanese, the arrows — is drawn as **filled outlines** from
- *   `pdf-glyphs.ts`, extracted from an OFL font by `tools/pdffont` for exactly the characters the
- *   templates print (two dozen of them, 7kB). Embedding a whole CJK font would dwarf the file; this
- *   is the same trade `tools/logo` makes for the wordmark. A character with no outline still goes
- *   through `winAnsi()`, which folds what it can (←, ▼) and drops the rest rather than writing a
- *   broken byte. **This is why the templates are no longer English-only**: hand them the Japanese
- *   translator and the words print.
+ *   `pdf-glyphs.ts`, which `tools/pdffont` extracts from an OFL font for exactly the characters the
+ *   templates print (two dozen, 12kB), because a whole CJK font would dwarf the file. A character
+ *   with no outline still goes through `winAnsi()`, which folds what it can (←, ▼) and drops the
+ *   rest rather than writing a broken byte. **This is why the templates are no longer English-only.**
  * ============================================================================
  */
 import { GLYPHS } from "./pdf-glyphs.ts";
@@ -26,15 +23,12 @@ import type { Pt2 } from "./types.ts";
 
 /**
  * ---- The drawing language both renderers speak ----
- * A page is a list of ops in mm, y down from the sheet's top-left; papercraft.ts produces them and
- * this file (PDF) and `pageSVG` (SVG) are the only two things that read them. The vocabulary is
- * declared HERE, by a renderer, rather than by the producer: a renderer can only draw what it knows
- * how to draw, and an op it has never heard of is a line that silently does not print.
- *
- * The style names are split into stroke names and text names for the same reason. They are not
- * decoration — `pname` has no stroke and `cut` has no font size, so a path op drawn with a text
- * style loses its colour and width. Splitting the two makes that combination fail to compile
- * instead of printing a hairline where a cut line belongs.
+ * A page is a list of ops in mm, y down from the sheet's top-left: papercraft.ts produces them, this
+ * file (PDF) and `pageSVG` (SVG) are the only two things that read them. The vocabulary is declared
+ * HERE, by a renderer, because an op a renderer has never heard of is a line that silently does not
+ * print. Stroke and text names are split for the same reason — `pname` has no stroke and `cut` no
+ * font size, so a path drawn with a text style would print a hairline where a cut line belongs, and
+ * now fails to compile instead.
  */
 export type StrokeName = "cut" | "tick" | "guide" | "scale" | "frame" | "join";
 export type TextName = "pname" | "note" | "jlabel";
@@ -54,8 +48,8 @@ export type Op =
 /** A sheet's size in mm (A4 here, but nothing below assumes it). */
 export type Page = { w: number; h: number };
 
-// Advance widths (1/1000 em) for Helvetica, ASCII 32..126. Used to place centred / right-aligned
-// text: without real metrics the footer would drift off the margin.
+// Advance widths (1/1000 em) for Helvetica, ASCII 32..126. Needed to CENTRE a label — a part's name
+// inside its own outline — which without real metrics would sit off-centre.
 const HELV = [
   278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278,
   556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556,
@@ -64,11 +58,12 @@ const HELV = [
   333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556,
   556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
 ];
-// Symbols the UI uses that have no WinAnsi code point → ASCII stand-ins. "×" (U+00D7) is kept: it
-// is a single WinAnsi byte (0xD7).
+// Symbols this writer cannot encode → ASCII stand-ins. Several DO have WinAnsi code points (— – “ ”
+// ‘ ’ in 0x91..0x97), but `winAnsi()` below emits only 0x20..0x7E and 0xA0..0xFF, never WinAnsi's
+// 0x80..0x9F block, so they are folded rather than written. "×" (U+00D7) is kept — one byte, 0xD7.
 const FOLD: Record<string, string> = { "←": "<-", "→": "->", "↑": "^", "▼": "v", "⚠": "!", "·": "-", "—": "-", "–": "-", "“": '"', "”": '"', "‘": "'", "’": "'", "≥": ">=", "≤": "<=" };
 /** Fold a UI string down to WinAnsi. Anything still unrepresentable is dropped rather than written
- *  as a broken byte (the alternative — mojibake on paper — is worse than a missing symbol). */
+ *  as a broken byte: mojibake on paper is worse than a missing symbol. */
 export function winAnsi(s: unknown): string {
   let out = "";
   for (const ch of String(s)) {
@@ -97,11 +92,9 @@ type Run = { s: string; g?: undefined } | { g: Glyph; s?: undefined };
 /**
  * Split a UI string into runs of the two things the writer can draw: `{ s }` = WinAnsi text set in
  * Helvetica, `{ g }` = one outlined glyph. Runs are built in order, so a mixed label ("羽根板 ×8")
- * comes out as one line rather than two passes at the same x.
- *
- * Latin-1 keeps going through Helvetica even where an outline exists, because real text is
- * selectable, searchable, and a tenth of the bytes; the outlines are what makes the rest printable
- * at all. A character with neither is folded by `winAnsi()` — never emitted raw.
+ * comes out as one line rather than two passes at the same x. Latin-1 keeps going through Helvetica
+ * even where an outline exists, real text being selectable, searchable and a tenth of the bytes; a
+ * character with neither is folded by `winAnsi()` — never emitted raw.
  */
 function textRuns(str: unknown): Run[] {
   const runs: Run[] = [];
@@ -123,9 +116,10 @@ function runsWidth(runs: Run[], size: number) {
 
 const MM = 72 / 25.4;                                     // mm → pt
 const n3 = (v: number) => (Math.round(v * 1000) / 1000).toString();
-// Millimetres round to 3dp happily; a glyph's scale factor does not. It is size/1000 — 0.0034 for a
-// 3.4mm label — and 3dp rounds that to 0.003, which draws every character 12% oversized and laps it
-// over the next one. Matrix entries get their own precision.
+// Millimetres round to 3dp happily; a glyph's scale factor (size/1000) does not — 3dp rounds the
+// 2.6mm note's 0.0026 UP to 0.003 (15% too large) and a 3.4mm label's 0.0034 DOWN to the same 0.003
+// (12% too small), and the advance is computed in mm independently so nothing compensates. Matrix
+// entries get their own precision.
 const n6 = (v: number) => (Math.round(v * 1e6) / 1e6).toString();
 const rgb = (hex: string) => {
   const h = hex.replace("#", "");
@@ -133,8 +127,8 @@ const rgb = (hex: string) => {
   return [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16) / 255);
 };
 const esc = (s: string) => s.replace(/[\\()]/g, (c) => "\\" + c);
-// A PDF text string, either literal or — once a character leaves WinAnsi — UTF-16BE hex with the
-// BOM the format requires. Only the Info dictionary needs this; page text goes through textRuns().
+// A PDF text string: literal, or — once a character leaves WinAnsi — UTF-16BE hex with the BOM the
+// format requires. Only the Info dictionary needs it; page text goes through textRuns().
 const pdfString = (s: unknown) => {
   const str = String(s);
   if (winAnsi(str) === str) return `(${esc(str)})`;
@@ -170,8 +164,8 @@ function contentOf(ops: Op[], style: StyleTable): string {
       for (const run of runs) {
         if (run.g) {
           // Outlines are a 1000-unit em with y UP; one matrix scales them to the font size and flips
-          // them onto the y-down page, so the stored path goes out verbatim. q/Q keeps the fill
-          // colour and the matrix from leaking into whatever is drawn next.
+          // them onto the y-down page, so the stored path goes out verbatim. q/Q keeps the fill and
+          // the matrix from leaking into whatever is drawn next.
           const k = st.size / 1000;
           out.push(`q ${n6(k)} 0 0 ${n6(-k)} ${n3(x)} ${n3(op.y)} cm ${fill} rg ${run.g.d} f Q`);
           x += (run.g.w / 1000) * st.size;
@@ -207,8 +201,8 @@ export function buildPDF(pages: Op[][], page: Page, style: StyleTable, title = "
   }
   objs[catalog - 1] = `<</Type/Catalog/Pages ${pagesObj} 0 R>>`;
   objs[pagesObj - 1] = `<</Type/Pages/Kids[${kids.map((k) => `${k} 0 R`).join(" ")}]/Count ${kids.length}>>`;
-  // The document title is the one string a PDF can carry outside WinAnsi: as UTF-16BE hex it shows
-  // up in the viewer's window and in the file manager, so a Japanese template says so there too.
+  // The document title is the one string a PDF can carry outside WinAnsi: as UTF-16BE hex it reaches
+  // the viewer's window and the file manager, so a Japanese template says so there too.
   const info = add(`<</Producer(Tomoshibi)/Title${pdfString(title)}>>`);
 
   const chunks: Uint8Array[] = [];
