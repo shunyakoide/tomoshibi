@@ -608,10 +608,10 @@ function Legend({ accent, editMode, compact, t }: { accent: string; editMode: Ed
     : { top: 62, right: 16, maxWidth: 300 };
 
   return (
-    <div style={{
+    <div className="rounded-lg" style={{
       position: "absolute", pointerEvents: compact ? "auto" : "none", ...pos,
       fontFamily: "'IBM Plex Sans JP',sans-serif",
-      background: "rgba(255,253,248,0.82)", border: `1px solid ${C.faint}`, borderRadius: 10,
+      background: "rgba(255,253,248,0.82)", border: `1px solid ${C.faint}`,
       padding: shown ? "9px 12px 10px" : 0, backdropFilter: "blur(2px)",
     }}>
       {compact ? (

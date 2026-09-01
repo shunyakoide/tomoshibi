@@ -42,11 +42,11 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode,
   if (compact) return null;
 
   return (
-    <div className="sec">
+    <div className="mb-20">
       <SectionLabel title="選択中の点" hint={pt ? (isEnd ? "開口/首" : `#${sel! + 1}`) : undefined} />
       {pt ? (
-        <div className="pt-box">
-          <div className="pt-segs">
+        <div className="rounded-lg border border-card-edge bg-card px-12 pt-12 pb-10">
+          <div className="flex gap-6 mb-10">
             <SegButton label="✥ 点を動かす" active={editMode === "move"} onClick={() => setMode("move")} />
             <SegButton label="◠ カーブ調整" active={editMode === "curve"} onClick={() => setMode("curve")} />
           </div>
@@ -54,14 +54,18 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode,
             onChange={(v) => patch({ r: clamp(...LIMITS.r, v) })} />
           <NumInput label="高さ位置" value={Math.round(pt.t * p.height)} min={1} max={p.height}
             onChange={setHeightMm} />
-          <div className="pt-segs pt-segs--mid">
+          <div className="flex gap-6 mt-4 mb-10">
             <SegButton label="◇ なめらか" active={!pt.sharp} onClick={() => patch({ sharp: false })} />
             <SegButton label="■ 角" active={!!pt.sharp} onClick={() => patch({ sharp: true })} />
           </div>
-          <button className="block-btn" onClick={del} disabled={!canDelete}>{t("この点を削除")}</button>
+          <button onClick={del} disabled={!canDelete}
+            className="w-full p-9 rounded-md cursor-pointer bg-transparent text-warn
+              border border-warn-4 font-sans text-base font-semibold enabled:hover:bg-warn-06
+              disabled:text-faintest disabled:border-card-edge disabled:opacity-55
+              disabled:cursor-default">{t("この点を削除")}</button>
         </div>
       ) : (
-        <div className="pt-empty">{t("断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。")}</div>
+        <div className="rounded-lg border border-dashed border-card-edge p-14 text-sm text-faint leading-[1.6]">{t("断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。")}</div>
       )}
     </div>
   );

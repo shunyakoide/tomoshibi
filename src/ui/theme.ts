@@ -41,12 +41,15 @@ export const sans = "'IBM Plex Sans JP', 'Hiragino Sans', system-ui, sans-serif"
  * `2xs` is NOT a rounding artefact and must not be folded into `xs`: it is the PointBar's caption
  * size, whose width was measured against a 46px button, and the badge and the select carets.
  *
- * This is the source of truth, and `npm run check:style` is what makes it one — the scale is
- * exported to JS for inline styles and SVG attributes, index.css writes the same numbers as
- * literals, and the check reads both sides and fails on any font size that is not a member. It is
- * NOT published as a CSS custom property: a `var()` for a colour degrades to an inherited colour
- * before the module runs, but a `var()` for a font size degrades to inherited TEXT SIZE, and the
- * whole page would visibly resize on boot.
+ * This is the source of truth. It is exported to JS for inline styles and SVG attributes, and
+ * mirrored into index.css's `@theme` block as `--text-*`, which is where `text-base` and friends
+ * resolve; `npm run check:style` reads both sides and fails on any drift. index.css itself sets no
+ * font size any more — every one of them is a `text-<step>` on the element.
+ *
+ * Note the two kinds of custom property in this file's orbit, because they behave differently:
+ * `@theme`'s are emitted STATICALLY into the built stylesheet and are safe to `var()` anywhere
+ * (the radius scale does exactly that), while the ones the block at the bottom of this file
+ * publishes at RUNTIME are not there until the module has run.
  */
 export const FS = {
   "2xs": 9,     // badges, the select carets, the point bar's button captions
@@ -58,6 +61,29 @@ export const FS = {
   xl: 16,       // icon glyphs (☰, ±, arrows), the guide's step headings
   "2xl": 20,    // the overlay close X
   "3xl": 25,    // the guide's title
+} as const;
+
+/**
+ * The corner scale, in px. Six steps, and nothing else may be used.
+ *
+ * It used to be thirteen — 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16 — which is not a scale, it is
+ * every integer somebody reached for. The same fold the type scale got: values round DOWN, and the
+ * two smallest (2 and 3, on a 4px grabber and a 5px slider track) come out identical either way,
+ * because a browser clamps a radius to half the box.
+ *
+ * The pairs that had to keep MATCHING still do: the ☰ button is a rounded square precisely so it
+ * does not read as a different kind of control beside the row of `.tab-sel` selects, and both were
+ * 9px and are now both `md`.
+ *
+ * A circle is not on this scale — `rounded-full` says circle, and says it whatever the box is.
+ */
+export const RADII = {
+  xs: 4,       // badges, the checkbox, anything whose box is a few px tall
+  sm: 6,       // small fields, the ± squares, the wide layout's tabs
+  md: 8,       // buttons, selects, segmented options
+  lg: 10,      // cards, chips, alerts, the CTA, figure wells
+  xl: 12,      // the overflow menu's popover
+  "2xl": 14,   // the big overlays: the welcome card, the guide's cards, the sheet's top corners
 } as const;
 
 export const UI = {

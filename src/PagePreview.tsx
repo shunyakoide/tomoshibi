@@ -50,9 +50,10 @@ export default function PagePreview({ p, matT, lang }: { p: Design; matT: number
           inspector's own `.note` is not caught by the sheet's 2.6px note style. */}
       <style>{css}</style>
       <div className="pages" dangerouslySetInnerHTML={{ __html: svg }} />
-      <div className="pages-note">
+      <div className="flex-none pt-8 px-20 pb-12 text-sm leading-[1.5] font-semibold text-text
+        bg-[rgba(255,255,255,0.82)] border-t border-edge backdrop-blur-[4px]">
         {t("型紙プレビュー · 全 {n} ページ", { n: pages })}
-        <span> — {t("画面上は原寸ではありません。PDF をダウンロードして原寸で印刷してください。")}</span>
+        <span className="font-normal"> — {t("画面上は原寸ではありません。PDF をダウンロードして原寸で印刷してください。")}</span>
       </div>
     </div>
   );
