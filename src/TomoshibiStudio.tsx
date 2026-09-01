@@ -44,7 +44,7 @@ import GuidePage from "./GuidePage.tsx";
 import Welcome from "./Welcome.tsx";
 import { DEFAULTS, LIMITS, SIL_ROWS } from "./config.ts";
 import type { T } from "./i18n.ts";
-import { UI, FS, accent, accentA, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.ts";
+import { UI, FS, accent, mono, sans, vpBg, chipStyle, TContext } from "./ui/theme.ts";
 import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note } from "./ui/controls.tsx";
 import PresetChips from "./ui/PresetChips.tsx";
 import PointCard from "./ui/PointCard.tsx";
@@ -140,7 +140,7 @@ function KitNote({ warn, state, onToggle, t, children }: {
   if (state === null) return null;
   const open = state === "open";
   return (
-    <div style={{ marginTop: 9 }}>
+    <div className="kit-note">
       <div className="note">{warn}</div>
       <button className="note-toggle" aria-expanded={open} onClick={onToggle}>
         {t("同梱物")}<span aria-hidden="true">{open ? "▾" : "▸"}</span>
@@ -154,14 +154,9 @@ function KitNote({ warn, state, onToggle, t, children }: {
 // that the narrow strip can quote the first line of an alert without rendering the whole card.
 function Alert({ head, hint }: { head: string; hint?: string }) {
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "10px 14px", background: "#fff", border: `1px solid ${accentA(0.4)}`,
-      borderRadius: 10, boxShadow: "0 3px 12px rgba(59,52,43,0.1)", fontFamily: sans,
-      fontSize: FS.base, color: UI.text, textAlign: "left",
-    }}>
-      <span style={{ fontSize: FS.lg }}>⚠️</span>
-      <span>{head}{hint && <><br /><span style={{ color: UI.sub }}>{hint}</span></>}</span>
+    <div className="alert">
+      <span className="alert-mark">⚠️</span>
+      <span>{head}{hint && <><br /><span className="alert-hint">{hint}</span></>}</span>
     </div>
   );
 }
@@ -665,25 +660,21 @@ export default function TomoshibiStudio() {
   // hint is what the tap is for), plus a count when more than one is waiting. Do not make it open
   // by default to be safe — that is just the 115px band again, and it takes the panel with it.
   const alertBar = narrow && alerts.length > 0 ? (
-    <div style={{ flex: "none", background: UI.panel, borderTop: `1px solid ${UI.edge}` }}>
-      <button onClick={() => setAlertsOpen((v) => !v)} aria-expanded={alertsOpen} style={{
-        display: "flex", alignItems: "center", gap: 8, width: "100%", minHeight: 36,
-        padding: "6px 12px", background: accentA(0.07), border: "none", borderLeft: `3px solid ${accentA(0.5)}`,
-        cursor: "pointer", font: "inherit", fontSize: FS.base, color: UI.text, textAlign: "left",
-      }}>
-        <span style={{ fontSize: FS.lg, flex: "none" }}>⚠️</span>
+    <div className="alert-strip">
+      <button onClick={() => setAlertsOpen((v) => !v)} aria-expanded={alertsOpen}>
+        <span className="alert-mark">⚠️</span>
         {/* minWidth 0 is what lets the ellipsis happen at all: a flex item's automatic minimum size
             is its content, so without it the headline pushes the count and caret off the strip. */}
-        <span style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span className="alert-strip-head">
           {alerts[0].head}
         </span>
         {alerts.length > 1 && (
-          <span style={{ flex: "none", fontFamily: mono, fontSize: FS.sm, color: UI.sub }}>+{alerts.length - 1}</span>
+          <span className="alert-strip-n">+{alerts.length - 1}</span>
         )}
-        <span aria-hidden="true" style={{ flex: "none", color: UI.faint }}>{alertsOpen ? "▾" : "▸"}</span>
+        <span aria-hidden="true" className="alert-strip-caret">{alertsOpen ? "▾" : "▸"}</span>
       </button>
       {alertsOpen && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "0 10px 8px" }}>
+        <div className="alert-strip-body">
           {alertCards}
         </div>
       )}
@@ -893,7 +884,7 @@ export default function TomoshibiStudio() {
         )}
 
         {/* Silhouette */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="sec">
           <SectionLabel title="シルエット" hint="ドラッグ / 値クリックで入力" />
           {SIL_ROWS.map((r) => (
             <ScrubRow key={r.key} drag={drag} setDrag={setDrag}
@@ -902,11 +893,11 @@ export default function TomoshibiStudio() {
         </div>
 
         {/* Framework */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="sec">
           <SectionLabel title="骨組み" />
           <Stepper label="羽根板の枚数" value={p.boards} min={4} max={Math.min(16, boardsMax)} step={1}
             onChange={(v) => setP((o) => ({ ...o, boards: v }))}>
-            {p.boards}<span style={{ color: UI.faintest, fontWeight: 400 }}>{t(" 枚")}</span>
+            {p.boards}<span className="qty-of">{t(" 枚")}</span>
           </Stepper>
           {boardsMax < 16 && p.boards >= boardsMax && (
             <div className="hint">
@@ -927,7 +918,7 @@ export default function TomoshibiStudio() {
         </div>
 
         {/* Bamboo ribs */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="sec">
           <SectionLabel title="竹ひご" />
           <ScrubRow drag={drag} setDrag={setDrag} cfg={{
             key: "higoD", label: "竹ひご径", value: p.higoD, display: p.higoD.toFixed(1),
@@ -950,7 +941,7 @@ export default function TomoshibiStudio() {
             doubly-curved surface is approximate by nature, and how much a damp sheet takes up is
             still being checked against actual builds. The dimensions are checked (check:paper), the
             fit on a real lantern is not. */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="sec">
           <SectionLabel title="和紙" hint="羽根板の間 1面分 · beta" />
           <Stepper label="のりしろ(左右)" value={washiSide} min={0} max={15} step={1} onChange={setWashiSide}>
             {washiSide} mm
@@ -973,7 +964,7 @@ export default function TomoshibiStudio() {
         {/* Opening ring: like the washi, a part of the finished LANTERN rather than of the mold, which
             is why it sits down here with the washi and not up in 骨組み. The hoop itself is sized from
             the opening and has nothing to set; the bottom one's leg sockets do. */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="sec">
           <SectionLabel title="開口リング" hint="完成品に残る輪" />
           <Checkbox checked={!!p.legSockets} label="脚ソケット(下)"
             onToggle={() => setP((o) => ({ ...o, legSockets: !o.legSockets }))} />
@@ -992,7 +983,7 @@ export default function TomoshibiStudio() {
             is not another way to make the mold, it is the paper skin you need on top of whichever
             mold you built, so it lives above with the design settings. */}
         {view === "print" && (
-          <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 16, marginTop: 4 }}>
+          <div className="sec-ruled">
             {/* Titled, because the panel is one long scroll: without it the first control reads as
                 another shape setting rather than "this is the print/export section". The hint names
                 the route, so the panel says which of the two these settings belong to. */}
@@ -1021,7 +1012,7 @@ export default function TomoshibiStudio() {
 
                 {/* Layout — how many rib copies go on the plate. A per-job output choice, not a bed
                     dimension, so it gets its own group. */}
-                <div style={{ borderTop: `1px solid ${UI.edge}`, paddingTop: 14, marginTop: 14 }}>
+                <div className="sec-sub">
                   <SectionLabel title="配置" />
                   {p.spiral ? (
                     <div className="row">
@@ -1030,7 +1021,7 @@ export default function TomoshibiStudio() {
                     </div>
                   ) : (
                     <Stepper label="印刷する羽根板" value={nRibs} min={1} max={p.boards} step={1} onChange={setPrintRibs}>
-                      {nRibs}<span style={{ color: UI.faintest, fontWeight: 400 }}> / {p.boards}</span>
+                      {nRibs}<span className="qty-of"> / {p.boards}</span>
                     </Stepper>
                   )}
                 </div>
@@ -1060,7 +1051,7 @@ export default function TomoshibiStudio() {
             expensive space in the app — on identity, for someone who pulled the sheet up to reach a
             control. At the bottom it is a signature: still there, costs nothing at any stop. */}
         {narrow && (
-          <div style={{ padding: "22px 0 14px", opacity: 0.5 }}>
+          <div className="wordmark-foot">
             <Logo variant="full" height={26} style={{ color: UI.head }} />
           </div>
         )}
@@ -1082,15 +1073,15 @@ export default function TomoshibiStudio() {
         borderTop: `1px solid ${UI.edge}`,
       }}>
         {!narrow && (
-        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 5, columnGap: 12, fontSize: FS.base, marginBottom: 14 }}>
-          <span style={{ color: UI.faint }}>{t("最大径")}</span>
-          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>⌀{maxDia} mm</span>
-          <span style={{ color: UI.faint }}>{t("羽根板の全長")}</span>
-          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right", color: !bedRules || ribFits ? UI.text : UI.warn }}>
+        <div className="sum">
+          <span className="sum-k">{t("最大径")}</span>
+          <span className="sum-v">⌀{maxDia} mm</span>
+          <span className="sum-k">{t("羽根板の全長")}</span>
+          <span className={`sum-v${!bedRules || ribFits ? "" : " sum-v--warn"}`}>
             {ribLen} mm
           </span>
-          <span style={{ color: UI.faint }}>{t("上下の開口(半径)")}</span>
-          <span style={{ fontFamily: mono, fontWeight: 600, textAlign: "right" }}>{topOpen} / {botOpen} mm</span>
+          <span className="sum-k">{t("上下の開口(半径)")}</span>
+          <span className="sum-v">{topOpen} / {botOpen} mm</span>
         </div>
         )}
 
@@ -1102,10 +1093,10 @@ export default function TomoshibiStudio() {
             {/* A PDF is already A4 at exact size, so the only way to lose that is the printer's own
                 scaling — which is why this one line stays out in the open. Everything else the old
                 HTML page explained was about making an HTML print at 1:1 in the first place. */}
-            <KitNote warn={<><strong style={{ color: UI.text }}>{t("原寸 100% で印刷")}</strong>{t("(「用紙に合わせる」は不可)")}</>}
+            <KitNote warn={<><strong>{t("原寸 100% で印刷")}</strong>{t("(「用紙に合わせる」は不可)")}</>}
               state={kitNote} onToggle={() => setKitNote((v) => (v === "open" ? "shut" : "open"))} t={t}>
-              <li><span style={{ fontFamily: mono }}>tomoshibi_katagami_a4.pdf</span>{t(" — 型紙")}</li>
-              <li><span style={{ fontFamily: mono }}>{WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
+              <li><span className="mono">tomoshibi_katagami_a4.pdf</span>{t(" — 型紙")}</li>
+              <li><span className="mono">{WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
             </KitNote>
           </>
         ) : (
@@ -1113,11 +1104,11 @@ export default function TomoshibiStudio() {
             <CTA label="STL 書き出し" onClick={() => { downloadKit(); setKitNote("open"); }} />
             {/* Miss this one and you print half a mold: the koma and the posts are identical top and
                 bottom, so the kit carries one of each. */}
-            <KitNote warn={<>{t("コマ・柱は各1つ。スライサーで")}<strong style={{ color: UI.text }}>{t("2つに複製")}</strong></>}
+            <KitNote warn={<>{t("コマ・柱は各1つ。スライサーで")}<strong>{t("2つに複製")}</strong></>}
               state={kitNote} onToggle={() => setKitNote((v) => (v === "open" ? "shut" : "open"))} t={t}>
-              <li><span style={{ fontFamily: mono }}>tomoshibi_*.stl</span>{t(" — 羽根板・コマ・土台・口輪")}</li>
-              <li><span style={{ fontFamily: mono }}>{WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
-              <li><span style={{ fontFamily: mono }}>tomoshibi_config.json</span>{t(" — 設計のバックアップ")}</li>
+              <li><span className="mono">tomoshibi_*.stl</span>{t(" — 羽根板・コマ・土台・口輪")}</li>
+              <li><span className="mono">{WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
+              <li><span className="mono">tomoshibi_config.json</span>{t(" — 設計のバックアップ")}</li>
             </KitNote>
           </>
         )}
