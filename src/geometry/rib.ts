@@ -3,11 +3,8 @@
  * RIB (HANEITA) — the radial plate that forms the mold surface
  * ============================================================================
  * The 2D outline (tabs + grooved outer edge + hollowed inner edge), the lightening windows, the
- * serial number engraved for spiral winding, and the extrusion.
- *
- * `ribOutline2D` is shared by the printed rib, the section drawing and the cardboard template, so
- * all three are the same plate. `k` is the rib index and normally changes nothing — with spiral
- * winding it shifts the grooves, which is what makes every rib a different part.
+ * serial number engraved for spiral winding, and the extrusion. `ribOutline2D` is shared by the
+ * printed rib, the section drawing and the cardboard template, so all three are the same plate.
  * ============================================================================
  */
 import type { Design, Pt2 } from "../types.ts";
@@ -16,19 +13,13 @@ import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, tabDepth, tabD
 import { grooveDepth, grooveList, grooveOuterPts, grooveR, profileSlope } from "./groove.ts";
 import { shapeFromPts } from "./shape.ts";
 
-// [Rib inner edge = crescent] So the rib pulls out of the opening after drying, the inner edge is
-// hollowed toward the centre. The outer edge (the lamp body face) is untouched, so this reaches
-// neither the mold shape, the tab, the koma nor the stand — only the inner material is reduced.
-//
-// The inner edge stays a straight core `Ri`, with an inward bump **only near the centre** (bending
-// the whole rib gives the ends an impossible shape):
-//   ・inside t∈[tC-HW, tC+HW] only; outside, bump = 0, so the ends and the tab joint are unchanged.
-//   ・bump = (1-u²)² has value AND slope 0 at its ends, so it meets the straight core with no corner.
-//   ・amplitude A = the rib's depth at the centre (outer − core) × `RIB_CURVE_D`. A real mold scoops
-//     about 20% of the depth at that point, not to the limit; a depth RATIO keeps that proportion
-//     when the profile changes.
-//   ・clamped to an upper limit that cannot break the band width W, which guarantees the inner edge
-//     never crosses the outer one and makes the scoop modest by itself where the centre narrows.
+// [Rib inner edge = crescent] Hollowed toward the centre so the rib pulls out of the opening after
+// drying. The outer edge is untouched, so this reaches neither the mold shape, the tab, the koma nor
+// the stand. The core stays straight at `Ri` with an inward bump only inside t∈[tC-HW, tC+HW] —
+// bending the whole rib gives the ends an impossible shape — and bump = (1-u²)² has value AND slope
+// 0 at its ends, so it meets the core with no corner. Amplitude = centre depth (outer − core) ×
+// `RIB_CURVE_D`, a RATIO so the proportion survives a profile change, clamped so the inner edge can
+// never cross the outer one.
 const RIB_MIN_BAND = 12;  // minimum band thickness (mm). Remains even after subtracting the groove depth (max higoD*1.5).
 const RIB_CURVE_C = 0.5;  // curve center (t) = the rib center
 const RIB_CURVE_HW = 0.3; // curve half-width (t). Applies only to the middle 60%; the top/bottom 20% each stay core.
@@ -60,14 +51,11 @@ export function ribInnerX(p: Design): (y: number) => number {
 // ============ Pulling the ribs out ============
 // Once the paste has dried the koma come off and the ribs leave through an opening, one at a time.
 // A rib is fed out lengthwise, so the mouth's plane cuts ACROSS the plate: what has to pass is the
-// plate's BAND — outer edge minus hollowed inner edge — not its distance from the axis. That band is
-// exactly what the hollow inner edge exists to narrow (`ribInnerX`), and a deep body on a small mouth
-// is the one shape this app will happily draw that cannot be taken apart again. The tabs never bind:
-// they span Ri..kR, and kR is at most the SMALLER opening.
-//
-// The cut is a `boardT`-wide rectangle rather than a line, so what the plate gets is the chord at its
-// own half-thickness, 2√(R²−(t/2)²). `PULL_CLEAR` is what is left for it to turn in — the band is
-// curved, so it rotates as it goes, and a rib exactly as wide as the chord binds.
+// plate's BAND — outer edge minus hollowed inner edge — not its distance from the axis, and a deep
+// body on a small mouth cannot be taken apart again. The tabs never bind, spanning Ri..kR with kR at
+// most the SMALLER opening. The cut is a `boardT`-wide rectangle rather than a line, so the plate
+// gets the chord at its own half-thickness, 2√(R²−(t/2)²); `PULL_CLEAR` is slack for it to turn in,
+// the band being curved, since a rib exactly as wide as the chord binds.
 const PULL_CLEAR = 2;   // mm of slack left for the plate to turn as it comes out
 export function ribPullFit(p: Design): { band: number; chord: number; openR: number; ok: boolean } {
   const h = p.height, innerX = ribInnerX(p);
@@ -81,34 +69,32 @@ export function ribPullFit(p: Design): { band: number; chord: number; openR: num
 
 // The rib's outline point list, shared by the 2D section drawing and the 3D geometry, so the two
 // always match. `k` is the rib index: normally every rib is the same shape (grooves are horizontal
-// rings), but with spiral winding `grooveList` shifts them by k, which makes every rib a different
-// part. `opts.smooth` returns a smooth outer edge with no grooves cut — the cardboard template,
-// which marks the bamboo positions with ticks instead, 0.5mm V notches not being cuttable in board.
+// rings), but with spiral winding `grooveList` shifts them by k, making every rib a different part.
+// `opts.smooth` returns a smooth outer edge with no grooves cut — for the cardboard template, which
+// ticks the bamboo positions instead, 0.5mm V notches not being cuttable in board.
 export function ribOutline2D(p: Design, k = 0, opts: { smooth?: boolean } = {}): Pt2[] {
   const h = p.height, tl = p.tabLen, gR = grooveR(p);
-  // Bamboo rib grooves run over the whole lamp body (between the outermost control points), but NOT
-  // right up to the ends: `grooveLattice` insets the range by gR*1.6 and `grooveList` starts a
-  // further half-pitch in, so no groove sits next to an opening (a barb there does not hold).
-  // With spiral winding, the groove positions shift by rib index k.
+  // Grooves run over the whole lamp body (between the outermost control points) but not right up to
+  // the ends: `grooveLattice` insets the range by gR*1.6 and `grooveList` starts a further half-pitch
+  // in, so no groove sits next to an opening (a barb there does not hold).
   const grooves = grooveList(p, gR, k);
   // Outer edge: grooves cut along the surface normal (opts.smooth = no grooves, for the paper template).
   const outerEdge = grooveOuterPts(p, opts.smooth ? [] : grooves, gR);
   const Ri = innerRi(p), STEP = 0.5, pts: Pt2[] = []; // STEP used by the inner-edge loop below
-  // Tab = a straight tongue. Match the tip exactly to the koma outer radius kR (no overhang).
+  // Tab = a straight tongue, its outer edge exactly the koma outer radius kR (no overhang).
   const kR = komaR(p), dent = tabDented(p); // both tips get the inner-corner dent (matched by the koma notch)
-  // Bottom tab: straight tongue with the tip's inner corner dented in (an L-notch), same as the top.
+  // Bottom tab.
   pts.push([Ri, 0]);
   if (dent) pts.push([Ri, -(tl - TAB_DENT_H)], [Ri + TAB_DENT_W, -(tl - TAB_DENT_H)], [Ri + TAB_DENT_W, -tl]);
   else pts.push([Ri, -tl]);
   pts.push([kR, -tl], [kR, 0]);
   // Outer edge from y=0 (= [outerR(p,0),0]) up to y=h (= [outerR(p,1),h]); endpoints are exact.
   for (const q of outerEdge) pts.push(q);
-  // Top tab: a plain straight tongue (outer edge full kR, no stopper tooth) with the tip's inner corner
-  // dented in — an L-notch cut out of the tip's inner (small-radius) corner.
+  // Top tab: the same, no stopper tooth on the outer edge (full kR).
   pts.push([kR, h], [kR, h + tl]);
   if (dent) pts.push([Ri + TAB_DENT_W, h + tl], [Ri + TAB_DENT_W, h + tl - TAB_DENT_H], [Ri, h + tl - TAB_DENT_H]);
   else pts.push([Ri, h + tl]);
-  // Inner edge: the banana (crescent) curve from top to bottom. Both ends return to Ri, so it connects to the tabs.
+  // Inner edge: the crescent curve, top to bottom. Both ends return to Ri, so it meets the tabs.
   const innerX = ribInnerX(p);
   pts.push([Ri, h]);
   for (let y = h - STEP; y > 0; y -= STEP) pts.push([innerX(y), y]);
@@ -119,22 +105,21 @@ export function ribOutline2D(p: Design, k = 0, opts: { smooth?: boolean } = {}):
 // The window's outer boundary follows the "smooth outer edge (outerR)" rather than the grooved one,
 // so it does not go bumpy — the grooves are accounted for by the band's width instead (see `band`).
 const Y_STAGGER = 0.13; // amount (mm) to offset the window's y-ends off the outline sample lattice (0.5mm)
-// Solid material (mm) that must remain between a groove's notch tip and the lightening window,
-// once the slope term below overtakes the flat-face band. Under ~2mm the strip prints as a tear
-// line — and with the old constant band, the steepest shape the app allowed was down to 0.2mm.
+// Solid material (mm) that must remain between a groove's notch tip and the lightening window, once
+// the slope term below overtakes the flat-face band. Under ~2mm the strip prints as a tear line, and
+// the old constant band left 0.2mm on the steepest shape the app allowed.
 const BAND_SOLID = 3;
 export function lightenHoles2D(p: Design): { holes: Pt2[][]; spineW: number; bandW: number } {
   const h = p.height, td = tabDepth(p);
   const spineW = Math.max(9, td + 3), bandW = 11, strut = 8, MIN_MAT = 12;
   const oS = (y: number) => outerR(p, Math.min(Math.max(y, 0), h) / h); // smooth outer edge
-  // The band of solid left between the grooved edge and the window. It cannot be a constant,
-  // because a groove is cut along the surface NORMAL: the notch tip lands `depth × √(1+slope²)`
-  // further in **in x** than the smooth edge at the tip's own height (the normal's y-component
-  // drags the tip up a face that is itself climbing in x). On a gentle face that is barely more
-  // than the depth and `bandW` swallows it whole; on a steep one — a wide, low body — it is
-  // several times bandW, the window's outer edge is drawn straight through the notch, and earcut
-  // returns a cap with open edges. Hence the slope term, taken as the worst over ±1.5mm so the
-  // 2mm chords between window samples cannot cut the corner either.
+  // The band of solid left between the grooved edge and the window. It cannot be a constant, because
+  // a groove is cut along the surface NORMAL: the notch tip lands `depth × √(1+slope²)` further in
+  // **in x** than the smooth edge at the tip's own height (the normal's y-component drags the tip up
+  // a face itself climbing in x). A gentle face barely exceeds the depth and `bandW` swallows it; a
+  // steep one — a wide, low body — is several times bandW, and the window's outer edge is then drawn
+  // straight through the notch, earcut returning a cap with open edges. Hence the slope term, worst
+  // over ±1.5mm so the 2mm chords between window samples cannot cut the corner either.
   const gDepth = grooveDepth(p);
   const reach = (y: number) => {
     let m = 0;
@@ -144,38 +129,35 @@ export function lightenHoles2D(p: Design): { holes: Pt2[][]; spineW: number; ban
   // `bandW` is the floor, so every design that was already clear of the notch keeps the exact
   // window it had; BAND_SOLID is the material that has to survive behind the tip once it isn't.
   const band = (y: number) => Math.max(bandW, reach(y) + BAND_SOLID);
-  // Make the window's inner side follow the inner-edge banana curve (keeping the core spineW at a
-  // constant width) → the center window also takes a shape following the scoop. Collinear points are
-  // thinned by cleanPoly, so earcut does not break.
+  // The window's inner side follows the crescent inner edge, keeping the core a constant spineW
+  // wide, so the centre window takes the scoop's shape too. cleanPoly thins the collinear points it
+  // leaves, so earcut does not break.
   const rIn = ribInnerX(p);
   const xi = (y: number) => rIn(Math.min(Math.max(y, 0), h)) + spineW;
-  // Bottom: keep the neck's steep rise (flare) solid to reinforce it → do not create a thin, easily
-  // broken strut.
-  // Top: narrows to a point, so leave a small margin. Instead of "dropping" the window, shrink it to
-  //       the range where material remains (even at the narrowing top, produce a small window to even
-  //       out the lightening effect).
+  // Bottom: the neck's steep rise (flare) stays solid rather than becoming a thin, breakable strut.
+  // Top: it narrows to a point, so leave a margin — the window shrinks to the range where material
+  // remains rather than being dropped, so even the narrowing top gets one and the lightening evens out.
   const yBot = cutYbot(p) + 14, yTop = h - cutYtop(p) - 6;
   const nWin = Math.max(1, Math.round((yTop - yBot) / 46)), winH = (yTop - yBot) / nWin, holes: Pt2[][] = [];
   const thin = (y: number) => oS(y) - band(y) - xi(y) < MIN_MAT;
   for (let i = 0; i < nWin; i++) {
     let y0 = yBot + i * winH + strut / 2, y1 = yBot + (i + 1) * winH - strut / 2;
-    // At thin-material ends (like the narrowing top), pull the window ends in short of it (shrink instead of eliminating entirely).
+    // At thin-material ends (the narrowing top) pull the window ends in rather than dropping it.
     while (y1 - y0 > 4 && thin(y1)) y1 -= 2;
     while (y1 - y0 > 4 && thin(y0)) y0 += 2;
     if (y1 - y0 < 14) continue;
-    // With a waist (center-narrowing shape), if a thin band remains partway through the window, earcut breaks, so check the whole range.
+    // On a waisted shape a thin band partway through the window breaks earcut, so check the whole range.
     let ok = true;
     for (let y = y0; y <= y1; y += 2) if (thin(y)) { ok = false; break; }
     if (!ok) continue;
-    // Offset the window's y-ends slightly off the outline's sample lattice (STEP=0.5mm steps). If
-    // they land on exactly the same scan line, the window corner and outline vertex become collinear
-    // and earcut makes a zero-area triangle, resulting in an open edge (the same known degeneracy as
-    // boardGeometry's STAGGER; the offset does not affect the lightening effect).
+    // Offset the window's y-ends off the outline's sample lattice (STEP=0.5mm): on the same scan
+    // line the window corner and outline vertex are collinear, and earcut makes a zero-area triangle
+    // = open edge (boardGeometry's STAGGER is the same fix; the offset costs no lightening).
     const ya = y0 + Y_STAGGER, yb = y1 - Y_STAGGER;
     if (yb - ya < 10) continue;
-    // A closed loop tracing the outer side (inside the band) upward and returning down the inner side
-    // (outside the core = the banana curve). Cut both edges with the same number of divisions and
-    // match the ends exactly (no stray points at the corners).
+    // A closed loop up the outer side (inside the band) and back down the inner one (outside the
+    // core = the crescent), both edges cut with the same divisions and ends matched exactly, so no
+    // stray points are left at the corners.
     const ns = Math.max(2, Math.ceil((yb - ya) / 2));
     const poly: Pt2[] = [];
     for (let i = 0; i <= ns; i++) { const y = ya + ((yb - ya) * i) / ns; poly.push([oS(y) - band(y), y]); }
@@ -186,13 +168,12 @@ export function lightenHoles2D(p: Design): { holes: Pt2[][]; spineW: number; ban
 }
 
 // ============ Rib ============
-// [Spiral winding] The serial number (k+1) engraved on the rib is its position around the
-// circumference: in a spiral every rib has different groove positions, so out of order the bamboo
-// does not form a continuous helix — and the printed parts are indistinguishable. It is cut into the
-// solid band at the bottom end.
-// ・Each digit cuts the lit segments of a 7-segment display as **independent thin through-holes**.
-//   The gaps (G) between segments keep the centre island of a 0 or an 8 connected to the body
-//   through the corners, so it stays watertight exactly as the lightening windows do.
+// [Spiral winding] The serial number (k+1) cut into the solid band at the rib's bottom end is its
+// position around the circumference: in a spiral every rib has different groove positions, so out of
+// order the bamboo does not form a continuous helix — and the printed parts are indistinguishable.
+// ・Each digit cuts the lit segments of a 7-segment display as **independent thin through-holes**;
+//   the gaps between segments keep the centre island of a 0 or an 8 connected to the body through
+//   the corners, so it stays watertight exactly as the lightening windows do.
 // ・Non-spiral returns an empty array, so existing STLs are unchanged (hash match).
 // ・Where an extremely small opening leaves no width for it, the number is given up on.
 export function ribNumberHoles2D(p: Design, k: number): Pt2[][] {
@@ -209,9 +190,9 @@ export function ribNumberHoles2D(p: Design, k: number): Pt2[][] {
     if (H < 3.5) return [];                                 // too small to engrave
   }
   const x0 = Ri + 3 + (availW - blockW) / 2;                // center the band
-  // No segment overlaps another (overlap makes the extrusion cap non-manifold). Horizontal bars are
-  // set inward in x by the vertical-bar width + corner gap; vertical bars are set away in y from the
-  // middle/top/bottom horizontal bars by the corner gap.
+  // No segment overlaps another (overlap makes the extrusion cap non-manifold): horizontal bars are
+  // set in by the vertical-bar width + corner gap, vertical bars set away in y from the middle/top/
+  // bottom horizontal bars by the corner gap.
   const hx0 = T + CG, hx1 = W - T - CG, my = H / 2;
   const SEG: Record<string, string> = { "0": "abcdef", "1": "bc", "2": "abdeg", "3": "abcdg", "4": "bcfg", "5": "acdfg", "6": "acdefg", "7": "abc", "8": "abcdefg", "9": "abcdfg" };
   const rects: Record<string, [number, number, number, number]> = {
@@ -219,13 +200,12 @@ export function ribNumberHoles2D(p: Design, k: number): Pt2[][] {
     f: [0, my + T / 2 + CG, T, H - T - CG], b: [W - T, my + T / 2 + CG, W, H - T - CG],
     e: [0, T + CG, T, my - T / 2 - CG], c: [W - T, T + CG, W, my - T / 2 - CG],
   };
-  // earcut "bridges" holes to the outline to triangulate the cap, but if (a) a hole's horizontal edge
-  // coincides with the outline sample's (STEP=0.5mm) scan line, or (b) multiple holes share the same y
-  // (the mirrored vertical bars f/b and e/c are at the same height), the bridge degenerates into an
-  // open edge. So each hole is given a **unique, off-lattice** y offset (different for every hole → it
-  // matches neither a scan line nor any other hole). The offset is the same at the top and bottom
-  // ends, so the bar thickness is unchanged; the amount is at most about 0.6mm and the digit's
-  // appearance does not change.
+  // earcut "bridges" holes to the outline to triangulate the cap, and the bridge degenerates into an
+  // open edge if (a) a hole's horizontal edge coincides with the outline sample's (STEP=0.5mm) scan
+  // line or (b) several holes share a y (the mirrored vertical bars f/b and e/c are at one height).
+  // So each hole gets a **unique, off-lattice** y offset, matching neither a scan line nor another
+  // hole. It is the same at both ends, so bar thickness is unchanged, and at most ~0.6mm, so the
+  // digit looks no different.
   const holes: Pt2[][] = [];
   let hi = 0;
   for (let i = 0; i < s.length; i++) {
@@ -240,10 +220,9 @@ export function ribNumberHoles2D(p: Design, k: number): Pt2[][] {
   }
   return holes;
 }
-// 3D rib = extrude the 2D final shape (straight inner edge + inner tabs at the same top/bottom positions + outer-edge curve + lightening).
-// `opts` reaches ribOutline2D untouched — today that is `{ smooth: true }`, the grooveless outer edge
-// the cardboard template cuts (papercraft.ts) and the guide's cardboard figures draw. Omitted, the
-// rib is the printed one, vertex for vertex.
+// 3D rib = the 2D final shape extruded. `opts` reaches ribOutline2D untouched — today that is
+// `{ smooth: true }`, the grooveless outer edge the cardboard template cuts (papercraft.ts) and the
+// guide's cardboard figures draw. Omitted, the rib is the printed one, vertex for vertex.
 export function ribShape(p: Design, k: number, opts: { smooth?: boolean } = {}): THREE.Shape {
   const holes = p.lighten ? lightenHoles2D(p).holes : [];
   return shapeFromPts(ribOutline2D(p, k, opts), [...holes, ...ribNumberHoles2D(p, k)]);

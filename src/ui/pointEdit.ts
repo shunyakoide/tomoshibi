@@ -2,19 +2,16 @@
  * ============================================================================
  * EDITING THE SELECTED CONTROL POINT — the operations, in one place
  * ============================================================================
- * Two surfaces edit the same ◇ now: the full card in the inspector (`PointCard`) and the contextual
- * bar over the sheet on a phone (`PointBar`). The rules for editing a point are not obvious enough
- * to be written twice:
+ * Two surfaces edit the same ◇ — the inspector card (`PointCard`) and the phone's bar (`PointBar`)
+ * — and these rules must not be written twice:
  *
- * - **Height is typed in mm but stored as `t`**, and the neighbours cap it (±0.04) so the array
- *   stays in ascending order. Fork this and one surface lets you drag a point past its neighbour
- *   while the other does not, and `fukuroTangents` sees a list it was promised is sorted.
- * - **A point can only be deleted while more than two remain** — `outerR` needs two to interpolate
- *   between, and `fukuroSpline`'s div-0 guard exists because that was once reachable.
- * - **Deleting clears the selection**, or the card and the bar both keep pointing at an index that
- *   is now a different point.
+ * - **Height is typed in mm, stored as `t`**, capped by the neighbours (±0.04) so the array stays
+ *   ascending — `fukuroTangents` is promised a sorted list.
+ * - **Delete only while more than two points remain** — `outerR` needs two to interpolate between,
+ *   and `fukuroSpline`'s div-0 guard exists because that was once reachable.
+ * - **Deleting clears the selection**, or both surfaces point at an index that is now another point.
  *
- * No hooks and no JSX, so this is a plain `.ts`: closures over the state setter, nothing more.
+ * No hooks and no JSX, so a plain `.ts`: closures over the state setter, nothing more.
  * ============================================================================
  */
 import type React from "react";
@@ -27,10 +24,8 @@ export type EditMode = "move" | "curve";
 
 /**
  * Switch the editor's mode. Entering "curve" with no handles yet bakes them from the current
- * Hermite curve, which leaves the shape untouched; from then on `outerR` evaluates as Bézier and the
- * angles are editable. It has to happen on the FIRST entry and only then, from whichever surface
- * asked — the card in the inspector or the phone's contextual bar — so it lives here with the rest
- * of the rules rather than in either of them.
+ * Hermite curve (shape-neutral); `outerR` then evaluates as Bézier and the angles are editable. It
+ * must happen on the FIRST entry only, from whichever surface asked, so it lives here.
  */
 export function makeSetMode(
   setP: React.Dispatch<React.SetStateAction<Design>>,
@@ -49,8 +44,8 @@ export function pointOps(
   setSel: (i: number | null) => void,
 ) {
   const pt = sel != null && p.pts?.[sel] ? p.pts[sel] : null;
-  // The first and last points ARE the opening (and the neck's radius) — see "Profile model" in
-  // CLAUDE.md. Both surfaces label them differently for that reason.
+  // The first and last points ARE the opening (and the neck's radius) — docs/design-notes.md "Profile model" —
+  // which is why both surfaces label them differently.
   const isEnd = pt != null && (sel === 0 || sel === p.pts.length - 1);
   const canDelete = p.pts.length > 2;
 

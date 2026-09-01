@@ -153,7 +153,9 @@ what you see is exactly what you print.
 Geometry changes must stay **watertight**. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
 dev setup, the verification gates (`npm run lint` / `typecheck` / `check:manifold` / `check:hash` /
 `check:persist` / `check:paper` / `check:glyphs` / `check:i18n` / `check:style`), and the design invariants to preserve.
-CI runs them on every push and pull request.
+CI runs them on every push and pull request. The design decisions behind the mold — the part
+roles, the print-fit invariants, why each shape is the shape it is — are in
+[docs/design-notes.md](docs/design-notes.md).
 
 ## License
 

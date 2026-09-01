@@ -2,23 +2,21 @@
  * ============================================================================
  * INTERNATIONALIZATION (I18N) — Japanese / English
  * ============================================================================
- * Approach: use "the Japanese string itself as the key" to look up the English dictionary EN.
- * This keeps the Japanese source readable, and untranslated strings automatically fall back to
- * Japanese. Interpolation uses `{name}` placeholders (include {name} in the key string and
- * substitute via t(key, { name: value })).
+ * The Japanese string itself is the key into the English dictionary EN: the source stays readable
+ * and an untranslated string falls back to Japanese. Interpolation is `{name}` placeholders in the
+ * key, substituted via t(key, { name: value }).
  *
- * A pure module with no React/DOM dependency (it only handles the localStorage language
- * setting). It targets UI strings only; in-code comments are in English (CLAUDE.md convention).
+ * Pure, no React/DOM beyond the localStorage language setting. UI strings only; in-code comments
+ * are in English (docs/design-notes.md convention).
  * ============================================================================
  */
 
 /** The two UI languages. Anything else in storage is not one, and loadLang folds it to "en". */
 export type Lang = "ja" | "en";
 /**
- * The translation function every component receives as `t`. The key is the Japanese string itself
- * (see CLAUDE.md "Conventions"), so this is `string`, not a union of known keys: keys are built by
- * template literal in several places, and a union would only move the check to where the string is
- * assembled — which is exactly what `npm run check:i18n` already does over the real source.
+ * The translation function every component receives as `t`. `string` rather than a union of known
+ * keys, because keys are built by template literal in places: a union would only move the check to
+ * where the string is assembled, which is what `npm run check:i18n` does over the real source.
  */
 export type T = (s: string, params?: Record<string, string | number>) => string;
 export const LANG_KEY = "tomoshibi.lang";
@@ -102,15 +100,15 @@ const EN: Record<string, string> = {
     "This output is still in development. Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Measure your material's real thickness, and check the printed 50 mm scale bar with a ruler.",
   "材料の厚み": "Material thickness",
   "型紙 ZIP をダウンロード (A4 原寸)": "Download the template ZIP (A4, 1:1)",
-  // The one line that stays out in the open under the cardboard CTA: a PDF is already A4 at exact
-  // size, so the printer's own scaling is the only way left to lose that.
+  // The one line that stays in the open under the cardboard CTA: a PDF is already A4 at exact size,
+  // so the printer's own scaling is the only way left to lose that.
   "原寸 100% で印刷": "Print at 100%",
   "(「用紙に合わせる」は不可)": " — never \"fit to page\"",
-  // The PDF's own title line. It prints in whichever language the app is showing — the writer draws
-  // the Japanese from outlines (pdf.ts / pdf-glyphs.ts) rather than through base-14 Helvetica.
+  // The PDF's own title line, printed in whichever language the app is showing: the writer draws
+  // the Japanese from outlines (pdf.ts / pdf-glyphs.ts) rather than base-14 Helvetica.
   "TOMOSHIBI 段ボール型紙 {name} 原寸": "TOMOSHIBI cardboard template {name} (full scale)",
-  // Printed on every sheet. Both languages reach paper now (the writer carries outlines for the
-  // Japanese), so keep both SHORT: the note shares its band with the right-aligned footer.
+  // Printed on every sheet, in both languages, so keep both SHORT: the note shares its band with
+  // the right-aligned footer.
   "← 定規で確認": "<- check with a ruler",
   // ---- Summary ----
   "最大径": "Max diameter",
@@ -149,8 +147,8 @@ const EN: Record<string, string> = {
   "→ 火袋の高さを {h}mm 以下に": "→ Reduce body height to {h}mm or less",
   "コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです": "Only {wall}mm of koma left between notches — thin enough to tear when hand-cut",
   "→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる": "→ Fewer ribs / thinner material / widen the opening in the section view",
-  // The rib has to come back out of the shade it shaped, through one of the two openings. "抜けません"
-  // is about the finished lantern, not about the print, so the English says come out rather than fit.
+  // The rib has to come back out of the shade it shaped, through one of the two openings. This is
+  // about the finished lantern, not the print, so the English says come out rather than fit.
   "羽根板の幅 {w}mm — 開口 ⌀{d}mm から抜けません": "The rib is {w}mm wide — it cannot come out of the ⌀{d}mm opening",
   "→ 断面図で開口を広げる / ふくらみを抑える": "→ Widen the opening in the section view / flatten the bulge",
   "鑑賞モード — 編集はタブで「断面」へ": "Viewing mode — switch to the Section tab to edit",
@@ -160,8 +158,7 @@ const EN: Record<string, string> = {
   "火袋": "Body",
   "開口/首": "Opening/Neck",
   // Legend at the top-right of the section view — a bottom-left pill on a phone (glyph / verb /
-  // description columns).
-  // Keep the description column short — it sits next to a fixed-width verb column in a corner card.
+  // description columns). Keep the description short: it sits beside a fixed-width verb column.
   "点の操作": "Editing the points",
   "カーブ調整中": "Curve mode",
   "ドラッグ": "Drag",
@@ -178,18 +175,17 @@ const EN: Record<string, string> = {
   "選択中の点": "Selected point",
   "✥ 点を動かす": "✥ Move",
   "◠ カーブ調整": "◠ Curve",
-  // The contextual bar's caption under the ◠ glyph. Shorter than 「カーブ調整」 because it sits in a
-  // 46px button (same reason なめらか/角 above lost their glyphs).
+  // The contextual bar's caption under the ◠ glyph. Shorter than the card's label because it sits
+  // in a 46px button (same reason the two above lost their glyphs).
   "カーブ": "Curve",
-  // Just 半径: it is the distance from the centre axis to this control point, which is the same
-  // number the section view prints beside the ◇. It was 「張り出し(半径)」, a word borrowed from the
-  // neck hint below — where "how far it sticks out" is fair — and meaningless for a body point.
+  // Just radius: the distance from the centre axis to this control point, the same number the
+  // section view prints beside the ◇. "How far it sticks out" belongs to the neck hint below.
   "半径": "Radius",
   "高さ位置": "Height position",
   "◇ なめらか": "◇ Smooth",
   "■ 角": "■ Corner",
-  // The same two states named without their glyph: the contextual bar (ui/PointBar.tsx) draws
-  // ◇ and ■ as the whole button, so the words are its aria-label, where a read-aloud "◇" is noise.
+  // The same two states without their glyph: the contextual bar (ui/PointBar.tsx) draws ◇ and ■ as
+  // the whole button, so the words are its aria-label, where a read-aloud glyph is noise.
   "なめらか": "Smooth",
   "角": "Corner",
   "この点を削除": "Delete this point",
@@ -199,13 +195,13 @@ const EN: Record<string, string> = {
   "編集": "Edit",
   "すべての設定を初期状態に戻す": "Reset all settings to defaults",
   // ---- The header menu (ui/Menu.tsx) ----
-  // 「初期化」 itself is in the Toolbar block near the top, with its confirm; the row's second line
-  // reuses 「すべての設定を初期状態に戻す」, which used to be that button's title=.
+  // The reset row itself is in the Toolbar block above, with its confirm; the row's second line
+  // reuses the reset entry that used to be that button's title=.
   "メニュー": "More",
   "言語": "Language",
-  // Named for what they are FOR, not for what they do to a file. The only times either one is
-  // reached are "my browser data is gone" and "restore the tomoshibi_config.json out of a kit ZIP I
-  // downloaded months ago" — and that ZIP's own manifest already calls that file 設計のバックアップ.
+  // Named for what they are FOR, not what they do to a file: the only two moments either is reached
+  // are "my browser data is gone" and "restore the config JSON out of an old kit ZIP" — and that
+  // ZIP's own manifest calls the file a design backup too.
   "バックアップを保存": "Save a backup",
   "バックアップから復元": "Restore from a backup",
   "設計ファイルを読み込めませんでした(JSON が壊れています)。": "Couldn't load the design file (the JSON is corrupted).",
@@ -229,18 +225,16 @@ const EN: Record<string, string> = {
   "TOMOSHIBI 和紙型紙 {name} 原寸": "TOMOSHIBI washi template {name} (full scale)",
 
   // ---- Build guide (the 作り方 page at `/guide`) ----
-  // Body text is long by the standards of this file: it is the only place in the app that explains a
-  // hand movement rather than labelling a control, and it is read once, away from the screen.
-  // One string for the menu row and the page's own kicker, so the document says back the word the row
-  // named. It was 「組立説明書」 on the page, which is narrower than what is on it — winding bamboo,
-  // pasting washi, drying, pulling the mold out and lighting the result are not assembly, and half of
-  // them happen after the mold comes apart.
+  // Body text is long here: it is the only place in the app explaining a hand movement rather than
+  // labelling a control, read once and away from the screen. One string for the menu row and the
+  // page's kicker, so the document says back the word the row named. Not "assembly instructions":
+  // winding, pasting, drying, pulling and lighting are not assembly, and half of them happen after
+  // the mold comes apart.
   "作り方": "How to build it",
   "3Dプリントで型をつくる": "Build the mold by 3D printing",
   "段ボールで型をつくる": "Build the mold from cardboard",
-  // The figures draw one representative lantern and the page prints no dimensions at all, so the
-  // lead says so — a reader who counts eight ribs in every picture has to be told they are not a
-  // specification. See the GuidePage header.
+  // The figures draw one representative lantern and the page prints no dimensions, so the lead says
+  // so: a reader counting eight ribs in every picture must be told they are not a specification.
   "型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図は一例で、大きさや枚数は設計によって変わります。":
     "Assemble the mold, wind the bamboo, paste the washi, and pull the mold once it is dry. The figures show one example — sizes and counts follow your own design.",
   "設計した枚数": "per your design",
@@ -295,8 +289,8 @@ const EN: Record<string, string> = {
   "材料": "Materials",
   "道具": "Tools",
   // One entry serves the inspector's section heading and the kit card both: the dictionary is keyed
-  // by the Japanese, so a word cannot have two translations. (It had two — "Bamboo" for the panel,
-  // "Bamboo ribs" for the card — and the second silently retranslated the first. See check:i18n.)
+  // by the Japanese, so a word cannot have two translations — a second entry silently retranslates
+  // the first (see check:i18n).
   "竹ひご": "Bamboo ribs",
   "ワイヤー": "Wire",
   "任意": "optional",
@@ -321,11 +315,10 @@ const EN: Record<string, string> = {
   "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。":
     "Stand an LED lamp on the floor and drop the shade over it. No legs, no fittings. Pick a lamp that fits through the bottom opening.",
   "上から吊るす": "Hang it from above",
-  // Hanging. One wire, bowed into an arch over the top opening: the SOCKET hangs in the U bent
-  // into its middle (the gap passes the cord and stops the socket) and the shade hangs on the
-  // wire, whose ends drape over the rim. 「吊り線」 is that wire once it is bent for the job — the
-  // material is 「ワイヤー」 on the kit list, and the two words have to stay in their places or the
-  // page is naming one thing twice.
+  // Hanging. One wire bowed into an arch over the top opening: the SOCKET hangs in the U bent into
+  // its middle (the gap passes the cord and stops the socket) and the shade hangs on the wire,
+  // whose ends drape over the rim. The hanger is that wire once bent for the job, distinct from the
+  // wire as a kit-list material; the two words must stay in their places.
   "ソケットを大きいほうの開口から入れ、コードを上の開口から出します。吊り線1本のUにコードを入れてソケットを引っ掛け、両端を上の開口の縁の下に入れます。":
     "Put the socket in through the wider opening and bring the cord out of the top one. Drop the cord into the U of one hanger so the socket catches in it, and tuck the hanger's two ends under the rim of the top opening.",
   "上の開口の大きさによっては安定しないことがあります。長さや曲げ方は現物に合わせて調整してください。":
@@ -341,17 +334,15 @@ const EN: Record<string, string> = {
     "The cardboard route prints no opening ring. Make one from card, glue it into the bottom opening and pierce three holes in it for the leg ends. The rest is the same: take the lamp with its legs and its frame on it in through the bottom opening to stand it up, and run the cord out between the legs.",
   "脚と枠を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは脚のあいだから下へ逃がします。":
     "Take the lamp with its legs and its frame on it in through the bottom opening and push the leg ends into the bottom ring's leg sockets to stand it up. The frame runs up inside the body and shows a little of itself at the top opening, holding the body taut between the two ends. The cord runs down and out between the legs.",
-  // The wire work under that one. ネジ is the socket's threaded stem and ナット the fixing nut
-  // that runs on it — one pair of words, so the three sub-steps have to keep calling them the same
-  // thing in both languages or the reader loses which part is which between figures.
-  // Not 「ワイヤーを曲げる」 for this one: that is already the pliers' line on the kit list, where
-  // it reads "for bending the wire" — a note about when you need the tool, not an instruction.
-  // The dictionary is keyed by the Japanese, so one wording cannot carry both (check:i18n).
+  // The wire work under that one. The socket's threaded stem and its fixing nut are one pair of
+  // words the sub-steps must keep calling the same thing in both languages, or the reader loses
+  // which part is which between figures. This step is named for the legs, not the wire: the wire
+  // wording is already the pliers' line on the kit list, and one key cannot carry both.
   "脚を曲げる": "Bend the legs",
   "ペンチで先端を輪に曲げます。輪はソケットのネジが通る大きさに。残りは外へ渡してから下へ折り、床に届く長さにします。3本とも同じ形に。":
     "Bend a loop in one end with the pliers, big enough to pass over the socket's threaded stem. Take the rest outward, then turn it down and cut it long enough to reach the floor. All three the same shape.",
-  // 枠 is the hoop that holds the shade out to its height, not the mold's rib boards — "frame" in
-  // the lampshade sense, the wire a shade is built on.
+  // The frame is the hoop holding the shade out to its height — the lampshade sense of the word,
+  // not the mold's rib boards.
   "枠を曲げる": "Bend the frame",
   "もう1本を輪に曲げます。下は両端を合わせて脚と同じ大きさの輪にし、そこから電球とソケットに当たらないよう外へ開いて立ち上げます。上の端は小さな輪に。高さは、その輪が上の開口から少し出るくらいに。":
     "Bend a second length into a hoop. At the bottom, bring both ends together into a loop the same size as the legs'; from there open it outward, clear of the bulb and the socket, before taking it up. A small loop at the top end. Make it tall enough that the loop stands a little proud of the top opening.",
@@ -363,9 +354,8 @@ const EN: Record<string, string> = {
     "Run the nut back up and tighten it. The lamp, its legs and its frame are now one piece.",
 };
 
-// Return the translation function for language `lang`. t(key, params?): for English, look up EN
-// (falling back to Japanese if absent) and substitute {name} with params[name]. For Japanese,
-// interpolate and return the key as-is.
+// The translation function for language `lang`: English looks up EN (falling back to the Japanese
+// key), Japanese returns the key; both substitute {name} from params.
 export function makeT(lang: Lang): T {
   const dict = lang === "en" ? EN : null;
   return (s, params) => {

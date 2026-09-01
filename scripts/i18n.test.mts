@@ -2,31 +2,22 @@
  * ============================================================================
  * i18n coverage verification
  * ============================================================================
- * The dictionary in i18n.ts is keyed by **the Japanese UI string itself**, which keeps the source
- * readable and makes an untranslated string fall back to Japanese rather than crash. The cost is
- * that the failure is silent: reword one Japanese label and its English translation is not "out of
- * date", it is simply **gone** — the app quietly shows Japanese to an English visitor, and nothing
- * in the build, the manifold sweep or the paper test notices. That has already happened once (the
- * Washi section shipped Japanese-only in English mode).
+ * The dictionary in i18n.ts is keyed by **the Japanese UI string itself**: readable source and a
+ * fallback to Japanese, at the cost of a silent failure — reword one label and its translation is
+ * not out of date, it is **gone**, with no other gate noticing. It has happened. Pinned here:
  *
- * This script pins the three ways that dictionary drifts:
+ *   1. **Missing** — a Japanese string reaching the UI with no EN entry. Collected from every
+ *      `t("…")` call (nested in template literals included) plus every plain Japanese literal in
+ *      src/, the latter also catching a label never wired through `t` at all.
+ *   2. **Orphaned** — an EN entry whose key appears nowhere in src/: the fingerprint of a reworded
+ *      string, the old key stranded while the new wording falls back.
+ *   3. **Placeholder mismatch** — `{name}` slots on one side only. `t()` substitutes by name, so a
+ *      dropped slot prints nothing and an invented one prints the literal braces.
  *
- *   1. **Missing** — a Japanese string that reaches the UI has no EN entry. Collected from every
- *      `t("…")` call (including calls nested inside template literals) plus every plain Japanese
- *      string literal in src/ — the latter also catches a label that was never wired through `t`
- *      at all, which is the same bug one step earlier.
- *   2. **Orphaned** — an EN entry whose Japanese key appears nowhere in src/. Harmless on its own,
- *      but it is the fingerprint of a reworded string: the old key is stranded here while the new
- *      wording silently falls back to Japanese. Fixing an orphan is usually fixing a missing one.
- *   3. **Placeholder mismatch** — `{name}` slots that exist on one side only. `t()` substitutes by
- *      name, so a slot dropped from the translation does not error: the number just never appears
- *      ("up to about % slack"), and a slot invented in the translation prints the literal braces.
+ * Comments are English by convention, so Japanese in one is not a UI string — the scanner strips
+ * comments rather than regex-matching over them.
  *
- * Comments are in English by convention (CLAUDE.md), so Japanese in a comment is not a UI string —
- * the scanner strips comments properly rather than regex-matching over them.
- *
- * Run:  npm run check:i18n
- * Run this after touching any UI wording or i18n.ts.
+ * Run:  npm run check:i18n — after touching any UI wording or i18n.ts.
  * ============================================================================
  */
 import fs from "node:fs";
@@ -49,11 +40,9 @@ const ALLOW = new Set([
 ]);
 
 // ---- Source scanning ----------------------------------------------------------------------
-// A character scanner rather than a regex, because both directions of the naive approach are
-// wrong: stripping `//` comments with a regex eats the `//` inside a URL, and matching literals
-// without tracking comments picks up the Japanese in a comment. It also has to see string
-// literals NESTED IN template literals — `${t("羽根板")} ×${n}` is one template token, and the
-// t() call inside it is exactly what we are looking for.
+// A character scanner rather than a regex: a regex `//` strip eats the `//` inside a URL, and
+// matching literals without tracking comments picks up Japanese in a comment. It also has to see
+// literals NESTED IN template literals, where the `t()` call inside is what we are after.
 function scan(src: string): { literals: string[]; code: string } {
   const literals: string[] = [];      // plain '…' / "…" literals (not template literals)
   let code = "";            // source with comments blanked out, literals kept
@@ -118,8 +107,8 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 // pdf-glyphs.ts is keyed by the character it draws, so every Japanese glyph in it reads as an
-// untranslated UI string. It is generated data (tools/pdffont), not copy — check:glyphs is what
-// holds it to its own source, the same way this file holds the dictionary to its.
+// untranslated UI string. It is generated data (tools/pdffont), not copy; check:glyphs holds it to
+// its own source.
 const SRC = walk("src").filter((f) => !f.endsWith("i18n.ts") && !f.endsWith("pdf-glyphs.ts"));
 const rawAll = SRC.map((f) => fs.readFileSync(f, "utf8"));
 
@@ -129,9 +118,8 @@ const note = (s: string, f: string) => { if (!where.has(s)) where.set(s, new Set
 
 for (let k = 0; k < SRC.length; k++) {
   const { literals, code } = scan(rawAll[k]);
-  // (a) every t("…") call — the string is definitely a UI string, Japanese or not. A few keys are
-  //     pure interpolation ("{name} {n}mm") and carry no kana at all; they still need an entry, and
-  //     they still go stale, so the language filter must not run here.
+  // (a) every t("…") call — a UI string by construction, Japanese or not. A few keys are pure
+  //     interpolation with no kana at all, and they still go stale, so no language filter here.
   const call = /\bt\s*\(\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g;
   let m;
   while ((m = call.exec(code))) note(unescape_(m[1].slice(1, -1)), SRC[k]);
@@ -155,12 +143,10 @@ if (missing.length) {
 }
 
 // ---- 2. Orphaned dictionary entries --------------------------------------------------------
-// The EN dict is not exported (it is an implementation detail of makeT), so read its keys off the
-// source. Only the keys are needed, and they are plain literals at one indent level.
-// The declaration is matched by a pattern rather than by its exact text, and a miss is fatal rather
-// than empty: anchoring on the literal `const EN: Record<string, string> = {` meant that retyping
-// the annotation would leave EN_KEYS empty, and BOTH gates below would then pass over nothing at
-// all — a check that silently stops checking is worse than no check.
+// The EN dict is not exported, so read its keys off the source; they are plain literals at one
+// indent level. The declaration is matched by a PATTERN and a miss is fatal rather than empty:
+// anchored on its exact text, retyping the annotation would empty EN_KEYS and both gates below would
+// pass over nothing — a check that silently stops checking is worse than no check.
 const i18nSrc = fs.readFileSync("src/i18n.ts", "utf8");
 const dictAt = i18nSrc.search(/^const EN\b[^=]*=\s*\{$/m);
 if (dictAt < 0) { bad("cannot find the EN dictionary declaration in src/i18n.ts"); process.exit(1); }
@@ -168,10 +154,9 @@ const dictBody = i18nSrc.slice(dictAt, i18nSrc.indexOf("\n};", dictAt));
 const EN_KEYS = [...dictBody.matchAll(/^\s{2}"((?:[^"\\]|\\.)*)":/gm)].map((m) => unescape_(m[1]));
 if (!EN_KEYS.length) { bad("read 0 keys out of the EN dictionary — the scraper has drifted"); process.exit(1); }
 
-// A duplicate key is invisible in JS — the object literal keeps the last one — so a new entry that
-// happens to repeat a word already in the dictionary silently RETRANSLATES the old one somewhere
-// else in the app. Adding "\u548c\u7d19": "Washi paper" for a materials card did exactly that to the
-// inspector's own "\u548c\u7d19" section heading, and nothing else here noticed.
+// A duplicate key is invisible in JS — the object literal keeps the last one — so an entry that
+// repeats a word already in the dictionary silently RETRANSLATES the old one elsewhere in the app.
+// A materials card's "\u548c\u7d19" did exactly that to the inspector's own section heading.
 const dupes = EN_KEYS.filter((k, i) => EN_KEYS.indexOf(k) !== i);
 if (dupes.length) {
   for (const k of [...new Set(dupes)]) bad(`duplicate EN entry (the later one silently wins): ${JSON.stringify(k)}`);

@@ -2,23 +2,17 @@
  * ============================================================================
  * ESLint — the React hook rules, and only those
  * ============================================================================
- * This project has no linter by policy: the checks that matter here are geometric (watertightness,
- * full scale), and a style linter would only add noise and a dependency. One class of bug is the
- * exception, because it is invisible in review and no geometric check can see it: a hook whose
- * dependency array does not match what its body reads. That is a stale closure — the viewport
- * keeps rendering the design from three edits ago — and it fails silently.
+ * No linter by policy: the checks that matter here are geometric. The one exception is invisible to
+ * review and to every geometric check — a hook whose dependency array disagrees with its body, i.e.
+ * a stale closure, failing silently. So: the two classic hook rules, nothing else.
+ * `react-hooks/recommended` would switch on ~29 rules (the React Compiler set included), none of
+ * which this codebase was written against.
  *
- * So this config enables the two classic hook rules and nothing else. `react-hooks/recommended`
- * would switch on ~29 rules (the plugin now ships the React Compiler lint set too), none of which
- * this codebase was written against; that is a separate decision, not a side effect of wanting
- * dependency checking.
- *
- * Deliberately absent: `eslint:recommended`. Without it `no-undef` never runs, which is what lets
- * us skip a `globals` dependency for `window` / `document` / `localStorage` — the build already
- * fails on a genuinely undefined identifier. Same for typescript-eslint's own rule sets: `tsc` is
- * the type check, and it runs in `npm run build`. What the parser is here for is that ESLint cannot
- * READ a .ts/.tsx file without it — and a config whose `files` no longer matches anything reports
- * "0 problems" exactly as loudly as a clean one. That silence is the failure mode this guards.
+ * Deliberately absent: `eslint:recommended`, so `no-undef` never runs and no `globals` dependency is
+ * needed for `window` / `document` / `localStorage`; the build already fails on a genuinely
+ * undefined identifier, and `tsc` in `npm run build` is the type check. The parser is here because
+ * ESLint cannot READ a .ts/.tsx file without it, and a `files` matching nothing reports "0 problems"
+ * as loudly as a clean run — that silence is the failure mode this guards.
  *
  * Run:  npm run lint          (part of the verification gates; warnings are errors)
  * ============================================================================
@@ -40,9 +34,8 @@ export default [
       // A hook called conditionally or out of a component desynchronizes React's hook order —
       // always a bug, never a style preference.
       "react-hooks/rules-of-hooks": "error",
-      // The stale-closure rule above. It is an error rather than a warning because the two places
-      // that legitimately opt out already say so in an eslint-disable comment with a reason, which
-      // is the standard this keeps: escaping the rule is fine, escaping it silently is not.
+      // The stale-closure rule above. An error rather than a warning because both legitimate
+      // opt-outs carry an eslint-disable comment with a reason: escaping it silently is not fine.
       "react-hooks/exhaustive-deps": "error",
     },
   },

@@ -2,26 +2,21 @@
  * ============================================================================
  * POINT LIST → EXTRUDABLE SHAPE
  * ============================================================================
- * The one conversion from "[[x,y],…]" to a THREE.Shape, and the cleanup that has to happen first.
- *
- * Every extruded part goes through `shapeFromPts` because earcut degenerates in two ways that both
- * end in an open edge — near-duplicate points and collinear runs — and the cleanup has to be applied
- * to the holes as well as the outline. Building a Shape by hand is how you forget the second half
- * (see CLAUDE.md "Two kinds of earcut degeneracy"; ribBandShape once carried a copy of the cleanup
- * that was missing exactly the collinear removal).
+ * The one conversion from "[[x,y],…]" to a THREE.Shape. Every extruded part goes through
+ * `shapeFromPts` rather than building a Shape by hand, which is how you forget to clean the holes as
+ * well as the outline (see docs/design-notes.md "Two kinds of earcut degeneracy").
  * ============================================================================
  */
 import type { Pt2 } from "../types.ts";
 import * as THREE from "three";
 
 // Point-list cleanup before extrusion (used for both the outline and the windows).
-// ・Remove near-duplicate points: they arise at the barb (steep flank) and at the neck merge. Left
-//   in, they make degenerate triangles → open edge.
-// ・Remove collinear points: without this, "points on the same line" line up in the hundreds in flat
-//   stretches like the inner-edge curve. earcut drops collinear points when triangulating, so the
-//   cap's boundary diverges from the side-wall boundary and becomes an open edge (the side walls are
-//   built exactly per the point list, but the cap discards points).
-//   The test uses "the perpendicular distance from the line joining the neighboring points" (stable regardless of length).
+// ・Near-duplicate points arise at the barb (steep flank) and at the neck merge; left in they make
+//   degenerate triangles → open edge.
+// ・Collinear points line up in the hundreds along flat stretches like the inner-edge curve. earcut
+//   drops them when triangulating, so the cap's boundary diverges from the side walls (which are
+//   built exactly per the point list) and becomes an open edge. Tested by perpendicular distance
+//   from the line joining the neighbors (stable regardless of length).
 function cleanPoly(pts: Pt2[], eps = 1e-3): Pt2[] {
   const out: Pt2[] = [];
   for (const q of pts) { const l = out[out.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > eps) out.push(q); }
@@ -38,9 +33,8 @@ function cleanPoly(pts: Pt2[], eps = 1e-3): Pt2[] {
   }
   return keep.length >= 3 ? keep : out;
 }
-// Builds a Shape for extrusion from a point list (+ hole point lists). Both the outline and the
-// holes always go through cleanPoly (forgetting the cleanup on either one lets earcut break the cap
-// and produce an open edge).
+// Builds a Shape for extrusion from a point list (+ hole point lists); outline and holes both go
+// through cleanPoly.
 export function shapeFromPts(pts: Pt2[], holes: Pt2[][] = []): THREE.Shape {
   const outline = cleanPoly(pts);
   const s = new THREE.Shape();

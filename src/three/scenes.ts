@@ -4,17 +4,14 @@
  * ============================================================================
  * `buildScene(state, opts)` empties the viewport's group and refills it for the current view:
  *   mold  … the assembled mold lying in its stand, CAD-style, on a ground grid
- *   print … the parts laid flat on print plates, arranged as the slicer would see them
+ *   print … the parts laid flat on print plates, as the slicer would see them
  *   lit   … the finished lantern glowing in a dark room (no mold at all)
  *
- * Two views draw NO 3D and say so by returning early: `2d` (the section editor is an SVG over this
- * canvas) and `print` on the cardboard route (its output is a document, so PagePreview draws the
- * template's own pages over it the same way). The build guide is not a view at all — it is a page,
- * and its figures are rendered off-screen by three/figures.ts as images.
+ * `2d` and `print`-on-cardboard draw NO 3D and return early; each is a document over this canvas.
+ * The build guide is a page, not a view (three/figures.ts renders its figures off-screen).
  *
- * Every shape comes from geometry.ts; nothing here computes a dimension of its own, or the preview
- * and the STL would drift. The one exception is the print layout, which rotates parts flat — and
- * that is preview-only, the export laying its own plates out.
+ * Every shape comes from geometry.ts — nothing here computes a dimension, or preview and STL drift.
+ * The one exception is the print layout's rotate-parts-flat, which is preview-only.
  * ============================================================================
  */
 import * as THREE from "three";
@@ -42,11 +39,9 @@ export type SceneOpts = {
   route: Route;
 };
 
-// Dark-room background for the lit view. Painted as a real scene background rather than left to the
-// mount's CSS gradient: since three r170 the alpha channel survives UnrealBloomPass, and bloom runs
-// in the lit view alone — so the canvas turned transparent there and the gradient showed through,
-// meeting the fogged floor in a hard horizon seam. Same colour as the lit fog, so floor and sky meet
-// invisibly.
+// Dark-room background for the lit view, painted as a scene background rather than left to the
+// mount's CSS gradient: since three r170 alpha survives UnrealBloomPass, so the lit view (the only
+// one with bloom) let the gradient through into a hard horizon seam. Same colour as the lit fog.
 const LIT_BG = new THREE.Color(0x070a11);
 
 const GAP = 8;   // spacing between parts on a print plate (mm)
@@ -60,9 +55,8 @@ function frame(s: ViewportState, contentH: number, contentR: number, centerY: nu
   s.baseDist = Math.max((contentH / 2) / Math.tan(fovV / 2), contentR / Math.tan(fovH / 2)) * 1.45;
   cam.far = Math.max(4000, s.baseDist * 3);
   cam.updateProjectionMatrix();
-  // Re-framing also puts the camera back at the framing distance, so any zoom the user had dialled
-  // in is dropped — as it was before OrbitControls. A design edit changes what "fits" the view, and
-  // a zoom kept across that lands somewhere arbitrary.
+  // Re-framing resets the camera to the framing distance, dropping any zoom: a design edit changes
+  // what "fits", so a zoom kept across it lands somewhere arbitrary.
   s.setZoomRange(s.baseDist);
   s.setOrbit({ dist: s.baseDist, lookY: centerY });
 }
@@ -87,8 +81,7 @@ function moldGroup(p: Design, s: ViewportState): THREE.Group {
 // ---- lit: the finished lantern, no mold ----
 function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   const legH = p.height * 0.42;                 // three legs (1AY style)
-  // The neck carries no bamboo and no washi, so it isn't part of the skin: draw the lamp body only
-  // and leave the openings open.
+  // The neck carries no bamboo or washi: draw the lamp body only, openings left open.
   const cB = cutT(p), t0 = cB, t1 = 1 - cB;
   const pts: THREE.Vector2[] = [];
   const N = 160;                                // fine vertical sampling keeps the silhouette smooth
@@ -98,10 +91,9 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   }
   s.group.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 128), s.washiMat));
 
-  // Bamboo ribs. In reality the washi goes over them, so they sit inside the paper: centring the
-  // ring on outerR puts its outer surface at outerR + higoD/2, inside the skin at outerR + higoD,
-  // which also stops the two surfaces from Z-fighting into a dashed flicker. A fairly strong warm
-  // emissive keeps them from crushing to black in backlight, so they read as translucent bamboo.
+  // Bamboo ribs sit inside the paper: centring on outerR puts the outer surface at outerR+higoD/2,
+  // inside the skin at outerR+higoD, which also avoids Z-fighting. The warm emissive keeps them
+  // from crushing to black in backlight.
   const higoMat = new THREE.MeshStandardMaterial({
     color: 0xc2a266, roughness: 0.75, metalness: 0, emissive: 0x936026, emissiveIntensity: 0.7,
   });
@@ -121,8 +113,8 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
     }
   }
 
-  // Legs: splayed from the bottom rim (= the lower opening) to the floor. Graphite, so they keep
-  // their black-iron look instead of sinking into the dark background.
+  // Legs: splayed from the bottom rim (= the lower opening) to the floor. Graphite, so they read as
+  // black iron instead of sinking into the dark background.
   const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
   const rimR = outerR(p, t0) + p.higoD, rimY = legH + t0 * p.height;   // matches the skin's bottom rim exactly
   const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, 1.8, 14, 96), legMat);
@@ -152,8 +144,8 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   pool.scale.set(pr, pr, 1);
   s.group.add(floor, pool);
 
-  // Present it as self-emitting: minimal external light, and let emissive + bloom do the glowing.
-  // No internal bulb — it produces a bright band at the equator; the emissive ramp does the shading.
+  // Self-emitting: minimal external light, emissive + bloom do the glowing. No internal bulb — it
+  // produces a bright band at the equator; the emissive ramp does the shading.
   s.amb.intensity = 0.12;
   s.key.intensity = 0.25; s.key.position.set(180, 320, 200);
   s.washiMat.roughness = 1.0;          // fully matte (no specular highlights)
@@ -161,7 +153,7 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   s.bloomPass.enabled = true;
   s.bloomPass.strength = 0.6; s.bloomPass.radius = 0.7; s.bloomPass.threshold = 0.85;  // soft halo
   // Only on a view switch: start from the side, near eye level. Otherwise it inherits the previous
-  // view's angle (print looks straight down) and opens looking at the lamp from above.
+  // view's angle (print looks straight down).
   if (viewChanged) s.setOrbit({ pitch: -0.08, yaw: 0.5 });
   frame(s, (legH + p.height) * 1.16, maxRadius(p) * 1.1, (legH + p.height) * 0.5);
 }
@@ -193,15 +185,14 @@ function buildMold(s: ViewportState, p: Design, viewChanged: boolean): void {
   frame(s, top * 1.2, Math.max(standBoardLength(p) / 2, R) * 1.25, top * 0.5);
 }
 
-// Pack parts of one kind onto plates: a grid of equal cells sized by the largest part, centred on
-// the bed, spilling onto further plates once a plate is full. Returns the next free plate index.
+// Pack parts of one kind onto plates: equal cells sized by the largest part, centred on the bed,
+// spilling onto further plates when full. Returns the next free plate index.
 function packPlates(
   items: PrintPart[], plateIdx: number, placed: PlacedPart[], bedW: number, bedD: number,
 ): number {
   if (!items.length) return plateIdx;
-  // Orient each part in the bed plane first, at the same best-fit angle the overflow warning uses —
-  // axis-aligned when that fits, otherwise tilted (≈45° on a square bed). rotateZ turns the part
-  // within its own XY = the bed plane; the extruded Z thickness is untouched.
+  // Orient each part at the same best-fit angle the overflow warning uses (axis-aligned when that
+  // fits, else ≈45° on a square bed). rotateZ turns it within its own XY = the bed plane.
   let mW = 0, mD = 0;
   for (const pt of items) {
     pt.geo.computeBoundingBox();
@@ -235,13 +226,13 @@ function packPlates(
 
 // ---- print: every part laid flat on plates ----
 function buildPrint(s: ViewportState, p: Design, { printRibs, bedW, bedD }: Pick<SceneOpts, "printRibs" | "bedW" | "bedD">): void {
-  // With spiral winding every rib has different groove positions, so all of them must be printed.
-  // Otherwise the ribs are identical and the user prints one and duplicates it.
+  // Spiral winding gives every rib different groove positions, so all must be printed; otherwise
+  // the ribs are identical and the user prints one and duplicates it.
   const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
   const ribs: PrintPart[] = [];
   for (let k = 0; k < nRibs; k++) ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
   // Koma and posts are identical top/bottom, so one of each is enough (duplicated in the slicer).
-  // The base plate's length follows the body height, so it gets its own plate — that keeps the post
+  // The base plate's length follows the body height, so it gets its own plate, keeping the post
   // placement fixed. Each group is packed separately, matching how the STLs are exported.
   const groups = [
     ribs,
@@ -273,8 +264,8 @@ function buildPrint(s: ViewportState, p: Design, { printRibs, bedW, bedD }: Pick
     const [px, pz] = platePos(pt.plate);
     const m = new THREE.Mesh(pt.geo, pt.mat);
     m.rotation.x = -Math.PI / 2;
-    // With rotation.x = -90°, local z → world y. Lift so the part's bottom z edge rests on the plate
-    // (the posts are centred on z, so a fixed 0.6 would sink half the thickness in).
+    // With rotation.x = -90°, local z → world y. Lift so the bottom z edge rests on the plate (the
+    // posts are centred on z, so a fixed 0.6 would sink half the thickness in).
     m.position.set(px + pt.ox - pt.bb.min.x, 0.6 - pt.bb.min.z, pz + pt.oz + pt.bb.max.y);
     s.group.add(m);
   }
@@ -298,15 +289,11 @@ export function buildScene(s: ViewportHandle, { p, view, viewChanged, printRibs,
     s.group.remove(m);
     m.traverse((o) => { const g = (o as THREE.Mesh).geometry; if (g) g.dispose(); });
   }
-  // Two views draw no 3D at all, and each is a document drawn over this canvas: the section editor,
-  // and the cardboard route's print view (PagePreview shows the template's own A4 pages).
+  // Two views draw no 3D and are documents over this canvas: the section editor, and the cardboard
+  // route's print view (PagePreview shows the template's own A4 pages).
   if (view === "2d" || (view === "print" && route === "paper")) {
-    // Hand the canvas back BLANK before leaving. Emptying s.group is not enough: everything that
-    // makes a view look like itself is state on objects that outlive the group — the dark-room sky,
-    // the bloom pass, and the grid and contact shadow, which are children of the scene rather than
-    // the group and so are never swept by the loop above. Returning early without undoing them left
-    // the previous view showing through the document: 点灯 → 印刷(段ボール) put the A4 pages on a
-    // black field, and 組立 → 断面 left the ground grid under the section editor.
+    // Hand the canvas back BLANK: the dark-room sky, the bloom pass and the grid/contact shadow
+    // are state on objects outliving the group, so the previous view showed through the document.
     s.scene.background = null;
     s.scene.fog = null;
     s.bloomPass.enabled = false;
@@ -321,12 +308,11 @@ export function buildScene(s: ViewportHandle, { p, view, viewChanged, printRibs,
   s.shadow.visible = view === "mold";   // contact shadow in the assembly view only (lit grounds via floor + pool)
   s.shadow.material.opacity = 0.3;
   s.groundGrid.visible = view === "mold";
-  // Ambient light only in the light views; the lit view wants just the lamp glowing in a dark room.
+  // IBL only in the light views; the lit view wants just the lamp glowing in a dark room.
   s.scene.environment = lightVP ? s.envMap : null;
   s.scene.background = lightVP ? null : LIT_BG;   // light views stay transparent over the CSS gradient
   s.scene.fog = view === "print" ? null : new THREE.Fog(lightVP ? 0xbfb5a3 : 0x070a11, 1000, 2400);
-  // IBL provides the fill, so ambient stays modest; the key brings out the form's shading and lifts
-  // it off the background (contrast without blowing out).
+  // IBL provides the fill, so ambient stays modest; the key gives the form its shading.
   s.amb.intensity = view === "print" ? 0.5 : lightVP ? 0.3 : 0.5;
   s.key.intensity = view === "print" ? 0.85 : lightVP ? 1.1 : 0.85;
   s.key.position.set(view === "print" ? 80 : 240, view === "print" ? 500 : 380, view === "print" ? 120 : 280);

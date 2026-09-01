@@ -2,28 +2,21 @@
  * ============================================================================
  * WELCOME — first-run onboarding (one card, not a tour)
  * ============================================================================
- * The app opens on a finished mold, so nothing on screen is empty or broken; what a first-time
- * visitor is missing is not "where do I click" (the section view's legend covers that) but **what
- * this thing is**: the object on screen is not the lantern, it is the *mold* the lantern is built
- * on, and what comes out is an STL or a full-scale paper template.
+ * The app opens on a finished mold, so what a first-time visitor is missing is not "where do I
+ * click" (the section view's legend covers that) but **what this thing is**: the object on screen is
+ * the *mold*, and what comes out is an STL or a full-scale paper template.
  *
- * It also carries the one setup question the rest of the app branches on: **3D printer or cardboard**.
- * That belongs here rather than buried in the print view, because it is not a per-export toggle — it
- * decides whether a print bed constrains the design at all, and the bed's overflow warning starts
- * nagging long before anyone opens the print view. Picking either one closes the card; skipping keeps
- * whatever was saved (3D print by default), and the viewport's toggle still switches it any time.
+ * It also carries the one setup question the app branches on: **3D printer or cardboard** — not a
+ * per-export toggle, because it decides whether a print bed constrains the design at all. Picking
+ * either closes the card.
  *
- * `route` is the route to MARK as current, or **null to mark neither** — which is what the first-run
- * card passes. On a first visit "stl" is a default nobody picked, and colouring it would have the
- * card answer its own question; reopened from the ☰ menu the buttons are a switch instead, so the route
- * in effect is marked. That distinction lives in the caller (which card is this?), not here.
+ * `route` is the route to MARK as current, or **null to mark neither**, which the first-run card
+ * passes so that a default nobody picked is not coloured in; reopened from ☰ the buttons are a
+ * switch, so the live route is marked. That distinction lives in the caller.
  *
- * The explanation itself is a single card — deliberately NOT a step-through tour with
- * spotlights: the app is one screen, and a spotlight would have to track a viewport that stretches
- * (the section view is a preserveAspectRatio SVG). Shown once (`tomoshibi.welcome`), reopenable from
- * the ☰ menu in the header, and never blocking: Esc / backdrop / button all close it.
- *
- * Presentational only — it owns no app state and imports no geometry.
+ * One card, NOT a spotlight tour: the app is one screen and a spotlight would have to track a
+ * stretching viewport. Shown once (`tomoshibi.welcome`), reopenable from ☰, never blocking.
+ * Presentational only — no app state, no geometry.
  * ============================================================================
  */
 import React, { useEffect, useRef } from "react";
@@ -35,8 +28,8 @@ import type { Route } from "./types.ts";
 /** Which of the three drawn step marks to render. */
 type StepKind = "section" | "export" | "build";
 
-// The three steps, drawn rather than described: a section with a ◇ handle, the output sheet/part,
-// and the finished lantern. Same accent as the app so the icons read as "this app's" marks.
+// The three steps drawn rather than described: a section with a ◇ handle, the output sheet/part,
+// the finished lantern. The app's own accent, so they read as this app's marks.
 function StepIcon({ kind }: { kind: StepKind }) {
   const faint = ui.faint;
   return (
@@ -80,13 +73,13 @@ const STEPS: [StepKind, string, string][] = [
 const POINTS = [
   "画面に映っているのは提灯そのものではなく、その上で組み立てる「型」です",
   // beta in the string rather than as a badge: this is a sentence in a bullet list, and the badge
-  // element belongs on the things you press (the route buttons below).
+  // element belongs on the things you press.
   "和紙の型紙(先に切っておく用・beta)は、どちらの出力にも付いてきます",
 ];
 
-// The two ways to make the mold. Sub-line = what you actually receive, because "3D print / cardboard"
-// names the equipment and not the output. The cardboard route keeps its beta badge here: this card is
-// where someone chooses it, and offering it without the caveat would sell a route it hasn't earned yet.
+// The two ways to make the mold. Sub-line = what you receive, since "3D print / cardboard" names
+// the equipment, not the output. Cardboard keeps its beta badge: this card is where it is chosen,
+// and offering it without the caveat oversells it.
 const ROUTES: [Route, string, string, string | null][] = [
   ["stl", "3Dプリンタ", "STL 一式をダウンロード", null],
   ["paper", "段ボール", "A4 原寸の型紙を印刷 · 大きさの制限なし", "beta"],
@@ -111,19 +104,16 @@ export default function Welcome({ route = null, onPick, onClose }: {
       className="fixed inset-0 z-50 flex justify-center overflow-y-auto p-20
         bg-[rgba(43,36,26,0.42)] backdrop-blur-[3px]">
       <div role="dialog" aria-modal="true" aria-label={t("はじめかた")} onClick={(e) => e.stopPropagation()}
-        /* `m-auto` centres this, NOT the overlay's align-items — and that is the whole point.
-           Centred by align-items, a card taller than the window overflows in BOTH directions, and a
-           scroll container cannot reach what is above its start edge: at 375x667 the card was 720px
-           and the logo was cut off with no way to scroll up to it (it is 595 now). An auto margin resolves to 0 once
-           the free space goes negative, so the card starts at the padding edge and all of it scrolls
-           into reach. Width is 560 rather than 520 because below that the three step captions wrap
-           onto a second line with a single character stranded on it in Japanese. */
+        /* `m-auto` centres this, NOT the overlay's align-items: centred by align-items a card
+           taller than the window overflows in BOTH directions, and a scroll container cannot reach
+           what is above its start edge (at 375x667 the then-720px card's logo was unreachable; it
+           is 595 now). An auto margin resolves to 0 once the free space goes negative. Width 560
+           rather than 520, below which the step captions strand a character in Japanese. */
         className="relative m-auto w-[min(560px,100%)] rounded-2xl border border-edge bg-panel
           text-text font-sans shadow-[0_18px_50px_rgba(43,36,26,0.3)]
           pt-26 px-26 pb-22 max-[480px]:pt-18 max-[480px]:px-16 max-[480px]:pb-16">
-        {/* The only way out that is not also a choice. It replaced a 「とりあえず見る」 button on the
-            footer row, which cost a full row and read like a third option beside the two routes —
-            the escape from a modal is chrome, not an alternative to the thing it is asking. */}
+        {/* The only way out that is not also a choice. It is chrome, not a third option beside the
+            two routes, which is what it read as while it was a button on a footer row. */}
         <button onClick={onClose}
           className="absolute top-10 right-10 w-36 h-36 p-0 flex items-center justify-center
             bg-transparent border-0 rounded-full cursor-pointer font-sans text-2xl leading-none
@@ -162,15 +152,15 @@ export default function Welcome({ route = null, onPick, onClose }: {
           ))}
         </ul>
 
-        {/* The setup question. Two buttons rather than a segmented toggle: each one is also the
-            "start" action, so nobody has to choose and then confirm. */}
+        {/* Two buttons rather than a segmented toggle: each is also the "start" action, so nobody
+            chooses and then confirms. */}
         <div className="mt-18">
           <div className="flex items-baseline justify-between mb-8">
             <span className="text-sm text-sub">{t("どちらでつくりますか?")}</span>
             <span className="text-xs text-faintest">{t("後からいつでも変更できます")}</span>
           </div>
-          {/* Stacked, not side by side: full width, each one is unmistakably a button rather than a
-              tile, and the two captions stop wrapping to different heights for no reason. */}
+          {/* Stacked, not side by side: full width reads as a button rather than a tile, and the two
+              captions stop wrapping to different heights. */}
           <div className="flex flex-col gap-8">
             {ROUTES.map(([key, title, caption, badge], i) => (
               <button key={key} ref={i === 0 ? btnRef : null}
