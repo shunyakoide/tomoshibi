@@ -31,6 +31,9 @@ export const PAPER = 0xffffff;      // faces: opaque white, so edges behind them
 export const HI = 0xd4622a;         // the part this step adds (a shade off the app's accent, #D95B18)
 export const HI_FACE = 0xfae3d6;
 export const CORD_INK = 0x5c574f;   // lamp flex: dark, but the ink family rather than black
+// The lit lantern's warm fill. Here rather than in lit.ts because the MOLD draws it too: the drying
+// figure puts a lit shade on the mold, so leaving it in the lit section made the two import each other.
+export const LIT_FACE = 0xf9d9a3;   // the lit view's warm emissive, as a flat fill
 
 export const CORD_R = 1.6;          // mm — a lamp cord, thin enough to draw as a line, not a pipe
 export const WIRE_R = 1.3;          // mm — the leg/hanger wire (`LOOP_R`, the loop bent in its end,
