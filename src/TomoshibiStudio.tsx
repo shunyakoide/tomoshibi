@@ -16,13 +16,16 @@
  *   pull the ribs out through the openings → lamp body done → mount on three legs as a lamp.
  * ============================================================================
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.ts";
 import * as kit from "./kit.ts";
 import { useFigures, buildAlerts } from "./derived.ts";
 import { AlertBar } from "./ui/Alerts.tsx";
 import { ViewChips, ViewBar, type View } from "./ui/ViewTabs.tsx";
 import Viewport from "./Viewport.tsx";
+import { useBottomSheet } from "./ui/sheet.ts";
+import InspectorPanel from "./ui/panel/InspectorPanel.tsx";
+import SheetBar from "./ui/panel/SheetBar.tsx";
 import SilhouetteSection from "./ui/panel/SilhouetteSection.tsx";
 import FrameworkSection from "./ui/panel/FrameworkSection.tsx";
 import HigoSection from "./ui/panel/HigoSection.tsx";
@@ -31,7 +34,6 @@ import RingSection from "./ui/panel/RingSection.tsx";
 import ExportSection from "./ui/panel/ExportSection.tsx";
 import PanelFooter from "./ui/panel/PanelFooter.tsx";
 import type { KitNoteState } from "./ui/panel/KitNote.tsx";
-import { clamp } from "./util.ts";
 import { useViewport } from "./three/viewport.ts";
 import { buildScene } from "./three/scenes.ts";
 import { useAutosave, useLang, useNarrow, usePageRoute, useUndoRedo } from "./hooks.ts";
@@ -56,19 +58,6 @@ type WelcomeCard = "first" | "help" | null;
 
 // (The inspector's width is the aside's own `w-336 flex-[0_0_336px]`, written nowhere else.)
 
-// ---- The narrow layout's bottom sheet ----------------------------------------------------------
-// Stops: `peek` (grabber bar alone), `half`, `full` = the shared budget minus `MIN_VIEW`. Fractions
-// of the height the sheet SHARES WITH THE VIEWPORT, not of the window: the chip bar above is one row
-// in Japanese and two in English, so window-relative `full` gave English a 37px section view where
-// Japanese got 76.
-const SHEET = { half: 0.45 } as const;
-// The drawing never leaves the screen, at any stop — the sheet is a set of controls FOR it.
-const MIN_VIEW = 140;
-type SheetStop = "peek" | "half" | "full";
-const SHEET_ORDER: SheetStop[] = ["peek", "half", "full"];
-// Under this much travel a drag is a tap, which cycles to the next stop: 6px is the slop a finger
-// puts into a deliberate press.
-const SHEET_TAP = 6;
 // Restored once at startup (module top level, so a lazy initializer can't parse twice).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 
@@ -94,16 +83,9 @@ export default function TomoshibiStudio() {
   const [alertsOpen, setAlertsOpen] = useState(false);             // narrow only: the alert strip, folded (see alertBar)
   // null until an export has run (see KitNote).
   const [kitNote, setKitNote] = useState<KitNoteState>(null);
-  const [sheet, setSheet] = useState<SheetStop>("peek");           // narrow only: the inspector sheet's stop
-  const [sheetH, setSheetH] = useState<number | null>(null);       // px while a drag is in progress, else null
-  const barRef = useRef<HTMLDivElement>(null);                     // the sheet's grabber + summary bar
-  const asideRef = useRef<HTMLElement>(null);
-  const mainRef = useRef<HTMLElement>(null);
   // Here rather than in the menu: a menu row unmounts the moment it is clicked, and an <input> that
   // is gone cannot open its own dialog.
   const designFile = useRef<HTMLInputElement>(null);
-  const [peekH, setPeekH] = useState(44);                          // measured: the bar = the `peek` height
-  const [budgetH, setBudgetH] = useState(0);                       // measured: viewport + sheet, the height they share
   const [glError, setGlError] = useState<string | null>(null);
 
   const narrow = useNarrow(860);
@@ -178,88 +160,10 @@ export default function TomoshibiStudio() {
   const paperPreview = view === "print" && route === "paper" && !isLit;
 
   // ---- The sheet's geometry -----------------------------------------------------------------
-  // `peek` is the grabber bar alone — MEASURED, because the summary it carries wraps on a narrow
-  // enough screen. (With the CTA too it was 128px: 16% of the phone at rest.) Seeded by a layout read:
-  // an observer stays silent for an element the browser is not laying out.
-  useEffect(() => {
-    const bar = barRef.current;
-    if (!bar) return;
-    const read = () => setPeekH((h) => {
-      const next = Math.round(bar.getBoundingClientRect().height);
-      return next > 0 && next !== h ? next : h;
-    });
-    read();
-    const ro = new ResizeObserver(read);
-    ro.observe(bar);
-    return () => ro.disconnect();
-  }, [narrow, lang]);
+  // Measurement and pointer state, all of it read by nothing outside itself (src/ui/sheet.ts).
+  const sheetCtl = useBottomSheet({ narrow, isLit, lang });
+  const { barRef, asideRef, mainRef } = sheetCtl;
 
-  // The budget the viewport and the sheet share. Their SUM is invariant — one grows exactly as the
-  // other shrinks — so observing both and adding gives a number that does not move while the sheet
-  // animates; the guard below keeps the transition from re-rendering every frame. Excludes the chip
-  // bar and the alert strip.
-  useEffect(() => {
-    const a = asideRef.current, m = mainRef.current;
-    if (!a || !m) return;
-    const read = () => setBudgetH((b) => {
-      const next = Math.round(a.getBoundingClientRect().height + m.getBoundingClientRect().height);
-      return next > 0 && Math.abs(next - b) >= 1 ? next : b;
-    });
-    read();
-    const ro = new ResizeObserver(read);
-    ro.observe(a); ro.observe(m);
-    return () => ro.disconnect();
-  }, [narrow, isLit]);
-
-  // The three stops, in px. `peek` can be the tallest on a very short screen, so every stop is
-  // floored at it rather than assumed to be above it.
-  const sheetStops = useMemo(() => ({
-    peek: peekH,
-    half: Math.max(peekH, Math.round(budgetH * SHEET.half)),
-    full: Math.max(peekH, budgetH - MIN_VIEW),
-  }), [peekH, budgetH]);
-  const cycleSheet = useCallback(
-    () => setSheet((st) => SHEET_ORDER[(SHEET_ORDER.indexOf(st) + 1) % SHEET_ORDER.length]),
-    [],
-  );
-
-  // Header only — arbitrating "is this finger scrolling the list or pulling the sheet" is the one
-  // genuinely hard part of a bottom sheet and is not worth writing until someone misses it. A drag
-  // shorter than SHEET_TAP is a tap, so the header is also the button.
-  const dragRef = useRef<{ y0: number; h0: number; moved: boolean } | null>(null);
-  const onSheetDown = useCallback((e: React.PointerEvent) => {
-    // Let any real <button> inside the bar be pressed normally. Defensive: it holds none today.
-    if ((e.target as HTMLElement).closest("button")) return;
-    const el = e.currentTarget.parentElement as HTMLElement | null;
-    if (!el) return;
-    dragRef.current = { y0: e.clientY, h0: el.getBoundingClientRect().height, moved: false };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }, []);
-  const onSheetMove = useCallback((e: React.PointerEvent) => {
-    const d = dragRef.current;
-    if (!d) return;
-    const dy = d.y0 - e.clientY;                       // up is bigger
-    if (!d.moved && Math.abs(dy) < SHEET_TAP) return;  // still inside the tap slop
-    d.moved = true;
-    setSheetH(clamp(sheetStops.peek, sheetStops.full, d.h0 + dy));
-  }, [sheetStops]);
-  const onSheetUp = useCallback((e: React.PointerEvent) => {
-    const d = dragRef.current;
-    dragRef.current = null;
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
-    if (!d) return;
-    if (!d.moved) { cycleSheet(); return; }            // never travelled: it was a press
-    const at = sheetH ?? d.h0;
-    // Snap to whichever stop the sheet was left nearest to.
-    const best = SHEET_ORDER.reduce((x, y) =>
-      (Math.abs(sheetStops[y] - at) < Math.abs(sheetStops[x] - at) ? y : x));
-    setSheet(best);
-    setSheetH(null);
-  }, [cycleSheet, sheetStops, sheetH]);
-
-  // How tall the sheet is: mid-drag a px number with the transition off, so it tracks the finger;
-  // otherwise the current stop, animated.
-  const sheetHeight = `${Math.round(sheetH ?? sheetStops[sheet])}px`;
   const chip = chipStyle(isLit);   // the dimension readout takes its ink from the same tone
 
   // Everything that acts on the APP or on the design AS A FILE, behind one "☰": wide, beside the
@@ -328,72 +232,28 @@ export default function TomoshibiStudio() {
 
   // ============ Right: inspector (hidden in lit mode) ============
   const inspector = isLit ? null : (
-    // As a sheet the panel is SIZED, not flexed: its height is the stop it is parked at, so that pair
-    // stays a style — a live px number, transition off mid-drag so the sheet tracks the finger.
-    // `overflow-hidden` because at `peek` the sheet is only as tall as its bar, which leaves the
-    // pinned CTA past its own bottom edge.
-    <aside ref={asideRef}
-      className="flex flex-col min-h-0 w-336 flex-[0_0_336px] bg-panel text-text border-l border-edge
-        narrow:w-auto narrow:flex-none narrow:border-l-0 narrow:border-t narrow:rounded-t-2xl
-        narrow:overflow-hidden narrow:shadow-[0_-6px_22px_rgba(59,52,43,0.13)]"
-      style={narrow ? {
-        height: sheetHeight,
-        transition: sheetH == null ? "height 0.22s cubic-bezier(0.32,0.72,0,1)" : undefined,
-      } : undefined}>
-      {/* The grabber and the live summary: everything above the fold at `peek`. The drag surface
-          and, for a press that never travels, the button that cycles to the next stop.
-          `touchAction: none` so the browser does not claim the vertical gesture first. */}
-      {narrow && (
-        <div ref={barRef} onPointerDown={onSheetDown} onPointerMove={onSheetMove}
-          onPointerUp={onSheetUp} onPointerCancel={onSheetUp}
-          className="flex-none relative flex items-center px-14 pt-14 pb-9 border-b border-edge
-            cursor-grab [touch-action:none]">
-          {/* Positioned against the BAR, not laid out in the row, where it would be centred on the
-              summary rather than on the sheet (37% off, when the bar still carried two buttons). */}
-          <span aria-hidden="true" className="absolute top-6 left-1/2 -translate-x-1/2 w-38 h-4
-            rounded-xs bg-edge" />
-          {/* A div with role=button, not a <button>: `onSheetDown` bails out of anything inside a
-              real <button> to keep the bar's buttons pressable, so a <button> grabber would be the
-              one part of the bar you could not pull. It cannot contain a real button either, hence
-              the left part of the bar rather than all of it. A press that never travels is already a
-              tap (onSheetUp), so this only adds the keyboard. */}
-          <div role="button" tabIndex={0} aria-label={t("設定パネル")} title={t("設定パネル")}
-            aria-expanded={sheet !== "peek"}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cycleSheet(); } }}
-            className="flex-auto flex items-center justify-center min-h-20 cursor-pointer">
-            {/* The readout you watch while dragging a ◇, so it is all the sheet shows at rest.
-                Centring only works now that the header controls have moved to the chip bar. */}
-            <span className="flex flex-wrap justify-center gap-x-12 gap-y-0 font-mono text-sm text-faint">
-              <span>⌀{maxDia}</span>
-              <span className={!bedRules || ribFits ? "text-faint" : "text-warn"}>{t("羽根板")} {ribLen}</span>
-              <span>{t("開口")} {topOpen}/{botOpen}</span>
-              <span>mm</span>
-            </span>
-          </div>
+    <InspectorPanel narrow={narrow} ctl={sheetCtl}
+      bar={narrow && (
+        <SheetBar ctl={sheetCtl} maxDia={maxDia} ribLen={ribLen} topOpen={topOpen} botOpen={botOpen}
+          warnRib={bedRules && !ribFits} />
+      )}
+      header={!narrow && (
+        /* alignItems is center, not baseline: an SVG's baseline is its bottom edge, which would hang
+           the buttons off the tagline. Not rendered on a phone — the buttons moved to the sheet's bar
+           and the wordmark into the scroll area. */
+        <div className="flex items-center justify-between px-20 pt-20 pb-14">
+          <Logo variant="full" height={44} className="text-head" />
+          {headerBtns}
         </div>
       )}
-
-      {/* Header */}
-      {/* alignItems is center, not baseline: an SVG's baseline is its bottom edge, which would hang
-          the buttons off the tagline. Not rendered on a phone — the buttons moved to the sheet's bar
-          and the wordmark into the scroll area. */}
-      {!narrow && (
-      <div className="flex items-center justify-between px-20 pt-20 pb-14">
-        <Logo variant="full" height={44} className="text-head" />
-        {headerBtns}
-      </div>
-      )}
-
-      {/* Between the bar and the pinned CTA on both layouts, which is what makes `peek` work without
-          reordering: at rest the sheet is exactly bar-tall, so this collapses to zero and every stop
-          above it grows this and only this. */}
-      {/* No VERTICAL padding on a phone: `min-height: 0` floors the border box at padding + border, so
-          4+14 of it is 18px this element cannot shrink past — which overflowed `peek` by exactly that
-          and cut the bottom off the CTA. The wordmark block at the end gives that spacing back.
-          `overscroll-behavior: contain` because iOS momentum scrolling stops dead at the last row
-          without it, this being the only scrollable thing on the page (body is touch-action: none). */}
-      <div className="flex-auto min-h-0 overflow-y-auto [touch-action:pan-y] [overscroll-behavior:contain]
-        px-20 pt-6 pb-16 narrow:px-14 narrow:py-0">
+      footer={
+        <PanelFooter narrow={narrow} isPrint={view === "print"} route={route}
+          goPrint={() => setView("print")}
+          maxDia={maxDia} ribLen={ribLen} topOpen={topOpen} botOpen={botOpen}
+          ribFits={ribFits} bedRules={bedRules}
+          kitNote={kitNote} setKitNote={setKitNote}
+          onDownloadStl={downloadKit} onDownloadPaper={downloadPaperKit} />
+      }>
         <Toolbar undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
 
         {/* The lit chip is derived from p.pts inside PresetChips, so it goes dark as soon as the
@@ -430,15 +290,7 @@ export default function TomoshibiStudio() {
             <Logo variant="full" height={26} className="text-head" />
           </div>
         )}
-      </div>
-
-      <PanelFooter narrow={narrow} isPrint={view === "print"} route={route}
-        goPrint={() => setView("print")}
-        maxDia={maxDia} ribLen={ribLen} topOpen={topOpen} botOpen={botOpen}
-        ribFits={ribFits} bedRules={bedRules}
-        kitNote={kitNote} setKitNote={setKitNote}
-        onDownloadStl={downloadKit} onDownloadPaper={downloadPaperKit} />
-    </aside>
+    </InspectorPanel>
   );
 
   return (
