@@ -17,15 +17,10 @@ import {
   standCollarTop, standSaddleH, standSlotSep, fukuroRange, komaR, maxRadius,
   grooveList, grooveR, higoSpiralPath, outerR, openingR, ringLegs,
 } from "../geometry.ts";
-
-// The isometric direction every figure is drawn from. Shared, not camera-local, because the washi
-// panels are PLACED against it — which bays are pasted, and the yaw, depend on it (`washiYaw`).
-const VIEW_DIR = new THREE.Vector3(1, 0.85, 1).normalize();
-
-const INK = 0x33302b;        // edge lines: a shade off the UI's ink (#3b342b), and not pure black
-const PAPER = 0xffffff;      // faces: opaque white, so edges behind them are hidden
-const HI = 0xd4622a;         // the part this step adds (a shade off the app's accent, #D95B18)
-const HI_FACE = 0xfae3d6;
+import {
+  VIEW_DIR, DIR_ON_STAND, DIR_UPSIDE_DOWN, INK, HI, HI_FACE, CORD_INK, CORD_R, WIRE_R,
+  part, solid, inkLines, bristleFringe, silhouetteLines, silhouetteCircle, coil, wireTube,
+} from "./figures/ink.ts";
 
 // One renderer for every figure, created on first use and kept; its canvas is sized per figure.
 let R: THREE.WebGLRenderer | null = null;
@@ -34,18 +29,6 @@ function renderer(): THREE.WebGLRenderer {
   R = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   R.setPixelRatio(1);        // the canvas is already drawn at 2x and shown at half (see figureImage)
   return R;
-}
-
-/** A part: white faces + its outline. `hot` draws it as the piece being added. */
-function part(geo: THREE.BufferGeometry, hot: boolean): THREE.Group {
-  const g = new THREE.Group();
-  g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-    color: hot ? HI_FACE : PAPER, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
-  })));
-  // 24°: high enough that a curved edge's facets do not each draw a line, low enough to keep a
-  // groove's flanks; lower turns the rib's outer edge into a hatched band.
-  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 24), new THREE.LineBasicMaterial({ color: hot ? HI : INK })));
-  return g;
 }
 
 // ---- The parts, placed the way the step leaves them ----
@@ -355,7 +338,6 @@ function pullScene(p: Design, smooth: boolean): THREE.Group {
  * one part of this build the app does not make. Warm, not white; and no rays, which would decorate.
  */
 const LIT_FACE = 0xf9d9a3;       // the lit view's warm emissive, as a flat fill
-const CORD_INK = 0x5c574f;       // lamp flex: dark, but the ink family rather than black
 const LAMP_INK = 0x8f949c;       // the lamp's own body: a grey, light enough not to out-weigh the ink
 
 /** The lantern itself, at its own coordinates: shade, the bamboo in it, and the rings in its mouths. */
@@ -371,7 +353,6 @@ function litShade(p: Design, smooth: boolean, opacity = 1): THREE.Group {
  * hanging shade has an up, and it is the design's own. It dips `CORD_DIP` below the rim to meet the
  * opening and runs `CORD_UP` of the body height above, cut off at the top: "this continues".
  */
-const CORD_R = 1.6;              // mm — a lamp cord, thin enough to draw as a line, not a pipe
 const CORD_DIP = 6;              // mm below the opening rim, so the cord meets the ring
 const CORD_UP = 0.42;            // x body height above the shade
 function lightHang(p: Design, smooth: boolean): THREE.Group {
@@ -514,78 +495,6 @@ function lightLegs(p: Design, smooth: boolean): THREE.Group {
  * `silhouetteLines`, a brush gets `bristleFringe()`, and only `coil()` still leans on facets.
  * ============================================================================
  */
-
-/** A kit object: `part()`'s own white face + outline, reused so a kit item looks like a part. */
-const solid = (geo: THREE.BufferGeometry) => part(geo, false);
-
-/** Loose ink strokes: a flat [x,y,z, x,y,z, …] of segment endpoints. Every drawn fact in this
- * section that is not a solid — bristle, silhouette, knurl — is one of these. */
-function inkLines(pts: number[]): THREE.LineSegments {
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-  return new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: INK }));
-}
-
-/**
- * A fringe of bristle strokes off a block's front-bottom edge — the one thing a flat white solid
- * cannot say for itself. `n` strands evenly from `xMin` to `xMax`, hanging `len` down at `y`/`z`.
- */
-function bristleFringe(xMin: number, xMax: number, y: number, z: number, len: number, n: number) {
-  const pts: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const x = xMin + ((xMax - xMin) * i) / (n - 1);
-    pts.push(x, y, z, x, y - len, z);
-  }
-  return inkLines(pts);
-}
-
-/**
- * The two straight lines standing in for a tall round volume's side wall: where the curve runs
- * tangent to the eye, top rim to bottom (radii may differ — a tapered tub). `view` is `VIEW_DIR` in
- * the solid's own frame — a group turned a quarter turn about Z reads `(y,-x,z)` = `DIR_ON_STAND`.
- */
-function silhouetteLines(rTop: number, rBot: number, yTop: number, yBot: number, view = VIEW_DIR, cx = 0, cz = 0) {
-  const az = Math.atan2(view.z, view.x);
-  const pts: number[] = [];
-  for (const a of [az + Math.PI / 2, az - Math.PI / 2]) {
-    const ct = Math.cos(a), st = Math.sin(a);
-    pts.push(cx + rTop * ct, yTop, cz + rTop * st, cx + rBot * ct, yBot, cz + rBot * st);
-  }
-  return inkLines(pts);
-}
-
-/**
- * The same for a SPHERE: its outline is a circle of the same radius in the plane the camera looks
- * straight down. A ball's facets are far under the 24deg threshold, so it draws nothing white on
- * white; faceting it until they draw was tried and reverted.
- */
-function silhouetteCircle(r: number, cx: number, cy: number, cz: number, view = VIEW_DIR, n = 64) {
-  const a = new THREE.Vector3().crossVectors(view, new THREE.Vector3(0, 1, 0)).normalize();
-  const b = new THREE.Vector3().crossVectors(view, a).normalize();
-  const pts: number[] = [];
-  for (let i = 0; i < n; i++) {
-    for (const k of [i, i + 1]) {
-      const th = ((k % n) / n) * Math.PI * 2, c = Math.cos(th), sn = Math.sin(th);
-      pts.push(cx + r * (a.x * c + b.x * sn), cy + r * (a.y * c + b.y * sn), cz + r * (a.z * c + b.z * sn));
-    }
-  }
-  return inkLines(pts);
-}
-
-/** A helix that opens out as it climbs — a coil of rod, which is how both bamboo and wire are sold. */
-class CoilCurve extends THREE.Curve<THREE.Vector3> {
-  constructor(readonly r0: number, readonly dr: number, readonly turns: number, readonly rise: number) { super(); }
-  override getPoint(t: number, target = new THREE.Vector3()): THREE.Vector3 {
-    const a = t * this.turns * Math.PI * 2;
-    const r = this.r0 + this.dr * t;
-    return target.set(r * Math.cos(a), this.rise * (t - 0.5), r * Math.sin(a));
-  }
-}
-// 8 radial segments, not a round tube's usual 16+: an OPEN tube has no flat cap to anchor a rim edge
-// (see "THE KIT"), so white-on-white it would draw only its two cut ends. At 45deg the facets clear
-// the 24deg edge threshold and the coil reads as a wound, faceted rod.
-const coil = (rod: number, r0: number, dr: number, turns: number, rise: number) => solid(
-  new THREE.TubeGeometry(new CoilCurve(r0, dr, turns, rise), Math.ceil(turns * 48), rod, 8, false));
 
 /** A tub with its lid on: starch paste. (Wood glue comes in a bottle; the tub is the first-named.) */
 function pasteTub() {
@@ -959,10 +868,6 @@ function puckLight() {
   return g;
 }
 
-// VIEW_DIR for a solid that has been turned upside down (a half turn about x) — the flipped-over
-// cousin of DIR_ON_STAND, and needed by everything in that solid that draws a silhouette.
-const DIR_UPSIDE_DOWN = new THREE.Vector3(VIEW_DIR.x, -VIEW_DIR.y, -VIEW_DIR.z);
-
 /** The holder with a bulb screwed into it: one lamp, hanging, rather than two things to buy. */
 function pendantLamp() {
   const g = new THREE.Group();
@@ -1015,7 +920,7 @@ function lamps() {
  */
 const STEM_R = 5.5, STEM_H = 28;      // the threaded stem the cord leaves by, and the nut runs on
 const NUT_R = 9.5, NUT_H = 6;         // across the corners: a hex draws its own edges, unlike a tube
-const WIRE_R = 1.3, LOOP_R = 8.6;     // the leg wire, and the loop bent in its end
+const LOOP_R = 8.6;                   // the loop bent in the leg wire end (WIRE_R: ink.ts)
 // Where the stack of loops starts — far down the stem for the drawing's sake, not the fitting's: the
 // shell is ⌀34 and the loops ⌀20, so higher up they hide under it (the view looks down) and the arms
 // come out of thin air. A real one takes them anywhere.
@@ -1144,18 +1049,6 @@ function lampCord(g: THREE.Group, y0: number, down: number, run: number, az = -M
 function legBend() {
   const g = new THREE.Group();
   g.add(legWire(...LEG));
-  return g;
-}
-
-/** The wire's own material, shared by every bend in this group: a filled accent rod with its own
- * outline over 8 facets (see `legWire` for why the facet count matters where turns overlap). */
-function wireTube(pts: THREE.Vector3[], { seg = 3, closed = false, rod = WIRE_R }: { seg?: number; closed?: boolean; rod?: number } = {}) {
-  const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, closed), pts.length * seg, rod, 8, closed);
-  const g = new THREE.Group();
-  g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-    color: HI, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
-  })));
-  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 24), new THREE.LineBasicMaterial({ color: INK })));
   return g;
 }
 
@@ -1429,9 +1322,6 @@ const SCENES: Record<string, Scene> = {
   hangBend: () => hangBend(),
   hangSet: (p) => hangSet(p),
 };
-// The view direction inside the mold's OWN frame once it is lying in the stand. The group is turned
-// a quarter turn about Z there, so world (x,y,z) reads as local (y,-x,z).
-const DIR_ON_STAND = new THREE.Vector3(VIEW_DIR.y, -VIEW_DIR.x, VIEW_DIR.z);
 
 export const FIGURES = Object.keys(SCENES);
 
