@@ -11,10 +11,10 @@
  * printed on every sheet, the only check that catches printer scaling.
  */
 import React, { useDeferredValue, useMemo } from "react";
-import { paperPagesSVG } from "./papercraft.ts";
-import { UI as ui, useT } from "./ui/theme.ts";
-import type { Lang } from "./i18n.ts";
-import type { Design } from "./types.ts";
+import { paperPagesSVG } from "../papercraft.ts";
+import { UI as ui, useT } from "./theme.ts";
+import type { Lang } from "../i18n.ts";
+import type { Design } from "../types.ts";
 
 export default function PagePreview({ p, matT, lang }: { p: Design; matT: number; lang: Lang }) {
   const t = useT();

@@ -1,6 +1,6 @@
 // `open` is NOT owned here: the strip unmounts the moment the last alert clears, so a flag held
 // locally would silently re-fold itself.
-import type { AlertItem } from "../derived.ts";
+import type { AlertItem } from "../studio/derived.ts";
 
 /** Two fields rather than free children, so the narrow strip can quote `head` without rendering the
  *  whole card. */

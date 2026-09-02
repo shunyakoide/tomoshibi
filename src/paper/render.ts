@@ -2,9 +2,9 @@ import { layout } from "./layout.ts";
 import { pageOps } from "./draw.ts";
 import { pageSVG } from "./svg.ts";
 import { STYLE, styleCSS } from "./style.ts";
-import { buildPDF } from "../pdf.ts";
+import { buildPDF } from "../io/pdf.ts";
 import type { RawPart } from "./layout.ts";
-import type { Op, Page } from "../pdf.ts";
+import type { Op, Page } from "../io/pdf.ts";
 import type { T } from "../i18n.ts";
 
 // Default translator: an interpolating identity — the Japanese key with its {name} placeholders

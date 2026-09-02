@@ -15,7 +15,7 @@
  */
 import { GLYPHS } from "./pdf-glyphs.ts";
 
-import type { Pt2 } from "./types.ts";
+import type { Pt2 } from "../types.ts";
 
 /**
  * ---- The drawing language both renderers speak ----

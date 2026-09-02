@@ -1,5 +1,5 @@
 import type { Mark } from "../geometry.ts";
-import type { Page } from "../pdf.ts";
+import type { Page } from "../io/pdf.ts";
 import type { Pt2 } from "../types.ts";
 
 /** A part as geometry hands it over: mm, y UP, plus the hints that are drawn but never cut. */

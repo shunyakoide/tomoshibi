@@ -8,7 +8,7 @@
  *   node scripts/glyphs.test.mts
  */
 import { readdirSync, readFileSync } from "node:fs";
-import { GLYPHS } from "../src/pdf-glyphs.ts";
+import { GLYPHS } from "../src/io/pdf-glyphs.ts";
 
 // Kept in step with SOURCES / EXTRA in tools/pdffont/build.py — a module that starts printing has
 // to be added to both, and this script is what says so out loud.

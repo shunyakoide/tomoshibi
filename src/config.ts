@@ -58,3 +58,7 @@ export const SIL_ROWS: SilRow[] = [
   // sixth of the bar. See ScrubRow for the mapping.
   { key: "height", label: "火袋の高さ", min: LIMITS.height[0], max: LIMITS.height[1], curve: 2.5, round: 1, unit: "mm" },
 ];
+
+// One place: written into two ZIPs, printed in two notes. `_beta` is part of the name on purpose —
+// the file outlives the screen it came from, so the caveat travels with it.
+export const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";

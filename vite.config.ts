@@ -7,7 +7,7 @@ import tailwind from "@tailwindcss/vite";
 /**
  * Publish the built document a second time as 404.html.
  *
- * The app has one addressable page (`/guide` — see src/route.ts) and a static host has no rewrite
+ * The app has one addressable page (`/guide` — see src/studio/route.ts) and a static host has no rewrite
  * rules, so a request for it never reaches index.html. GitHub Pages serves 404.html for any path it
  * cannot match, the browser renders it, and `location.pathname` is left ALONE, which is what the
  * router reads. (A redirecting 404 also works, for a round trip and a route in a query string.)

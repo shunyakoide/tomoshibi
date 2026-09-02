@@ -7,17 +7,13 @@
 import type * as THREE from "three";
 import {
   maxRadius, ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
-} from "./geometry.ts";
-import { exportZip, zipBundle, downloadFile, type Part } from "./stl.ts";
-import { paperPDF, washiPDF } from "./papercraft.ts";
+} from "../geometry.ts";
+import { exportZip, zipBundle, downloadFile, type Part } from "../io/stl.ts";
+import { paperPDF, washiPDF } from "../papercraft.ts";
 import { serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION, type SavedState } from "./persist.ts";
-import { DEFAULTS } from "./config.ts";
-import type { T } from "./i18n.ts";
-import type { Design } from "./types.ts";
-
-// One place: written into two ZIPs, printed in two notes. `_beta` is part of the name on purpose —
-// the file outlives the screen it came from, so the caveat travels with it.
-export const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";
+import { DEFAULTS, WASHI_PDF } from "../config.ts";
+import type { T } from "../i18n.ts";
+import type { Design } from "../types.ts";
 
 /** The STL kit: every printed part, the design as a backup, and the washi template. */
 export function downloadKit(a: {
