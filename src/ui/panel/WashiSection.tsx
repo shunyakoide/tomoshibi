@@ -1,9 +1,7 @@
 /**
- * Washi allowances. Part of the design (the panel follows the silhouette and the rib count), not an
- * output method — the template ships with whichever output you pick, so there is no separate
- * download here. Marked beta: flattening a doubly-curved surface is approximate by nature, and how
- * much a damp sheet takes up is unchecked against real builds. The dimensions are checked
- * (check:paper); the fit is not.
+ * The template is not an output method: it ships with whichever route you pick, so there is no
+ * download here. Beta because `check:paper` checks the dimensions and nothing checks the FIT —
+ * flattening a doubly-curved surface is approximate, and a damp sheet takes up an unmeasured amount.
  */
 import { Stepper, SectionLabel, Note } from "../controls.tsx";
 import { useT } from "../theme.ts";

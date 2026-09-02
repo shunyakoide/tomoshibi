@@ -1,16 +1,5 @@
-/**
- * ============================================================================
- * THE WARNINGS, IN THEIR THREE FORMS
- * ============================================================================
- * One card, and the two places a list of them goes: floating in the viewport's bottom-right on a
- * wide screen, a fold-out strip below the viewport on a phone. All three render the same
- * `AlertItem[]`, which `derived.ts` builds once — the strip has to count the list and quote one
- * headline, which markup cannot be asked for.
- *
- * `open` is NOT owned here. The strip unmounts the moment the last alert clears, so a flag held
- * locally would silently re-fold itself; the studio keeps it across an alert coming and going.
- * ============================================================================
- */
+// `open` is NOT owned here: the strip unmounts the moment the last alert clears, so a flag held
+// locally would silently re-fold itself.
 import type { AlertItem } from "../derived.ts";
 
 /** Two fields rather than free children, so the narrow strip can quote `head` without rendering the
@@ -36,13 +25,8 @@ export function AlertColumn({ alerts }: { alerts: AlertItem[] }) {
 }
 
 /**
- * Narrow: the column becomes a strip you tap open.
- *
- * In flow an expanded alert costs 115px and two ~200, out of the SAME budget as the inspector. On a
- * 375×812 phone one open alert cut the panel's scroll window from 261px to 146, and in the print
- * view to 88px — 7% of the controls reachable at once. Folded it costs ~36px and still SAYS it: the
- * tint, the ⚠, the first headline (the "→ do this" hint is what the tap is for) and a count.
- * **Never open by default to be safe.**
+ * Narrow: the column becomes a strip you tap open. It comes out of the same budget as the inspector,
+ * so an open alert costs the controls a third of their scroll window. **Never open by default.**
  */
 export function AlertBar({ alerts, open, onToggle }: {
   alerts: AlertItem[]; open: boolean; onToggle: () => void;
@@ -55,7 +39,7 @@ export function AlertBar({ alerts, open, onToggle }: {
           border-l-3 border-l-accent-5 border-solid cursor-pointer [font:inherit] text-base
           text-text text-left">
         <span className="flex-none text-lg">⚠️</span>
-        {/* min-width 0 is what allows the ellipsis: a flex item's automatic minimum size is its own
+        {/* `min-w-0` is what allows the ellipsis: a flex item's automatic minimum size is its own
             content, so without it the headline pushes the count and the caret off. */}
         <span className="flex-auto min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
           {alerts[0].head}
