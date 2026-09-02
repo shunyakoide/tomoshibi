@@ -1,10 +1,7 @@
 /**
- * ============================================================================
- * MINIMAL PDF WRITER (PDF)
- * ============================================================================
- * Writes a vector-only, self-contained PDF at exact 1:1 scale with no dependencies (same spirit as
- * the hand-rolled ZIP in stl.ts). It takes the **same drawing-op list the SVG renderer consumes**
- * (papercraft.ts `pageOps`), so the template cannot be full scale in one and off in the other.
+ * A vector-only, self-contained PDF at exact 1:1 scale, with no dependencies. It takes the **same
+ * drawing-op list the SVG renderer consumes**, so the template cannot be full scale in one and off
+ * in the other.
  *
  * [Coordinates] Ops are in **mm with y DOWN from the sheet's top-left** (the SVG convention). Each
  *   page sets one CTM that flips y and scales mm→pt, so every number below stays in mm. Text sets
@@ -14,8 +11,7 @@
  *   `pdf-glyphs.ts`, which `tools/pdffont` extracts from an OFL font for exactly the characters the
  *   templates print (two dozen, 12kB), because a whole CJK font would dwarf the file. A character
  *   with no outline still goes through `winAnsi()`, which folds what it can (←, ▼) and drops the
- *   rest rather than writing a broken byte. **This is why the templates are no longer English-only.**
- * ============================================================================
+ *   rest rather than writing a broken byte.
  */
 import { GLYPHS } from "./pdf-glyphs.ts";
 
@@ -23,12 +19,10 @@ import type { Pt2 } from "./types.ts";
 
 /**
  * ---- The drawing language both renderers speak ----
- * A page is a list of ops in mm, y down from the sheet's top-left: papercraft.ts produces them, this
- * file (PDF) and `pageSVG` (SVG) are the only two things that read them. The vocabulary is declared
- * HERE, by a renderer, because an op a renderer has never heard of is a line that silently does not
- * print. Stroke and text names are split for the same reason — `pname` has no stroke and `cut` no
- * font size, so a path drawn with a text style would print a hairline where a cut line belongs, and
- * now fails to compile instead.
+ * The vocabulary is declared HERE, by a renderer, because an op a renderer has never heard of is a
+ * line that silently does not print. Stroke and text names are split for the same reason — `pname`
+ * has no stroke and `cut` no font size, so a path drawn with a text style would print a hairline
+ * where a cut line belongs, and now fails to compile instead.
  */
 export type StrokeName = "cut" | "tick" | "guide" | "scale" | "frame" | "join";
 export type TextName = "pname" | "note" | "jlabel";

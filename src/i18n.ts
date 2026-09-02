@@ -1,14 +1,7 @@
 /**
- * ============================================================================
- * INTERNATIONALIZATION (I18N) — Japanese / English
- * ============================================================================
  * The Japanese string itself is the key into the English dictionary EN: the source stays readable
  * and an untranslated string falls back to Japanese. Interpolation is `{name}` placeholders in the
  * key, substituted via t(key, { name: value }).
- *
- * Pure, no React/DOM beyond the localStorage language setting. UI strings only; in-code comments
- * are in English (docs/design-notes.md convention).
- * ============================================================================
  */
 
 /** The two UI languages. Anything else in storage is not one, and loadLang folds it to "en". */

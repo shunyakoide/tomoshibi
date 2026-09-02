@@ -1,13 +1,8 @@
 /**
- * ============================================================================
- * THE WASHI SKIN TEMPLATE — the paper cut BEFORE pasting
- * ============================================================================
  * Its own document on BOTH routes, never pages spliced into the cardboard template: the two are
  * printed at different moments, and `pagesPDF` numbers and seams the sheets of ONE document.
  *
- * Named `skin.ts` rather than `washi.ts` because `src/geometry/washi.ts` — which computes the gore
- * this file lays out — already owns that name.
- * ============================================================================
+ * Named `skin.ts` because `src/geometry/washi.ts` — which computes the gore — already owns `washi`.
  */
 import { washiGore } from "../geometry.ts";
 import { A4 } from "./layout.ts";
@@ -17,7 +12,6 @@ import type { Page } from "../pdf.ts";
 import type { Design } from "../types.ts";
 import type { T } from "../i18n.ts";
 
-// ============ Washi skin template (cut the paper BEFORE pasting) ============
 // One sheet = the surface between two adjacent ribs, developed flat (geometry.ts `washiGore`).
 // All panels are identical, so a single template is laid out and cut N times — and because washi is
 // translucent, the sheet is meant to be slipped UNDER the paper and traced, not glued onto it.
