@@ -2,38 +2,45 @@
  * ============================================================================
  * FIGURES — the assembly guide's line drawings, rendered from the real parts
  * ============================================================================
+ * The catalogue and the camera. `SCENES` names every drawing the guide can ask for and `figureImage`
+ * renders one to a PNG; the drawings themselves live in `figures/`, one file per thing they are of:
+ *
+ *   figures/ink.ts        … the house style — palette, view directions, `part`, the strokes, the rod
+ *   figures/mold.ts       … this design made visible: ribs, koma, bamboo, washi, the stand, the pull
+ *   figures/lit.ts        … the finished lantern, one figure per way of lighting it
+ *   figures/kit-tools.ts  … paste, tape, brushes, pliers, razor, washi, mister — never built from `p`
+ *   figures/kit-lamps.ts  … the socket and the bulb, which three other files also draw
+ *   figures/fitting.ts    … way (3)'s stem, nut, legs and frame
+ *   figures/hang.ts       … way (2)'s one bent wire
+ *
+ * Dependencies run one way — ink ← kit ← fitting/hang ← lit, and mold ← lit — so there are no cycles
+ * to reason about. **This file is NOT a barrel and should not become one**: `GuidePage.tsx` is its
+ * only caller and imports two names, so re-exporting the leaves would buy nothing and would invite
+ * someone to reach past it for `part` or `silhouetteLines`. (Contrast `geometry.ts`, which IS a
+ * barrel, and for the opposite reason: five callers and two gate scripts read it.)
+ *
  * Every figure is built from a design `p` and from `geometry.ts`, so a figure cannot show a mold the
  * STL does not make. (GuidePage passes the same FIXED design to every call; nothing here knows that.)
  *
  * [Look] White faces + `EdgesGeometry` outlines = a hidden-line drawing; the step's part is accented.
  * [Camera] Orthographic and isometric: in perspective a flat part reads as a wrong shape.
  * [Output] PNG data URLs, not live canvases — thirty-odd scenes against a ~16 WebGL context cap.
+ * [No gate sees this] `figureImage` turns every failure into a blank PNG on purpose, so nothing here
+ *   fails loudly. A change to any figure has to be checked by rendering the set and comparing.
  * ============================================================================
  */
 import type { Design } from "../types.ts";
 import * as THREE from "three";
+import { boardGeometry, komaGeometry, ringGeometry, standGeometry } from "../geometry.ts";
+import { DIR_ON_STAND, VIEW_DIR, coil, part } from "./figures/ink.ts";
 import {
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
-  standCollarTop, standSaddleH, standSlotSep, fukuroRange, komaR, maxRadius,
-  grooveList, grooveR, higoSpiralPath, outerR, openingR, ringLegs,
-} from "../geometry.ts";
-import {
-  VIEW_DIR, DIR_ON_STAND, DIR_UPSIDE_DOWN, INK, HI, HI_FACE, LIT_FACE, CORD_INK, CORD_R, WIRE_R,
-  part, solid, inkLines, bristleFringe, silhouetteLines, silhouetteCircle, coil, wireTube,
-} from "./figures/ink.ts";
-import {
-  pasteTub, tapeAndThread, pasteBrush, smoothBrush, pliers, washiStack, razorBlade, sprayBottle,
+  pasteBrush, pasteTub, pliers, razorBlade, smoothBrush, sprayBottle, tapeAndThread, washiStack,
 } from "./figures/kit-tools.ts";
-import { SOCKET_R, SOCKET_H, BULB_FOOT, ledBulb, pendantSocket, lamps } from "./figures/kit-lamps.ts";
-import {
-  moldOnStand, moldPieces, pullScene, ribGeo, standPieces,
-} from "./figures/mold.ts";
+import { lamps } from "./figures/kit-lamps.ts";
+import { moldOnStand, moldPieces, pullScene, ribGeo, standPieces } from "./figures/mold.ts";
 import { lightHang, lightLegs, lightSet } from "./figures/lit.ts";
-import { hangBend, hangPlaced, hangSet } from "./figures/hang.ts";
-import {
-  FRAME_YAW, LOOP_R, LOOP_Y, STACK_GAP, STEM_H, frameBend, frameWire, lampHolder, legBend,
-  legStack, legStood,
-} from "./figures/fitting.ts";
+import { frameBend, legBend, legStack, legStood } from "./figures/fitting.ts";
+import { hangBend, hangSet } from "./figures/hang.ts";
 
 // One renderer for every figure, created on first use and kept; its canvas is sized per figure.
 let R: THREE.WebGLRenderer | null = null;
@@ -43,8 +50,6 @@ function renderer(): THREE.WebGLRenderer {
   R.setPixelRatio(1);        // the canvas is already drawn at 2x and shown at half (see figureImage)
   return R;
 }
-
-// ---- The parts, placed the way the step leaves them ----
 
 /** One figure: every scene is drawn from the guide's fixed design, and `sm` carries the route
  *  (cardboard cuts a smooth edge and no windows — see `ribGeo`). */

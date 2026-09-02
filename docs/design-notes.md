@@ -281,12 +281,26 @@ Which route someone is on — `route`: `"stl"` / `"paper"` — is **app-level st
   the card, and the guide's own section below.
 - **`three/figures.ts` renders the guide's drawings off-screen to PNG data URLs.** `SCENES` holds
   thirty-odd of them, which as live canvases would be thirty-odd WebGL contexts against a browser cap
-  of ~16. **The per-figure reasoning lives in that file, next to each drawing — do not copy it back
-  here.** What is worth knowing before opening it: a surface of revolution has no creases, so the
-  pasted shade is one lathe PER BAY (a full lathe gives `EdgesGeometry` nothing but its two rims);
-  the frustum is fitted to the projected drawing, not to the bounding box, because a diagonal shape's
-  box corners are all empty; and the `kit*` scenes are the only ones never built from `p`, their
-  numbers being proportions rather than dimensions.
+  of ~16. The file itself is now only that catalogue and the camera; the drawings live in
+  `three/figures/`, one file per thing they are of — `ink.ts` (the house style: palette, view
+  directions, `part`, the strokes, the accent rod), `mold.ts`, `lit.ts`, `kit-tools.ts`,
+  `kit-lamps.ts`, `fitting.ts`, `hang.ts`. **The per-figure reasoning lives next to each drawing —
+  do not copy it back here.** What is worth knowing before opening any of them: a surface of
+  revolution has no creases, so the pasted shade is one lathe PER BAY (a full lathe gives
+  `EdgesGeometry` nothing but its two rims); the frustum is fitted to the projected drawing, not to
+  the bounding box, because a diagonal shape's box corners are all empty; and the `kit*` scenes are
+  the only ones never built from `p`, their numbers being proportions rather than dimensions.
+- **`three/figures.ts` is NOT a barrel, and `geometry.ts` is** — the difference is the caller count.
+  `geometry.ts` has five plus two gate scripts, so moving a function between its modules has to stay
+  a non-event. `figures.ts` has one caller importing two names, so a re-export layer would buy no
+  stability and would only invite reaching past it for `part` or `silhouetteLines`. Its leaves are
+  private on purpose.
+- **No gate can see any of `three/figures/`.** `check:style` does not check it (below), `check:hash` and
+  `check:manifold` never import it, and `figureImage` catches every error and returns a blank PNG so
+  the guide survives losing one drawing. A change to a figure is therefore checked by RENDERING the
+  set — all 35 scenes on both routes — and comparing PNG hashes before and after. That harness needs
+  a WebGL context (headless Chrome with SwiftShader), which is exactly why it is not an `npm run
+  check:*`: a gate that skips when it cannot run is worse than one that is missing.
 
 ### The build guide (`src/GuidePage.tsx`)
 
@@ -505,7 +519,7 @@ rule (`p-[9px]` below is one; the comment explaining why not to write it is what
   - **Down rather than up, deliberately.** Several things here fit by a hair — the chip bar in English measured exactly 375px on a 375px phone — and every one of them has room for smaller text while none is guaranteed room for larger. Measured after the fold: the welcome card lost 4–5px, the chip bar's spare width went 52 → 58px in English, and the three numbers the narrow layout is specified by (chip bar 51, section view 717, inspector peek 44) did not move at all.
   - **`2xs` (9px) is not a rounding artefact and must not be folded into `xs`.** It is the PointBar's button captions, whose width was measured against a 46px button, plus the `beta` badge and the select carets.
   - **The scale is a JS export mirrored into `@theme`, and index.css sets no font size at all any more.** `check:style` compares the two. The reason the type scale was kept out of a `var()` when index.css still had font sizes has expired with the thing it was about: theme.ts used to WRITE its palette onto `<html>` at startup, so a `var()` was empty until the module ran — harmless for a colour (it inherits one), visible for a text size (the page resizes on boot). `@theme` emits statically, so that window is gone, the runtime block is deleted, and `var(--radius-sm)` in index.css is safe for exactly that reason.
-  - **`three/figures.ts` and `papercraft.ts` are out of scope**, and the check does not read them. They draw into a WebGL frame and onto A4 at 1:1, where the unit is a world unit or a millimetre and 12 has nothing to do with 12px.
+  - **`three/figures.ts` (with `three/figures/`) and `papercraft.ts` are out of scope**, and the check does not read them. They draw into a WebGL frame and onto A4 at 1:1, where the unit is a world unit or a millimetre and 12 has nothing to do with 12px.
 - **A component that spreads `...rest` onto an element must not also hand that element a `style`.** `ui/Logo.tsx` did both — `style={{ display: "block", overflow: "visible" }} {...rest}` — and every one of its three call sites passed `style={{ color: … }}`, so the two declarations it set were overwritten at each of them and the wordmark had been an INLINE svg since the day it was written. Two of the three are flex children, which blockify anyway; the third is the welcome card, where the inline box's descender space was 7px of card height. The shape that cannot go wrong is a `className` the component prepends its own classes to, because class strings merge and style objects replace. Nothing in the app renders differently for it except that card, which is now 595px on a phone and 524 on the desktop.
 - **Comments are in English** (match the existing style). Write units and intent for formulas and dimensions.
 - **`<html lang>` follows the dictionary** (`useLang`). `index.html` can only ship one value and the app restores Japanese from localStorage, so without the effect the document claims to be English while showing Japanese. Not cosmetic on a phone: `lang` is what a mobile browser picks a CJK font fallback from and what a screen reader picks a voice from.
