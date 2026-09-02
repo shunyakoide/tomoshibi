@@ -1,33 +1,17 @@
-/**
- * ============================================================================
- * INSPECTOR CONTROLS
- * ============================================================================
- * The small labelled controls the right-hand panel is built from. The looks are Tailwind utilities
- * plus the two shared skins `SEG_SKIN`/`NOTE_SKIN`, which is what makes `:hover`, `:active` and
- * `:disabled` expressible at all; only what varies per instance stays inline (the slider's `--pct`).
- * All are native `<input>`/`<button>`, not styled `<div>`s, so keyboard, screen readers and touch
- * targets work for free. Minimum touch target 44px wherever the control is the primary way to
- * change a value.
- * ============================================================================
- */
 import React, { useEffect, useId, useRef, useState } from "react";
 import { clamp } from "../util.ts";
 import { useT } from "./theme.ts";
 
-/**
- * What a scrub row edits. `key` is the row's identity for the shared drag highlight, `display` an
- * optional pre-formatted readout, `curve` the optional non-linear travel documented below.
- */
+/** `key` is the row's identity for the shared drag highlight; `round` is the step and the snap. */
 export type ScrubCfg = {
   key: string; label: string; value: number;
   min: number; max: number; round: number; unit: string;
   curve?: number; display?: string | number;
   onChange: (v: number) => void;
 };
-/** The row currently being dragged, by `key` — or null. Shared so only one row tints at a time. */
+/** The row currently being dragged, by `key` — shared so only one row tints at a time. */
 export type DragState = { drag: string | null; setDrag: (k: string | null) => void };
 
-/** Small caps section heading, with an optional hint on the right. */
 export function SectionLabel({ title, hint }: { title: string; hint?: string }) {
   const t = useT();
   return (
@@ -38,12 +22,6 @@ export function SectionLabel({ title, hint }: { title: string; hint?: string }) 
   );
 }
 
-/**
- * A labelled parameter: a native range slider with a filled track, plus a click-to-type value.
- * (Named for the drag-only "scrub" row it replaced.)
- *   cfg: { key, label, value, min, max, round, unit, display?, onChange }   round = step / snap
- *   drag/setDrag: shared highlight state, so the row tints while this control is active.
- */
 export function ScrubRow({ cfg, drag, setDrag }: { cfg: ScrubCfg } & DragState) {
   const t = useT();
   const [editing, setEditing] = useState(false);
@@ -93,8 +71,7 @@ export function ScrubRow({ cfg, drag, setDrag }: { cfg: ScrubCfg } & DragState) 
           onBlur={(e) => commit(e.currentTarget.value)} />
       ) : (
         <button onClick={() => setEditing(true)} title={t("クリックで数値を入力")}
-          /* Looks like text, behaves like a field; follows the ROW's active state, which is what
-             `group` on the row is for. */
+          /* Follows the ROW's active state, which is what `group` on the row is for. */
           className="min-w-62 px-2 py-4 flex-none text-right bg-transparent border-0 text-text
             cursor-text font-mono text-base font-semibold hover:text-accent
             group-data-[active=true]:text-accent narrow:self-stretch narrow:py-0">
@@ -115,8 +92,8 @@ export function Stepper({ label, value, min, max, step, onChange, children }: {
   const sq = (txt: string, delta: number, off: boolean) => (
     <button disabled={off} aria-label={`${t(label)} ${delta > 0 ? "+" : "−"}${Math.abs(delta)}`}
       onClick={() => onChange(clamp(min, max, +(value + delta).toFixed(2)))}
-      /* 26px to look at, 40x44 to hit — an overlay rather than a bigger box, since the box is what
-         the row's spacing is built from. Same split the section editor draws. */
+      /* 26px to look at, 40x44 to hit: an overlay, since the box is what the row's spacing is
+         built from. */
       className="w-26 h-26 p-0 rounded-sm flex items-center justify-center bg-card text-accent
         border border-accent-45 text-xl font-semibold leading-none cursor-pointer
         enabled:hover:bg-accent-08 disabled:bg-transparent disabled:text-faintest
@@ -137,17 +114,12 @@ export function Stepper({ label, value, min, max, step, onChange, children }: {
 }
 
 /**
- * What an mm field DOES, for the two that look different: commit on Enter and on blur but never
- * mid-typing, reject anything non-finite or ≤ 0 by keeping the old value, and clamp the rest.
+ * What an mm field DOES, shared by the two that look different — the box is NOT shared: `check:style`
+ * reads class lists out of `className` attributes and out of ALLCAPS constants named inside one, so a
+ * class list passed as a prop would still be in the DOM with nothing checking it.
  *
- * The rule, not the look. The inspector's row and the point bar's compact field were the same nine
- * lines of `<input>` twice over, differing only in their box — but the box is the half that has to
- * stay a literal `className`, because `check:style` reads class lists out of `className` attributes
- * and out of ALLCAPS constants NAMED INSIDE one. A class list handed over as a PROP is invisible to
- * it, ALLCAPS or not: it would still be in the DOM, and nothing would check it any more.
- *
- * `key={value}` stays at each call site rather than riding in here — spreading a `key` is a React
- * warning — and it is what re-mounts the field so `defaultValue` follows an external change (a drag).
+ * `key={value}` stays at each call site — spreading a `key` is a React warning — and it is what
+ * re-mounts the field so `defaultValue` follows an external change (a drag).
  */
 export function mmField(value: number, min: number, max: number, onChange: (v: number) => void) {
   return {
@@ -160,7 +132,6 @@ export function mmField(value: number, min: number, max: number, onChange: (v: n
   };
 }
 
-/** Numeric field in mm. Commits and clamps on Enter / blur (never mid-typing). */
 export function NumInput({ label, value, onChange, min, max }: {
   label: string; value: number; onChange: (v: number) => void; min: number; max: number;
 }) {
@@ -179,7 +150,6 @@ export function NumInput({ label, value, onChange, min, max }: {
   );
 }
 
-/** Checkbox as a real <button role="checkbox">, so Tab/Space/Enter and screen readers work. */
 export function Checkbox({ checked, onToggle, label }: {
   checked: boolean; onToggle: () => void; label: string | React.ReactNode;
 }) {
@@ -198,16 +168,12 @@ export function Checkbox({ checked, onToggle, label }: {
 }
 
 /**
- * A small labelled button — undo/redo in the panel, "go to the print view" in the guide. It exists
- * because the class it replaced did not: a modifier deleted from index.css left its call site
- * shipping the browser's default chrome past every gate, since nothing checks a class name.
+ * A small labelled button — undo/redo in the panel, "go to the print view" in the guide.
  * Deliberately no `variant` prop: a second look is an edit here.
  */
 export function Button({ onClick, disabled, title, className = "", children }: {
   onClick: () => void; disabled?: boolean; title?: string;
-  /** POSITION only — margin, alignment, order. Not a way to restyle the button from outside; the
-   *  look is the one above, and a second one is an edit here. An index.css rule once did this from
-   *  outside and died silently when the class it targeted did. */
+  /** POSITION only — margin, alignment, order. Not a way to restyle the button from outside. */
   className?: string;
   children: React.ReactNode;
 }) {
@@ -224,9 +190,8 @@ export function Button({ onClick, disabled, title, className = "", children }: {
 }
 
 /**
- * A status marker on something else — "beta" on a route, an optional badge on a kit item. Outlined
- * rather than filled so it reads as a note ABOUT the thing, not a second thing to press, and it
- * takes `currentColor`, so every host needs nothing of its own — pressed state included.
+ * A status marker on something else — "beta" on a route, an optional badge on a kit item. All
+ * `currentColor`, so a host needs nothing of its own, pressed state included.
  */
 export function Badge({ children }: { children: React.ReactNode }) {
   return (
@@ -236,10 +201,9 @@ export function Badge({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The look of one segmented option, without its LAYOUT. Exported because the point bar's ◠ button
- * wears the same skin at a different size, and utilities cannot express that by overriding: they
- * share a specificity, so the generated sheet's order decides (Tailwind emits `p-*` before
- * `px-*`/`py-*`, so `p-0` written after `px-4 py-7` loses). Each caller states its own box.
+ * The look of one segmented option, without its BOX — the point bar wears the same skin at a
+ * different size, and utilities do not override each other by string order, so each caller states
+ * its own box rather than overriding a base.
  */
 export const SEG_SKIN = "rounded-md cursor-pointer bg-card text-text border border-card-edge "
   + "font-sans text-base font-semibold hover:border-accent-45 "
@@ -264,7 +228,7 @@ export function CTA({ label, onClick, outline }: { label: string; onClick: () =>
   return (
     <button onClick={onClick}
       /* The border belongs to the OUTLINE branch, not the base: box-sizing is border-box, so a
-         transparent 1px border on the filled one still eats 1px of padding per side — 2px taller. */
+         transparent 1px border on the filled one would make it 2px taller. */
       className={`w-full p-12 rounded-lg cursor-pointer font-sans text-md font-bold
         tracking-[0.08em] hover:brightness-[1.06] ${outline
           ? "bg-card text-accent border border-accent-5 shadow-none"
@@ -279,8 +243,8 @@ export const NOTE_SKIN = "text-xs leading-[1.6] text-faint [&_strong]:text-text"
 
 /**
  * Small note under a control or CTA. Accepts rich children, so it is not translated here.
- * `className` REPLACES the default margin rather than adding to it: two margin utilities on one
- * element share a specificity, so the sheet's order decides which wins.
+ * `className` REPLACES the default margin rather than adding to it — two margin utilities on one
+ * element share a specificity, so the sheet's order would decide.
  */
 export function Note({ children, className = "mt-9" }: { children?: React.ReactNode; className?: string }) {
   return <div className={`${NOTE_SKIN} ${className}`}>{children}</div>;

@@ -1,22 +1,10 @@
 /**
- * ============================================================================
- * SECTION VIEW — the pointer gestures
- * ============================================================================
- * The four things a press on the drawing can begin: the body-height handle, a control point, the
- * `+` ghost, and a tangent handle in curve-adjust mode. What each one WRITES lives here; what the
- * marks look like and where they sit is the component's.
+ * What a press on the drawing WRITES; what the marks look like and where they sit is the
+ * component's, and the clamps are `ui/pointEdit.ts`'s, this being its third surface.
  *
- * **A factory, not a hook, and deliberately not called `useSectionDrag`.** It holds no state of its
- * own — the window listeners live and die inside one gesture — so it is the same shape as
- * `ui/pointEdit.ts`: closures over the state setter, rebuilt every render, nothing more. A `use`
- * name invites `useCallback`, and a memoized handler here would close over a stale design: the one
- * thing that must NOT be memoized is `freezeMap`, whose whole job is to capture the mapping at
- * pointerdown rather than at mount. A ref would hide that from `react-hooks/exhaustive-deps`, which
- * is the gate that exists for it.
- *
- * The editing rules themselves are not here either — `tBounds` and `clampR` come from
- * `ui/pointEdit.ts`, shared with the two button surfaces, because this is the third one.
- * ============================================================================
+ * **A factory, not a hook, and deliberately not called `useSectionDrag`.** A `use` name invites
+ * `useCallback`, and a memoized handler here would close over a stale design — least of all
+ * `freezeMap`, whose whole job is to capture the mapping at pointerdown rather than at mount.
  */
 import { outerR } from "../../geometry.ts";
 import { LIMITS } from "../../config.ts";
@@ -58,18 +46,12 @@ export function sectionDrag(ctx: {
   const H = p.height;
 
   /**
-   * The screen→model mapping, frozen at the instant a drag starts.
+   * The screen→model mapping, frozen at the instant a drag starts, and that is a CORRECTNESS fix:
+   * both halves depend on the design being dragged (`s` shrinks as `maxRadius` grows, the fitted
+   * viewBox stretches as the silhouette widens), so reading it live closes a positive feedback loop
+   * and the handle leaves the finger behind.
    *
-   * Both halves depend on the design being dragged: `s` (mm → SVG units) shrinks as `maxRadius`
-   * grows, and in COMPACT mode the viewBox is fitted to the drawing, so the SVG→screen half stretches
-   * as the silhouette widens. Read live on every move that closes a positive feedback loop, and
-   * dragging one control point 40px took the design from ⌀192 to ⌀392, the handle leaving the finger
-   * behind. Frozen, millimetres per pixel is whatever it was when you touched down. The wide path
-   * barely showed this (fixed viewBox, `s` pinned at 2.0 until ~200mm radius), which is why the bug
-   * arrived with the content-fitted frame.
-   *
-   * Called INSIDE each pointerdown, never hoisted, never memoized: hoisted it freezes at mount, and
-   * the bug above comes back the other way round.
+   * Called INSIDE each pointerdown, never hoisted, never memoized — either way it freezes at mount.
    */
   const freezeMap = () => {
     // Client coordinates → SVG user coordinates (absorbs preserveAspectRatio letterboxing)
@@ -90,9 +72,7 @@ export function sectionDrag(ctx: {
     };
   };
 
-  // Every gesture below (height handle, control point, tangent handle) needs the same three things:
-  // listen on the WINDOW so the pointer may leave the small hit target, mark this key as the active
-  // drag so the row/handle highlights, and tear both down on release.
+  // On the WINDOW, so the pointer may leave the small hit target mid-drag.
   const startDrag = (key: string, onMove: (e: PointerEvent) => void) => {
     const up = () => {
       window.removeEventListener("pointermove", onMove);
@@ -104,7 +84,6 @@ export function sectionDrag(ctx: {
     setDrag(key);
   };
 
-  // ---- The body-height handle ----
   const beginDrag = (e: React.PointerEvent, cfg: Handle) => {
     e.preventDefault();
     e.stopPropagation();
@@ -118,10 +97,8 @@ export function sectionDrag(ctx: {
     });
   };
 
-  // ---- Curve control points ----
-  // Select the point the moment the pointer goes down, whether or not it moves. Drag moves t/r; a
-  // click only selects. Corner⇄smooth and delete are explicit buttons in the right panel — as hidden
-  // click / double-click gestures they misfired with drags.
+  // Selects on pointerdown whether or not the pointer then moves; corner⇄smooth and delete are
+  // buttons, not click gestures, which misfired against the drag.
   const beginDragPt = (e: React.PointerEvent, i: number) => {
     e.preventDefault();
     e.stopPropagation();
@@ -145,24 +122,20 @@ export function sectionDrag(ctx: {
     });
   };
 
-  // The "+" ghost = the midpoint between adjacent control points (radius from geometry's outerR = the
-  // actual shape). Click to add a point there and select it; this only adds one point to pts.
+  // The "+" ghost is the midpoint between two control points, its radius read from `outerR` so the
+  // new point lands on the shape that is drawn.
   const addAtT = (mt: number) => {
     if (p.pts.length >= LIMITS.pts[1]) return;
     const r = clampR(outerR(p, mt));
-    // Sorted and located BEFORE the state write. `setSel` used to sit inside the `setP` updater,
-    // which must be pure — React may run it twice, and a second surface's setter is a side effect
-    // even when the value it sets is the same both times. Built from `p.pts`, which is what the
-    // guard and `r` above already read, so the new array and the index it is selected by come from
-    // one design rather than two.
+    // Sorted and located BEFORE the state write: a `setP` updater must be pure — React may run it
+    // twice — and calling `setSel` from inside one is a side effect however stable its value.
     const pts = [...p.pts, { t: mt, r }].sort((a, b) => a.t - b.t);
     setP((o) => ({ ...o, pts }));
     setSel(pts.findIndex((q) => q.t === mt));
   };
 
-  // Dragging a tangent handle (curve-adjust mode). which="ho" (next-point side) / "hi" (previous
-  // side). Smooth points (non-sharp, interior) mirror the opposite side (hi=-ho); corner/end points
-  // are independent per side.
+  // `ho` is the next-point side, `hi` the previous one. A smooth interior point mirrors the opposite
+  // side; corner and end points are independent per side.
   const beginDragHandle = (e: React.PointerEvent, i: number, which: "ho" | "hi") => {
     e.preventDefault();
     e.stopPropagation();
