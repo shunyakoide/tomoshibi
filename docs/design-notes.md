@@ -359,8 +359,24 @@ the mold comes apart.
   100%-tall `overflow: hidden` box from `<html>` down, which clipped the printed guide to exactly one
   page), and **the two-column layout has to be forced back on paper** (sheet width is under the 860px
   breakpoint, so every figure grew to full width and Chrome dropped the blocks it could not split).
-  With both fixed it prints **7 sheets, 6 on cardboard** — content, not a rule: if you change either,
-  print it and count.
+  Both are still working, verified under print emulation: the shell's five siblings all compute to
+  `display: none`, and the first step's columns come back as `534px 851px`.
+  - **It prints 20 sheets, 17 on cardboard** — content, not a rule: if you change either, print it
+    and count. **The 7 / 6 this note used to give was measuring the wrong thing**, so here is how to
+    reproduce the real number rather than re-derive the old one. A sheet is **794px** wide (A4 at
+    96dpi), which is under the 860px breakpoint — that is the whole reason the two-column rule above
+    has to be forced — so on paper a figure gets ~38% of 794px ≈ 300px and the document runs long.
+    Load `/guide` in headless Chrome and ask for `Page.printToPDF` at A4 (8.27×11.69in, 0.4in
+    margins), then read `/Count` off the page tree. Seed the route through
+    `Page.addScriptToEvaluateOnNewDocument`, not from an already-booted page: the app rewrites
+    `tomoshibi.studio` from its own state shortly after boot, and losing that race silently measures
+    the 3D route twice.
+  - **7 is what you get by dividing the guide's on-screen height by a sheet**, which is not the same
+    document: at a 1440px viewport the page is 7153px tall and a sheet holds 1045px (11.69in less
+    two 0.4in margins, at 96dpi), so 7153 ÷ 1045 = 6.8. That column is nearly twice a sheet's width,
+    the figures are correspondingly larger, and it reflows to a third of the length. Wait for the
+    figures either way — though the wells hold their box whether the drawing has arrived or not, so
+    the height is honest before they land.
 ## Onboarding (first-time visitors)
 
 The app is published on a static host, so most first-time visitors arrive knowing nothing — and in English (`loadLang()` defaults to `en`). Two pieces cover them, split by the question they answer:

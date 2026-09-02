@@ -27,9 +27,14 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 OUT = ROOT / "src" / "pdf-glyphs.ts"
 
-# Modules whose strings reach a PDF. Anything drawn by another module is invisible to this list —
-# add the file here in the same commit that starts printing from it.
-SOURCES = ["src/papercraft.ts"]
+# Modules whose strings reach a PDF. Read from the DIRECTORY rather than listed file by file: the
+# template is spread over src/paper/, and a hand-listed path stops covering a label the moment
+# someone moves it to a neighbouring module — which prints a blank and fails nothing. papercraft.ts
+# is the barrel and prints nothing itself, but it is scanned too, so a string added there is not
+# invisible. Anything drawn by a module OUTSIDE this set still has to be added here by hand, in the
+# same commit that starts printing from it. Keep in step with SOURCES in scripts/glyphs.test.mts.
+SOURCES = ["src/papercraft.ts"] + sorted(
+    "src/paper/" + q.name for q in (ROOT / "src" / "paper").glob("*.ts"))
 # Symbols worth drawing properly rather than folding to ASCII in pdf.ts (FOLD). They are not
 # Japanese, but they are outside WinAnsi, which is the same problem.
 EXTRA = "←→↑▼—"

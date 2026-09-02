@@ -14,12 +14,18 @@
  *   node scripts/glyphs.test.mts
  * ============================================================================
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { GLYPHS } from "../src/pdf-glyphs.ts";
 
 // Kept in step with SOURCES / EXTRA in tools/pdffont/build.py — a module that starts printing has
 // to be added to both, and this script is what says so out loud.
-const SOURCES = ["src/papercraft.ts"];
+//
+// The whole paper pipeline is READ FROM THE DIRECTORY rather than listed file by file: the template
+// is spread over `src/paper/`, and a hand-listed path stops covering a label the moment someone
+// moves it to a neighbouring module — which prints a blank and fails nothing. `papercraft.ts` is the
+// barrel and prints nothing itself, but it is scanned too, so a string added there is not invisible.
+const SOURCES = ["src/papercraft.ts", ...readdirSync(new URL("../src/paper/", import.meta.url))
+  .filter((f) => f.endsWith(".ts")).sort().map((f) => "src/paper/" + f)];
 const EXTRA = "←→↑▼—";
 
 let fail = 0;
