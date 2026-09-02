@@ -21,6 +21,12 @@ import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.ts";
 import * as kit from "./kit.ts";
 import { useFigures, buildAlerts } from "./derived.ts";
 import { AlertBar, AlertColumn } from "./ui/Alerts.tsx";
+import SilhouetteSection from "./ui/panel/SilhouetteSection.tsx";
+import FrameworkSection from "./ui/panel/FrameworkSection.tsx";
+import HigoSection from "./ui/panel/HigoSection.tsx";
+import WashiSection from "./ui/panel/WashiSection.tsx";
+import RingSection from "./ui/panel/RingSection.tsx";
+import ExportSection from "./ui/panel/ExportSection.tsx";
 import { clamp } from "./util.ts";
 import { useViewport } from "./three/viewport.ts";
 import { buildScene } from "./three/scenes.ts";
@@ -30,10 +36,10 @@ import SectionEditor from "./SectionEditor.tsx";
 import PagePreview from "./PagePreview.tsx";
 import GuidePage from "./GuidePage.tsx";
 import Welcome from "./Welcome.tsx";
-import { DEFAULTS, LIMITS, SIL_ROWS } from "./config.ts";
+import { DEFAULTS } from "./config.ts";
 import type { T } from "./i18n.ts";
 import { accent, vpBg, chipStyle, TContext } from "./ui/theme.ts";
-import { ScrubRow, Stepper, NumInput, Checkbox, SectionLabel, CTA, Note, Badge, NOTE_SKIN } from "./ui/controls.tsx";
+import { CTA, Badge, NOTE_SKIN } from "./ui/controls.tsx";
 import PresetChips from "./ui/PresetChips.tsx";
 import PointCard from "./ui/PointCard.tsx";
 import PointBar from "./ui/PointBar.tsx";
@@ -73,7 +79,6 @@ const SHEET_ORDER: SheetStop[] = ["peek", "half", "full"];
 // Under this much travel a drag is a tap, which cycles to the next stop: 6px is the slop a finger
 // puts into a deliberate press.
 const SHEET_TAP = 6;
-const BED_PRESETS = [180, 220, 250, 256, 300, 350];
 // In build order: shape it, see it assembled, print it, light it. Every one is a RENDERING OF YOUR
 // DESIGN — move a ◇ and all four redraw. Not the build guide, whose figures come from one fixed
 // example (GUIDE_P): that is a page off the ☰ menu.
@@ -539,160 +544,17 @@ export default function TomoshibiStudio() {
             compact={narrow} />
         )}
 
-        {/* Silhouette */}
-        <div className="mb-20">
-          <SectionLabel title="シルエット" hint="ドラッグ / 値クリックで入力" />
-          {SIL_ROWS.map((r) => (
-            <ScrubRow key={r.key} drag={drag} setDrag={setDrag}
-              cfg={{ ...r, value: p[r.key], onChange: (v) => setP((o) => ({ ...o, [r.key]: v })) }} />
-          ))}
-        </div>
-
-        {/* Framework */}
-        <div className="mb-20">
-          <SectionLabel title="骨組み" />
-          <Stepper label="羽根板の枚数" value={p.boards} min={4} max={Math.min(16, boardsMax)} step={1}
-            onChange={(v) => setP((o) => ({ ...o, boards: v }))}>
-            {p.boards}<span className="text-faintest font-normal">{t(" 枚")}</span>
-          </Stepper>
-          {boardsMax < 16 && p.boards >= boardsMax && (
-            <div className="text-sm leading-[1.5] text-faint pt-2 pb-4">
-              {t("この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます", { n: Math.min(16, boardsMax) })}
-            </div>
-          )}
-          <ScrubRow drag={drag} setDrag={setDrag} cfg={{
-            key: "boardT", label: "板厚", value: p.boardT, display: p.boardT.toFixed(1),
-            min: 1, max: 4, round: 0.2, unit: "mm", onChange: (v) => setP((o) => ({ ...o, boardT: v })),
-          }} />
-          <ScrubRow drag={drag} setDrag={setDrag} cfg={{
-            key: "tabLen", label: "爪の長さ", value: p.tabLen,
-            min: 5, max: 40, round: 1, unit: "mm", onChange: (v) => setP((o) => ({ ...o, tabLen: v })),
-          }} />
-          <div className="text-sm leading-[1.5] text-faint pt-2 pb-4">
-            {t("首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ")}
-          </div>
-        </div>
-
-        {/* Bamboo ribs */}
-        <div className="mb-20">
-          <SectionLabel title="竹ひご" />
-          <ScrubRow drag={drag} setDrag={setDrag} cfg={{
-            key: "higoD", label: "竹ひご径", value: p.higoD, display: p.higoD.toFixed(1),
-            min: 1, max: 4, round: 0.5, unit: "mm", onChange: (v) => setP((o) => ({ ...o, higoD: v })),
-          }} />
-          <ScrubRow drag={drag} setDrag={setDrag} cfg={{
-            key: "pitch", label: "ひごピッチ", value: p.pitch,
-            min: 8, max: 30, round: 1, unit: "mm", onChange: (v) => setP((o) => ({ ...o, pitch: v })),
-          }} />
-          <div className="mt-4">
-            <Checkbox checked={p.spiral ?? false} onToggle={() => setP((o) => ({ ...o, spiral: !(o.spiral ?? false) }))}
-              label={<>{t("螺旋巻き")} <span className="text-faint">{t("(溝を下へ連続させる)")}</span></>} />
-          </div>
-        </div>
-
-        {/* Washi allowances. Part of the design (the panel follows the silhouette and the rib count),
-            not an output method — the template ships with whichever output you pick, so there is no
-            separate download here. Marked beta: flattening a doubly-curved surface is approximate by
-            nature, and how much a damp sheet takes up is unchecked against real builds. The
-            dimensions are checked (check:paper); the fit is not. */}
-        <div className="mb-20">
-          <SectionLabel title="和紙" hint="羽根板の間 1面分 · beta" />
-          <Stepper label="のりしろ(左右)" value={washiSide} min={0} max={15} step={1} onChange={setWashiSide}>
-            {washiSide} mm
-          </Stepper>
-          <Stepper label="被せ代(上下)" value={washiEnd} min={0} max={15} step={1} onChange={setWashiEnd}>
-            {washiEnd} mm
-          </Stepper>
-          <div className="flex items-center justify-between py-7">
-            <span className="text-base text-text">{t("1面のサイズ")}</span>
-            <span className="font-mono text-sm text-faint">
-              {Math.round(2 * washiG.wMax)} × {Math.round(washiG.sTot + 2 * washiEnd)} mm × {p.boards}
-            </span>
-          </div>
-          <Note className="mt-2">
-            {t("貼る前に和紙を切るための原寸型紙です。どちらの出力にも別 PDF で同梱されます。")}
-            <br />{t("この型紙は検証中です。全面を切る前に、まず 1 面だけ合わせてみてください。")}
-          </Note>
-        </div>
-
-        {/* Opening ring: like the washi, part of the finished LANTERN rather than of the mold, which
-            is why it sits here and not in 骨組み. The hoop is sized from the opening and has nothing
-            to set; the bottom one's leg sockets do. */}
-        <div className="mb-20">
-          <SectionLabel title="開口リング" hint="完成品に残る輪" />
-          <Checkbox checked={!!p.legSockets} label="脚ソケット(下)"
-            onToggle={() => setP((o) => ({ ...o, legSockets: !o.legSockets }))} />
-          {/* Said here, not on the part: the way out is a control on this panel, and a socket that
-              silently is not there is one you find out about with the print in your hand. Shown only
-              when the design ASKED for sockets. */}
-          {p.legSockets && !legsFit && (
-            <div className="text-sm leading-[1.5] text-faint pt-2 pb-4">
-              {t("この開口には脚ソケットが入りません(下の輪のみになります)。開口を広げると入ります")}
-            </div>
-          )}
-        </div>
-
-        {/* The settings for the selected route — the switch itself sits on the viewport, next to the
-            mode tabs. The washi template is deliberately NOT a third route: it is the paper skin
-            needed on top of whichever mold you built, so it lives with the design. */}
+        <SilhouetteSection p={p} setP={setP} drag={drag} setDrag={setDrag} />
+        <FrameworkSection p={p} setP={setP} boardsMax={boardsMax} drag={drag} setDrag={setDrag} />
+        <HigoSection p={p} setP={setP} drag={drag} setDrag={setDrag} />
+        <WashiSection boards={p.boards} side={washiSide} end={washiEnd}
+          setSide={setWashiSide} setEnd={setWashiEnd} gore={washiG} />
+        <RingSection legSockets={!!p.legSockets} legsFit={legsFit}
+          onToggle={() => setP((o) => ({ ...o, legSockets: !o.legSockets }))} />
         {view === "print" && (
-          <div className="border-t border-edge pt-16 mt-4">
-            {/* Titled, because the panel is one long scroll: untitled, the first control reads as
-                another shape setting. The hint names the route. */}
-            <SectionLabel title="印刷・書き出し" hint={route === "stl" ? "3Dプリント" : "段ボール"} />
-
-            {route === "stl" ? (
-              <>
-                <SectionLabel title="プリントベッド" />
-                {/* Common (square) bed presets as a dropdown rather than a wrapping chip row (saves a
-                    row of height). Sets width = depth; 幅/奥行き below stay for rectangular beds. */}
-                <div className="flex items-center justify-between mb-12">
-                  <span className="text-base text-text">{t("定番サイズ")}</span>
-                  <select value={bedW === bedD && BED_PRESETS.includes(bedW) ? String(bedW) : "custom"}
-                    aria-label={t("定番サイズ")}
-                    onChange={(e) => { const v = +e.target.value; if (v) { setBedW(v); setBedD(v); } }}
-                    className="w-150 px-8 py-6 font-sans text-base text-text bg-card border
-                      border-card-edge rounded-md cursor-pointer">
-                    {!(bedW === bedD && BED_PRESETS.includes(bedW)) && <option value="custom">{t("カスタム")}</option>}
-                    {BED_PRESETS.map((sz) => <option key={sz} value={sz}>{sz} × {sz} mm</option>)}
-                  </select>
-                </div>
-                <NumInput label="幅" value={bedW} onChange={setBedW} min={100} max={420} />
-                <NumInput label="奥行き" value={bedD} onChange={setBedD} min={100} max={420} />
-
-                {/* Layout — how many rib copies go on the plate. A per-job output choice, not a bed
-                    dimension, hence its own group. */}
-                <div className="border-t border-edge pt-14 mt-14">
-                  <SectionLabel title="配置" />
-                  {p.spiral ? (
-                    <div className="flex items-center justify-between py-7">
-                      <span className="text-base text-text">{t("印刷する羽根板")}</span>
-                      <span className="font-mono text-sm text-faint">{t("螺旋: 全")}{p.boards}{t("枚(各1枚)")}</span>
-                    </div>
-                  ) : (
-                    <Stepper label="印刷する羽根板" value={nRibs} min={1} max={p.boards} step={1} onChange={setPrintRibs}>
-                      {nRibs}<span className="text-faintest font-normal"> / {p.boards}</span>
-                    </Stepper>
-                  )}
-                </div>
-              </>
-            ) : (
-              /* Cardboard: the A4 full-scale template. Only the material thickness lives here;
-                 "download the template ZIP" is the footer CTA. */
-              <>
-                <SectionLabel title="型紙(段ボール)" hint="A4 原寸 · beta" />
-                <Note className="mb-12">
-                  {t("この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。")}
-                </Note>
-                <Stepper label="材料の厚み" value={matT} min={1} max={10} step={0.5} onChange={setMatT}>
-                  {matT} mm
-                </Stepper>
-                {/* Counterpart to the 3D route's bed warning: on paper there is no machine size to
-                    exceed, and saying nothing would read as a missing check. */}
-                <Note>{t("大きさの制限はありません。A4 に収まらない部品は次のページに続きます(両方を青い枠で切り、同じ番号の半ダイヤが◇になるよう突き合わせて裏からテープ)。")}</Note>
-              </>
-            )}
-          </div>
+          <ExportSection route={route} p={p} nRibs={nRibs}
+            bedW={bedW} bedD={bedD} setBedW={setBedW} setBedD={setBedD}
+            setPrintRibs={setPrintRibs} matT={matT} setMatT={setMatT} />
         )}
         {/* The wordmark, phone only, at the END of the scroll: the panel header it sat in is gone
             here, and at the top it would spend the first 40px of every pull on identity. */}
