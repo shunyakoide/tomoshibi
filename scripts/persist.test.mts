@@ -14,10 +14,10 @@ globalThis.localStorage = {
   removeItem: (k: string) => { delete store[k]; },
 } as unknown as Storage;
 
-const P = await import("../src/persist.ts");
+const P = await import("../src/studio/persist.ts");
 const G = await import("../src/geometry.ts");
 const { DEFAULTS, LIMITS } = await import("../src/config.ts");
-type SavedState = import("../src/persist.ts").SavedState;
+type SavedState = import("../src/studio/persist.ts").SavedState;
 
 // Most of what goes in below is deliberately NOT a valid SavedState. The casts live here rather
 // than being bought by widening what persist.ts claims to accept, and the `!`s say what the

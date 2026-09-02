@@ -6,9 +6,9 @@
  * Rendered unconditionally, lit included. Gate it on anything and the WebGL context is destroyed and
  * recreated on every toggle, against a browser cap of about sixteen.
  */
-import { AlertColumn } from "./ui/Alerts.tsx";
-import { vpBg, useT } from "./ui/theme.ts";
-import type { AlertItem } from "./derived.ts";
+import { AlertColumn } from "./Alerts.tsx";
+import { vpBg, useT } from "./theme.ts";
+import type { AlertItem } from "../studio/derived.ts";
 
 export default function Viewport({
   mainRef, mountRef, isLit, narrow, maxDia, height, glError, chipTxt, tabs, overlay, alerts,

@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import TomoshibiStudio from "./TomoshibiStudio.tsx";
+import TomoshibiStudio from "./studio/TomoshibiStudio.tsx";
 import "./index.css";
 
 // Prevent a render-time exception from turning the whole screen black, and show the cause

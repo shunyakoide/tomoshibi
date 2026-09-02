@@ -7,10 +7,10 @@
  * must not make `outerR` NaN (a non-manifold STL) or hand the first render an oversized `boards`
  * (a koma whose notches overlap). Verified by `npm run check:persist`.
  */
-import { DEFAULTS, LIMITS } from "./config.ts";
-import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.ts";
-import { clamp } from "./util.ts";
-import type { Design, NumericDesignKey, Pt, Route } from "./types.ts";
+import { DEFAULTS, LIMITS } from "../config.ts";
+import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
+import { clamp } from "../util.ts";
+import type { Design, NumericDesignKey, Pt, Route } from "../types.ts";
 
 /**
  * Everything one save holds: the design plus the machine settings, which are facts about the maker

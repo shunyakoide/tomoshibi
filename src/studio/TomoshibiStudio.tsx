@@ -4,41 +4,41 @@
  * used to be.
  */
 import React, { useEffect, useRef, useState } from "react";
-import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.ts";
+import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
 import * as kit from "./kit.ts";
 import { useFigures, buildAlerts } from "./derived.ts";
-import { AlertBar } from "./ui/Alerts.tsx";
-import { ViewChips, ViewBar, type View } from "./ui/ViewTabs.tsx";
-import Viewport from "./Viewport.tsx";
-import { useBottomSheet } from "./ui/sheet.ts";
-import InspectorPanel from "./ui/panel/InspectorPanel.tsx";
-import SheetBar from "./ui/panel/SheetBar.tsx";
-import SilhouetteSection from "./ui/panel/SilhouetteSection.tsx";
-import FrameworkSection from "./ui/panel/FrameworkSection.tsx";
-import HigoSection from "./ui/panel/HigoSection.tsx";
-import WashiSection from "./ui/panel/WashiSection.tsx";
-import RingSection from "./ui/panel/RingSection.tsx";
-import ExportSection from "./ui/panel/ExportSection.tsx";
-import PanelFooter from "./ui/panel/PanelFooter.tsx";
-import type { KitNoteState } from "./ui/panel/KitNote.tsx";
-import { useViewport } from "./three/viewport.ts";
-import { buildScene } from "./three/scenes.ts";
+import { AlertBar } from "../ui/Alerts.tsx";
+import { ViewChips, ViewBar, type View } from "../ui/ViewTabs.tsx";
+import Viewport from "../ui/Viewport.tsx";
+import { useBottomSheet } from "../ui/sheet.ts";
+import InspectorPanel from "../ui/panel/InspectorPanel.tsx";
+import SheetBar from "../ui/panel/SheetBar.tsx";
+import SilhouetteSection from "../ui/panel/SilhouetteSection.tsx";
+import FrameworkSection from "../ui/panel/FrameworkSection.tsx";
+import HigoSection from "../ui/panel/HigoSection.tsx";
+import WashiSection from "../ui/panel/WashiSection.tsx";
+import RingSection from "../ui/panel/RingSection.tsx";
+import ExportSection from "../ui/panel/ExportSection.tsx";
+import PanelFooter from "../ui/panel/PanelFooter.tsx";
+import type { KitNoteState } from "../ui/panel/KitNote.tsx";
+import { useViewport } from "../three/viewport.ts";
+import { buildScene } from "../three/scenes.ts";
 import { useAutosave, useLang, useNarrow, usePageRoute, useUndoRedo } from "./hooks.ts";
 import { loadSaved, loadWelcomeSeen, saveWelcomeSeen } from "./persist.ts";
-import SectionEditor from "./SectionEditor.tsx";
-import PagePreview from "./PagePreview.tsx";
-import GuidePage from "./GuidePage.tsx";
-import Welcome from "./Welcome.tsx";
-import { DEFAULTS } from "./config.ts";
-import { accent, chipStyle, TContext } from "./ui/theme.ts";
-import PresetChips from "./ui/PresetChips.tsx";
-import PointCard from "./ui/PointCard.tsx";
-import PointBar from "./ui/PointBar.tsx";
-import Toolbar from "./ui/Toolbar.tsx";
-import OverflowMenu, { type MenuItem } from "./ui/Menu.tsx";
-import Logo from "./ui/Logo.tsx";
-import type { EditMode } from "./ui/pointEdit.ts";
-import type { Design, Route } from "./types.ts";
+import SectionEditor from "../ui/section/SectionEditor.tsx";
+import PagePreview from "../ui/PagePreview.tsx";
+import GuidePage from "../guide/GuidePage.tsx";
+import Welcome from "../ui/Welcome.tsx";
+import { DEFAULTS } from "../config.ts";
+import { accent, chipStyle, TContext } from "../ui/theme.ts";
+import PresetChips from "../ui/PresetChips.tsx";
+import PointCard from "../ui/PointCard.tsx";
+import PointBar from "../ui/PointBar.tsx";
+import Toolbar from "../ui/Toolbar.tsx";
+import OverflowMenu, { type MenuItem } from "../ui/Menu.tsx";
+import Logo from "../ui/Logo.tsx";
+import type { EditMode } from "../ui/pointEdit.ts";
+import type { Design, Route } from "../types.ts";
 
 /** Which onboarding card is open: the first-visit one, the one reopened from the ☰ menu, or neither. */
 type WelcomeCard = "first" | "help" | null;
@@ -122,7 +122,7 @@ export default function TomoshibiStudio() {
   });
 
   // ---- Derived figures ----
-  // Everything the design implies, in one memoized pass (src/derived.ts). Called HERE rather than in
+  // Everything the design implies, in one memoized pass (src/studio/derived.ts). Called HERE rather than in
   // the sections that read it: the inspector unmounts in lit view, and `heightLimit` alone would
   // then re-walk up to 1,941 heights on every round trip.
   const fig = useFigures(p, { bedW, bedD, matT, route, washiSide, washiEnd, t });
@@ -182,7 +182,7 @@ export default function TomoshibiStudio() {
 
   // ============ Left: viewport ============
   // The overlay and the tab row are built HERE, beside the state they close over, and handed to
-  // Viewport as elements — see src/Viewport.tsx for why they are slots rather than props.
+  // Viewport as elements — see src/ui/Viewport.tsx for why they are slots rather than props.
   const viewport = (
     <Viewport mainRef={mainRef} mountRef={mountRef} isLit={isLit} narrow={narrow}
       maxDia={maxDia} height={p.height} glError={glError} chipTxt={chip.txt} alerts={alerts}

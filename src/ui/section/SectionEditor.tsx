@@ -8,18 +8,18 @@
  * the pane's measured size.
  */
 import React, { useEffect, useRef, useState } from "react";
-import { outerR } from "./geometry.ts";
-import { LIMITS } from "./config.ts";
-import { FS } from "./ui/theme.ts";
-import Legend from "./ui/section/Legend.tsx";
-import { C } from "./ui/section/palette.ts";
-import { CX, Y0, sectionFrame } from "./ui/section/frame.ts";
-import { sectionDrag } from "./ui/section/drag.ts";
-import { sampleSection, sectionPaths } from "./ui/section/paths.ts";
-import type { EditMode } from "./ui/pointEdit.ts";
-import type { Handle } from "./ui/section/drag.ts";
-import type { T } from "./i18n.ts";
-import type { Design } from "./types.ts";
+import { outerR } from "../../geometry.ts";
+import { LIMITS } from "../../config.ts";
+import { FS } from "../theme.ts";
+import Legend from "./Legend.tsx";
+import { C } from "./palette.ts";
+import { CX, Y0, sectionFrame } from "./frame.ts";
+import { sectionDrag } from "./drag.ts";
+import { sampleSection, sectionPaths } from "./paths.ts";
+import type { EditMode } from "../pointEdit.ts";
+import type { Handle } from "./drag.ts";
+import type { T } from "../../i18n.ts";
+import type { Design } from "../../types.ts";
 
 export default function SectionEditor({
   p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", compact = false, t = (s) => s,

@@ -5,7 +5,7 @@
  */
 import { CTA } from "../controls.tsx";
 import KitNote, { type KitNoteState } from "./KitNote.tsx";
-import { WASHI_PDF } from "../../kit.ts";
+import { WASHI_PDF } from "../../config.ts";
 import { useT } from "../theme.ts";
 import type { Route } from "../../types.ts";
 
