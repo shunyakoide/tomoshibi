@@ -1,14 +1,5 @@
-/**
- * ============================================================================
- * INSPECTOR TOOLBAR — undo / redo
- * ============================================================================
- * Undo and redo, and nothing else. Reset, export and import moved into the header's overflow menu
- * (`ui/Menu.tsx`): they are rare, one is destructive, and none is about the design being edited now.
- *
- * These two stayed out of that menu on purpose — the recovery path for a direct-manipulation editor
- * that fills the screen is the frequent case an overflow menu exists to make room FOR.
- * ============================================================================
- */
+// Undo and redo stay in the open, not in the ☰: they are the recovery path for a direct-manipulation
+// editor, which is the frequent case an overflow menu exists to make room for.
 import React from "react";
 import { useT } from "./theme.ts";
 import { Button } from "./controls.tsx";

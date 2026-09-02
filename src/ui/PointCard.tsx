@@ -1,14 +1,4 @@
-/**
- * ============================================================================
- * SELECTED CONTROL POINT
- * ============================================================================
- * The card for whichever ◇ is selected in the section view: the SVG's gestures as explicit, typed,
- * keyboard-reachable UI — exact radius and height, smooth ⇄ corner, delete, move ⇄ curve mode.
- *
- * It edits `pts` only — radius, height and the sharp flag. No dimension is computed here; the shape
- * comes entirely from geometry.ts.
- * ============================================================================
- */
+// The drawing's gestures as explicit, typed, keyboard-reachable UI. Edits `pts` and nothing else.
 import React from "react";
 import { LIMITS } from "../config.ts";
 import { clamp } from "../util.ts";
@@ -25,18 +15,14 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode,
   setSel: (i: number | null) => void;
   editMode: EditMode;
   setEditMode: (m: EditMode) => void;
-  /** On a phone the contextual bar (ui/PointBar.tsx) already carries most of this — see below. */
+  /** On a phone `ui/PointBar.tsx` carries this instead, and the card renders nothing. */
   compact?: boolean;
 }) {
   const t = useT();
-  // Shared with the phone's contextual bar — see ui/pointEdit.ts for why these are not written twice.
   const { pt, isEnd, canDelete, patch, setHeightMm, del } = pointOps(p, setP, sel, setSel);
   const setMode = makeSetMode(setP, setEditMode);
 
-  // Not rendered at all on a phone: everything left here after the contextual bar (ui/PointBar.tsx)
-  // took over is either in that bar or set by dragging the ◇ — the radius is the primary gesture and
-  // is printed live beside the mark, so a field for it cost a section you must scroll to reach and
-  // bought only exact entry. Delete moved into the bar unconditionally instead.
+  // What the bar does not carry is set by dragging the ◇, whose radius is printed beside the mark.
   if (compact) return null;
 
   return (
