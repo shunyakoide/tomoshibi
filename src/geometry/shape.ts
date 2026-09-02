@@ -1,11 +1,7 @@
 /**
- * ============================================================================
- * POINT LIST → EXTRUDABLE SHAPE
- * ============================================================================
  * The one conversion from "[[x,y],…]" to a THREE.Shape. Every extruded part goes through
  * `shapeFromPts` rather than building a Shape by hand, which is how you forget to clean the holes as
  * well as the outline (see docs/design-notes.md "Two kinds of earcut degeneracy").
- * ============================================================================
  */
 import type { Pt2 } from "../types.ts";
 import * as THREE from "three";
@@ -33,8 +29,6 @@ function cleanPoly(pts: Pt2[], eps = 1e-3): Pt2[] {
   }
   return keep.length >= 3 ? keep : out;
 }
-// Builds a Shape for extrusion from a point list (+ hole point lists); outline and holes both go
-// through cleanPoly.
 export function shapeFromPts(pts: Pt2[], holes: Pt2[][] = []): THREE.Shape {
   const outline = cleanPoly(pts);
   const s = new THREE.Shape();

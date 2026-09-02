@@ -1,15 +1,6 @@
 /**
- * ============================================================================
- * THE SHARED TYPES — what a design IS
- * ============================================================================
- * `Design` is the object called `p` everywhere here — the single argument almost every geometry/
- * function takes. This file is the one place saying what its fields are, and `DEFAULTS` is checked
- * against it, so a field added to one and not the other stops the build instead of arriving in
- * `outerR` as `undefined`.
- *
- * Types only, so every import is erased: no dependency edge and no possible cycle, which is what
- * lets geometry/ name a design without importing config.ts. Units are mm throughout.
- * ============================================================================
+ * Types only, so every import of this file is erased: no dependency edge and no possible cycle,
+ * which is what lets geometry/ name a design without importing config.ts. Units are mm throughout.
  */
 
 /** A Bézier tangent handle, as a vector in (t, r) space relative to its control point. */
@@ -27,9 +18,8 @@ export type Pt = { t: number; r: number; sharp?: boolean; ho?: Handle; hi?: Hand
 export type Pt2 = [number, number];
 
 /**
- * The design. One flat object, edited by the section view and the inspector, persisted by
- * persist.ts, handed to every geometry function. The two optional fields are not settings — they
- * are the two ways a design reaches geometry without coming from the editor:
+ * The design — the object called `p` everywhere here. The two optional fields are not settings:
+ * they are the two ways a design reaches geometry without coming from the editor.
  *   `neckOn`   — the legacy single neck flag, from designs saved before it split into
  *                neckBot/neckTop. Read only as a fallback (`p.neckBot ?? p.neckOn ?? true`).
  *   `noTabDent`— set by the papercraft, which trades the koma stop for tab strength on cardboard

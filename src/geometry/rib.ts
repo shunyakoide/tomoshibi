@@ -1,11 +1,7 @@
 /**
- * ============================================================================
- * RIB (HANEITA) — the radial plate that forms the mold surface
- * ============================================================================
  * The 2D outline (tabs + grooved outer edge + hollowed inner edge), the lightening windows, the
  * serial number engraved for spiral winding, and the extrusion. `ribOutline2D` is shared by the
  * printed rib, the section drawing and the cardboard template, so all three are the same plate.
- * ============================================================================
  */
 import type { Design, Pt2 } from "../types.ts";
 import * as THREE from "three";
@@ -80,7 +76,7 @@ export function ribOutline2D(p: Design, k = 0, opts: { smooth?: boolean } = {}):
   const grooves = grooveList(p, gR, k);
   // Outer edge: grooves cut along the surface normal (opts.smooth = no grooves, for the paper template).
   const outerEdge = grooveOuterPts(p, opts.smooth ? [] : grooves, gR);
-  const Ri = innerRi(p), STEP = 0.5, pts: Pt2[] = []; // STEP used by the inner-edge loop below
+  const Ri = innerRi(p), STEP = 0.5, pts: Pt2[] = [];
   // Tab = a straight tongue, its outer edge exactly the koma outer radius kR (no overhang).
   const kR = komaR(p), dent = tabDented(p); // both tips get the inner-corner dent (matched by the koma notch)
   // Bottom tab.
