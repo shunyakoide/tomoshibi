@@ -16,9 +16,9 @@
  */
 import * as THREE from "three";
 import {
-  maxRadius, outerR, cutT, standBoardLength, grooveR, grooveList, higoSpiralPath,
+  maxRadius, outerR, standBoardLength, grooveR, grooveList, higoSpiralPath,
   ribGeometry, komaGeometry, standGeometry, boardGeometry,
-  standCollarTop, standSaddleH, standSlotSep, ringGeometry,
+  standCollarTop, standSaddleH, standSlotSep, ringGeometry, washiSurface,
 } from "../geometry.ts";
 import { fitOnBed } from "../bed.ts";
 import type { ViewportHandle, ViewportState } from "./viewport.ts";
@@ -81,14 +81,10 @@ function moldGroup(p: Design, s: ViewportState): THREE.Group {
 // ---- lit: the finished lantern, no mold ----
 function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   const legH = p.height * 0.42;                 // three legs (1AY style)
-  // The neck carries no bamboo or washi: draw the lamp body only, openings left open.
-  const cB = cutT(p), t0 = cB, t1 = 1 - cB;
-  const pts: THREE.Vector2[] = [];
-  const N = 160;                                // fine vertical sampling keeps the silhouette smooth
-  for (let i = 0; i <= N; i++) {
-    const t = t0 + (t1 - t0) * (i / N);
-    pts.push(new THREE.Vector2(outerR(p, t) + p.higoD, legH + t * p.height));
-  }
+  // The neck carries no bamboo or washi: draw the lamp body only, openings left open. The surface is
+  // `washiSurface` — the same meridian the assembly figures use, over the same `fukuroRange`.
+  const prof = washiSurface(p, 160);            // fine vertical sampling keeps the silhouette smooth
+  const pts = prof.map(([r, y]: [number, number]) => new THREE.Vector2(r, legH + y));
   s.group.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 128), s.washiMat));
 
   // Bamboo ribs sit inside the paper: centring on outerR puts the outer surface at outerR+higoD/2,
@@ -116,7 +112,7 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   // Legs: splayed from the bottom rim (= the lower opening) to the floor. Graphite, so they read as
   // black iron instead of sinking into the dark background.
   const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
-  const rimR = outerR(p, t0) + p.higoD, rimY = legH + t0 * p.height;   // matches the skin's bottom rim exactly
+  const [rimR, rimY0] = prof[0], rimY = legH + rimY0;   // the skin's bottom rim, by construction
   const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, 1.8, 14, 96), legMat);
   rim.rotation.x = Math.PI / 2; rim.position.y = rimY;
   s.group.add(rim);
