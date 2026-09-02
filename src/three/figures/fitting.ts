@@ -1,19 +1,12 @@
-/**
- * Way (3)'s fitting: the stem, the nut, the three leg wires and the frame — see the banner below,
- * which is this file's real header. Nothing here takes a `Design`: like the kit, it is drawn from
- * proportions, because none of it is a part the app makes.
- */
 import * as THREE from "three";
 import { WIRE_R, cordTube, drum, solid, wireTube } from "./ink.ts";
 import { BULB_FOOT, SOCKET_H, SOCKET_R, ledBulb } from "./kit-lamps.ts";
 
 /**
- * ============================================================================
- * FIXING THE LAMP — the sub-figures under way (3), "legs, fixed from below"
- * ============================================================================
- * How the lamp is held on needs no part this app prints: a pendant holder's cord leaves through a
- * THREADED STEM with a fixing nut, so a loop bent in each wire's end stacks on that stem and one nut
- * clamps the lot. These ignore `p` as the kit's figures do.
+ * Fixing the lamp — the sub-figures under way (3), "legs, fixed from below". How the lamp is held on
+ * needs no part this app prints: a pendant holder's cord leaves through a THREADED STEM with a
+ * fixing nut, so a loop bent in each wire's end stacks on that stem and one nut clamps the lot.
+ * These ignore `p` as the kit's figures do.
  *
  * [Orientation] Mouth UP so the bulb points into the shade, cord and stem DOWN — the difference from
  *   (2), and why the nut is reachable.
@@ -91,10 +84,10 @@ export function legWire(arm: number, drop: number, splay: number) {
   return wireTube(pts);
 }
 
-// A third of a turn between legs, and NO phase on the triad. With three legs and one isometric camera
-// one always points nearly along the view axis: AWAY it projects up the page and all three stay
-// countable, AT the reader it collapses to a stub behind the socket — which turning the triad cost.
-// So legs on 0/120/240, gaps on 60/180/300; see the cord for what uses them.
+// A third of a turn between legs, and NO phase on the triad. With three legs and one isometric
+// camera one always points nearly along the view axis: AWAY it projects up the page and all three
+// stay countable, AT the reader it collapses to a stub behind the socket. So legs on 0/120/240,
+// gaps on 60/180/300; see the cord for what uses them.
 export const LEG_PHASE = 0;
 
 // FOUR eyes, not three: the frame's goes on with the legs', under the same nut. Placed last and
@@ -249,8 +242,8 @@ export function legStood() {
   bulb.position.y = SOCKET_H + BULB_FOOT - 8;          // 8mm of cap screwed into the mouth
   g.add(bulb);
   legLoops(g, ...LEG);
-  const yEnd = frameOnStem(g, 64);                     // cropped: a 150mm hoop here shrinks the nut
-  const nut = hexNut();                                // this step is about to a detail
+  const yEnd = frameOnStem(g, 64);                     // cropped: at 150mm the hoop shrinks the nut
+  const nut = hexNut();                                // this step is about down to a detail
   nut.position.y = yEnd - NUT_H / 2;                   // run up tight under the stack
   g.add(nut);
   lampCord(g, -STEM_H, 24, 28);

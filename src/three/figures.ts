@@ -1,34 +1,3 @@
-/**
- * ============================================================================
- * FIGURES — the assembly guide's line drawings, rendered from the real parts
- * ============================================================================
- * The catalogue and the camera. `SCENES` names every drawing the guide can ask for and `figureImage`
- * renders one to a PNG; the drawings themselves live in `figures/`, one file per thing they are of:
- *
- *   figures/ink.ts        … the house style — palette, view directions, `part`, the strokes, the rod
- *   figures/mold.ts       … this design made visible: ribs, koma, bamboo, washi, the stand, the pull
- *   figures/lit.ts        … the finished lantern, one figure per way of lighting it
- *   figures/kit-tools.ts  … paste, tape, brushes, pliers, razor, washi, mister — never built from `p`
- *   figures/kit-lamps.ts  … the socket and the bulb, which three other files also draw
- *   figures/fitting.ts    … way (3)'s stem, nut, legs and frame
- *   figures/hang.ts       … way (2)'s one bent wire
- *
- * Dependencies run one way — ink ← kit ← fitting/hang ← lit, and mold ← lit — so there are no cycles
- * to reason about. **This file is NOT a barrel and should not become one**: `GuidePage.tsx` is its
- * only caller and imports two names, so re-exporting the leaves would buy nothing and would invite
- * someone to reach past it for `part` or `silhouetteLines`. (Contrast `geometry.ts`, which IS a
- * barrel, and for the opposite reason: five callers and two gate scripts read it.)
- *
- * Every figure is built from a design `p` and from `geometry.ts`, so a figure cannot show a mold the
- * STL does not make. (GuidePage passes the same FIXED design to every call; nothing here knows that.)
- *
- * [Look] White faces + `EdgesGeometry` outlines = a hidden-line drawing; the step's part is accented.
- * [Camera] Orthographic and isometric: in perspective a flat part reads as a wrong shape.
- * [Output] PNG data URLs, not live canvases — thirty-odd scenes against a ~16 WebGL context cap.
- * [No gate sees this] `figureImage` turns every failure into a blank PNG on purpose, so nothing here
- *   fails loudly. A change to any figure has to be checked by rendering the set and comparing.
- * ============================================================================
- */
 import type { Design } from "../types.ts";
 import * as THREE from "three";
 import { boardGeometry, komaGeometry, ringGeometry, standGeometry } from "../geometry.ts";
@@ -42,7 +11,6 @@ import { lightHang, lightLegs, lightSet } from "./figures/lit.ts";
 import { frameBend, legBend, legStack, legStood } from "./figures/fitting.ts";
 import { hangBend, hangSet } from "./figures/hang.ts";
 
-// One renderer for every figure, created on first use and kept; its canvas is sized per figure.
 let R: THREE.WebGLRenderer | null = null;
 function renderer(): THREE.WebGLRenderer {
   if (R) return R;
@@ -51,8 +19,7 @@ function renderer(): THREE.WebGLRenderer {
   return R;
 }
 
-/** One figure: every scene is drawn from the guide's fixed design, and `sm` carries the route
- *  (cardboard cuts a smooth edge and no windows — see `ribGeo`). */
+/** One figure. `sm` is the route: cardboard cuts a smooth edge and no windows (see `ribGeo`). */
 type Scene = (p: Design, sm: boolean) => THREE.Group;
 
 const SCENES: Record<string, Scene> = {
@@ -87,13 +54,11 @@ const SCENES: Record<string, Scene> = {
   // Drying: every bay pasted, and OFF the stand, nothing turning while it dries. What is left of the
   // mold to see is what sticks out past the paper (necks, tabs, both koma).
   dry: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, washi: "all" }),
-  // Pulling it out — see `pullScene`.
   pull: (p, sm) => pullScene(p, sm),
-  // Lit — one per way of supplying the lamp; see `litShade` and the scenes under it.
   lightSet: (p, sm) => lightSet(p, sm),
   lightHang: (p, sm) => lightHang(p, sm),
   lightLegs: (p, sm) => lightLegs(p, sm),
-  // What you supply yourself — see "THE KIT" above. These ignore `p` entirely.
+  // What you supply yourself.
   kitHigo: () => coil(2.5, 52, 8, 3.2, 16),
   kitPaste: () => pasteTub(),
   kitStick: () => tapeAndThread(),
@@ -105,8 +70,7 @@ const SCENES: Record<string, Scene> = {
   kitRazor: () => razorBlade(),
   kitLight: () => lamps(),
   kitSpray: () => sprayBottle(),
-  // Fixing the lamp — the sub-steps under way (3). Like the kit's these ignore `p`, except `hangSet`,
-  // sized from the top opening and drawing the ring.
+  // Fixing the lamp — the sub-steps under way (3).
   legBend: () => legBend(),
   frameBend: () => frameBend(),
   legStack: () => legStack(),
@@ -133,7 +97,7 @@ export function figureImage(p: Design, id: string, { width = 620, height = 460, 
     scene.add(group);
 
     // Isometric: the standard 3/4 from above-right, which shows a flat part's face and its thickness
-    // at once. The camera sits on that axis, far enough out that nothing clips.
+    // at once.
     const box = new THREE.Box3().setFromObject(group);
     const c = box.getCenter(new THREE.Vector3());
     const reach = box.getSize(new THREE.Vector3()).length();
@@ -142,11 +106,8 @@ export function figureImage(p: Design, id: string, { width = 620, height = 460, 
     cam.position.copy(c).addScaledVector(VIEW_DIR, reach * 2);
     cam.lookAt(c);
     cam.updateMatrixWorld();
-    // Fit the frustum to what is actually DRAWN, as projected: every vertex of every mesh and line in
-    // the group, through the view matrix. Not the largest dimension (a rib is long and thin, and its
-    // length leaves the drawing a fifth of the well), and not the bounding box's corners, which bound
-    // the projection only for a solid that fills its box — open pliers came out at 44% of the frame
-    // where a shoe brush filled 77%. Centred on the drawing.
+    // Fit the frustum to what is actually DRAWN, as projected — not to the bounding box, whose
+    // corners are all empty for a diagonal shape.
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     const v = new THREE.Vector3(), mv = new THREE.Matrix4();
     group.updateMatrixWorld(true);

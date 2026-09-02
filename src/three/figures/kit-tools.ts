@@ -1,21 +1,7 @@
 /**
- * ============================================================================
- * THE KIT — the figures that are not this design
- * ============================================================================
- * Everything in mold.ts and lit.ts is `p` made visible; these are not. Paste, tape and a brush are
- * things you buy, so they are constants and their dimensions are PROPORTIONS, not measurements —
- * from a real one's standard size where there is one: a 糊刷毛 is ~130mm wide with 30mm of bristle,
- * a shoe brush ~160x45 with 20mm. They are drawn exactly like a printed part (white face, `part()`'s
- * outline).
- *
- * They stay SMOOTH (low-poly faceting was tried and reverted): unlike the mold's parts, whose curves
- * lie IN the camera-facing face, a tall round volume's side wall draws nothing — so it gets
- * `silhouetteLines`, a brush gets `bristleFringe()`, and only `coil()` still leans on facets.
- *
- * The tools are here; the lamps a reader has to supply are in kit-lamps.ts, which is split out only
- * because lit.ts, fitting.ts and hang.ts all draw the socket and the bulb and none of them wants a
- * spray bottle. Nothing in either file takes a `Design`.
- * ============================================================================
+ * These stay SMOOTH: unlike the mold's parts, whose curves lie IN the camera-facing face, a tall
+ * round volume's side wall draws nothing white on white — so it gets `silhouetteLines`, a brush gets
+ * `bristleFringe`, and only `coil` leans on facets.
  */
 import * as THREE from "three";
 import { DIR_ON_STAND, bristleFringe, drum, inkLines, silhouetteLines, solid } from "./ink.ts";
@@ -69,8 +55,8 @@ export function tapeAndThread() {
   return g;
 }
 
-/** N points evenly around a circle — the same construction ring.ts's own `circlePts` uses for a
- * hole in a Shape (a cap-plane curve, smooth at any resolution — see "THE KIT" above). */
+/** N points evenly around a circle — the construction `ring.ts` uses for a hole in a Shape: a
+ * cap-plane curve, so it draws smooth at any resolution. */
 export function circlePts(r: number, n: number, cx = 0, cy = 0) {
   const pts = [];
   for (let i = 0; i < n; i++) {
@@ -81,8 +67,8 @@ export function circlePts(r: number, n: number, cx = 0, cy = 0) {
 }
 
 /**
- * The paste brush, shaped like a real 糊刷毛 rather than a trapezoid. The ferrule is a separate solid,
- * so it keeps its own outline the way a real seam would.
+ * The paste brush, shaped like a real 糊刷毛 (~130mm wide, 30mm of bristle) rather than a trapezoid.
+ * The ferrule is a separate solid, so it keeps its own outline the way a real seam would.
  */
 export function pasteBrush() {
   const g = new THREE.Group();
@@ -118,7 +104,8 @@ export function stadium(len: number, wid: number) {
   return s;
 }
 
-/** The brush for laying the paper down: a shoe brush, bristles over its whole underside. */
+/** The brush for laying the paper down: a shoe brush (~160×45, 20mm of bristle), bristles over its
+ * whole underside. */
 export function smoothBrush() {
   const g = new THREE.Group();
   const body = new THREE.ExtrudeGeometry(stadium(160, 46), { depth: 20, bevelEnabled: false, curveSegments: 16 });
@@ -240,7 +227,7 @@ export function washiStack() {
 /**
  * A trigger sprayer — the plant-mister kind. Three facts must survive white-on-white: it is a bottle,
  * its head screws on, and you work it with a trigger, which reaches PAST the nozzle as a real one
- * does. Proportions are a 500ml sprayer's (⌀70, ~175 tall), not measurements — see "THE KIT" above.
+ * does. Proportions are a 500ml sprayer's (⌀70, ~175 tall), not measurements.
  */
 export const SPRAY_R = 35;              // bottle radius: ⌀70, a 500ml sprayer
 export function sprayBottle() {

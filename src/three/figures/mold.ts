@@ -1,16 +1,7 @@
 /**
- * ============================================================================
- * THE MOLD — this design, made visible
- * ============================================================================
- * Everything the guide draws that IS the reader's mold: the ribs and koma as each step leaves them,
- * the bands holding it together, the bamboo in its grooves, the washi going on bay by bay, the stand
- * it turns in, and the rib coming back out at the end. Every shape comes from `geometry.ts`, so a
- * figure cannot show a mold the STL does not make.
- *
  * `moldPieces` is the one builder here: every step figure is that function under different options,
  * because the steps ARE one assembly at different stages, and a second builder would let two of them
  * disagree about where a koma sits.
- * ============================================================================
  */
 import * as THREE from "three";
 import type { Design } from "../../types.ts";
@@ -139,10 +130,7 @@ export function washiYaw(p: Design, dir: THREE.Vector3): number {
   return camPhi - ribPhi(0, d) - d / 2;
 }
 
-/**
- * Every bay pasted — the shade left to dry. Still one lathe per bay: a full lathe has no crease, so
- * `EdgesGeometry` finds only its rims and the body draws as an ivory blob. Nothing is highlighted.
- */
+/** Every bay pasted — the shade left to dry, still one lathe per bay. Nothing is highlighted. */
 export function washiWhole(p: Design, face: number, opacity = 1): THREE.Group {
   const bays: number[] = [];
   for (let k = 0; k < p.boards; k++) bays.push(k);
