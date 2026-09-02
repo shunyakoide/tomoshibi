@@ -1,15 +1,3 @@
-/**
- * ============================================================================
- * THREE.JS VIEWPORT — renderer, lights, materials, orbit input, render loop
- * ============================================================================
- * Everything created ONCE per mount and then only mutated: renderer, post-processing chain, studio
- * lighting, shared materials, camera-orbit input, rAF loop. What gets *drawn* is not here —
- * scenes.ts rebuilds `state.group` when the design or view changes. No React apart from the thin
- * `useViewport` hook at the bottom, and no geometry. The mutable handle (`state`) is deliberately
- * shared by reference: the render loop reads it every frame and the scene builder writes it, so
- * neither has to re-subscribe.
- * ============================================================================
- */
 import type React from "react";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
@@ -22,8 +10,9 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { clamp } from "../util.ts";
 
 /**
- * The mutable handle every scene builder writes through. A plain object, so this type is what says
- * which fields exist. `setOrbit`/`setZoomRange` are attached below, once their controls exist.
+ * The mutable handle every scene builder writes through, shared by reference so the render loop and
+ * the scene builder never re-subscribe. `setOrbit`/`setZoomRange` are attached once their controls
+ * exist, below.
  */
 export type ViewportState = {
   scene: THREE.Scene;
@@ -190,18 +179,16 @@ export function createViewport(mount: HTMLElement): { state: ViewportState; disp
   ro?.observe(mount);
 
   // ---- Orbit / zoom input ----
-  // three's OrbitControls rather than a hand-rolled pointer path: mouse, touch and pen through
-  // pointer events, pinch from the live pointers, and it cleans up after itself. `touch-action:
-  // none` on <body> (index.css) is what lets a touch drag reach it at all.
+  // `touch-action: none` on <body> (index.css) is what lets a touch drag reach these at all.
   const el = renderer.domElement;
   const controls = new OrbitControls(camera, el);
   controls.enablePan = false;              // the model is always centred; panning only loses it
-  controls.enableDamping = true;           // the one behavioural gain over the old direct mapping
+  controls.enableDamping = true;
   controls.dampingFactor = 0.09;
   // polarOf is increasing in pitch, so the limits map across in order.
   controls.minPolarAngle = polarOf(PITCH[0]);   // looking down at the model
   controls.maxPolarAngle = polarOf(PITCH[1]);   // looking slightly up at it
-  // Two fingers dolly only, as before: TOUCH.DOLLY_PAN with panning off leaves just the dolly.
+  // Two fingers dolly only: DOLLY_PAN with panning off leaves just the dolly.
   controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
 
   // Anything left out keeps its current value, so a view can set its pose and let frame() set the
