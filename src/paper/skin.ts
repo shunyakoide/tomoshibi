@@ -8,7 +8,7 @@ import { washiGore } from "../geometry.ts";
 import { A4 } from "./layout.ts";
 import { pagesPDF, pagesSVG, tid } from "./render.ts";
 import type { WashiOpts } from "../geometry.ts";
-import type { Page } from "../pdf.ts";
+import type { Page } from "../io/pdf.ts";
 import type { Design } from "../types.ts";
 import type { T } from "../i18n.ts";
 

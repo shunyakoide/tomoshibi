@@ -1,6 +1,6 @@
 /**
  * A document, not a view of the model: it takes the whole window and scrolls, and it is the one PAGE
- * in this app — `/guide`, with an address of its own (src/route.ts). **It was a fifth view tab and
+ * in this app — `/guide`, with an address of its own (src/studio/route.ts). **It was a fifth view tab and
  * must not go back**: the other four each render YOUR design and this one does not, so as a tab it
  * had to be excepted out of the dimension chip, the viewport alerts and the inspector, and it cost
  * the phone's tab strip its fifth slot.
@@ -15,14 +15,14 @@
  * the guide is not a PDF the app writes.
  */
 import React, { useEffect, useMemo, useState } from "react";
-import { disposeFigures } from "./three/figures.ts";
-import { KIT, KIT_FIGS, PARTS, STEPS } from "./guide/content.ts";
-import { Fig, GUIDE_P, drawn, figure } from "./guide/figures.tsx";
-import WayItem, { STEP_P } from "./guide/WayItem.tsx";
-import { useT } from "./ui/theme.ts";
-import { Badge, Button } from "./ui/controls.tsx";
-import type { Way } from "./guide/content.ts";
-import type { Route } from "./types.ts";
+import { disposeFigures } from "../three/figures.ts";
+import { KIT, KIT_FIGS, PARTS, STEPS } from "./content.ts";
+import { Fig, GUIDE_P, drawn, figure } from "./figures.tsx";
+import WayItem, { STEP_P } from "./WayItem.tsx";
+import { useT } from "../ui/theme.ts";
+import { Badge, Button } from "../ui/controls.tsx";
+import type { Way } from "./content.ts";
+import type { Route } from "../types.ts";
 
 /* The kit and parts cards. A class rather than a style object, so the box that goes with the
    ground — radius, padding, the print rules — sits in the same string as the colours. */

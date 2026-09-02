@@ -1,7 +1,7 @@
 // Every number in this file is a millimetre of paper.
 import { MARGIN } from "./layout.ts";
 import type { Layout } from "./layout.ts";
-import type { Op, Page, StrokeName, TextName } from "../pdf.ts";
+import type { Op, Page, StrokeName, TextName } from "../io/pdf.ts";
 import type { T } from "../i18n.ts";
 import type { Pt2 } from "../types.ts";
 

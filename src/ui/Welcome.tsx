@@ -6,10 +6,10 @@
  * Presentational only — no app state, no geometry.
  */
 import React, { useEffect, useRef } from "react";
-import { UI as ui, accent, accentA, useT } from "./ui/theme.ts";
-import { Badge } from "./ui/controls.tsx";
-import Logo from "./ui/Logo.tsx";
-import type { Route } from "./types.ts";
+import { UI as ui, accent, accentA, useT } from "./theme.ts";
+import { Badge } from "./controls.tsx";
+import Logo from "./Logo.tsx";
+import type { Route } from "../types.ts";
 
 /** Which of the three drawn step marks to render. */
 type StepKind = "section" | "export" | "build";
