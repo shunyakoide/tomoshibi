@@ -23,17 +23,14 @@ import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit,
   washiGore, WASHI_SIDE, WASHI_END,
 } from "./geometry.ts";
-import { exportZip, zipBundle, downloadFile } from "./stl.ts";
-import { paperPDF, washiPDF, paperFit, paperP } from "./papercraft.ts";
+import * as kit from "./kit.ts";
+import { paperFit, paperP } from "./papercraft.ts";
 import { fitOnBed } from "./bed.ts";
 import { clamp } from "./util.ts";
 import { useViewport } from "./three/viewport.ts";
 import { buildScene } from "./three/scenes.ts";
 import { useAutosave, useLang, useNarrow, usePageRoute, useUndoRedo } from "./hooks.ts";
-import {
-  loadSaved, serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION,
-  loadWelcomeSeen, saveWelcomeSeen,
-} from "./persist.ts";
+import { loadSaved, loadWelcomeSeen, saveWelcomeSeen } from "./persist.ts";
 import SectionEditor from "./SectionEditor.tsx";
 import PagePreview from "./PagePreview.tsx";
 import GuidePage from "./GuidePage.tsx";
@@ -49,7 +46,6 @@ import Toolbar from "./ui/Toolbar.tsx";
 import OverflowMenu, { type MenuItem } from "./ui/Menu.tsx";
 import Logo from "./ui/Logo.tsx";
 import type { EditMode } from "./ui/pointEdit.ts";
-import type { Part } from "./stl.ts";
 import type { Design, Route } from "./types.ts";
 
 /** Which viewport the middle of the screen is showing. Only `route` outlives the session. */
@@ -82,9 +78,6 @@ const SHEET_ORDER: SheetStop[] = ["peek", "half", "full"];
 // Under this much travel a drag is a tap, which cycles to the next stop: 6px is the slop a finger
 // puts into a deliberate press.
 const SHEET_TAP = 6;
-// One place: written into two ZIPs, printed in two notes. `_beta` is part of the name on purpose —
-// the file outlives the screen it came from, so the caveat travels with it.
-const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";
 const BED_PRESETS = [180, 220, 250, 256, 300, 350];
 // In build order: shape it, see it assembled, print it, light it. Every one is a RENDERING OF YOUR
 // DESIGN — move a ◇ and all four redraw. Not the build guide, whose figures come from one fixed
@@ -213,82 +206,19 @@ export default function TomoshibiStudio() {
   const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
 
   // ---- Exports ----
-  const downloadKit = () => {
-    // Rib file layout. Spiral: one rib per file (tomoshibi_rib_01.stl …), placeable individually in
-    // the slicer. Otherwise the ribs are identical and go in one file (print one, duplicate it).
-    let ribEntries: Part[];
-    if (p.spiral) {
-      ribEntries = [];
-      for (let k = 0; k < nRibs; k++) {
-        const g = ribGeometry(p, k);
-        g.translate(0, p.tabLen, p.boardT / 2);
-        ribEntries.push({ name: `tomoshibi_rib_${String(k + 1).padStart(2, "0")}.stl`, geos: [g] });
-      }
-    } else {
-      const w = maxRadius(p) + 12, ribs: THREE.BufferGeometry[] = [];
-      for (let k = 0; k < nRibs; k++) {
-        const g = ribGeometry(p, k);
-        g.translate(k * w, p.tabLen, p.boardT / 2);
-        ribs.push(g);
-      }
-      ribEntries = [{ name: `tomoshibi_ribs_x${nRibs}.stl`, geos: ribs }];
-    }
-    // The config JSON rides along so the ZIP is itself a design backup (same schema as persist.ts).
-    // The washi template too: its panel width follows the rib count you are about to print and,
-    // unlike the parts, cannot be re-derived from the STLs. A PDF, so it prints at 100%, in the UI's
-    // language.
-    const cfg = JSON.stringify({ schemaVersion: SCHEMA_VERSION, p, bedW, bedD }, null, 2);
-    exportZip([
-      ...ribEntries,
-      // Koma and posts are identical top and bottom, so one of each (duplicated in the slicer).
-      { name: "tomoshibi_koma_print2.stl", geos: [komaGeometry(p)] },
-      { name: "tomoshibi_stand_column_print2.stl", geos: [standGeometry(p)] },
-      { name: "tomoshibi_stand_base.stl", geos: [boardGeometry(p)] },
-      // Opening rings: set into the finished lantern's openings to hold the bamboo and washi.
-      { name: "tomoshibi_ring_bottom.stl", geos: [ringGeometry(p, false)] },
-      { name: "tomoshibi_ring_top.stl", geos: [ringGeometry(p, true)] },
-    ], "tomoshibi_kit.zip", [
-      { name: "tomoshibi_config.json", bytes: new TextEncoder().encode(cfg) },
-      { name: WASHI_PDF, bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, t) },
-    ]);
-  };
-
-  // The cardboard bundle, shaped like the STL kit's: one download, washi a separate PDF inside it.
-  // Both follow the UI's language.
-  const downloadPaperKit = () => zipBundle({
-    "tomoshibi_katagami_a4.pdf": paperPDF(p, matT, undefined, t),
-    // moldSrc, not p: on this route the panel follows the possibly-clamped rib count.
-    [WASHI_PDF]: washiPDF(moldSrc, washiOpts, undefined, t),
-  }, "tomoshibi_katagami.zip");
-
-  // Export the design as JSON — localStorage is a volatile cache, this file is the backup. Same
-  // schema as the config.json inside the ZIP.
-  const exportDesign = () => downloadFile(
-    serializeState({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd, route }),
-    "tomoshibi_design.json", "application/json",
-  );
-
-  // The standalone export, or the config.json out of the ZIP. parseImport sanitizes, so broken / old
-  // / hand-edited values fall back safely rather than breaking geometry.
-  const importDesign = (file: File | undefined) => {
-    if (!file) return;
-    const reader = new FileReader();
-    const fail = () => window.alert(t("設計ファイルを読み込めませんでした(JSON が壊れています)。"));
-    reader.onload = () => {
-      const s = parseImport(String(reader.result));
-      if (!s) return fail();
-      setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setMatT(s.matT);
-      setWashiSide(s.washiSide); setWashiEnd(s.washiEnd); setRoute(s.route);
-    };
-    reader.onerror = fail;
-    reader.readAsText(file);
-  };
-
-  const resetAll = () => {
-    if (!window.confirm(t("すべての設定を初期状態に戻します。よろしいですか?"))) return;
-    try { localStorage.removeItem(STORAGE_KEY); } catch { /* continue even if storage is disabled */ }
-    setP(DEFAULTS); setBedW(256); setBedD(256); setPrintRibs(1); setRoute("stl");
-  };
+  // Thin call sites: the work is in kit.ts, the state stays here. Each is an arrow so `moldSrc` and
+  // `washiOpts`, declared below, are read at click time rather than at definition time.
+  const downloadKit = () => kit.downloadKit({ p, nRibs, bedW, bedD, washiSide, washiEnd, t });
+  const downloadPaperKit = () => kit.downloadPaperKit({ p, matT, moldSrc, washiOpts, t });
+  const exportDesign = () =>
+    kit.exportDesign({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd, route });
+  const importDesign = (file: File | undefined) => kit.importDesign(file, t, (s) => {
+    setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setMatT(s.matT);
+    setWashiSide(s.washiSide); setWashiEnd(s.washiEnd); setRoute(s.route);
+  });
+  const resetAll = () => kit.resetAll(t, (s) => {
+    setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setRoute(s.route);
+  });
 
   // ---- Derived figures ----
   const maxDia = Math.round(maxRadius(p) * 2);
@@ -939,7 +869,7 @@ export default function TomoshibiStudio() {
             <KitNote warn={<><strong>{t("原寸 100% で印刷")}</strong>{t("(「用紙に合わせる」は不可)")}</>}
               state={kitNote} onToggle={() => setKitNote((v) => (v === "open" ? "shut" : "open"))} t={t}>
               <li><span className="font-mono">tomoshibi_katagami_a4.pdf</span>{t(" — 型紙")}</li>
-              <li><span className="font-mono">{WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
+              <li><span className="font-mono">{kit.WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
             </KitNote>
           </>
         ) : (
@@ -950,7 +880,7 @@ export default function TomoshibiStudio() {
             <KitNote warn={<>{t("コマ・柱は各1つ。スライサーで")}<strong>{t("2つに複製")}</strong></>}
               state={kitNote} onToggle={() => setKitNote((v) => (v === "open" ? "shut" : "open"))} t={t}>
               <li><span className="font-mono">tomoshibi_*.stl</span>{t(" — 羽根板・コマ・土台・口輪")}</li>
-              <li><span className="font-mono">{WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
+              <li><span className="font-mono">{kit.WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
               <li><span className="font-mono">tomoshibi_config.json</span>{t(" — 設計のバックアップ")}</li>
             </KitNote>
           </>
