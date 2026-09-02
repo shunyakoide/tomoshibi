@@ -1,17 +1,5 @@
-/**
- * ============================================================================
- * THEME + TRANSLATION CONTEXT
- * ============================================================================
- * The palette, the type stack and the two scales, imported directly by whoever draws something.
- * `t` IS state (it follows the language toggle), so it travels through a context instead.
- *
- * The values are defined HERE and index.css's `@theme` mirrors them — this file is what SVG
- * presentation attributes read (a `var()` does not resolve in an XML attribute), `@theme` is what
- * the utilities resolve through, and `npm run check:style` compares the two.
- *
- * Colours: warm washi neutrals, with the orange of lamplight as the accent.
- * ============================================================================
- */
+// Source of truth for the palette and the two scales: SVG presentation attributes cannot resolve a
+// `var()`, so these stay JS values. index.css's `@theme` mirrors them and `check:style` compares.
 import { createContext, useContext } from "react";
 import type { T } from "../i18n.ts";
 
@@ -19,17 +7,7 @@ export const accent = "#D95B18";   // the orange of washi lamplight
 export const mono = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 export const sans = "'IBM Plex Sans JP', 'Hiragino Sans', system-ui, sans-serif";
 
-/**
- * The type scale, in px. Nine steps, and nothing else may set a font size. Values round DOWN:
- * several places fit by a hair (the chip bar in English measured exactly 375px on a 375px phone),
- * so all have room for smaller text and none is guaranteed room for larger. **`2xs` is not a
- * rounding artefact** and must not be folded into `xs`: it is the PointBar's caption size, measured
- * against a 46px button, plus the badge and the select carets.
- *
- * Source of truth, mirrored into `@theme` as `--text-*`; `check:style` fails on drift, on a raw JS
- * `fontSize`, on an `FS.<name>` that does not exist (a typo is `undefined`, which React drops and
- * CSS never sees) and on a step nothing uses.
- */
+/** The type scale, in px. Nothing else may set a font size — see docs/design-notes.md. */
 export const FS = {
   "2xs": 9,     // badges, the select carets, the point bar's button captions
   xs: 10,       // section labels, notes, the small print under a title
@@ -42,12 +20,7 @@ export const FS = {
   "3xl": 25,    // the guide's title
 } as const;
 
-/**
- * The corner scale, in px. Six steps and nothing else, plus `rounded-full` for a circle, which is
- * not on the scale because a circle is not a size. Values round DOWN. Pairs that had to keep
- * MATCHING still do: the ☰ is a rounded square (both `md`) so it does not read as a different kind
- * of control beside the row of selects.
- */
+/** The corner scale, in px. Nothing else may set a radius, `rounded-full` for a circle aside. */
 export const RADII = {
   xs: 4,       // badges, the checkbox, anything whose box is a few px tall
   sm: 6,       // small fields, the ± squares, the wide layout's tabs
@@ -68,16 +41,13 @@ export const UI = {
   card: "#fff", cardEdge: "rgba(59,52,43,0.09)", warn: "#c23c12",
 };
 
-// A palette colour at a given alpha, kept in sync with the base colour by construction: spelling
-// the rgba out at each site is how one of them ends up a slightly different orange.
 const rgba = (hex: string, a: number) => {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 };
 export const accentA = (a: number) => rgba(accent, a);
 
-// Viewport background: cool-neutral CAD grey for assembly/print, a dark room for lit. (The section
-// view paints its own; SectionEditor covers the canvas entirely.)
+// Not seen in the section view, which covers the canvas entirely and paints its own.
 export const vpBg = (isLit: boolean) => (isLit
   ? "radial-gradient(circle at 50% 40%, #1b2230 0%, #070a11 100%)"
   : "radial-gradient(circle at 50% 34%, #eef0f3 0%, #c3c8d0 52%, #939ba6 100%)");

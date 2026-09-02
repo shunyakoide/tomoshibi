@@ -1,12 +1,7 @@
 /**
- * ============================================================================
- * STL / ZIP EXPORT (EXPORT)
- * ============================================================================
  * Turns geometries into a binary STL and bundles a set of them into one ZIP for download. Both
- * formats come from libraries rather than by hand: three's STLExporter (identical face-normal maths
- * to the writer this file used to carry) and fflate for the ZIP, which also gets us DEFLATE — a
- * default kit goes from ~1.0 MB to ~0.19 MB (the old hand-rolled ZIP could only STORE).
- * ============================================================================
+ * formats come from libraries rather than by hand: three's STLExporter and fflate for the ZIP,
+ * whose DEFLATE takes a default kit from ~1.0 MB to ~0.19 MB.
  */
 import * as THREE from "three";
 import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
@@ -44,13 +39,9 @@ export function downloadFile(data: BlobPart, filename: string, mime = "applicati
 // Bundle already-built files ({ name: bytes }) into one ZIP and download it. Both routes ship this
 // way — one download each, the washi PDF a separate file inside rather than pages spliced in.
 export function zipBundle(files: Zippable, filename: string): void {
-  // STL is highly repetitive, so DEFLATE takes it to roughly a fifth at fflate's default level 6;
-  // the whole kit still zips in well under a second.
   downloadFile(zipSync(files), filename, "application/zip");
 }
 
-// Convert parts: [{ name, geos }] to STLs and bundle into a ZIP. extraFiles: [{ name, bytes }]
-// are optional extra files (settings JSON, the washi PDF, …) bundled as-is.
 export function exportZip(parts: Part[], filename: string, extraFiles: ExtraFile[] = []): void {
   const files: Record<string, Uint8Array> = {};
   for (const pt of parts) files[pt.name] = new Uint8Array(buildSTL(pt.geos));

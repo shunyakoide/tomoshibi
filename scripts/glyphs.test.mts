@@ -1,21 +1,14 @@
 /**
- * ============================================================================
  * GLYPH COVERAGE — every character a template prints has an outline
- * ============================================================================
- * `src/pdf.ts` sets Latin in Helvetica and draws everything else from the outlines in
- * `src/pdf-glyphs.ts`, which `tools/pdffont/build.py` extracts for exactly the characters the
- * templates use. A character with no outline is folded to ASCII or **dropped** — silently, and only
- * on paper, where nothing else is looking: adding a Japanese word to a template without rerunning
- * the tool is a one-line change that prints a blank. So this reruns the tool's own collection (same
- * sources, same rule) and fails when the committed table no longer covers it. It reads the source
- * with a regex rather than importing it, for the same reason check:i18n does: what matters is the
- * string as WRITTEN, before any translator sees it.
+ * A character with no outline is folded to ASCII or **dropped** — silently, and only on paper, so
+ * adding a Japanese word to a template without rerunning `tools/pdffont/build.py` is a one-line
+ * change that prints a blank. Reads the sources with a regex rather than importing them, as
+ * check:i18n does: what matters is the string as WRITTEN.
  *
  *   node scripts/glyphs.test.mts
- * ============================================================================
  */
 import { readdirSync, readFileSync } from "node:fs";
-import { GLYPHS } from "../src/pdf-glyphs.ts";
+import { GLYPHS } from "../src/io/pdf-glyphs.ts";
 
 // Kept in step with SOURCES / EXTRA in tools/pdffont/build.py — a module that starts printing has
 // to be added to both, and this script is what says so out loud.

@@ -215,7 +215,7 @@ Trimming the washi AFTER it is pasted is the fiddliest step of the build and a t
 Which route someone is on — `route`: `"stl"` / `"paper"` — is **app-level state held in `TomoshibiStudio` and persisted** (`persist.ts`, alongside the bed dimensions; anything but `"paper"` sanitizes to `"stl"`). It is not a per-export toggle: it is a fact about the maker, and the rest of the app branches on it.
 
 - **The print bed only exists on the STL route.** Cardboard prints on A4 and anything larger simply **continues onto the next page, butt-joined** — so there is no size limit to warn about. `bedRules = route === "stl"` gates the overflow warning (in *every* view, not just the print view — it used to nag a cardboard user in the section view), the "→ lower the body height to Nmm" hint, and the warn colouring on the rib-length readout. Do not reintroduce a bed check that ignores the route: shrinking a design for a limit that route doesn't have is the bug this prevents.
-- **The print view is a different kind of view per route.** STL gets the 3D plates (`buildPrint`); cardboard gets **`src/PagePreview.tsx`** — the template's own A4 pages as SVG over the (idle) canvas, exactly the way the section editor overlays its SVG; `buildScene` returns early for it, the same as for `"2d"`. **Its output is a document, so its preview is a document** — there is nothing spatial to show, and a WebGL page needs a canvas texture to say what a stroke of ink says for free. **Neither view previews the washi template** — it downloads as a PDF and is read as one (see "Washi template").
+- **The print view is a different kind of view per route.** STL gets the 3D plates (`buildPrint`); cardboard gets **`src/ui/PagePreview.tsx`** — the template's own A4 pages as SVG over the (idle) canvas, exactly the way the section editor overlays its SVG; `buildScene` returns early for it, the same as for `"2d"`. **Its output is a document, so its preview is a document** — there is nothing spatial to show, and a WebGL page needs a canvas texture to say what a stroke of ink says for free. **Neither view previews the washi template** — it downloads as a PDF and is read as one (see "Washi template").
 - **The preview never lays parts out itself.** It renders `paperPagesSVG()` — the same ops, through the same renderer, as the PDF — so the page count, the parts on each page and the part spanning two pages are the template's own answers. An earlier version packed the parts onto a field of A4 sheets of its own devising; the moment that disagrees with the template, the user believes the wrong one. On screen it is **not** full scale (hence the note, and hence the printed ruler).
 - **The guide branches on the route too, and reads it through `paperP`.** On cardboard the page describes the mold that route *makes*: the material thickness becomes the board thickness, thick material clamps the rib count, the ribs are drawn with a **smooth outer edge and no lightening windows** (the template cuts neither), and the stand and ring steps are filtered out rather than reworded. Building it from the design on screen instead is the same bug the washi panel had — a page that counts ribs the template does not cut.
 - **On a phone the sheets are ONE COLUMN and they TOUCH** (`PagePreview.tsx`, the `narrow:` utilities on the pane). Both halves are the document's own structure, not a small-screen accommodation: the template's layout is one column wide, and consecutive sheets are **butt-joined** — cut both on the blue trim box, put the cut edges together, tape from behind. So the preview is the strip you will tape, in the order you will tape it, and a gap between two sheets would draw a join the finished template does not have. It reads: the half-diamonds of a seam sit directly above their partners and a part's cut line runs on across. This replaced a 2-up grid of 150px tracks, inherited from when the pane was `40vh`; the pane is now the whole phone at rest, so that was trading a readable 355px page for two thumbnails nothing could be read on.
@@ -232,6 +232,18 @@ Which route someone is on — `route`: `"stl"` / `"paper"` — is **app-level st
   profile ← groove ← rib, shape is a leaf — and **anything mutually recursive with `outerR` belongs in
   `profile.ts` by construction**, or you have made a cycle. `check:hash` makes any such move provably
   shape-neutral: the split itself was verified at zero vertex diff across all 1152 parts.
+- **`src/` holds only the entry, the two barrels and what more than one area shares**, and a
+  directory owns its own head — `ui/panel/InspectorPanel.tsx`, `ui/section/SectionEditor.tsx`,
+  `guide/GuidePage.tsx`, `studio/TomoshibiStudio.tsx`. What decides the folder is who imports the
+  file, not what it is about: `bed.ts` stays at the root because `three/scenes.ts` reads it too and
+  `three/` must not depend on `studio/`, and `WASHI_PDF` sits in `config.ts` so `ui/panel/` does not
+  have to reach up into `studio/kit.ts` for a filename. The three `import type` edges from `ui/` into
+  `studio/` are erased at build and are not edges.
+- **`io/pdf.ts` is the paper route's only consumer, and still must not live in `src/paper/`.**
+  `check:glyphs` reads that directory rather than a file list, so a module moved into it is scanned
+  for the characters it prints — and `pdf.ts` carries `FOLD`, fourteen characters (`← → ↑ ▼ ⚠ ≤ …`)
+  that deliberately have **no** outline because they are folded to ASCII. Moving it there fails the
+  gate on its own fallback table.
 - **`types.ts` holds values-free types, and that is what keeps `geometry/` from importing `config.ts`.**
   Every import of it is `import type` and erased, so it creates no dependency edge. `DEFAULTS` is
   checked against `Design`, and `SIL_ROWS` and persist's `BOUNDS` are both keyed by
@@ -302,7 +314,7 @@ Which route someone is on — `route`: `"stl"` / `"paper"` — is **app-level st
   a WebGL context (headless Chrome with SwiftShader), which is exactly why it is not an `npm run
   check:*`: a gate that skips when it cannot run is worse than one that is missing.
 
-### The build guide (`src/GuidePage.tsx`)
+### The build guide (`src/guide/GuidePage.tsx`)
 
 It is a document, so it takes the whole window and scrolls, and it is the app's one addressable
 **page** — `/guide` — opened from the `☰` menu and closed with ×, Esc, or the browser's back button.
@@ -381,7 +393,7 @@ the mold comes apart.
 
 The app is published on a static host, so most first-time visitors arrive knowing nothing — and in English (`loadLang()` defaults to `en`). Two pieces cover them, split by the question they answer:
 
-- **"What is this?" → `src/Welcome.tsx`**, one card on the first visit: the object on screen is the *mold*, the output is an STL or a full-scale paper template, and the washi template comes with either. **One card, not a step-through tour** — the app is a single screen with no empty state, and a spotlight overlay would have to track a viewport that stretches. Esc / backdrop / button all close it, and it never blocks anything.
+- **"What is this?" → `src/ui/Welcome.tsx`**, one card on the first visit: the object on screen is the *mold*, the output is an STL or a full-scale paper template, and the washi template comes with either. **One card, not a step-through tour** — the app is a single screen with no empty state, and a spotlight overlay would have to track a viewport that stretches. Esc / backdrop / button all close it, and it never blocks anything.
 - **"3D printer or cardboard?" → the two buttons on that same card.** The route decides whether the bed constrains the design at all, and the bed's warning starts nagging long before anyone opens the print view, so it is asked once, up front. **Each button is also the start action.** Leaving without choosing is a **× in the corner**, not a third button on a footer row — it replaced a 「とりあえず見る」 that cost a whole row and read like a third option beside the two routes.
 - **"How do I work the ◇?" → the legend at the top-right of `SectionEditor`.** It sat bottom-left until a wide, low body was found filling the bottom of the frame with the very drawing the legend explains. **On a phone it is a pill at the bottom-left that you tap open**: at 300px wide against a 375px screen the card IS the drawing. It **redraws the canvas marks themselves** at legend size in the same shapes and colours rather than describing them in words, and its content follows `editMode` — in curve-adjust mode the `+` ghosts are hidden and the point itself doesn't move, which reads as a bug unless the legend says so.
 
@@ -458,7 +470,7 @@ Under each export CTA there used to be a paragraph: duplicate the koma in your s
 - **A list, not a sentence.** The manifest is one line per file, filename in mono. Prose has to be read; a list is scanned, and "what is in this ZIP" is a lookup, not an argument.
 - **Both layouts, not just the phone.** This is an information-architecture change rather than a narrow-screen accommodation, and keeping prose on the desktop would mean two copies of the same copy drifting apart. It is the one place in this branch where the wide layout deliberately moved.
 
-## Routing (`src/route.ts`)
+## Routing (`src/studio/route.ts`)
 
 **One thing in this app has a URL, and that is the point.** Which view you are in, which ◇ is selected, how far the sheet is pulled — all transient, and an address for any of them would be a link that means something else tomorrow. The design is not in the URL either: it lives in localStorage and leaves as a file (`persist.ts`), because a silhouette is a dozen floats and a query string is not where anyone wants their work kept. The **build guide** is the exception because it is the one DOCUMENT here — worth linking to from a README or a message, and worth leaving with the back button.
 

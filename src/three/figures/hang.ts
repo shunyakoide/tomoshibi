@@ -1,17 +1,3 @@
-/**
- * ============================================================================
- * HANGING IT — way (2)'s one wire, and the two figures that explain it
- * ============================================================================
- * The whole mechanism for hanging a finished lantern from a pendant cord is a single bent wire; the
- * long note on `BOWL_W` below is the argument for its shape. `hangBend` draws it alone, `hangSet`
- * draws it in place with the socket in it, and `lit.ts` reuses `hangPlaced` inside the lit figure.
- *
- * [The apex] `arcApexY` is where the U ends up, and it is a pure function of the opening radius.
- *   It used to be a module-level `ARC_APEX_Y` that `hangWire` assigned on every call and `hangSet`
- *   read back — correct only because one figure builds one wire and reads it immediately. A global
- *   written as a side effect is not something to carry across a file boundary.
- * ============================================================================
- */
 import * as THREE from "three";
 import type { Design } from "../../types.ts";
 import { openingR, ringGeometry } from "../../geometry.ts";
@@ -19,9 +5,7 @@ import { CORD_R, WIRE_R, part, wireTube } from "./ink.ts";
 import { pendantSocket } from "./kit-lamps.ts";
 
 /**
- * ---- Hanging it: one wire, and nothing else ----
- *
- * ONE wire with three bends, arrived at by stripping down the ready-made kits' cord stopper.
+ * Hanging a finished lantern is ONE wire with three bends, and nothing else.
  *
  * [The U] The middle is a U, NOT a closed loop: its gap passes the CORD and stops the SOCKET, so the
  *   holder hangs in the U by its own cap. Open rather than an eye, because the cord drops in sideways

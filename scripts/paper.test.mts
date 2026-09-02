@@ -1,7 +1,5 @@
 /**
- * ============================================================================
  * Papercraft (cardboard) verification
- * ============================================================================
  * STL correctness is "watertight"; papercraft is paper, so the criteria differ. Three things must
  * not break:
  *
@@ -17,10 +15,9 @@
  * length is the **meridian arc length**, not the body height, which section 4 asserts against an
  * independent integration of `outerR`. It is a document of its own on both routes, so section 4 also
  * pins that its pages are NOT among the cardboard template's.
- * ============================================================================
  */
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
-import { winAnsi } from "../src/pdf.ts";
+import { winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
 import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
@@ -220,7 +217,7 @@ for (const preset of PRESETS)
 
 // ---- 5. The template PDFs (both shipped deliverables) ----
 // The washi template bundled in the STL kit's ZIP, and the cardboard template, which IS the cardboard
-// route's entire output. The PDF is hand-rolled (src/pdf.ts), so this checks the two ways it can be
+// route's entire output. The PDF is hand-rolled (src/io/pdf.ts), so this checks the two ways it can be
 // silently wrong: **a broken file** (a bad xref offset makes viewers refuse it or open it blank) and
 // **a wrong scale**, pinned by the page CTM (mm→pt = 2.835) and by the check square's arms measuring
 // 76.2mm (3in) across and 30mm (3cm) down in user space.

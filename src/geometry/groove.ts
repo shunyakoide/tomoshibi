@@ -1,13 +1,9 @@
 /**
- * ============================================================================
- * BAMBOO-RIB GROOVES (HIGO-ME)
- * ============================================================================
  * Where the grooves go along the lamp body (`grooveList`, from one lattice so the mold, the section
  * drawing and the washi template cannot disagree), how wide they are (`grooveR`), and the outer-edge
  * point list with them cut in along the surface normal (`grooveOuterPts`) — the single source of the
  * rib's outer edge, extruded by `ribOutline2D` and drawn by SectionEditor, so what you see on screen
  * is the edge that gets printed. Pure arithmetic, like profile.ts: no three.js.
- * ============================================================================
  */
 import type { Design, Pt2 } from "../types.ts";
 import { outerR, fukuroRange } from "./profile.ts";

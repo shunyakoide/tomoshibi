@@ -1,11 +1,9 @@
 /**
- * The inspector's shell. On a wide screen a fixed column; on a phone a bottom sheet, SIZED rather
- * than flexed — its height is the stop it is parked at, so that pair stays a style: a live px
- * number, transition off mid-drag so the sheet tracks the finger.
+ * The inspector's shell: a fixed column on a wide screen, a bottom sheet on a phone, SIZED rather
+ * than flexed — the height is a live px number mid-drag, which is why that pair stays a style.
  *
- * The three children are the point of the file. Bar, scroll area, footer, in that DOM order, on both
- * layouts — it is what makes `peek` work without reordering, and giving the footer `order: 1` was
- * tried. Nothing may make the footer conditional.
+ * Bar, scroll area, footer, in that DOM order on both layouts: at `peek` the scroll area collapses to
+ * zero, which is what makes the stop work with no reordering. Nothing may make the footer conditional.
  *
  * `overflow-hidden` because at `peek` the sheet is only as tall as its bar, which leaves the pinned
  * CTA past its own bottom edge.
@@ -28,14 +26,10 @@ export default function InspectorPanel({ narrow, ctl, bar, header, children, foo
       } : undefined}>
       {bar}
       {header}
-      {/* Between the bar and the pinned CTA on both layouts, which is what makes `peek` work without
-          reordering: at rest the sheet is exactly bar-tall, so this collapses to zero and every stop
-          above it grows this and only this. */}
-      {/* No VERTICAL padding on a phone: `min-height: 0` floors the border box at padding + border, so
-          4+14 of it is 18px this element cannot shrink past — which overflowed `peek` by exactly that
-          and cut the bottom off the CTA. The wordmark block at the end gives that spacing back.
-          `overscroll-behavior: contain` because iOS momentum scrolling stops dead at the last row
-          without it, this being the only scrollable thing on the page (body is touch-action: none). */}
+      {/* No VERTICAL padding on a phone: `min-height: 0` floors a border box at its padding, so 18px
+          of it is 18px this cannot shrink past — which overflowed `peek` and cut the CTA off. The
+          wordmark block at the end of the list gives that spacing back. `overscroll-behavior` is
+          `contain` because iOS momentum scrolling stops dead at the last row without it. */}
       <div className="flex-auto min-h-0 overflow-y-auto [touch-action:pan-y] [overscroll-behavior:contain]
         px-20 pt-6 pb-16 narrow:px-14 narrow:py-0">
         {children}

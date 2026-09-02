@@ -1,20 +1,16 @@
 /**
- * ============================================================================
- * STATE PERSISTENCE
- * ============================================================================
- * Auto-saves the working state (the design `p` plus bedW/bedD/printRibs/route) to localStorage and
- * restores it on startup. The point is the SEAM values — boardT / tabLen / komaT / boards / fit —
+ * Auto-saves the working state to localStorage and restores it on startup. The point is the SEAM
+ * values — boardT / tabLen / komaT / boards / fit —
  * that a reload back to DEFAULTS would lose, taking the reuse of an already-printed stand with it.
  *
  * **Restore always goes through `sanitizeP`**: a hand-written, old-version or round-tripped file
  * must not make `outerR` NaN (a non-manifold STL) or hand the first render an oversized `boards`
  * (a koma whose notches overlap). Verified by `npm run check:persist`.
- * ============================================================================
  */
-import { DEFAULTS, LIMITS } from "./config.ts";
-import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.ts";
-import { clamp } from "./util.ts";
-import type { Design, NumericDesignKey, Pt, Route } from "./types.ts";
+import { DEFAULTS, LIMITS } from "../config.ts";
+import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
+import { clamp } from "../util.ts";
+import type { Design, NumericDesignKey, Pt, Route } from "../types.ts";
 
 /**
  * Everything one save holds: the design plus the machine settings, which are facts about the maker

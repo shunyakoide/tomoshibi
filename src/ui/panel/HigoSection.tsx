@@ -1,4 +1,3 @@
-/** The bamboo: its diameter, its spacing, and whether it winds as rings or as one spiral. */
 import { ScrubRow, Checkbox, SectionLabel, type DragState } from "../controls.tsx";
 import { useT } from "../theme.ts";
 import type { Design } from "../../types.ts";

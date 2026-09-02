@@ -1,7 +1,4 @@
-/**
- * The mold itself: how many ribs, how thick the board, how long the tab. The neck is NOT here — it
- * is the outermost ◇ on the section drawing, and saying so is the section's last line.
- */
+// The neck is NOT here: it is the outermost ◇ on the section drawing, which is the section's last line.
 import { ScrubRow, Stepper, SectionLabel, type DragState } from "../controls.tsx";
 import { useT } from "../theme.ts";
 import type { Design } from "../../types.ts";

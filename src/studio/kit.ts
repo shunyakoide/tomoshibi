@@ -1,28 +1,19 @@
 /**
- * ============================================================================
- * WHAT LEAVES THE APP AS A FILE
- * ============================================================================
- * The five downloads: the STL kit, the cardboard bundle, the design JSON, and the two that read a
- * file back in. Plain functions, no React — the state they need arrives as arguments and the state
- * they change goes back through an `apply` callback, so the caller keeps owning it.
+ * Plain functions, no React — the state they need arrives as arguments and the state they change
+ * goes back through an `apply` callback, so the caller keeps owning it.
  *
  * Named `kit.ts` rather than `exports.ts`: "export" already means something else on every line.
- * ============================================================================
  */
 import type * as THREE from "three";
 import {
   maxRadius, ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
-} from "./geometry.ts";
-import { exportZip, zipBundle, downloadFile, type Part } from "./stl.ts";
-import { paperPDF, washiPDF } from "./papercraft.ts";
+} from "../geometry.ts";
+import { exportZip, zipBundle, downloadFile, type Part } from "../io/stl.ts";
+import { paperPDF, washiPDF } from "../papercraft.ts";
 import { serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION, type SavedState } from "./persist.ts";
-import { DEFAULTS } from "./config.ts";
-import type { T } from "./i18n.ts";
-import type { Design } from "./types.ts";
-
-// One place: written into two ZIPs, printed in two notes. `_beta` is part of the name on purpose —
-// the file outlives the screen it came from, so the caveat travels with it.
-export const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";
+import { DEFAULTS, WASHI_PDF } from "../config.ts";
+import type { T } from "../i18n.ts";
+import type { Design } from "../types.ts";
 
 /** The STL kit: every printed part, the design as a backup, and the washi template. */
 export function downloadKit(a: {

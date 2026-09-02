@@ -1,7 +1,4 @@
 /**
- * ============================================================================
- * PROFILE AND THE SIZES DERIVED FROM IT
- * ============================================================================
  * The radius function `outerR(p, t)` — the heart of the design — and every dimension that follows
  * from it: the koma's outer radius, the tab's depth and tip, the koma notch's bottom, the rib-count
  * ceiling. They live together because they are mutually recursive: `outerR` needs `komaR` (a
@@ -13,7 +10,6 @@
  * still fits a koma printed last month; change one and check both parts.
  *
  * Pure arithmetic: no three.js, React or DOM, and nothing here builds geometry.
- * ============================================================================
  */
 import type { Design, Handle, Pt } from "../types.ts";
 

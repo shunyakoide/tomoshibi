@@ -1,17 +1,7 @@
 /**
- * ============================================================================
- * THE KIT — the lamp, which the app does not make either
- * ============================================================================
- * The other half of "THE KIT" (see kit-tools.ts for the rule these are all drawn by: proportions
- * from a real one, never measurements, and a white face with its own outline). These live apart from
- * the tools because they are the only kit figures anything else draws: `lit.ts` puts `ledBulb` and
- * the holder inside the lantern, `fitting.ts` builds the stem figures around the same shell, and
- * `hang.ts` hangs `pendantSocket` in the U of its wire. A tube of paste has no such second life.
- *
- * `SOCKET_R`/`SOCKET_H` are the shell's two numbers, and they are shared for that reason: the kit
- * card draws the holder cord-grip up and the fitting figures stand it the other way up, and it has
- * to be the same object both times.
- * ============================================================================
+ * The lamps a reader supplies, apart from the tools because they are the only kit figures anything
+ * else draws: `lit.ts` puts `ledBulb` and the holder inside the lantern, `fitting.ts` builds the stem
+ * figures around the same shell, and `hang.ts` hangs `pendantSocket` in the U of its wire.
  */
 import * as THREE from "three";
 import {
@@ -41,8 +31,8 @@ export function pendantSocket({ crop = false } = {}) {
   g.add(drum(SOCKET_R, SOCKET_R, bodyH, bodyTop - bodyH));           // the shell
   if (crop) return g;
   // The skirt around the mouth the bulb screws into, only just wider than the shell: the view looks
-  // DOWN, so a ring drawn at the mouth is invisible (an annulus was tried). More overhang and the
-  // socket reads as a pot on a saucer.
+  // DOWN, so a ring drawn at the mouth is invisible. More overhang and the socket reads as a pot on
+  // a saucer.
   g.add(drum(18.5, 18.5, 5, -17));
   return g;
 }

@@ -1,46 +1,25 @@
 /**
- * ============================================================================
- * SECTION EDITOR — direct manipulation
- * ============================================================================
- * An SVG editor for the lamp body silhouette, edited on the drawing instead of with sliders:
- *   - Lamp body height … drag the top vertex circle vertically
- *   - Neck (opening) … drag the outermost ◇ (horizontal = flare / vertical = neck height),
- *                      independent top/bottom
- *   - Bulge … drag a curve ◇ in both axes; tap a `+` ghost to add a point there and select it
- *
  * Corner ⇄ smooth and delete are NOT gestures on the drawing: they are explicit buttons in the
  * inspector (`ui/PointCard.tsx`) and, on a phone, in the contextual bar (`ui/PointBar.tsx`), because
  * as hidden click / double-click gestures they misfired with drags. Nothing here writes `sharp`.
  *
- * Neck = the vertical rectangle at each end (per `neckBot`/`neckTop`); the curve starts just inside
- * it. The radius function is geometry.ts's own `outerR`, so this matches the 3D and the STL exactly.
- *
- * What is left in this file is the MARKUP and the one piece of state the drawing owns — the pane's
- * measured size. Everything it is drawn against lives beside it in `ui/section/`, in the order the
- * render uses them:
- *
- *   paths.ts   sampleSection(p) — the drawing in millimetres
- *   frame.ts   the frame fitted to that sample: mm → SVG units, the viewBox, every mark and hit size
- *   paths.ts   sectionPaths()  — the sample through the frame, as path strings
- *   drag.ts    the four pointer gestures, and the mapping each freezes at pointerdown
- *   Legend.tsx the operation legend, which redraws these same marks at legend size
- *
- * The first three are pure and gated by `scripts/section.test.mts`.
- * ============================================================================
+ * The radius function is geometry.ts's own `outerR`, so what is drawn matches the 3D and the STL
+ * exactly. What is left in this file is the MARKUP and the one piece of state the drawing owns —
+ * the pane's measured size.
  */
 import React, { useEffect, useRef, useState } from "react";
-import { outerR } from "./geometry.ts";
-import { LIMITS } from "./config.ts";
-import { FS } from "./ui/theme.ts";
-import Legend from "./ui/section/Legend.tsx";
-import { C } from "./ui/section/palette.ts";
-import { CX, Y0, sectionFrame } from "./ui/section/frame.ts";
-import { sectionDrag } from "./ui/section/drag.ts";
-import { sampleSection, sectionPaths } from "./ui/section/paths.ts";
-import type { EditMode } from "./ui/pointEdit.ts";
-import type { Handle } from "./ui/section/drag.ts";
-import type { T } from "./i18n.ts";
-import type { Design } from "./types.ts";
+import { outerR } from "../../geometry.ts";
+import { LIMITS } from "../../config.ts";
+import { FS } from "../theme.ts";
+import Legend from "./Legend.tsx";
+import { C } from "./palette.ts";
+import { CX, Y0, sectionFrame } from "./frame.ts";
+import { sectionDrag } from "./drag.ts";
+import { sampleSection, sectionPaths } from "./paths.ts";
+import type { EditMode } from "../pointEdit.ts";
+import type { Handle } from "./drag.ts";
+import type { T } from "../../i18n.ts";
+import type { Design } from "../../types.ts";
 
 export default function SectionEditor({
   p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", compact = false, t = (s) => s,
@@ -66,9 +45,8 @@ export default function SectionEditor({
     const el = wrapRef.current;
     if (!el) return;
     // Seed from a layout read rather than the observer's first callback: a ResizeObserver only
-    // delivers for an element the browser is actually laying out, so a hidden, throttled or
-    // off-screen-captured tab leaves it silent — and the `pane.w === 0` fallback is scale 1, which
-    // hands a phone the small hit targets this path exists to remove.
+    // delivers for an element the browser is laying out, and the `pane.w === 0` fallback is scale 1,
+    // which hands a phone the small hit targets this path exists to remove.
     const read = () => {
       const r = el.getBoundingClientRect();
       setPane((q) => (q.w === r.width && q.h === r.height ? q : { w: r.width, h: r.height }));
@@ -214,7 +192,7 @@ export default function SectionEditor({
           );
         })}
 
-        {/* Add-point ghost (+), at the midpoint. Click to add a point there and select it */}
+        {/* Add-point ghost (+), at the midpoint between two control points */}
         {ghosts.map((g, i) => (
           <g key={"gh" + i} onPointerDown={(e) => { e.stopPropagation(); addAtT(g.mt); }} style={{ cursor: "copy" }}>
             {/* Separate hit and glyph circles: the "+" cannot be drawn any larger without touching
@@ -252,8 +230,7 @@ export default function SectionEditor({
           </g>
         ))}
 
-        {/* Tangent handles (curve-adjust mode, selected point only). Drag the green line + circle to
-            adjust the curve's angle/tension */}
+        {/* Tangent handles: drag the line's end to set the curve's angle and tension */}
         {handleDots.map((h, i) => (
           <g key={"h" + i}>
             <line x1={h.ax.toFixed(1)} y1={h.ay.toFixed(1)} x2={h.hx.toFixed(1)} y2={h.hy.toFixed(1)}

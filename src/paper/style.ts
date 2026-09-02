@@ -1,19 +1,7 @@
-/**
- * ============================================================================
- * SHEET STYLES — the one table both renderers read
- * ============================================================================
- * Line weights, dashes and text sizes for everything printed on a sheet. It lives above both
- * renderers because it is read by both: `svg.ts` turns it into a stylesheet, `pdf.ts` reads the same
- * numbers into a content stream. `check:style` reads THIS FILE for the class names it generates.
- * ============================================================================
- */
-import type { StyleTable } from "../pdf.ts";
+import type { StyleTable } from "../io/pdf.ts";
 
-// ============ Page drawing (shared by the SVG and PDF renderers) ============
-// A page is built once as **drawing ops in mm page coordinates** (y down from the sheet's top-left)
-// and the two renderers only translate them, so the rules that decide whether the print is usable —
-// clip band, trim box, check square, seam half-diamonds — exist exactly once. Line/text styles too:
-// the CSS block is generated from this table, and the PDF reads the same numbers.
+// The one style table both renderers read: `svg.ts` turns it into a stylesheet, `pdf.ts` reads the
+// same numbers into a content stream. `check:style` reads THIS FILE for the class names it generates.
 export const STYLE = {
   cut: { stroke: "#000", w: 0.25 },                              // cut line
   tick: { stroke: "#000", w: 0.25, dash: [1.2, 1] },             // bamboo-rib ticks (do not cut)

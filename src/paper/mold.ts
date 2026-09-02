@@ -1,31 +1,17 @@
-/**
- * ============================================================================
- * THE CARDBOARD MOLD — what the template actually cuts
- * ============================================================================
- * Ribs and koma, and the design they are cut from. This is the content half of the cardboard route:
- * every dimension comes from `geometry.ts`, and `paperP` is the one place that says what measured
- * material thickness does to the mold.
- * ============================================================================
- */
 import { ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, notchR } from "../geometry.ts";
 import { A4, layout } from "./layout.ts";
 import { pagesPDF, pagesSVG, tid } from "./render.ts";
 import type { RawPart } from "./layout.ts";
 import type { Mark } from "../geometry.ts";
-import type { Page } from "../pdf.ts";
+import type { Page } from "../io/pdf.ts";
 import type { Design, Pt2 } from "../types.ts";
 import type { T } from "../i18n.ts";
 
 const TICK = 5;      // Length of the bamboo-rib tick line (mm). Drawn inward from the outer edge.
 
-// ---- Tab-tip dent (koma stop): NOT cut on cardboard ----
-// The 3D route's koma stop is the tab-tip inner-corner dent mated to the koma's shallower notch (both
-// from tabTipRi). Cardboard does NOT get it — `paperP` sets `noTabDent`, so `tabDented(pk)` is always
-// false and the tab is a plain tongue in a full-depth notch — because the dent's 6x6mm comes out of
-// the tip's inner corner, exactly where a cardboard tab tears along its flutes. Friction holds the
-// koma instead (`fit: 0`). `check:paper` asserts it.
-
-// ============ Each part's 2D outline (all derived from geometry.ts) ============
+// Cardboard does NOT get the 3D route's tab-tip dent (`paperP` sets `noTabDent`): the dent's 6x6mm
+// comes out of the tip's inner corner, exactly where a cardboard tab tears along its flutes.
+// Friction holds the koma instead (`fit: 0`). `check:paper` asserts it.
 
 // Rib: a smooth outer edge with no grooves carved + ticks at the bamboo-rib winding positions. No
 // lightening windows — cardboard is light, and windows only weaken it and add cutting effort.
@@ -84,8 +70,8 @@ export function paperFit(p: Design, matT: number) {
 }
 
 /**
- * Every part to lay out: ribs + koma and nothing else — the washi panel is a separate document (see
- * the top of the file). The returned p is `paperP()`'s, so `boards` is already clamped to maxBoards;
+ * Every part to lay out: ribs + koma and nothing else — the washi panel is a separate document. The
+ * returned p is `paperP()`'s, so `boards` is already clamped to maxBoards;
  * `clamped` reports it so the UI/page can warn.
  */
 export function paperParts(p: Design, matT: number, t: T = tid) {
@@ -106,7 +92,7 @@ export function paperParts(p: Design, matT: number, t: T = tid) {
   const oneKoma = [komaPart(pk, `${t("コマ")} ×2`)];
   const pageCount = (ks: RawPart[]) => layout([...ribParts, ...ks], A4).pages.length;
   const komas = pageCount(twoKoma) > pageCount(oneKoma) ? oneKoma : twoKoma;
-  // Mold only — the washi panel was laid out here once and is now its own PDF.
+  // Mold only — the washi panel is its own document.
   const parts = [...ribParts, ...komas];
   return { parts, pk, clamped, nMax, wall };
 }
@@ -115,7 +101,7 @@ export function paperParts(p: Design, matT: number, t: T = tid) {
  * The template's pages as SVG, for the print view's in-app preview: the same pages, ops and renderer
  * as the PDF, so what is on screen is the sheet that comes out of the printer, page count included.
  * The preview never lays parts out itself — a second opinion about the layout is how a preview starts
- * lying about how many pages there are. Returns the markup plus its stylesheet (generated from STYLE).
+ * lying about how many pages there are.
  */
 export function paperPagesSVG(p: Design, matT: number, t: T = tid, page: Page & { name?: string } = A4) {
   const { parts, pk, clamped, nMax } = paperParts(p, matT, t);
@@ -126,12 +112,10 @@ export function paperPagesSVG(p: Design, matT: number, t: T = tid, page: Page & 
 
 /**
  * The cardboard template as a print-ready PDF — the mold itself (ribs + koma) — downloaded inside the
- * route's ZIP next to the washi PDF, the same way the STL kit carries its own. It replaced a
- * self-contained HTML page whose whole preamble talked the reader through printing at exactly 1:1;
- * a PDF is already A4 at exact size, and the app says the one remaining printer setting beside the
- * download. `t` is the UI's translator: the writer carries outlines for the characters WinAnsi cannot
- * encode (pdf.ts / tools/pdffont), so the sheet prints in the language the app was showing — it was
- * forced to English while a Japanese label was DROPPED rather than drawn (`" ×8"`, the word gone).
+ * route's ZIP next to the washi PDF, the same way the STL kit carries its own. `t` is the UI's
+ * translator: the writer carries outlines for the characters WinAnsi cannot encode (pdf.ts /
+ * tools/pdffont), so the sheet prints in the language the app was showing rather than dropping the
+ * labels it cannot encode (`" ×8"`, the word gone).
  */
 export function paperPDF(p: Design, matT: number, page = A4, t: T = tid): Uint8Array {
   const { parts } = paperParts(p, matT, t);
