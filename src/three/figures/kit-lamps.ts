@@ -1,0 +1,151 @@
+/**
+ * ============================================================================
+ * THE KIT — the lamp, which the app does not make either
+ * ============================================================================
+ * The other half of "THE KIT" (see kit-tools.ts for the rule these are all drawn by: proportions
+ * from a real one, never measurements, and a white face with its own outline). These live apart from
+ * the tools because they are the only kit figures anything else draws: `lit.ts` puts `ledBulb` and
+ * the holder inside the lantern, `fitting.ts` builds the stem figures around the same shell, and
+ * `hang.ts` hangs `pendantSocket` in the U of its wire. A tube of paste has no such second life.
+ *
+ * `SOCKET_R`/`SOCKET_H` are the shell's two numbers, and they are shared for that reason: the kit
+ * card draws the holder cord-grip up and the fitting figures stand it the other way up, and it has
+ * to be the same object both times.
+ * ============================================================================
+ */
+import * as THREE from "three";
+import {
+  CORD_INK, CORD_R, DIR_UPSIDE_DOWN, VIEW_DIR, silhouetteCircle, silhouetteLines, solid,
+} from "./ink.ts";
+
+// The holder's shell. Two figures draw it — the kit card's lamp hanging cord-grip up, and the fitting
+// figures at the foot of this file standing the other way up. Same object, so the same two numbers.
+export const SOCKET_R = 17, SOCKET_H = 34;
+
+/**
+ * The pendant lamp holder — what ways (2) and (3) hang the lamp from; NOT a card of its own, being
+ * drawn with a bulb in it as one lamp (`pendantLamp`, on `lamps()`'s card). Cord up and CUT OFF at
+ * the top, `lightHang`'s convention, and CORD_INK — a 3mm white tube draws nothing at all.
+ */
+export function pendantSocket({ crop = false } = {}) {
+  const g = new THREE.Group();
+  // Short, because the frame is fitted to what is in it: every millimetre of cord costs the socket.
+  const cordLen = 26;
+  const cord = new THREE.Mesh(
+    new THREE.CylinderGeometry(CORD_R, CORD_R, cordLen, 12),
+    new THREE.MeshBasicMaterial({ color: CORD_INK }),
+  );
+  cord.position.y = 34 + cordLen / 2;
+  g.add(cord);
+  const cap = solid(new THREE.CylinderGeometry(8, 13, 12, 32));      // the cord grip
+  cap.position.y = 28;
+  g.add(cap, silhouetteLines(8, 13, 34, 22));
+  // `crop` cuts the shell short and leaves the skirt with it: where this shows the socket hanging in
+  // the hanger's U by its cap, a whole ⌀34 socket in a ⌀38 opening hides the ring.
+  const bodyH = crop ? 16 : SOCKET_H, bodyTop = 22;
+  const body = solid(new THREE.CylinderGeometry(SOCKET_R, SOCKET_R, bodyH, 32));      // the shell
+  body.position.y = bodyTop - bodyH / 2;
+  g.add(body, silhouetteLines(SOCKET_R, SOCKET_R, bodyTop, bodyTop - bodyH));
+  if (crop) return g;
+  // The skirt around the mouth the bulb screws into, only just wider than the shell: the view looks
+  // DOWN, so a ring drawn at the mouth is invisible (an annulus was tried). More overhang and the
+  // socket reads as a pot on a saucer.
+  const lip = solid(new THREE.CylinderGeometry(18.5, 18.5, 5, 32));
+  lip.position.y = -14.5;
+  g.add(lip, silhouetteLines(18.5, 18.5, -12, -17));
+  return g;
+}
+
+/**
+ * The bulb: a smooth sphere with a `silhouetteCircle` outline, plus a threaded cap so it does not
+ * read as a doorknob. `view` is VIEW_DIR in whatever frame the bulb stands in — every line here is a
+ * silhouette, so upside down without it the globe draws as an ellipse across the glass.
+ */
+export const BULB_FOOT = 25;            // mm below the origin: where the cap ends, so it can be stood up
+export function ledBulb(view = VIEW_DIR) {
+  const g = new THREE.Group();
+  const globe = solid(new THREE.SphereGeometry(30, 32, 16));
+  globe.position.y = 34;
+  g.add(globe, silhouetteCircle(30, 0, 34, 0, view));
+  const neck = solid(new THREE.CylinderGeometry(26, 14, 28, 32));   // globe down to the cap
+  neck.position.y = 13;
+  g.add(neck, silhouetteLines(26, 14, 27, -1, view));
+  const cap = solid(new THREE.CylinderGeometry(14, 12.5, 24, 32));
+  cap.position.y = -13;
+  g.add(cap, silhouetteLines(14, 12.5, -1, -25, view));
+  for (const y of [-6, -12, -18]) {                                 // the thread
+    const band = solid(new THREE.CylinderGeometry(15, 15, 2.4, 32));
+    band.position.y = y;
+    g.add(band, silhouetteLines(15, 15, y + 1.2, y - 1.2, view));
+  }
+  return g;
+}
+
+/**
+ * The other kind of lamp: the flat USB puck. Two discs rather than one cylinder — the seam is what
+ * makes it a fitting — and the lead ends in a PLUG, since a USB light comes with its cable. Its
+ * aspect is real (KAPPLAKE is ⌀35x10, so 3.5:1); its SIZE is not — at true scale beside a bulb it
+ * would be a dot in a 300px well.
+ */
+export const PUCK_R = 38, PUCK_FOOT_H = 7, PUCK_LENS_H = 15;    // 76 across, 22 high = the real 3.5:1
+export function puckLight() {
+  const g = new THREE.Group();
+  const foot = solid(new THREE.CylinderGeometry(PUCK_R - 4, PUCK_R - 6, PUCK_FOOT_H, 48));
+  foot.position.y = PUCK_FOOT_H / 2;
+  g.add(foot, silhouetteLines(PUCK_R - 4, PUCK_R - 6, PUCK_FOOT_H, 0));
+  // Straight-sided, and wider than the foot, so the overhang is one clean step: tapering it as well
+  // (the real lens is slightly domed) put a bulge at its foot and read as two stacked bowls.
+  const lens = solid(new THREE.CylinderGeometry(PUCK_R, PUCK_R, PUCK_LENS_H, 48));
+  lens.position.y = PUCK_FOOT_H + PUCK_LENS_H / 2;
+  g.add(lens, silhouetteLines(PUCK_R, PUCK_R, PUCK_FOOT_H + PUCK_LENS_H, PUCK_FOOT_H));
+  const port = solid(new THREE.BoxGeometry(13, 7, 16));
+  port.position.set(-PUCK_R + 4, 5.5, 0);
+  g.add(port);
+  const lead = 34;
+  const cord = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.6, 1.6, lead, 12),
+    new THREE.MeshBasicMaterial({ color: CORD_INK }),
+  );
+  cord.rotation.z = Math.PI / 2;                         // out of the port, along -x
+  cord.position.set(-PUCK_R - 3 - lead / 2, 5.5, 0);
+  g.add(cord);
+  const plug = solid(new THREE.BoxGeometry(15, 6, 11));  // USB-A
+  plug.position.set(-PUCK_R - 3 - lead - 7, 5.5, 0);
+  g.add(plug);
+  return g;
+}
+
+/** The holder with a bulb screwed into it: one lamp, hanging, rather than two things to buy. */
+export function pendantLamp() {
+  const g = new THREE.Group();
+  const socket = pendantSocket();
+  socket.position.y = 17;                      // its mouth down on y = 0
+  g.add(socket);
+  const bulb = ledBulb(DIR_UPSIDE_DOWN);
+  bulb.rotation.x = Math.PI;                   // screwed in: cap up, INTO the mouth
+  bulb.position.y = 5;                         // 6mm of cap inside it, hidden by the shell
+  g.add(bulb);
+  return g;
+}
+
+/**
+ * BOTH lamps on one card, as tape and thread share one: the three lighting ways want different
+ * fittings, so the card says what the light has to BE. Laid out by `tapeAndThread`'s rule.
+ */
+export function lamps() {
+  const g = new THREE.Group();
+  const across = new THREE.Vector3(1, 0, -1).normalize();
+  const back = new THREE.Vector3(1, 0, 1).normalize();
+  const hang = pendantLamp();
+  // Lifted so the glass ends just above the floor the puck stands on: they share no ground line, but
+  // the eye still wants them to end level.
+  hang.position.copy(across).multiplyScalar(-52).setY(62);
+  g.add(hang);
+  const puck = puckLight();
+  // Turned so its lead runs AWAY from the lamp: built pointing -x, it projects straight at the glass
+  // and the plug read as something stuck to it.
+  puck.rotation.y = Math.PI;
+  puck.position.copy(across).multiplyScalar(44).addScaledVector(back, 26);
+  g.add(puck);
+  return g;
+}
