@@ -4,12 +4,12 @@
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { saveState } from "./persist.ts";
-import { makeT, loadLang, saveLang } from "./i18n.ts";
+import { makeT, loadLang, saveLang } from "../i18n.ts";
 import { currentRoute, routeHref } from "./route.ts";
 import type { SavedState } from "./persist.ts";
-import type { Lang, T } from "./i18n.ts";
+import type { Lang, T } from "../i18n.ts";
 import type { PageRoute } from "./route.ts";
-import type { Design } from "./types.ts";
+import type { Design } from "../types.ts";
 
 /** What the toolbar's two buttons need: the actions, and whether each has anywhere to go. */
 export type UndoRedo = { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean };

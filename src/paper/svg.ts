@@ -1,6 +1,6 @@
 // The peer of `pdf.ts`: it reads the same op list and must draw it the same way, which is what
 // `check:paper` section 6 compares coordinate by coordinate.
-import type { Op, Page } from "../pdf.ts";
+import type { Op, Page } from "../io/pdf.ts";
 
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
 const esc = (s: string) => String(s).replace(/[&<>]/g, (c) => ESC[c]);

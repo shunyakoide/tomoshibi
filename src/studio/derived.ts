@@ -15,12 +15,12 @@ import {
   maxRadius, outerR, standBoardLength,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit,
   washiGore,
-} from "./geometry.ts";
-import { paperFit, paperP } from "./papercraft.ts";
-import { fitOnBed } from "./bed.ts";
-import { LIMITS } from "./config.ts";
-import type { T } from "./i18n.ts";
-import type { Design, Route } from "./types.ts";
+} from "../geometry.ts";
+import { paperFit, paperP } from "../papercraft.ts";
+import { fitOnBed } from "../bed.ts";
+import { LIMITS } from "../config.ts";
+import type { T } from "../i18n.ts";
+import type { Design, Route } from "../types.ts";
 
 export type Figures = ReturnType<typeof useFigures>;
 /** A warning line, and usually a "→ do this instead" under it. */

@@ -3,7 +3,7 @@ import { A4, layout } from "./layout.ts";
 import { pagesPDF, pagesSVG, tid } from "./render.ts";
 import type { RawPart } from "./layout.ts";
 import type { Mark } from "../geometry.ts";
-import type { Page } from "../pdf.ts";
+import type { Page } from "../io/pdf.ts";
 import type { Design, Pt2 } from "../types.ts";
 import type { T } from "../i18n.ts";
 

@@ -1,13 +1,13 @@
-"""Rebuild src/pdf-glyphs.ts — the Japanese glyph outlines the PDF writer draws.
+"""Rebuild src/io/pdf-glyphs.ts — the Japanese glyph outlines the PDF writer draws.
 
-A self-contained PDF has no Japanese font to fall back on, and src/pdf.ts carries base-14 Helvetica
+A self-contained PDF has no Japanese font to fall back on, and src/io/pdf.ts carries base-14 Helvetica
 only, so every non-Latin character it is handed would be dropped silently. Rather than embed a CJK
 font (megabytes, for a few dozen characters), the characters the templates actually print are
 pulled from an OFL font as outlines and drawn as filled paths — the same trick tools/logo uses for
 the wordmark, and for the same reason: the artwork then needs neither the font nor a network.
 
     python3 -m venv .venv && .venv/bin/pip install fonttools brotli
-    .venv/bin/python build.py            # writes ../../src/pdf-glyphs.ts
+    .venv/bin/python build.py            # writes ../../src/io/pdf-glyphs.ts
 
 The character set is COLLECTED FROM THE SOURCE (see SOURCES), never hand-listed: a template that
 starts printing a new word must not be able to print it as a blank. scripts/glyphs.test.mts runs the
@@ -25,7 +25,7 @@ from fontTools.ttLib import TTFont
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-OUT = ROOT / "src" / "pdf-glyphs.ts"
+OUT = ROOT / "src" / "io" / "pdf-glyphs.ts"
 
 # Modules whose strings reach a PDF. Read from the DIRECTORY rather than listed file by file: the
 # template is spread over src/paper/, and a hand-listed path stops covering a label the moment

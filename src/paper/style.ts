@@ -1,4 +1,4 @@
-import type { StyleTable } from "../pdf.ts";
+import type { StyleTable } from "../io/pdf.ts";
 
 // The one style table both renderers read: `svg.ts` turns it into a stylesheet, `pdf.ts` reads the
 // same numbers into a content stream. `check:style` reads THIS FILE for the class names it generates.

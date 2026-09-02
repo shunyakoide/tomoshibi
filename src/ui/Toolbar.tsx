@@ -3,7 +3,7 @@
 import React from "react";
 import { useT } from "./theme.ts";
 import { Button } from "./controls.tsx";
-import type { UndoRedo } from "../hooks.ts";
+import type { UndoRedo } from "../studio/hooks.ts";
 
 const UNDO: [string, string, string][] = [["↺", "元に戻す", "⌘Z"], ["↻", "やり直し", "⇧⌘Z"]];
 
