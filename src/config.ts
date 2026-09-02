@@ -64,7 +64,11 @@ export const DEFAULTS: Design = {
 // rather than a preference. The ceilings only stop a corrupt or fat-fingered value from asking for
 // a metre-per-mm lantern; `check:manifold` sweeps the whole box watertight, and a festival 大提灯 is
 // about ⌀1m, so ⌀1.2m is headroom.
-export const LIMITS = { height: [60, 2000], r: [10, 600] } as const satisfies Record<string, readonly [number, number]>;
+// `pts` is a COUNT, not a millimetre range like the other two: the fewest control points `outerR`
+// can interpolate between (`fukuroSpline`'s div-0 guard exists because two was once reachable) and
+// the most the section view will add. It lives here because it was a bare `8` written twice in the
+// editor and a bare `2` in the point-edit rules, which is three places to disagree about one shape.
+export const LIMITS = { height: [60, 2000], r: [10, 600], pts: [2, 8] } as const satisfies Record<string, readonly [number, number]>;
 
 /**
  * A scrub row edits ONE numeric field, so its `key` is constrained to the numeric keys rather than

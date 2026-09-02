@@ -27,6 +27,7 @@ import Legend from "./ui/section/Legend.tsx";
 import { C } from "./ui/section/palette.ts";
 import { CX, Y0, sectionFrame } from "./ui/section/frame.ts";
 import { sampleSection, sectionPaths } from "./ui/section/paths.ts";
+import { tBounds, clampR } from "./ui/pointEdit.ts";
 import type { EditMode } from "./ui/pointEdit.ts";
 import type { T } from "./i18n.ts";
 import type { Design, NumericDesignKey } from "./types.ts";
@@ -83,9 +84,9 @@ export default function SectionEditor({
   // sample through the frame. The frame is FITTED TO THE CONTENT, so the sample has to come first.
   const sample = sampleSection(p);
   const { fr, maxR, komaR: kR, tnB, tnT } = sample;
-  const f = sectionFrame(p, pane, compact, sample);
-  const { s, topY, X, Xm, Y, Ymm, viewBox, hitPt, hitAdd, rPt, rRing, rH, rAdd, rTan, markStroke, showLabels, showLegend } = f;
-  const { d, higo, ribD, bands } = sectionPaths(p, f, sample, accent);
+  const frame = sectionFrame(p, pane, compact, sample);
+  const { s, topY, X, Xm, Y, Ymm, viewBox, hitPt, hitAdd, rPt, rRing, rH, rAdd, rTan, markStroke, showLabels, showLegend } = frame;
+  const { d, higo, ribD, bands } = sectionPaths(p, frame, sample, accent);
 
   // Client coordinates → SVG user coordinates (absorbs preserveAspectRatio letterboxing)
 /**
@@ -172,11 +173,8 @@ export default function SectionEditor({
       const c = f.toSvg(ev.clientX, ev.clientY);
       setP((o) => {
         const pts = o.pts.map((q) => ({ ...q }));
-        // The outermost points reach the very end (they set the neck height); inner ones stay between their neighbours.
-        const lo = i > 0 ? pts[i - 1].t + 0.04 : 0.01;
-        const hi = i < pts.length - 1 ? pts[i + 1].t - 0.04 : 0.99;
-        pts[i].r = clamp(...LIMITS.r, start.r + (c.x - s0.x) / f.s);
-        pts[i].t = clamp(lo, hi, start.t + (s0.y - c.y) / (H * f.s));
+        pts[i].r = clampR(start.r + (c.x - s0.x) / f.s);
+        pts[i].t = clamp(...tBounds(pts, i), start.t + (s0.y - c.y) / (H * f.s));
         return { ...o, pts };
       });
     });
@@ -185,8 +183,8 @@ export default function SectionEditor({
   // The "+" ghost = the midpoint between adjacent control points (radius from geometry's outerR = the
   // actual shape). Click to add a point there and select it; this only adds one point to pts.
   const addAtT = (mt: number) => {
-    if (p.pts.length >= 8) return;
-    const r = clamp(...LIMITS.r, outerR(p, mt));
+    if (p.pts.length >= LIMITS.pts[1]) return;
+    const r = clampR(outerR(p, mt));
     setP((o) => {
       const pts = [...o.pts, { t: mt, r }].sort((a, b) => a.t - b.t);
       const idx = pts.findIndex((q) => q.t === mt);
@@ -232,9 +230,9 @@ export default function SectionEditor({
     if (sel! > 0) add("hi", selPt.hi);
   }
 
-  // Add-point ghost (+), capped at 8 points. Hidden in curve-adjust mode so focus stays on the
-  // handles.
-  const ghosts = (editMode === "curve" || p.pts.length >= 8) ? [] : p.pts.slice(0, -1).map((pt, i) => {
+  // Add-point ghost (+), capped at `LIMITS.pts[1]` points. Hidden in curve-adjust mode so focus
+  // stays on the handles.
+  const ghosts = (editMode === "curve" || p.pts.length >= LIMITS.pts[1]) ? [] : p.pts.slice(0, -1).map((pt, i) => {
     const mt = (pt.t + p.pts[i + 1].t) / 2;
     return { mt, x: X(outerR(p, mt)), y: Y(mt) };
   });
