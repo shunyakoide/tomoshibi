@@ -1,14 +1,5 @@
-/**
- * ============================================================================
- * THE GUIDE'S FIGURES — one fixed design, drawn once per route
- * ============================================================================
- * The page's drawings and the well they sit in. Everything the page renders comes from `GUIDE_P` and
- * nothing from the design on screen, which is what makes the guide a manual rather than a report on
- * your lantern.
- *
- * A `.tsx` because `Fig` is a component; the cache under it is module state on purpose — see there.
- * ============================================================================
- */
+// Everything the page renders comes from `GUIDE_P` and nothing from the design on screen, which is
+// what makes the guide a manual rather than a report on your lantern.
 import React from "react";
 import { DEFAULTS } from "../config.ts";
 import { paperP } from "../papercraft.ts";

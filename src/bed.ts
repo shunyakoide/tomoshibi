@@ -1,13 +1,5 @@
-/**
- * ============================================================================
- * PRINT BED FIT (BED)
- * ============================================================================
- * Can a flat part be laid on the print bed, and at what in-plane angle?
- *
- * One function serves three callers — the overflow warning, the recommended maximum body height and
- * the print-plate preview layout — so those three can never disagree. Pure: no three.js, no DOM.
- * ============================================================================
- */
+// One function serves three callers — the overflow warning, the recommended maximum body height and
+// the print-plate preview layout — so those three can never disagree. Pure: no three.js, no DOM.
 
 // Footprint [a, b] on a W×D bed → { fits, angle } (angle in degrees, in the bed plane).
 // Policy: axis-aligned whenever it fits that way, tilting only when the part would overrun the bed

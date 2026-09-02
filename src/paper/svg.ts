@@ -1,18 +1,11 @@
-/**
- * ============================================================================
- * SVG RENDERER — ops → one page of markup
- * ============================================================================
- * The peer of `pdf.ts`: it reads the same op list and must draw it the same way, which is what
- * `check:paper` section 6 compares coordinate by coordinate. `n2` rounds to 2dp where the PDF's `n3`
- * rounds to 3 — that difference is deliberate and the comparison carries a tolerance for it, so the
- * two roundings must never be unified into one helper.
- * ============================================================================
- */
+// The peer of `pdf.ts`: it reads the same op list and must draw it the same way, which is what
+// `check:paper` section 6 compares coordinate by coordinate.
 import type { Op, Page } from "../pdf.ts";
 
-// ============ SVG generation ============
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
 const esc = (s: string) => String(s).replace(/[&<>]/g, (c) => ESC[c]);
+// 2dp where the PDF's `n3` rounds to 3dp. That difference is deliberate and the `check:paper`
+// comparison carries a tolerance for it, so the two roundings must never be unified into one helper.
 const n2 = (v: number) => (Math.round(v * 100) / 100).toString();
 
 /** Ops → one page's SVG. The clip is an SVG clipPath; ops already carry absolute page coordinates. */
