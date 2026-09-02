@@ -1,14 +1,11 @@
 /**
- * ============================================================================
  * persist.ts sanitize verification (manual check, no test runner)
- * ============================================================================
  * Save/restore can receive corrupt values from external sources (hand-written,
  * old versions, JSON round-trips). This confirms they neither crash, produce NaN
  * nor yield a non-watertight koma, but fall back to DEFAULTS or are salvaged,
  * against an in-memory localStorage mock.
  *
  * Run:  npm run check:persist
- * ============================================================================
  */
 const store: Record<string, string> = {};
 globalThis.localStorage = {

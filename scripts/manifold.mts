@@ -1,7 +1,5 @@
 /**
- * ============================================================================
  * STL watertightness (manifold) sweep verification
- * ============================================================================
  * No test runner here: correctness is "the build passes" + "the STL is
  * watertight". This sweeps a representative parameter range and checks every
  * part (rib / koma / stand / base board / opening rings).
@@ -12,7 +10,6 @@
  *
  * Run:  npm run check:manifold — always, after touching geometry. Anything
  * other than 0 FAIL can break the print slicer.
- * ============================================================================
  */
 import type * as THREE from "three";
 import * as G from "../src/geometry.ts";

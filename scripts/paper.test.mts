@@ -1,7 +1,5 @@
 /**
- * ============================================================================
  * Papercraft (cardboard) verification
- * ============================================================================
  * STL correctness is "watertight"; papercraft is paper, so the criteria differ. Three things must
  * not break:
  *
@@ -17,7 +15,6 @@
  * length is the **meridian arc length**, not the body height, which section 4 asserts against an
  * independent integration of `outerR`. It is a document of its own on both routes, so section 4 also
  * pins that its pages are NOT among the cardboard template's.
- * ============================================================================
  */
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
 import { winAnsi } from "../src/pdf.ts";
