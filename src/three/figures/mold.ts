@@ -17,7 +17,7 @@ import type { Design } from "../../types.ts";
 import {
   fukuroRange, grooveList, grooveR, higoSpiralPath, komaGeometry, komaR, maxRadius, openingR,
   outerR, ribGeometry, ringGeometry, boardGeometry, standCollarTop, standGeometry, standSaddleH,
-  standSlotSep,
+  standSlotSep, washiSurface,
 } from "../../geometry.ts";
 import { HI, HI_FACE, INK, LIT_FACE, VIEW_DIR, part } from "./ink.ts";
 
@@ -97,19 +97,7 @@ export const ribPhi = (k: number, d: number) => Math.PI / 2 + k * d;
  */
 export const WASHI_FACE = 0xf3ede2;
 export function washiProfile(p: Design): THREE.Vector2[] {
-  const { lo, hi } = fukuroRange(p);
-  const H = p.height, N = 60, dt = (hi - lo) / N / 2 || 1e-4;
-  const out: THREE.Vector2[] = [];
-  for (let i = 0; i <= N; i++) {
-    const t = lo + (hi - lo) * (i / N);
-    // Offset along the surface NORMAL, not x: horizontally a face at angle θ keeps only
-    // `higoD·cos θ` of clearance, so past θ ≈ 60° (dR/dy = 2) the rod comes out through the paper.
-    const t0 = Math.max(lo, t - dt), t1 = Math.min(hi, t + dt);
-    const s = (outerR(p, t1) - outerR(p, t0)) / ((t1 - t0) * H);      // dR/dy
-    const n = Math.hypot(1, s);
-    out.push(new THREE.Vector2(outerR(p, t) + p.higoD / n, t * H - (p.higoD * s) / n));
-  }
-  return out;
+  return washiSurface(p).map(([r, y]: [number, number]) => new THREE.Vector2(r, y));
 }
 
 export function washiSkin(p: Design, bays: number[], hotBay: number | null, face = WASHI_FACE, opacity = 1): THREE.Group {
