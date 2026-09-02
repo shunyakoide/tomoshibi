@@ -1,16 +1,7 @@
 /**
- * ============================================================================
- * SHAPE PRESET CHIPS
- * ============================================================================
- * The starting shapes, each drawn as a miniature of its own profile rather than a generic icon: the
- * silhouette on the chip is the one you get, sampled through the same `outerR` as the 3D view.
- *
- * They are TEMPLATES, not modes — picking one replaces the control points and you edit freely after,
- * and the subheading says so, because chips alone read as "the shape is one of these". Which chip is
- * lit is therefore DERIVED from the control points (matchPreset) rather than remembered from the
- * click, going dark once the curve is edited; that also makes undo/redo, import and restore right
- * for free, with no flag for an edit path to forget to clear.
- * ============================================================================
+ * Starting shapes, each drawn as a miniature of its own profile through the same `outerR` as the 3D
+ * view. They are TEMPLATES, not modes, so which chip is lit is DERIVED from the control points
+ * (`matchPreset`) rather than remembered from the click — undo, import and restore then need no flag.
  */
 import React from "react";
 import { outerR } from "../geometry.ts";
@@ -20,12 +11,9 @@ import { SectionLabel } from "./controls.tsx";
 import type { Preset } from "../config.ts";
 import type { Design, Pt } from "../types.ts";
 
-// Miniature of a preset's profile: sample the radius, then trace down the right side and back up
-// the left. Box is 60×46 with the body inset, so all three read at the same scale.
 function miniPath(pr: Preset): string {
-  // A whole design, not just the four fields the curve needs: `outerR` reads the neck flags and,
-  // on a neck-less end, the koma size derived from the rib count. DEFAULTS has the neck on both
-  // ends, which is how this icon has always been drawn.
+  // A whole design, not just the four fields the curve needs: `outerR` reads the neck flags and, on
+  // a neck-less end, the koma size derived from the rib count.
   const q: Design = { ...DEFAULTS, height: 280, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts };
   const N = 40, rr: number[] = [];
   let mx = 0;
@@ -38,9 +26,9 @@ function miniPath(pr: Preset): string {
   return d + " Z";
 }
 
-// Compare on pts alone: they are the silhouette, while rTop/rBot are only a fallback for an empty
-// pts (config.ts) and are never edited. Handles are compared as plain pairs — a design that has
-// been through JSON has its {dt,dr} rebuilt, and key order must not decide this.
+// Compare on pts alone: rTop/rBot are only a fallback for an empty pts and are never edited. The
+// handles go in as plain pairs — a design that has been through JSON has its {dt,dr} rebuilt, and
+// key order must not decide this.
 const ptKey = (q: Pt) =>
   JSON.stringify([q.t, q.r, !!q.sharp, q.ho ? [q.ho.dt, q.ho.dr] : 0, q.hi ? [q.hi.dt, q.hi.dr] : 0]);
 const ptsKey = (pts: Pt[]) => (pts || []).map(ptKey).join("|");

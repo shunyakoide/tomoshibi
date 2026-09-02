@@ -1,24 +1,11 @@
-/**
- * ============================================================================
- * THE PHONE'S BOTTOM SHEET
- * ============================================================================
- * The inspector on a narrow screen: a panel you pull up from the bottom edge, parked at one of three
- * stops. Everything here is measurement and pointer state — `peekH`, `budgetH`, `sheetH`, the two
- * ResizeObservers and the drag — and nothing outside reads any of it. What escapes is the height to
- * put on the panel, which stop it is at, the three refs and the handlers.
- *
- * In `ui/` rather than `hooks.ts`: hooks.ts is the stateful behaviours that draw nothing and measure
- * nothing, and this one reads DOM boxes and captures pointers.
- * ============================================================================
- */
+// In `ui/` rather than `hooks.ts`, which is the stateful behaviours that draw nothing and measure
+// nothing: this one reads DOM boxes and captures pointers.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clamp } from "../util.ts";
 import type { Lang } from "../i18n.ts";
 
-// Stops: `peek` (grabber bar alone), `half`, `full` = the shared budget minus `MIN_VIEW`. Fractions
-// of the height the sheet SHARES WITH THE VIEWPORT, not of the window: the chip bar above is one row
-// in Japanese and two in English, so window-relative `full` gave English a 37px section view where
-// Japanese got 76.
+// A fraction of the height the sheet SHARES WITH THE VIEWPORT, not of the window: the chip bar above
+// them is one row in Japanese and two in English, which a window-relative stop takes out of the view.
 const SHEET = { half: 0.45 } as const;
 // The drawing never leaves the screen, at any stop — the sheet is a set of controls FOR it.
 const MIN_VIEW = 140;
@@ -56,9 +43,8 @@ export function useBottomSheet({ narrow, isLit, lang }: {
   const asideRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
 
-  // `peek` is the grabber bar alone — MEASURED, because the summary it carries wraps on a narrow
-  // enough screen. (With the CTA too it was 128px: 16% of the phone at rest.) Seeded by a layout read:
-  // an observer stays silent for an element the browser is not laying out.
+  // `peek` is the grabber bar alone, MEASURED because the summary it carries wraps on a narrow enough
+  // screen. Seeded by a layout read: an observer stays silent for an element not being laid out.
   useEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
@@ -74,8 +60,7 @@ export function useBottomSheet({ narrow, isLit, lang }: {
 
   // The budget the viewport and the sheet share. Their SUM is invariant — one grows exactly as the
   // other shrinks — so observing both and adding gives a number that does not move while the sheet
-  // animates; the guard below keeps the transition from re-rendering every frame. Excludes the chip
-  // bar and the alert strip.
+  // animates. Excludes the chip bar and the alert strip.
   useEffect(() => {
     const a = asideRef.current, m = mainRef.current;
     if (!a || !m) return;
@@ -89,8 +74,7 @@ export function useBottomSheet({ narrow, isLit, lang }: {
     return () => ro.disconnect();
   }, [narrow, isLit]);
 
-  // The three stops, in px. `peek` can be the tallest on a very short screen, so every stop is
-  // floored at it rather than assumed to be above it.
+  // `peek` can be the tallest on a very short screen, so every stop is floored at it.
   const sheetStops = useMemo(() => ({
     peek: peekH,
     half: Math.max(peekH, Math.round(budgetH * SHEET.half)),
@@ -101,15 +85,14 @@ export function useBottomSheet({ narrow, isLit, lang }: {
     [],
   );
 
-  // Header only — arbitrating "is this finger scrolling the list or pulling the sheet" is the one
-  // genuinely hard part of a bottom sheet and is not worth writing until someone misses it. A drag
-  // shorter than SHEET_TAP is a tap, so the header is also the button.
+  // Only the bar drags; the scroll area scrolls. Arbitrating "is this finger scrolling or pulling"
+  // is the one genuinely hard part of a bottom sheet, and is not written until someone misses it.
   const dragRef = useRef<{ y0: number; h0: number; moved: boolean } | null>(null);
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     // Let any real <button> inside the bar be pressed normally. Defensive: it holds none today.
     if ((e.target as HTMLElement).closest("button")) return;
     // The bar's PARENT is the panel being resized. Wrap the bar in anything and this reads the
-    // wrapper's height instead — no error, no type failure, no gate: just a drag that jumps.
+    // wrapper's height instead — no error, no gate, just a drag that jumps.
     const el = e.currentTarget.parentElement as HTMLElement | null;
     if (!el) return;
     dragRef.current = { y0: e.clientY, h0: el.getBoundingClientRect().height, moved: false };
@@ -137,8 +120,6 @@ export function useBottomSheet({ narrow, isLit, lang }: {
     setSheetH(null);
   }, [cycleSheet, sheetStops, sheetH]);
 
-  // How tall the sheet is: mid-drag a px number with the transition off, so it tracks the finger;
-  // otherwise the current stop, animated.
   return {
     sheet,
     sheetHeight: `${Math.round(sheetH ?? sheetStops[sheet])}px`,

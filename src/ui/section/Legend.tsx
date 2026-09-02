@@ -1,19 +1,8 @@
 /**
- * ============================================================================
- * SECTION VIEW — the operation legend
- * ============================================================================
- * The ◇ handles are the least discoverable part of the app, so the marks are redrawn here in the
- * same colours and shapes as on the canvas rather than described in words, and the content follows
- * `editMode`: in curve-adjust mode the `+` ghosts are hidden and the point itself doesn't move,
+ * The ◇ handles are the least discoverable part of the app, so the marks are REDRAWN here in the
+ * same shapes and colours as on the canvas rather than described in words, and the content follows
+ * `editMode`: in curve-adjust mode the `+` ghosts are hidden and the point itself does not move,
  * which reads as a bug unless it is said out loud.
- *
- * Top-right rather than bottom-left, where a wide, low body fills the frame and the legend covered
- * the drawing it explains. There it is clear of the section (which grows from the axis at the left),
- * tucked under the dimension chip, level with the route chip.
- *
- * Whether it appears at all is the CALLER's decision (`showLegend`), which is measured against the
- * pane: below 220px the drawing is context rather than a work surface.
- * ============================================================================
  */
 import React, { useState } from "react";
 import { FS, useT } from "../theme.ts";
@@ -57,8 +46,8 @@ function Glyph({ kind, accent }: { kind: GlyphKind; accent: string }) {
 /** The marks the legend redraws at legend size — the same shapes the canvas uses. */
 type GlyphKind = "pt" | "sel" | "add" | "top" | "tangent";
 
-// Rows are [glyph, verb, description]. The verb is its own column rather than folded into the
-// sentence, because it is what makes the marks act different (drag vs click).
+// The verb is its own column rather than folded into the sentence: it is the difference between the
+// marks (drag vs click), so it is what you scan for.
 const LEGEND: Record<EditMode, { title: string; rows: [GlyphKind, string, string][] }> = {
   move: {
     title: "点の操作",
@@ -83,15 +72,13 @@ export default function Legend({ accent, editMode, compact }: {
 }) {
   const t = useT();
   const g = LEGEND[editMode] || LEGEND.move;
-  // "→ 右パネルで編集" is a wide-layout fact: on a phone there is no right panel and no card in the
-  // sheet either, selecting a point raises the bar under the drawing (ui/PointBar.tsx).
+  // "→ 右パネルで編集" is a wide-layout fact: a legend that names a panel the layout does not have
+  // is worse than no legend.
   const rows: [GlyphKind, string, string][] = compact
     ? g.rows.map(([k, v, d]) => [k, v, k === "sel" ? "選ぶ → 下のバーで編集" : d])
     : g.rows;
-  // Compact: the card is 300px wide against a 375px screen, so on a phone it IS the drawing, and it
-  // landed on the route chips as well. Folded into a pill you tap open, and moved to the bottom, the
-  // marks it explains living on the silhouette whose openings and neck are at the top. Closed by
-  // default: whoever most needs it is on their first visit, which starts with the welcome card.
+  // At 300px wide against a 375px screen the card IS the drawing, so on a phone it is a pill you tap
+  // open, at the bottom-left, clear of the openings and the neck it explains.
   const [open, setOpen] = useState(false);
   const shown = !compact || open;
   const pos: React.CSSProperties = compact
@@ -106,8 +93,8 @@ export default function Legend({ accent, editMode, compact }: {
       padding: shown ? "9px 12px 10px" : 0, backdropFilter: "blur(2px)",
     }}>
       {compact ? (
-        // The pill and the card's heading are the same element, so the title never moves when it
-        // opens. stopPropagation because the pane's own pointerdown clears the point selection.
+        // The pill and the card's heading are one element, so the title does not move when it opens.
+        // stopPropagation because the pane's own pointerdown clears the point selection.
         <button onPointerDown={(e) => e.stopPropagation()} onClick={() => setOpen((v) => !v)}
           aria-expanded={open} style={{
             display: "flex", alignItems: "center", gap: 7, minHeight: 34, padding: shown ? "0 0 6px" : "0 12px",
