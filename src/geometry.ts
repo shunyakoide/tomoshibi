@@ -53,7 +53,7 @@ export {
 } from "./geometry/stand.ts";
 
 // ---- Washi panel ----
-export { WASHI_SIDE, WASHI_END, washiGore } from "./geometry/washi.ts";
+export { WASHI_SIDE, WASHI_END, washiGore, washiSurface } from "./geometry/washi.ts";
 
 // ---- Types ----
 // The shapes the functions above return, re-exported for the same reason the functions are: a
