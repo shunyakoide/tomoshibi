@@ -1,7 +1,5 @@
 /**
- * ============================================================================
  * TYPE SCALE — every font size in the app must be a member of it
- * ============================================================================
  * The scale is `FS` in src/ui/theme.ts (nine steps). A CHECK because a scale with no gate grows
  * back — the old one reached sixteen steps, five half-pixel — and because two encodings must agree
  * that cannot see each other (JS `fontSize`, CSS `font-size` literals in index.css).
@@ -14,7 +12,6 @@
  *   4. an FS step nothing uses: a size retired without being removed
  *   5. the palette, the corner scale, the `@layer components` wrapper, and every class — see the
  *      section comments below, each added after a bug got through
- * ============================================================================
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";

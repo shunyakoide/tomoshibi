@@ -1,7 +1,5 @@
 /**
- * ============================================================================
  * i18n coverage verification
- * ============================================================================
  * The dictionary in i18n.ts is keyed by **the Japanese UI string itself**: readable source and a
  * fallback to Japanese, at the cost of a silent failure — reword one label and its translation is
  * not out of date, it is **gone**, with no other gate noticing. It has happened. Pinned here:
@@ -18,7 +16,6 @@
  * comments rather than regex-matching over them.
  *
  * Run:  npm run check:i18n — after touching any UI wording or i18n.ts.
- * ============================================================================
  */
 import fs from "node:fs";
 import path from "node:path";

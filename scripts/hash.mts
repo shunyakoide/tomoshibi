@@ -1,7 +1,5 @@
 /**
- * ============================================================================
  * Geometry vertex hash (STL regression detection)
- * ============================================================================
  * Hashes (SHA1) the vertex coordinates of every part at representative
  * parameters, one line each. For a refactor that should not change the STL,
  * diffing before and after catches a single moved vertex — check:manifold only
@@ -16,7 +14,6 @@
  *
  * Coordinates are quantized to 1e-6mm and rounded to eliminate floating-point
  * non-determinism.
- * ============================================================================
  */
 import type * as THREE from "three";
 import crypto from "node:crypto";
