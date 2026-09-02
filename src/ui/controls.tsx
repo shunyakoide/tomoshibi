@@ -136,6 +136,30 @@ export function Stepper({ label, value, min, max, step, onChange, children }: {
   );
 }
 
+/**
+ * What an mm field DOES, for the two that look different: commit on Enter and on blur but never
+ * mid-typing, reject anything non-finite or ≤ 0 by keeping the old value, and clamp the rest.
+ *
+ * The rule, not the look. The inspector's row and the point bar's compact field were the same nine
+ * lines of `<input>` twice over, differing only in their box — but the box is the half that has to
+ * stay a literal `className`, because `check:style` reads class lists out of `className` attributes
+ * and out of ALLCAPS constants NAMED INSIDE one. A class list handed over as a PROP is invisible to
+ * it, ALLCAPS or not: it would still be in the DOM, and nothing would check it any more.
+ *
+ * `key={value}` stays at each call site rather than riding in here — spreading a `key` is a React
+ * warning — and it is what re-mounts the field so `defaultValue` follows an external change (a drag).
+ */
+export function mmField(value: number, min: number, max: number, onChange: (v: number) => void) {
+  return {
+    type: "number" as const, defaultValue: value, min, max, step: 1,
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") e.currentTarget.blur(); },
+    onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+      const v = Math.round(Number(e.target.value));
+      onChange(Number.isFinite(v) && v > 0 ? clamp(min, max, v) : value);
+    },
+  };
+}
+
 /** Numeric field in mm. Commits and clamps on Enter / blur (never mid-typing). */
 export function NumInput({ label, value, onChange, min, max }: {
   label: string; value: number; onChange: (v: number) => void; min: number; max: number;
@@ -145,16 +169,10 @@ export function NumInput({ label, value, onChange, min, max }: {
     <div className="flex items-center justify-between mb-9">
       <span className="text-base text-text">{t(label)}</span>
       <div className="flex items-center gap-6">
-        {/* key={value} re-mounts on an external change so defaultValue follows it */}
-        <input key={value} type="number" defaultValue={value} min={min} max={max} step={1}
+        <input key={value} {...mmField(value, min, max, onChange)}
           className="w-66 px-8 py-6 rounded-md text-right bg-card border border-card-edge
             text-text font-mono text-md"
-          aria-label={`${t(label)} (mm)`}
-          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-          onBlur={(e) => {
-            const v = Math.round(Number(e.target.value));
-            onChange(Number.isFinite(v) && v > 0 ? clamp(min, max, v) : value);
-          }} />
+          aria-label={`${t(label)} (mm)`} />
         <span className="text-sm text-sub">mm</span>
       </div>
     </div>

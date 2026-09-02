@@ -51,6 +51,30 @@ export type WashiGore = {
  * All panels are identical, spiral winding included — the winding is a helix, but every bay sees the
  * same helix, so only the left/right tick heights differ.
  */
+/**
+ * The PASTED paper's meridian: the mold's own surface pushed out by `higoD` along its NORMAL, over
+ * `fukuroRange`. Not a horizontal offset — a face at angle θ keeps only `higoD·cos θ` of horizontal
+ * clearance, so past θ ≈ 60° (dR/dy = 2) the rod comes out through the paper, and `LIMITS` allows
+ * far steeper than that (a barrel scaled to r=130 at h=140 reaches dR/dy = 4.4).
+ *
+ * For the PREVIEWS, which draw the paper sitting on the bamboo. The template you cut is `washiGore`,
+ * which follows the mold surface itself — the paper is pasted onto the ribs, not offset from them.
+ * One definition so the assembly figures and the lit view cannot draw two different lanterns.
+ */
+export function washiSurface(p: Design, n = 60): Pt2[] {
+  const { lo, hi } = fukuroRange(p);
+  const H = Math.max(1, p.height || 1), dt = (hi - lo) / n / 2 || 1e-4;
+  const out: Pt2[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = lo + ((hi - lo) * i) / n;
+    const t0 = Math.max(lo, t - dt), t1 = Math.min(hi, t + dt);
+    const slope = (outerR(p, t1) - outerR(p, t0)) / ((t1 - t0) * H);   // dR/dy
+    const k = Math.hypot(1, slope);
+    out.push([outerR(p, t) + p.higoD / k, t * H - (p.higoD * slope) / k]);
+  }
+  return out;
+}
+
 export function washiGore(p: Design, opts: WashiOpts = {}): WashiGore {
   const side = Math.max(0, opts.side ?? WASHI_SIDE);
   const end = Math.max(0, opts.end ?? WASHI_END);
