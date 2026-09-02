@@ -19,15 +19,17 @@
  * ============================================================================
  */
 import React, { useEffect, useRef, useState } from "react";
-import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterPts, komaR, innerRi, maxRadius, ribOutline2D, lightenHoles2D } from "./geometry.ts";
+import { outerR } from "./geometry.ts";
 import { LIMITS } from "./config.ts";
 import { clamp } from "./util.ts";
 import { FS } from "./ui/theme.ts";
 import Legend from "./ui/section/Legend.tsx";
 import { C } from "./ui/section/palette.ts";
+import { CX, Y0, sectionFrame } from "./ui/section/frame.ts";
+import { sampleSection, sectionPaths } from "./ui/section/paths.ts";
 import type { EditMode } from "./ui/pointEdit.ts";
 import type { T } from "./i18n.ts";
-import type { Design, NumericDesignKey, Pt2 } from "./types.ts";
+import type { Design, NumericDesignKey } from "./types.ts";
 
 /**
  * A draggable dimension handle. `key` names the design field it edits (so the inspector row and the
@@ -38,39 +40,6 @@ type Handle = {
   min: number; max: number; cursor: string; guide: [number, number, number, number];
   lx: number; ly: number; anchor: "start" | "middle" | "end";
 };
-
-// SVG logical coordinates. Centre axis cx, baseline y0. CX/Y0 are fixed — every X()/Y() below is
-// written in terms of them — but the FRAME around them is not (see `viewBox`).
-const VBW = 860, VBH = 780, CX = 430, Y0 = 710;
-
-// ---- Compact (phone) mode --------------------------------------------------------------------
-// The fixed 860×780 frame is more than twice the width the drawing uses, so on a 375px viewport the
-// whole thing rendered at 0.44× and every ◇ hit target came out ELEVEN pixels across, against the
-// 44px both platform guidelines ask for.
-//
-// `compact` changes two things and nothing else about the shape:
-//   1. the viewBox is fitted to the CONTENT instead of the fixed frame — a no-op on a wide screen
-//      (the drawing is height-bound there) and roughly double on a phone;
-//   2. the hit circles are sized from the MEASURED on-screen scale rather than as SVG-unit constants,
-//      so a target stays a target however far the drawing has been scaled down.
-// Everything the app PRINTS is untouched: this file draws, it does not generate geometry.
-const HIT_PT = 30;      // control point / height handle / tangent grab — CSS px, diameter
-const HIT_ADD = 20;     // the "+" ghost: a secondary action, and it sits at the MIDPOINT between two
-                        // points, so it can never be given the same target without swallowing them
-// The MARKS, in CSS px across — the same treatment as the hit circles above. A glyph written as a
-// constant in SVG units renders smaller the further the drawing is scaled down (11 units is 11.6px on
-// a 1440px desktop and 8.6px on a phone), so the touch surface grew while the thing you aim at shrank
-// — and the legend **redraws these marks at legend size**, so a canvas mark half the size of its own
-// legend entry reads as a broken UI rather than a small one.
-const GLYPH_PT = 16;    // the control point ◇ / □
-const GLYPH_H = 15;     // the body-height handle ●
-const GLYPH_ADD = 22;   // the "+" ghost
-const GLYPH_TAN = 13;   // a tangent handle, in curve-adjust mode
-// Room kept around the content when the frame is fitted to it (SVG units). The right side is wider
-// because that is where every point's "84 mm" label goes — reserved unconditionally, so the drawing
-// does not jump sideways when a label appears or a mark grows. It covers the label's width plus the
-// gap the mark pushes it out by (`rPt + 9.5`), larger on a phone where marks are a constant CSS size.
-const FIT_PAD = { l: 26, r: 78, t: 22, b: 22 };
 
 export default function SectionEditor({
   p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", compact = false, t = (s) => s,
@@ -110,17 +79,13 @@ export default function SectionEditor({
   }, []);
 
   const H = p.height;
-  // mm → SVG units. Fit BOTH axes: height alone set the scale while the radius was capped at 130mm,
-  // but a wide, low body now runs off the sides, taking the ◇ you are dragging with it. 520/H and 2.0
-  // are unchanged, so nothing that fitted before is redrawn at a different size; the width term only
-  // ever makes it smaller.
-  const s = Math.min(2.0, 520 / H, (CX - 30) / Math.max(maxRadius(p), 1));
-  const neckB = cutYbot(p), neckT = cutYtop(p); // bottom/top neck height (mm, independent)
-  const tnB = neckB / H, tnT = neckT / H;
-  const topY = Y0 - H * s;
-  const X = (r: number) => CX + r * s;
-  const Xm = (r: number) => CX - r * s;
-  const Y = (t: number) => Y0 - t * H * s;
+  // The drawing, in three steps: sample it in millimetres, fit a frame to that sample, then put the
+  // sample through the frame. The frame is FITTED TO THE CONTENT, so the sample has to come first.
+  const sample = sampleSection(p);
+  const { fr, maxR, komaR: kR, tnB, tnT } = sample;
+  const f = sectionFrame(p, pane, compact, sample);
+  const { s, topY, X, Xm, Y, Ymm, viewBox, hitPt, hitAdd, rPt, rRing, rH, rAdd, rTan, markStroke, showLabels, showLegend } = f;
+  const { d, higo, ribD, bands } = sectionPaths(p, f, sample, accent);
 
   // Client coordinates → SVG user coordinates (absorbs preserveAspectRatio letterboxing)
 /**
@@ -151,39 +116,6 @@ export default function SectionEditor({
       },
     };
   };
-
-  // ---- Silhouette sampling (groove serrations at their actual depth; matches geometry) ----
-  const fr = fukuroRange(p);                 // t range of the lamp body = between the outermost control points
-  const gR = grooveR(p);                     // groove half-width. Shared with geometry, so drawn groove = printed groove
-  const gs = grooveList(p, gR);              // groove positions (mm)
-  const op = grooveOuterPts(p, gs, gR);      // outer edge with normal-cut groove notches (matches the STL)
-  const kR = komaR(p), Ri = innerRi(p);      // koma outer radius / core (inner end of the tab)
-  // Right side up, then the mirrored left side down (the same points, so the two sides match)
-  let d = `M ${X(op[0][0]).toFixed(1)} ${Y(op[0][1] / H).toFixed(1)}`;
-  for (let i = 1; i < op.length; i++) d += ` L ${X(op[i][0]).toFixed(1)} ${Y(op[i][1] / H).toFixed(1)}`;
-  for (let i = op.length - 1; i >= 0; i--) d += ` L ${Xm(op[i][0]).toFixed(1)} ${Y(op[i][1] / H).toFixed(1)}`;
-  d += " Z";
-
-  // Bamboo ribs (higo) (groove center lines; same positions as the groove notches)
-  let higo = "";
-  for (const mm of gs) {
-    const t = mm / H, r = outerR(p, t);
-    higo += `M ${Xm(r).toFixed(1)} ${Y(t).toFixed(1)} L ${X(r).toFixed(1)} ${Y(t).toFixed(1)} `;
-  }
-  // Bands for color-coding the regions (neck / lamp body), clipped to the silhouette
-  const bands: { t0: number; t1: number; fill: string; op?: number }[] = [
-    { t0: 0, t1: fr.lo, fill: C.neck },       // bottom neck
-    { t0: fr.lo, t1: fr.hi, fill: accent, op: 0.12 }, // lamp body
-    { t0: fr.hi, t1: 1, fill: C.neck },       // top neck
-  ].filter((b) => b.t1 - b.t0 > 0.001);
-  const maxR = Math.max(...op.map((q) => q[0])) + 4;
-
-  // Actual rib cross-section (overlaid on the right side): tab tongue + core (Ri) + grooved outer
-  // edge + lightening windows — the exact printed part. Coordinates are (x = radius mm, y = height mm).
-  const Ymm = (y: number) => Y0 - y * s;
-  const poly2d = (pl: Pt2[]) => "M " + pl.map(([px, py], i) => `${i ? "L " : ""}${X(px).toFixed(1)} ${Ymm(py).toFixed(1)}`).join(" ") + " Z";
-  let ribD = poly2d(ribOutline2D(p));
-  for (const hole of lightenHoles2D(p).holes) ribD += " " + poly2d(hole); // punch out the windows via evenodd
 
   // ---- Handles (lamp body height / top radius / bottom radius) ----
   // Every drag gesture below (height handle, control point, tangent handle) needs the same three
@@ -309,52 +241,6 @@ export default function SectionEditor({
 
   const spineY = Math.min(Y(tnB), Y(1 - tnT));
   const spineH = Math.abs(Y(tnB) - Y(1 - tnT));
-
-  // ---- Frame and hit sizing ----------------------------------------------------------------
-  // The content's own extent, in SVG units. Every term is something actually drawn below, so a mark
-  // that moves takes the frame with it: the silhouette (maxR), the rib's tabs (which stick out past
-  // the body at both ends), and the axis stub. The padding is this small because compact drops the
-  // region labels (see below); with them the drawing would be squeezed down by its own annotations.
-  const cx0 = Math.min(Xm(maxR), CX - 60) - FIT_PAD.l;
-  const cx1 = Math.max(X(maxR), X(kR)) + FIT_PAD.r;
-  const cy0 = Math.min(topY - 34, Ymm(H + p.tabLen)) - FIT_PAD.t;
-  const cy1 = Math.max(Y0 + 34, Ymm(-p.tabLen)) + FIT_PAD.b;
-  // CSS px per SVG unit, as the browser will render it (preserveAspectRatio="meet" = the smaller of
-  // the two fits). Falls back to the wide-frame value before the first measurement.
-  const fitW = compact ? cx1 - cx0 : VBW, fitH = compact ? cy1 - cy0 : VBH;
-  const k = pane.w > 0 ? Math.min(pane.w / fitW, pane.h / fitH) : 1;
-  // Widen the fitted box to the pane's aspect so the drawing is centred rather than left-aligned in
-  // whichever axis has slack. preserveAspectRatio would centre it anyway; doing it here keeps the
-  // coordinates honest for anything that reads the viewBox.
-  const vbW = k > 0 && pane.w > 0 ? pane.w / k : fitW;
-  const vbH = k > 0 && pane.h > 0 ? pane.h / k : fitH;
-  const viewBox = compact
-    ? `${((cx0 + cx1) / 2 - vbW / 2).toFixed(1)} ${((cy0 + cy1) / 2 - vbH / 2).toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}`
-    : `0 0 ${VBW} ${VBH}`;
-  // A hit radius in SVG units landing on the wanted size in CSS px. The floors are the old constants,
-  // so a wide screen keeps exactly the targets it had.
-  const hitPt = compact ? Math.max(13, HIT_PT / 2 / k) : 13;
-  const hitAdd = compact ? Math.max(11, HIT_ADD / 2 / k) : 11;
-  // Mark radii in SVG units landing on the wanted CSS px. Floored at the wide constants, so the wide
-  // path draws exactly what it always drew. `markStroke` scales the outline with them — a 2-unit
-  // stroke on a 16px mark is the weight the 2 was on an 11px one.
-  const u = (px: number, floor: number) => (compact ? Math.max(floor, px / 2 / k) : floor);
-  const rPt = u(GLYPH_PT, 5.5);          // half-side of the control-point square
-  const rRing = u(GLYPH_PT + 10, 13);    // the selection ring around it
-  const rH = u(GLYPH_H, 6.5);            // body-height handle
-  const rAdd = u(GLYPH_ADD, 11);         // "+" ghost
-  const rTan = u(GLYPH_TAN, 5.5);        // tangent handle
-  const markStroke = (2 * rPt / 5.5).toFixed(2);   // stroke weight, in step with the marks
-  // Compact hides the NAMES, never the NUMBERS. Out go the region labels (首/火袋/首 — the colour
-  // bands already say it), the 羽根板 caption, the 開口/首 tag and the 火袋の高さ caption; the region
-  // ones also hang off the LEFT of the widest part of the body, which `cx0` reserves nothing for, so
-  // they would be clipped as well as costly. The mm readouts stay — they answer "how big is this" —
-  // and cost the frame **nothing**, riding inside `FIT_PAD.r`'s one-label reservation.
-  const showLabels = !compact;
-  // At the sheet's tallest stop the drawing is a 140px sliver and a 34px pill is a fifth of it,
-  // parked on the very drawing it explains, for someone plainly working in the panel. Below this
-  // threshold the drawing is context, not a work surface, so the legend steps out of the way.
-  const showLegend = !compact || pane.h === 0 || pane.h >= 220;
 
   return (
     <div ref={wrapRef} onPointerDown={() => setSel(null)} style={{
