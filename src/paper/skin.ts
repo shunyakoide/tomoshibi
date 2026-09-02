@@ -10,11 +10,8 @@
  * ============================================================================
  */
 import { washiGore } from "../geometry.ts";
-import { A4, layout } from "./layout.ts";
-import { pageOps } from "./draw.ts";
-import { pageSVG } from "./svg.ts";
-import { styleCSS } from "./style.ts";
-import { pagesPDF, tid } from "./render.ts";
+import { A4 } from "./layout.ts";
+import { pagesPDF, pagesSVG, tid } from "./render.ts";
 import type { WashiOpts } from "../geometry.ts";
 import type { Page } from "../pdf.ts";
 import type { Design } from "../types.ts";
@@ -46,13 +43,10 @@ export function washiPDF(p: Design, opts: WashiOpts = {}, page = A4, t: T = tid)
 /**
  * The same sheets `washiPDF` writes, as SVG. **Nothing in the app draws these** — the washi template
  * has no preview; what keeps it here is `check:paper` section 6, comparing the hand-rolled PDF
- * against it path by path, markup being the encoding you can assert on. Same `layout` + `pageOps` +
- * `pageSVG` as every other sheet: the moment it is a second drawing, the comparison is worthless.
+ * against it path by path, markup being the encoding you can assert on. The very same `pagesSVG` as
+ * every other sheet: the moment it is a second drawing, the comparison is worthless.
  */
 export function washiPagesSVG(p: Design, opts: WashiOpts = {}, t: T = tid, page: Page & { name?: string } = A4) {
   const { parts } = washiParts(p, opts, t);
-  const lay = layout(parts, page);
-  const svgs: string[] = [];
-  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, t), i, page));
-  return { svg: svgs.join(""), css: styleCSS(".pages "), pages: lay.pages.length };
+  return pagesSVG(parts, page, t);
 }
