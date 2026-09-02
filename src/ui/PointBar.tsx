@@ -11,13 +11,13 @@
  *
  * **It carries H and not R**: the section view already prints every point's radius beside its ◇,
  * while height position is stated nowhere. Everything is a 44px target, and the editing rules live
- * in `pointEdit.ts`, shared with `PointCard`, because a clamp written twice rots.
+ * in `pointEdit.ts`, shared with `PointCard` and with the drag itself, because a clamp written twice
+ * rots.
  * ============================================================================
  */
 import React from "react";
-import { clamp } from "../util.ts";
 import { useT } from "./theme.ts";
-import { SEG_SKIN } from "./controls.tsx";
+import { SEG_SKIN, mmField } from "./controls.tsx";
 
 /* Glyph over caption. 46px is what the longest caption needs (four CJK glyphs at 9px), and the row
    had the slack for it at both 375 and 320. All three buttons share this one box. */
@@ -28,25 +28,23 @@ import { pointOps, makeSetMode } from "./pointEdit.ts";
 import type { EditMode } from "./pointEdit.ts";
 import type { Design } from "../types.ts";
 
-/** One compact numeric field: a mono letter, the input, and its unit. */
+/**
+ * One compact numeric field: a mono letter, the input, and its unit. Only the BOX differs from the
+ * inspector's `NumInput` — what the field does is `mmField`, shared, because a commit-and-clamp rule
+ * written twice rots. The box stays a literal here, where `check:style` can still see it.
+ */
 function Num({ tag, title, value, min, max, onChange }: {
   tag: string; title: string; value: number; min: number; max: number; onChange: (v: number) => void;
 }) {
   return (
     <label className="flex-[0_1_auto] mr-auto min-w-0 flex items-center gap-5" title={title}>
       <span aria-hidden="true" className="flex-none font-mono text-sm text-faint">{tag}</span>
-      {/* key={value} re-mounts on an external change (a drag) so defaultValue follows it */}
-      <input key={value} type="number" defaultValue={value} min={min} max={max} step={1}
+      <input key={value} {...mmField(value, min, max, onChange)}
         /* Sized to its content, with a FLOOR: a 2000mm design puts four digits in here, the field is
            right-aligned, and an overflow shows the END of the number — `000` for 2000, silently. */
         className="w-56 min-w-50 min-h-44 px-7 py-0 rounded-md text-right bg-card
           border border-card-edge text-text font-mono text-md"
-        aria-label={`${title} (mm)`}
-        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-        onBlur={(e) => {
-          const v = Math.round(Number(e.target.value));
-          onChange(Number.isFinite(v) && v > 0 ? clamp(min, max, v) : value);
-        }} />
+        aria-label={`${title} (mm)`} />
     </label>
   );
 }
