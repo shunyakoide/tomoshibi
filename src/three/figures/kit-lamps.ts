@@ -15,7 +15,7 @@
  */
 import * as THREE from "three";
 import {
-  CORD_INK, CORD_R, DIR_UPSIDE_DOWN, VIEW_DIR, silhouetteCircle, silhouetteLines, solid,
+  DIR_UPSIDE_DOWN, VIEW_DIR, cordTube, drum, silhouetteCircle, solid,
 } from "./ink.ts";
 
 // The holder's shell. Two figures draw it — the kit card's lamp hanging cord-grip up, and the fitting
@@ -31,28 +31,19 @@ export function pendantSocket({ crop = false } = {}) {
   const g = new THREE.Group();
   // Short, because the frame is fitted to what is in it: every millimetre of cord costs the socket.
   const cordLen = 26;
-  const cord = new THREE.Mesh(
-    new THREE.CylinderGeometry(CORD_R, CORD_R, cordLen, 12),
-    new THREE.MeshBasicMaterial({ color: CORD_INK }),
-  );
+  const cord = cordTube(cordLen);
   cord.position.y = 34 + cordLen / 2;
   g.add(cord);
-  const cap = solid(new THREE.CylinderGeometry(8, 13, 12, 32));      // the cord grip
-  cap.position.y = 28;
-  g.add(cap, silhouetteLines(8, 13, 34, 22));
+  g.add(drum(8, 13, 12, 22));                                        // the cord grip
   // `crop` cuts the shell short and leaves the skirt with it: where this shows the socket hanging in
   // the hanger's U by its cap, a whole ⌀34 socket in a ⌀38 opening hides the ring.
   const bodyH = crop ? 16 : SOCKET_H, bodyTop = 22;
-  const body = solid(new THREE.CylinderGeometry(SOCKET_R, SOCKET_R, bodyH, 32));      // the shell
-  body.position.y = bodyTop - bodyH / 2;
-  g.add(body, silhouetteLines(SOCKET_R, SOCKET_R, bodyTop, bodyTop - bodyH));
+  g.add(drum(SOCKET_R, SOCKET_R, bodyH, bodyTop - bodyH));           // the shell
   if (crop) return g;
   // The skirt around the mouth the bulb screws into, only just wider than the shell: the view looks
   // DOWN, so a ring drawn at the mouth is invisible (an annulus was tried). More overhang and the
   // socket reads as a pot on a saucer.
-  const lip = solid(new THREE.CylinderGeometry(18.5, 18.5, 5, 32));
-  lip.position.y = -14.5;
-  g.add(lip, silhouetteLines(18.5, 18.5, -12, -17));
+  g.add(drum(18.5, 18.5, 5, -17));
   return g;
 }
 
@@ -67,17 +58,9 @@ export function ledBulb(view = VIEW_DIR) {
   const globe = solid(new THREE.SphereGeometry(30, 32, 16));
   globe.position.y = 34;
   g.add(globe, silhouetteCircle(30, 0, 34, 0, view));
-  const neck = solid(new THREE.CylinderGeometry(26, 14, 28, 32));   // globe down to the cap
-  neck.position.y = 13;
-  g.add(neck, silhouetteLines(26, 14, 27, -1, view));
-  const cap = solid(new THREE.CylinderGeometry(14, 12.5, 24, 32));
-  cap.position.y = -13;
-  g.add(cap, silhouetteLines(14, 12.5, -1, -25, view));
-  for (const y of [-6, -12, -18]) {                                 // the thread
-    const band = solid(new THREE.CylinderGeometry(15, 15, 2.4, 32));
-    band.position.y = y;
-    g.add(band, silhouetteLines(15, 15, y + 1.2, y - 1.2, view));
-  }
+  g.add(drum(26, 14, 28, -1, { view }));                            // globe down to the cap
+  g.add(drum(14, 12.5, 24, -25, { view }));
+  for (const y of [-6, -12, -18]) g.add(drum(15, 15, 2.4, y - 1.2, { view }));   // the thread
   return g;
 }
 
@@ -90,22 +73,15 @@ export function ledBulb(view = VIEW_DIR) {
 export const PUCK_R = 38, PUCK_FOOT_H = 7, PUCK_LENS_H = 15;    // 76 across, 22 high = the real 3.5:1
 export function puckLight() {
   const g = new THREE.Group();
-  const foot = solid(new THREE.CylinderGeometry(PUCK_R - 4, PUCK_R - 6, PUCK_FOOT_H, 48));
-  foot.position.y = PUCK_FOOT_H / 2;
-  g.add(foot, silhouetteLines(PUCK_R - 4, PUCK_R - 6, PUCK_FOOT_H, 0));
+  g.add(drum(PUCK_R - 4, PUCK_R - 6, PUCK_FOOT_H, 0, { seg: 48 }));
   // Straight-sided, and wider than the foot, so the overhang is one clean step: tapering it as well
   // (the real lens is slightly domed) put a bulge at its foot and read as two stacked bowls.
-  const lens = solid(new THREE.CylinderGeometry(PUCK_R, PUCK_R, PUCK_LENS_H, 48));
-  lens.position.y = PUCK_FOOT_H + PUCK_LENS_H / 2;
-  g.add(lens, silhouetteLines(PUCK_R, PUCK_R, PUCK_FOOT_H + PUCK_LENS_H, PUCK_FOOT_H));
+  g.add(drum(PUCK_R, PUCK_R, PUCK_LENS_H, PUCK_FOOT_H, { seg: 48 }));
   const port = solid(new THREE.BoxGeometry(13, 7, 16));
   port.position.set(-PUCK_R + 4, 5.5, 0);
   g.add(port);
   const lead = 34;
-  const cord = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.6, 1.6, lead, 12),
-    new THREE.MeshBasicMaterial({ color: CORD_INK }),
-  );
+  const cord = cordTube(lead);
   cord.rotation.z = Math.PI / 2;                         // out of the port, along -x
   cord.position.set(-PUCK_R - 3 - lead / 2, 5.5, 0);
   g.add(cord);

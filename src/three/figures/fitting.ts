@@ -4,7 +4,7 @@
  * proportions, because none of it is a part the app makes.
  */
 import * as THREE from "three";
-import { CORD_INK, CORD_R, WIRE_R, silhouetteLines, solid, wireTube } from "./ink.ts";
+import { WIRE_R, cordTube, drum, solid, wireTube } from "./ink.ts";
 import { BULB_FOOT, SOCKET_H, SOCKET_R, ledBulb } from "./kit-lamps.ts";
 
 /**
@@ -39,18 +39,12 @@ export const LEG = [50, 76, 26] as const;
 export function lampHolder(crop: boolean) {
   const g = new THREE.Group();
   const h = crop ? SOCKET_H * 0.55 : SOCKET_H;
-  const shell = solid(new THREE.CylinderGeometry(SOCKET_R, SOCKET_R, h, 32));
-  shell.position.y = h / 2;
-  g.add(shell, silhouetteLines(SOCKET_R, SOCKET_R, h, 0));
-  const stem = solid(new THREE.CylinderGeometry(STEM_R, STEM_R, STEM_H, 24));
-  stem.position.y = -STEM_H / 2;
-  g.add(stem, silhouetteLines(STEM_R, STEM_R, 0, -STEM_H));
+  g.add(drum(SOCKET_R, SOCKET_R, h, 0));
+  g.add(drum(STEM_R, STEM_R, STEM_H, -STEM_H, { seg: 24 }));
   // The thread, as raised rings — `ledBulb`'s cap, for the same reason: a smooth white cylinder says
   // nothing, and this one has to read as something a nut runs on.
   for (let y = -STEM_H + 1.6; y < -2; y += 2.6) {
-    const band = solid(new THREE.CylinderGeometry(STEM_R + 0.5, STEM_R + 0.5, 1.2, 24));
-    band.position.y = y;
-    g.add(band, silhouetteLines(STEM_R + 0.5, STEM_R + 0.5, y + 0.6, y - 0.6));
+    g.add(drum(STEM_R + 0.5, STEM_R + 0.5, 1.2, y - 0.6, { seg: 24 }));
   }
   return g;
 }
@@ -133,12 +127,11 @@ export function frameOnStem(g: THREE.Group, top: number) {
  * leaves them); 300 projects to the right, where the frame has the room.
  */
 export function lampCord(g: THREE.Group, y0: number, down: number, run: number, az = -Math.PI / 3) {
-  const mat = new THREE.MeshBasicMaterial({ color: CORD_INK });
-  const drop = new THREE.Mesh(new THREE.CylinderGeometry(CORD_R, CORD_R, down, 12), mat);
+  const drop = cordTube(down);
   drop.position.y = y0 - down / 2;
   g.add(drop);
   if (!run) return;
-  const out = new THREE.Mesh(new THREE.CylinderGeometry(CORD_R, CORD_R, run, 12), mat);
+  const out = cordTube(run);
   out.rotation.z = -Math.PI / 2;                       // stand it along +x, then swing it round
   out.rotation.y = -az;
   out.position.set((run / 2) * Math.cos(az), y0 - down, (run / 2) * Math.sin(az));

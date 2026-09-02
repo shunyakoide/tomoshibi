@@ -108,6 +108,35 @@ export function silhouetteCircle(r: number, cx: number, cy: number, cz: number, 
   return inkLines(pts);
 }
 
+/**
+ * A round segment standing on `yBot`: the white solid AND the two wall lines that make it read, from
+ * one height. Every tall round volume in the kit and the fitting is a stack of these.
+ *
+ * It takes the bottom rather than the centre because that is the bug it exists to stop. Written out,
+ * the pattern is a cylinder positioned by its CENTRE and a silhouette given its TOP and BOTTOM — the
+ * same height stated twice, in two forms, twenty times over, with nothing to catch a pair that drift
+ * apart. Here they cannot: both come from `yBot` and `h`.
+ */
+export function drum(
+  rTop: number, rBot: number, h: number, yBot: number,
+  { seg = 32, view = VIEW_DIR }: { seg?: number; view?: THREE.Vector3 } = {},
+): THREE.Group {
+  const g = new THREE.Group();
+  const m = solid(new THREE.CylinderGeometry(rTop, rBot, h, seg));
+  m.position.y = yBot + h / 2;
+  g.add(m, silhouetteLines(rTop, rBot, yBot + h, yBot, view));
+  return g;
+}
+
+/**
+ * A length of lamp flex, lying along +y for the caller to place. Dark rather than white: a 3mm white
+ * tube draws nothing at all, which is why the cord is `CORD_INK` and not a `part()`.
+ */
+export const cordTube = (len: number) => new THREE.Mesh(
+  new THREE.CylinderGeometry(CORD_R, CORD_R, len, 12),
+  new THREE.MeshBasicMaterial({ color: CORD_INK }),
+);
+
 /** A helix that opens out as it climbs — a coil of rod, which is how both bamboo and wire are sold. */
 class CoilCurve extends THREE.Curve<THREE.Vector3> {
   constructor(readonly r0: number, readonly dr: number, readonly turns: number, readonly rise: number) { super(); }

@@ -18,17 +18,13 @@
  * ============================================================================
  */
 import * as THREE from "three";
-import { DIR_ON_STAND, bristleFringe, inkLines, silhouetteLines, solid } from "./ink.ts";
+import { DIR_ON_STAND, bristleFringe, drum, inkLines, silhouetteLines, solid } from "./ink.ts";
 
 /** A tub with its lid on: starch paste. (Wood glue comes in a bottle; the tub is the first-named.) */
 export function pasteTub() {
   const g = new THREE.Group();
-  g.add(solid(new THREE.CylinderGeometry(32, 30, 44, 32)));
-  g.add(silhouetteLines(32, 30, 22, -22));
-  const lid = solid(new THREE.CylinderGeometry(34, 34, 13, 32));
-  lid.position.y = 26.5;                  // over the rim, not level with it
-  g.add(lid);
-  g.add(silhouetteLines(34, 34, 33, 20));
+  g.add(drum(32, 30, 44, -22));
+  g.add(drum(34, 34, 13, 20));            // the lid, over the rim rather than level with it
   return g;
 }
 
@@ -58,10 +54,9 @@ export function tapeAndThread() {
   roll.position.copy(across).multiplyScalar(-18).setY(-8);      // both standing on the same ground
   g.add(roll);
   const spool = new THREE.Group();
-  spool.add(solid(new THREE.CylinderGeometry(11, 11, 26, 32)));
   // The spool is laid on its side below (rotation.z), so its own local view is (y,-x,z) — the same
   // quarter turn away DIR_ON_STAND is for the mold in its stand.
-  spool.add(silhouetteLines(11, 11, 13, -13, DIR_ON_STAND));
+  spool.add(drum(11, 11, 26, -13, { view: DIR_ON_STAND }));
   for (const y of [-14.5, 14.5]) {
     const f = solid(new THREE.CylinderGeometry(16, 16, 3, 32));
     f.position.y = y;
@@ -252,18 +247,12 @@ export function sprayBottle() {
   const g = new THREE.Group();
   // The bottle, bottom up. Each segment gets its own pair of tangent lines: a smooth wall draws
   // nothing by itself, and three rim circles in a column is not a bottle.
-  const base = solid(new THREE.CylinderGeometry(SPRAY_R, SPRAY_R, 66, 32));
-  base.position.y = 33;
-  g.add(base, silhouetteLines(SPRAY_R, SPRAY_R, 66, 0));
-  const shoulder = solid(new THREE.CylinderGeometry(23, SPRAY_R, 56, 32));
-  shoulder.position.y = 94;
-  g.add(shoulder, silhouetteLines(23, SPRAY_R, 122, 66));
-  const neck = solid(new THREE.CylinderGeometry(18, 18, 14, 24));
-  neck.position.y = 129;
-  g.add(neck, silhouetteLines(18, 18, 136, 122));
-  const collar = solid(new THREE.CylinderGeometry(22, 22, 13, 24));   // wider than the neck: it screws off
-  collar.position.y = 132;
-  g.add(collar, silhouetteLines(22, 22, 138.5, 125.5));
+  g.add(
+    drum(SPRAY_R, SPRAY_R, 66, 0),
+    drum(23, SPRAY_R, 56, 66),
+    drum(18, 18, 14, 122, { seg: 24 }),
+    drum(22, 22, 13, 125.5, { seg: 24 }),   // the collar, wider than the neck: it screws off
+  );
 
   // The head, as one profile in x (forward) and y (up), extruded across z. Origin at the collar's
   // top, so the whole assembly moves with one position below.
