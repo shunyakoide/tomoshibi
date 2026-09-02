@@ -144,7 +144,7 @@ for (const ns of ["color-*", "text-*", "radius-*"]) {
   const selectors = css.join("\n").replace(/@import[^;]*;/g, "");
   const declared = [...selectors.matchAll(/\.([a-z][\w-]*)/g)].map((m) => m[1]);
   // papercraft generates its own stylesheet from the STYLE table and scopes it under `.pages`.
-  const paper = new Set([...noComments(readFileSync("src/papercraft.ts", "utf8"))
+  const paper = new Set([...noComments(readFileSync("src/paper/style.ts", "utf8"))
     .matchAll(/"?([a-z][\w-]*)"?\s*:\s*\{/g)].map((m) => m[1]));
   // Every whitespace-separated token inside a STRING LITERAL anywhere in src/. Only literals: an
   // earlier version matched on whitespace in the raw source, so an identifier of the same name
