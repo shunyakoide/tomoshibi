@@ -1,15 +1,3 @@
-/**
- * ============================================================================
- * PAGE LAYOUT — where each part lands on paper
- * ============================================================================
- * Parts in, sheets out. Nothing here knows what a rib is or how a page is drawn: it normalizes each
- * part into page coordinates, packs the parts into rows, cuts the rows into sheets, and finds the
- * corner the full-scale check square can stand in. `draw.ts` turns the result into ink.
- *
- * The page constants live here because this is their only consumer of consequence — a second
- * declaration of `MARGIN` anywhere is a template that is 1:1 in one place and not in another.
- * ============================================================================
- */
 import type { Mark } from "../geometry.ts";
 import type { Page } from "../pdf.ts";
 import type { Pt2 } from "../types.ts";
@@ -31,6 +19,8 @@ export type Layout = { placed: Placed[]; CW: number; CH: number; pages: PageBand
 export type PageDraft = { top: number; row: Row | null; y0?: number; bot?: number };
 
 // ---- Paper (A4) ----
+// These page constants are declared here and nowhere else: a second `MARGIN` is a template that is
+// 1:1 in one place and not in another.
 export const A4 = { w: 210, h: 297, name: "A4" };
 // Paper edge margin (mm) = where the alignment frame sits, at the printable limit. 5mm is the last
 // value that prints whole on essentially anything (home inkjets stop at ~3.2mm, lasers ~4.2-5mm);
@@ -41,11 +31,9 @@ const FOOTER = 0;    // No band at the foot of every page: the parts get the ful
 // per document rather than 14mm on every sheet, and only when nothing anywhere fits (`scaleSpot`).
 // 36mm is what the try square's short arm plus its labels need.
 export const TOPBAR = 36;
-// Sheets BUTT at the trim box, they do not overlap, and there is no glue tab anywhere — see
-// "Joining sheets" in `pageOps` for why.
+// Sheets BUTT at the trim box — no overlap, no glue tab (see "Joining sheets" in `pageOps`).
 const GAP = 6;       // Gap between parts (mm). Margin for cutting them apart.
 
-// Bounding box of a point list
 function bbox(pts: Pt2[]) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const [x, y] of pts) {
@@ -64,7 +52,7 @@ function toPage(part: RawPart, rot: boolean): PagePart {
   const all = [part.outline, ...(part.holes || []), ...(part.guides || [])].flat()
     .concat((part.marks || []).flatMap((m) => [[m[0], m[1]], [m[2], m[3]]]));
   const b = bbox(all.map(conv));
-  const fix = (q: Pt2): Pt2 => { const [x, y] = conv(q); return [x - b.x0, b.y1 - y]; }; // flip y
+  const fix = (q: Pt2): Pt2 => { const [x, y] = conv(q); return [x - b.x0, b.y1 - y]; };
   return {
     name: part.name,
     outline: part.outline.map(fix),
@@ -75,15 +63,9 @@ function toPage(part: RawPart, rot: boolean): PagePart {
   };
 }
 
-// ============ Page layout ============
-// Two stages: (1) pack parts top-down into "rows" ignoring pages, (2) assign rows to pages. Both run
-// twice — in the order the parts arrive and by decreasing height — and the cheaper result wins (with
-// ribs and koma alone it saves nothing on any design in the sweep; see "Which order to pack in").
-//
-// Layout principle: **never let a row that fits on one page span pages.** If it does not fit, start
-// the next page at the top of that row, so there is nothing to join. A seam happens only for a row
-// taller than one page — a part too big for one sheet, like a long rib — and the sheets then BUTT at
-// the trim line rather than overlapping (see "Joining sheets" in `pageOps`).
+// **Never let a row that fits on one page span pages**: if it does not fit, the next page starts at
+// the top of that row, so there is nothing to join. A seam happens only for a row taller than one
+// page, and the sheets then BUTT at the trim line (see "Joining sheets" in `pageOps`).
 export function layout(parts: RawPart[], page: Page): Layout {
   const CW = page.w - 2 * MARGIN;              // content width
   const CH = page.h - 2 * MARGIN - FOOTER;     // content height (usable height per page)
@@ -102,7 +84,7 @@ export function layout(parts: RawPart[], page: Page): Layout {
     let y = 0, rowX = 0, rowH = 0;
     const endRow = () => { if (rowH > 0) { rows.push({ y, h: rowH }); y += rowH + GAP; rowX = 0; rowH = 0; } };
     for (const q of qs) {
-      if (rowX > 0 && rowX + q.w > CW) endRow();   // wrap to a new row when the width runs out
+      if (rowX > 0 && rowX + q.w > CW) endRow();
       placed.push({ ...q, x: rowX, y });
       rowX += q.w + GAP;
       rowH = Math.max(rowH, q.h);
@@ -120,19 +102,17 @@ export function layout(parts: RawPart[], page: Page): Layout {
     let cur: PageDraft | null = null, curAt = -1;
     for (const r of rows) {
       if (r.h > cap(pages.length)) {
-        // A row that doesn't fit on one page → raise as many pages as needed, butting at the trim line
         let t = r.y;
         while (t < r.y + r.h) { pages.push({ top: t, row: r }); t += cap(pages.length - 1); }
         cur = pages[pages.length - 1]; curAt = pages.length - 1;   // if the last page has room, put the next row on it too
       } else if (!cur || r.y + r.h > cur.top + cap(curAt)) {
-        cur = { top: r.y, row: r };     // doesn't fit on the current page → start the next page at this row
+        cur = { top: r.y, row: r };
         pages.push(cur); curAt = pages.length - 1;
       }
     }
     if (!pages.length) pages.push({ top: 0, row: null });
-    // Bottom edge of each page: the full CH only when **the next page continues the same row**,
-    // otherwise where the next page begins — so the head of the next row does not intrude on the
-    // previous page and draw a seam where nothing is joined.
+    // The full CH only while the next page continues the same row: otherwise the head of the next
+    // row intrudes on this page and draws a seam where nothing is joined.
     pages.forEach((pg, i) => {
       const next = pages[i + 1];
       pg.y0 = MARGIN + (i === 0 ? topbar : 0);   // page y the content band starts at
@@ -156,10 +136,8 @@ export function layout(parts: RawPart[], page: Page): Layout {
     const asGiven = build(oriented, topbar), sorted = build(byHeight, topbar);
     return sorted.pages.length < asGiven.pages.length ? sorted : asGiven;
   };
-  // Where the check square goes: a mark, not a part, so it takes room the layout ALREADY leaves —
-  // reserving a strip up front cost a page on designs that had the room all along. Only when nothing
-  // anywhere fits does sheet 1 give up TOPBAR. Keep BOTH halves: looking for gaps alone shipped 16%
-  // of designs with no check square at all.
+  // The check square is a mark, not a part, so it takes room the layout ALREADY leaves; only when
+  // nothing anywhere fits does sheet 1 give up TOPBAR. Keep BOTH halves.
   const free = pick(0);
   const spot = scaleSpot(free);
   if (spot) return { ...free, spot };

@@ -1,30 +1,18 @@
 /**
- * ============================================================================
- * GUIDE PAGE — how to build the lantern
- * ============================================================================
  * A document, not a view of the model: it takes the whole window and scrolls, and it is the one PAGE
- * in this app — `/guide`, with an address of its own (src/route.ts) — opened from the ☰ menu and
- * closed with ×, Esc or the browser's back button, all three the same gesture. **It was a fifth view
- * tab and must not go back**: the other four each render YOUR design and this one does not, so as a
- * tab it had to be excepted out of the dimension chip, the viewport alerts and the inspector, and it
- * cost the phone's tab strip its fifth slot.
+ * in this app — `/guide`, with an address of its own (src/route.ts). **It was a fifth view tab and
+ * must not go back**: the other four each render YOUR design and this one does not, so as a tab it
+ * had to be excepted out of the dimension chip, the viewport alerts and the inspector, and it cost
+ * the phone's tab strip its fifth slot.
  *
  * **The page is generic: every figure is drawn from ONE fixed design (`GUIDE_P`), at most once per
- * ROUTE per session, and no measurement is printed anywhere.** Built from the design on screen it
- * cost two dozen WebGL scenes per edit for numbers nobody needs — but it also guaranteed the page
- * could not describe a mold the download does not contain, so **nothing here may state a QUANTITY
- * the design decides**: the rib's line reads "as many as your design has" rather than "×8". The
- * ROUTE still follows the app, because it changes which parts exist at all — cardboard has no stand
- * and no printed rings, so those steps are filtered, not reworded.
+ * ROUTE per session, and no measurement is printed anywhere**, so **nothing here may state a
+ * QUANTITY the design decides**. The ROUTE still follows the app, because it changes which parts
+ * exist at all — cardboard has no stand and no printed rings, so those steps are filtered, not
+ * reworded.
  *
- * Every step is drawn — where the bamboo runs, where the seams fall, which rib comes out and how far
- * are easier to see than to read. Print styles live in index.css: the browser's own "Save as PDF" is
- * the paper version, which is why the guide is not a PDF the app writes.
- * ============================================================================
- *
- * The page itself is below; what it renders lives beside it — `guide/content.ts` is every word and
- * every ordering decision, `guide/figures.tsx` is `GUIDE_P` and the drawings made from it.
- * ============================================================================
+ * Print styles live in index.css: the browser's own "Save as PDF" is the paper version, which is why
+ * the guide is not a PDF the app writes.
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { disposeFigures } from "./three/figures.ts";
