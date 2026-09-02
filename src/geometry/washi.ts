@@ -1,11 +1,7 @@
 /**
- * ============================================================================
- * WASHI PANEL (GORE) — the flat pattern for the paper skin
- * ============================================================================
  * One panel = the surface between two adjacent ribs, developed flat so the washi can be cut BEFORE
  * pasting rather than trimmed after (a torn wet edge shows, and trimming is the fiddliest step of
  * the build).
- * ============================================================================
  */
 import type { Design, Pt2 } from "../types.ts";
 import { fukuroRange, outerR } from "./profile.ts";
@@ -43,15 +39,6 @@ export type WashiGore = {
 };
 
 /**
- * The flat pattern of one washi panel: [x,y] in mm, y along the meridian (0 = bottom opening),
- * x across (0 = the panel's centerline).
- *   opts.side  overlap added on each side (mm) — the sheet is wider than the bay by 2×this.
- *   opts.end   overhang past each opening (mm).
- *   opts.span  how many rib bays one sheet covers (1 = rib to rib).
- * All panels are identical, spiral winding included — the winding is a helix, but every bay sees the
- * same helix, so only the left/right tick heights differ.
- */
-/**
  * The PASTED paper's meridian: the mold's own surface pushed out by `higoD` along its NORMAL, over
  * `fukuroRange`. Not a horizontal offset — a face at angle θ keeps only `higoD·cos θ` of horizontal
  * clearance, so past θ ≈ 60° (dR/dy = 2) the rod comes out through the paper, and `LIMITS` allows
@@ -75,6 +62,15 @@ export function washiSurface(p: Design, n = 60): Pt2[] {
   return out;
 }
 
+/**
+ * The flat pattern of one washi panel: [x,y] in mm, y along the meridian (0 = bottom opening),
+ * x across (0 = the panel's centerline).
+ *   opts.side  overlap added on each side (mm) — the sheet is wider than the bay by 2×this.
+ *   opts.end   overhang past each opening (mm).
+ *   opts.span  how many rib bays one sheet covers (1 = rib to rib).
+ * All panels are identical, spiral winding included — the winding is a helix, but every bay sees the
+ * same helix, so only the left/right tick heights differ.
+ */
 export function washiGore(p: Design, opts: WashiOpts = {}): WashiGore {
   const side = Math.max(0, opts.side ?? WASHI_SIDE);
   const end = Math.max(0, opts.end ?? WASHI_END);

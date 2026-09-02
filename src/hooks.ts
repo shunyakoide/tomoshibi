@@ -1,11 +1,6 @@
 /**
- * ============================================================================
- * APP HOOKS
- * ============================================================================
- * The stateful behaviours that draw nothing: undo/redo history, the autosave, the responsive-layout
- * flag, the UI language, and the one page with a URL. No geometry and no three.js — only React,
- * localStorage and window events.
- * ============================================================================
+ * The stateful behaviours that draw nothing. No geometry and no three.js — only React, localStorage
+ * and window events.
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { saveState } from "./persist.ts";

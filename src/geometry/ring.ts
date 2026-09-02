@@ -1,7 +1,4 @@
 /**
- * ============================================================================
- * OPENING RING (KUCHIWA) — the one part that is not part of the mold
- * ============================================================================
  * A thin flat hoop glued around the finished lantern's opening to hold it round, after the mold has
  * been taken apart and pulled out. Sized from `openingR()` (the outermost control point), so it
  * follows the design like every other part; thin both radially and in height, not a thick washer or
@@ -10,7 +7,6 @@
  * The BOTTOM ring doubles as the base of a leg stand for the finished lantern: inside the hoop sit
  * `LEG_N` flat "onigiri" pads (rounded triangles), each with a bore at its middle that a leg rod
  * pushes into. Too small an opening falls back to a plain hoop with the marker tab instead.
- * ============================================================================
  */
 import type { Design } from "../types.ts";
 import * as THREE from "three";

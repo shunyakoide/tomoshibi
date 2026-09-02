@@ -1,13 +1,8 @@
 /**
- * ============================================================================
- * WHAT LEAVES THE APP AS A FILE
- * ============================================================================
- * The five downloads: the STL kit, the cardboard bundle, the design JSON, and the two that read a
- * file back in. Plain functions, no React — the state they need arrives as arguments and the state
- * they change goes back through an `apply` callback, so the caller keeps owning it.
+ * Plain functions, no React — the state they need arrives as arguments and the state they change
+ * goes back through an `apply` callback, so the caller keeps owning it.
  *
  * Named `kit.ts` rather than `exports.ts`: "export" already means something else on every line.
- * ============================================================================
  */
 import type * as THREE from "three";
 import {

@@ -1,23 +1,9 @@
 /**
- * ============================================================================
- * WELCOME — first-run onboarding (one card, not a tour)
- * ============================================================================
- * The app opens on a finished mold, so what a first-time visitor is missing is not "where do I
- * click" (the section view's legend covers that) but **what this thing is**: the object on screen is
- * the *mold*, and what comes out is an STL or a full-scale paper template.
- *
- * It also carries the one setup question the app branches on: **3D printer or cardboard** — not a
- * per-export toggle, because it decides whether a print bed constrains the design at all. Picking
- * either closes the card.
- *
  * `route` is the route to MARK as current, or **null to mark neither**, which the first-run card
  * passes so that a default nobody picked is not coloured in; reopened from ☰ the buttons are a
  * switch, so the live route is marked. That distinction lives in the caller.
  *
- * One card, NOT a spotlight tour: the app is one screen and a spotlight would have to track a
- * stretching viewport. Shown once (`tomoshibi.welcome`), reopenable from ☰, never blocking.
  * Presentational only — no app state, no geometry.
- * ============================================================================
  */
 import React, { useEffect, useRef } from "react";
 import { UI as ui, accent, accentA, useT } from "./ui/theme.ts";
@@ -28,8 +14,8 @@ import type { Route } from "./types.ts";
 /** Which of the three drawn step marks to render. */
 type StepKind = "section" | "export" | "build";
 
-// The three steps drawn rather than described: a section with a ◇ handle, the output sheet/part,
-// the finished lantern. The app's own accent, so they read as this app's marks.
+// The three steps drawn rather than described. The app's own accent, so they read as this app's
+// marks.
 function StepIcon({ kind }: { kind: StepKind }) {
   const faint = ui.faint;
   return (
@@ -106,9 +92,9 @@ export default function Welcome({ route = null, onPick, onClose }: {
       <div role="dialog" aria-modal="true" aria-label={t("はじめかた")} onClick={(e) => e.stopPropagation()}
         /* `m-auto` centres this, NOT the overlay's align-items: centred by align-items a card
            taller than the window overflows in BOTH directions, and a scroll container cannot reach
-           what is above its start edge (at 375x667 the then-720px card's logo was unreachable; it
-           is 595 now). An auto margin resolves to 0 once the free space goes negative. Width 560
-           rather than 520, below which the step captions strand a character in Japanese. */
+           what is above its start edge. An auto margin resolves to 0 once the free space goes
+           negative. Width 560 rather than 520, below which a step caption strands a character in
+           Japanese. */
         className="relative m-auto w-[min(560px,100%)] rounded-2xl border border-edge bg-panel
           text-text font-sans shadow-[0_18px_50px_rgba(43,36,26,0.3)]
           pt-26 px-26 pb-22 max-[480px]:pt-18 max-[480px]:px-16 max-[480px]:pb-16">
@@ -121,7 +107,7 @@ export default function Welcome({ route = null, onPick, onClose }: {
         <Logo variant="full" className="h-62 w-auto text-head max-[480px]:h-44" />
         <div className="mt-8 text-md text-sub">{t("和紙提灯の「張型」をつくる")}</div>
 
-        {/* The three steps, with arrows between them: design → output → build by hand */}
+        {/* The three steps, with arrows between them */}
         <div className="flex items-stretch gap-4 my-18 mb-16 bg-card border border-card-edge
           rounded-2xl pt-14 px-10 pb-13
           max-[480px]:flex-col max-[480px]:gap-2 max-[480px]:mt-14 max-[480px]:mb-13
