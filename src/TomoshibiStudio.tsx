@@ -27,6 +27,8 @@ import HigoSection from "./ui/panel/HigoSection.tsx";
 import WashiSection from "./ui/panel/WashiSection.tsx";
 import RingSection from "./ui/panel/RingSection.tsx";
 import ExportSection from "./ui/panel/ExportSection.tsx";
+import PanelFooter from "./ui/panel/PanelFooter.tsx";
+import type { KitNoteState } from "./ui/panel/KitNote.tsx";
 import { clamp } from "./util.ts";
 import { useViewport } from "./three/viewport.ts";
 import { buildScene } from "./three/scenes.ts";
@@ -37,9 +39,8 @@ import PagePreview from "./PagePreview.tsx";
 import GuidePage from "./GuidePage.tsx";
 import Welcome from "./Welcome.tsx";
 import { DEFAULTS } from "./config.ts";
-import type { T } from "./i18n.ts";
 import { accent, vpBg, chipStyle, TContext } from "./ui/theme.ts";
-import { CTA, Badge, NOTE_SKIN } from "./ui/controls.tsx";
+import { Badge } from "./ui/controls.tsx";
 import PresetChips from "./ui/PresetChips.tsx";
 import PointCard from "./ui/PointCard.tsx";
 import PointBar from "./ui/PointBar.tsx";
@@ -87,35 +88,6 @@ const VIEWS: [View, string][] = [["2d", "断面"], ["mold", "組立"], ["print",
 // by check:paper, but far less has been built on it.
 const ROUTES: [Route, string, string | null][] = [["stl", "3Dプリント", null], ["paper", "段ボール", "beta"]];
 
-// A warning line, usually with a "→ do this instead" under it. Position, stacking and gap belong to
-// the column that holds them, not to the card.
-/**
- * Under the export CTA: the one thing you must not get wrong, the ZIP's manifest folded behind it.
- * It renders NOTHING until the export has run, because none of it helps you DECIDE to press the
- * button — worth ~60px of pinned footer at every sheet stop against the five-line / ~95px paragraph
- * it was. **Do not put it back on screen "so people see it".**
- *
- * `state` is three-valued — `null` = no export yet (draw nothing), "open"/"shut" = the manifest's
- * fold. Two booleans would allow "folded but never downloaded", which has no drawing.
- */
-function KitNote({ warn, state, onToggle, t, children }: {
-  warn: React.ReactNode; state: null | "open" | "shut"; onToggle: () => void; t: T; children: React.ReactNode;
-}) {
-  if (state === null) return null;
-  const open = state === "open";
-  return (
-    <div className="mt-9">
-      <div className={NOTE_SKIN}>{warn}</div>
-      <button aria-expanded={open} onClick={onToggle}
-        className="flex items-center gap-5 min-h-36 mt-2 p-0 bg-transparent border-0 cursor-pointer
-          font-sans text-sm font-semibold text-sub hover:text-accent">
-        {t("同梱物")}<span aria-hidden="true" className="text-2xs text-faint">{open ? "▾" : "▸"}</span>
-      </button>
-      {open && <ul className={`${NOTE_SKIN} mt-2 mb-0 mx-0 p-0 list-none [&>li]:py-[1.5px]`}>{children}</ul>}
-    </div>
-  );
-}
-
 // Restored once at startup (module top level, so a lazy initializer can't parse twice).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 
@@ -140,7 +112,7 @@ export default function TomoshibiStudio() {
   const [editMode, setEditMode] = useState<EditMode>("move"); // section editor: "move" points / "curve" tangent handles
   const [alertsOpen, setAlertsOpen] = useState(false);             // narrow only: the alert strip, folded (see alertBar)
   // null until an export has run (see KitNote).
-  const [kitNote, setKitNote] = useState<null | "open" | "shut">(null);
+  const [kitNote, setKitNote] = useState<KitNoteState>(null);
   const [sheet, setSheet] = useState<SheetStop>("peek");           // narrow only: the inspector sheet's stop
   const [sheetH, setSheetH] = useState<number | null>(null);       // px while a drag is in progress, else null
   const barRef = useRef<HTMLDivElement>(null);                     // the sheet's grabber + summary bar
@@ -565,53 +537,12 @@ export default function TomoshibiStudio() {
         )}
       </div>
 
-      {/* Summary + the CTA for the current mode — pinned at the BOTTOM on both layouts. Moved above
-          the scroll area (to be part of what `peek` shows) it put a full-width button between the
-          drag handle and the first control and left the list sliding under it with no boundary.
-          The summary is dropped here on a phone because the sheet's bar carries it, and `peek` is
-          measured from that bar ALONE (`barRef`) — this footer sits below it and is clipped. */}
-      <div className="flex-none border-t border-edge px-20 pt-16 pb-18
-        narrow:px-14 narrow:pt-10 narrow:pb-12">
-        {!narrow && (
-        <div className="grid grid-cols-[auto_1fr] gap-x-12 gap-y-5 text-base mb-14">
-          <span className="text-faint">{t("最大径")}</span>
-          <span className="font-mono font-semibold text-right">⌀{maxDia} mm</span>
-          <span className="text-faint">{t("羽根板の全長")}</span>
-          <span className={`font-mono font-semibold text-right${!bedRules || ribFits ? "" : " text-warn"}`}>
-            {ribLen} mm
-          </span>
-          <span className="text-faint">{t("上下の開口(半径)")}</span>
-          <span className="font-mono font-semibold text-right">{topOpen} / {botOpen} mm</span>
-        </div>
-        )}
-
-        {view !== "print" ? (
-          <CTA label="印刷・書き出しへ進む →" outline onClick={() => setView("print")} />
-        ) : route === "paper" ? (
-          <>
-            <CTA label="型紙 ZIP をダウンロード (A4 原寸)" onClick={() => { downloadPaperKit(); setKitNote("open"); }} />
-            {/* A PDF is already A4 at exact size, so the printer's own scaling is the only way to
-                lose it — which is why this line stays out in the open. */}
-            <KitNote warn={<><strong>{t("原寸 100% で印刷")}</strong>{t("(「用紙に合わせる」は不可)")}</>}
-              state={kitNote} onToggle={() => setKitNote((v) => (v === "open" ? "shut" : "open"))} t={t}>
-              <li><span className="font-mono">tomoshibi_katagami_a4.pdf</span>{t(" — 型紙")}</li>
-              <li><span className="font-mono">{kit.WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
-            </KitNote>
-          </>
-        ) : (
-          <>
-            <CTA label="STL 書き出し" onClick={() => { downloadKit(); setKitNote("open"); }} />
-            {/* Miss this and you print half a mold: koma and posts are identical top and bottom, so
-                the kit carries one of each. */}
-            <KitNote warn={<>{t("コマ・柱は各1つ。スライサーで")}<strong>{t("2つに複製")}</strong></>}
-              state={kitNote} onToggle={() => setKitNote((v) => (v === "open" ? "shut" : "open"))} t={t}>
-              <li><span className="font-mono">tomoshibi_*.stl</span>{t(" — 羽根板・コマ・土台・口輪")}</li>
-              <li><span className="font-mono">{kit.WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
-              <li><span className="font-mono">tomoshibi_config.json</span>{t(" — 設計のバックアップ")}</li>
-            </KitNote>
-          </>
-        )}
-      </div>
+      <PanelFooter narrow={narrow} isPrint={view === "print"} route={route}
+        goPrint={() => setView("print")}
+        maxDia={maxDia} ribLen={ribLen} topOpen={topOpen} botOpen={botOpen}
+        ribFits={ribFits} bedRules={bedRules}
+        kitNote={kitNote} setKitNote={setKitNote}
+        onDownloadStl={downloadKit} onDownloadPaper={downloadPaperKit} />
     </aside>
   );
 
