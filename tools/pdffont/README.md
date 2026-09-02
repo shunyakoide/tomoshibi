@@ -1,12 +1,12 @@
 # PDF glyph outlines
 
-Rebuilds `src/pdf-glyphs.ts` — the characters `src/pdf.ts` draws when WinAnsi cannot encode them
+Rebuilds `src/io/pdf-glyphs.ts` — the characters `src/io/pdf.ts` draws when WinAnsi cannot encode them
 (the Japanese, the arrows). Run it whenever a template starts printing a word it did not print
 before; `npm run check:glyphs` is what tells you that day has come.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install fonttools brotli
-.venv/bin/python build.py            # writes ../../src/pdf-glyphs.ts
+.venv/bin/python build.py            # writes ../../src/io/pdf-glyphs.ts
 ```
 
 ## Why outlines and not a font

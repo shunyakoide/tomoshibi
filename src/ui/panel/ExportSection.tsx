@@ -1,10 +1,7 @@
 /**
  * The settings for the selected route — the switch itself sits on the viewport, next to the mode
- * tabs. The washi template is deliberately NOT a third route: it is the paper skin needed on top of
- * whichever mold you built, so it lives with the design.
- *
- * The two routes stay two branches in one file: the branch IS the section. What each route needs of
- * the maker has nothing in common — a machine's bed against a sheet of cardboard's thickness.
+ * tabs. Two branches in one file, because the branch IS the section: what each route needs of the
+ * maker has nothing in common.
  */
 import { Stepper, NumInput, SectionLabel, Note } from "../controls.tsx";
 import { useT } from "../theme.ts";
@@ -24,8 +21,7 @@ function BedGroup({ bedW, bedD, setBedW, setBedD, spiral, boards, nRibs, setPrin
   return (
     <>
       <SectionLabel title="プリントベッド" />
-      {/* Common (square) bed presets as a dropdown rather than a wrapping chip row (saves a row of
-          height). Sets width = depth; 幅/奥行き below stay for rectangular beds. */}
+      {/* Square presets, so this sets width = depth; 幅/奥行き below stay for rectangular beds. */}
       <div className="flex items-center justify-between mb-12">
         <span className="text-base text-text">{t("定番サイズ")}</span>
         <select value={preset ? String(bedW) : "custom"} aria-label={t("定番サイズ")}
@@ -38,8 +34,7 @@ function BedGroup({ bedW, bedD, setBedW, setBedD, spiral, boards, nRibs, setPrin
       <NumInput label="幅" value={bedW} onChange={setBedW} min={100} max={420} />
       <NumInput label="奥行き" value={bedD} onChange={setBedD} min={100} max={420} />
 
-      {/* Layout — how many rib copies go on the plate. A per-job output choice, not a bed dimension,
-          hence its own group. */}
+      {/* A per-job output choice, not a bed dimension, hence its own group. */}
       <div className="border-t border-edge pt-14 mt-14">
         <SectionLabel title="配置" />
         {spiral ? (
@@ -57,8 +52,7 @@ function BedGroup({ bedW, bedD, setBedW, setBedD, spiral, boards, nRibs, setPrin
   );
 }
 
-/** Cardboard: the A4 full-scale template. Only the material thickness lives here; "download the
- *  template ZIP" is the footer CTA. */
+/** Cardboard: the A4 full-scale template. Only the material thickness lives here. */
 function BoardGroup({ matT, setMatT }: { matT: number; setMatT: (v: number) => void }) {
   const t = useT();
   return (
@@ -85,7 +79,7 @@ export default function ExportSection({ route, p, nRibs, bedW, bedD, setBedW, se
   return (
     <div className="border-t border-edge pt-16 mt-4">
       {/* Titled, because the panel is one long scroll: untitled, the first control reads as another
-          shape setting. The hint names the route. */}
+          shape setting. */}
       <SectionLabel title="印刷・書き出し" hint={route === "stl" ? "3Dプリント" : "段ボール"} />
       {route === "stl"
         ? <BedGroup bedW={bedW} bedD={bedD} setBedW={setBedW} setBedD={setBedD}

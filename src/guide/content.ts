@@ -1,19 +1,11 @@
 /**
- * ============================================================================
- * THE GUIDE'S CONTENT — the parts, the build, and what you supply yourself
- * ============================================================================
- * Every word and every ordering decision on the 作り方 page, as data. `GuidePage.tsx` renders it and
- * decides nothing about it; the per-entry comments below are why each entry is the shape it is.
- *
  * **This file may not learn a dimension.** The page is generic — one fixed design draws every figure
- * and no measurement is printed anywhere (see `GuidePage.tsx`'s header and the design notes) — and
- * the guard that keeps it that way is right here in the types: `body` and friends are plain strings,
- * and `needs` is the ONLY function of `Design` allowed in this file. `needs` returns a **boolean**,
- * so it can drop a way the design cannot offer and can never produce a number to print. Adding a
- * `(p: Design) => string` here is how the page starts making claims about a mold it has not seen.
- * The one interpolation the page performs — 「{n}通り」 — is counted at the render site from the ways
- * actually offered, not stored here.
- * ============================================================================
+ * and no measurement is printed anywhere — and the guard that keeps it that way is right here in the
+ * types: `body` and friends are plain strings, and `needs` is the ONLY function of `Design` allowed
+ * in this file. `needs` returns a **boolean**, so it can drop a way the design cannot offer and can
+ * never produce a number to print. Adding a `(p: Design) => string` here is how the page starts
+ * making claims about a mold it has not seen. The one interpolation the page performs — 「{n}通り」 —
+ * is counted at the render site from the ways actually offered, not stored here.
  */
 import { ringLegs } from "../geometry.ts";
 import type { Design } from "../types.ts";
@@ -51,9 +43,8 @@ export const PARTS: PartRow[] = [
   { id: "ringTop", name: "口輪(上)", n: 1, stl: true },
 ];
 
-// The build, in order. `fig` names a scene in three/figures.ts; `stl` marks a step the cardboard
-// route does not have; an option's `detail` holds its numbered sub-steps. Bodies are i18n keys like
-// every other string.
+// The build, in order. `fig` names a scene in three/figures.ts; bodies are i18n keys like every
+// other string.
 export const STEPS: Step[] = [
   {
     id: "make", title: "部品をつくる",
@@ -101,11 +92,9 @@ export const STEPS: Step[] = [
     // 11/12/13 would tell the reader to do all three. `options` is what renders a step as sections,
     // each with its own figure, because the difference between the three IS the picture.
     //
-    // Nothing carries `wip` now, but **keep the mechanism for the next unsettled step** — it draws
-    // the badge beside the title and prints the field's own one-line reason under the body — and
-    // keep that wording clear of 「口輪」: the cardboard route prints no rings, and a step must not
-    // name a part its own route never makes. A ⌀65 lamp-holder base to print was offered here and
-    // taken back out with its STL: a printable file is a decision, and these fittings are bought.
+    // Nothing carries `wip` now, but **keep the mechanism for the next unsettled step**, and keep
+    // that wording clear of 「口輪」: the cardboard route prints no rings, and a step must not name a
+    // part its own route never makes.
     id: "light", title: "灯りをつける",
     body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
     options: [
@@ -178,8 +167,7 @@ export const STEPS: Step[] = [
  * wells and all, because it answers the same question: what do I need in front of me.
  *
  * **Plain strings, no numbers, nothing derived** — a wire gauge, a brush and a pot of paste are not
- * things the design decides (a bamboo length summed over the grooves was tried and taken straight
- * back out), and a note says WHEN you need the thing, not what to ask for.
+ * things the design decides, and a note says WHEN you need the thing, not what to ask for.
  *
  * Order is by how much it matters, not by category: a bad paste ruins the lantern, so it comes before
  * the wire. `opt` marks what you may not need at all — the wire and pliers serve only the two

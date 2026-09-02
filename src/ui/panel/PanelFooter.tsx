@@ -1,14 +1,11 @@
 /**
- * Summary + the CTA for the current mode — pinned at the BOTTOM on both layouts. Moved above the
- * scroll area (to be part of what `peek` shows) it put a full-width button between the drag handle
- * and the first control and left the list sliding under it with no boundary.
- *
- * The summary is dropped here on a phone because the sheet's bar carries it, and `peek` is measured
- * from that bar ALONE (`barRef`) — this footer sits below it and is clipped.
+ * The CTA for the current mode, pinned at the BOTTOM on both layouts. The summary beside it is
+ * dropped on a phone, where the sheet's bar carries it: `peek` is measured from that bar ALONE, so
+ * this footer sits below the sheet's own edge and is clipped until the sheet is pulled up.
  */
 import { CTA } from "../controls.tsx";
 import KitNote, { type KitNoteState } from "./KitNote.tsx";
-import { WASHI_PDF } from "../../kit.ts";
+import { WASHI_PDF } from "../../config.ts";
 import { useT } from "../theme.ts";
 import type { Route } from "../../types.ts";
 
@@ -46,7 +43,7 @@ export default function PanelFooter({
         <>
           <CTA label="型紙 ZIP をダウンロード (A4 原寸)" onClick={() => { onDownloadPaper(); setKitNote("open"); }} />
           {/* A PDF is already A4 at exact size, so the printer's own scaling is the only way to
-              lose it — which is why this line stays out in the open. */}
+              lose it: hence the one line that is not folded away. */}
           <KitNote warn={<><strong>{t("原寸 100% で印刷")}</strong>{t("(「用紙に合わせる」は不可)")}</>}
             state={kitNote} onToggle={toggle} t={t}>
             <li><span className="font-mono">tomoshibi_katagami_a4.pdf</span>{t(" — 型紙")}</li>

@@ -1,14 +1,11 @@
 /**
- * ============================================================================
  * persist.ts sanitize verification (manual check, no test runner)
- * ============================================================================
  * Save/restore can receive corrupt values from external sources (hand-written,
  * old versions, JSON round-trips). This confirms they neither crash, produce NaN
  * nor yield a non-watertight koma, but fall back to DEFAULTS or are salvaged,
  * against an in-memory localStorage mock.
  *
  * Run:  npm run check:persist
- * ============================================================================
  */
 const store: Record<string, string> = {};
 globalThis.localStorage = {
@@ -17,10 +14,10 @@ globalThis.localStorage = {
   removeItem: (k: string) => { delete store[k]; },
 } as unknown as Storage;
 
-const P = await import("../src/persist.ts");
+const P = await import("../src/studio/persist.ts");
 const G = await import("../src/geometry.ts");
 const { DEFAULTS, LIMITS } = await import("../src/config.ts");
-type SavedState = import("../src/persist.ts").SavedState;
+type SavedState = import("../src/studio/persist.ts").SavedState;
 
 // Most of what goes in below is deliberately NOT a valid SavedState. The casts live here rather
 // than being bought by widening what persist.ts claims to accept, and the `!`s say what the

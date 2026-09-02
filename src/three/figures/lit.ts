@@ -1,17 +1,3 @@
-/**
- * ============================================================================
- * LIT — the finished lantern, one figure per way of lighting it
- * ============================================================================
- * The shade with no mold in it: `litShade` is `moldPieces` with the ribs and both koma switched off,
- * so the lantern here is the same surface the mold shaped rather than a second drawing of it.
- *
- * The three ways are alternatives, not steps — (1) a lamp stood on the floor and the shade dropped
- * over it, (2) hung from a pendant cord, (3) stood on legs fixed up into the bottom mouth — and each
- * borrows the fitting that explains it from `kit-lamps.ts`, `fitting.ts` and `hang.ts` rather than
- * drawing a lookalike. The lamp is the one part of this build the app does not make: warm, not
- * white, and no rays, which would decorate.
- * ============================================================================
- */
 import * as THREE from "three";
 import type { Design } from "../../types.ts";
 import { fukuroRange, maxRadius, openingR, ringLegs } from "../../geometry.ts";
@@ -90,24 +76,19 @@ export function lightSet(p: Design, smooth: boolean): THREE.Group {
   return g;
 }
 
-/**
- * (3) Stood on legs, the lamp fixed up into the bottom opening. The legs are the lit view's
- * (`scenes.ts` buildLit: 0.42·height drop, 0.35·drop splay), rooted in the bottom ring's SOCKETS:
- * `ringLegs` gives the pad centres and returns null with the sockets off or the opening too small,
- * and the guide then drops the option. Not route-dependent.
- */
 export const LEG_DROP = 0.42;           // x body height, and the splay is 0.35 of that: the lit view's own
 export const LIT_THRU = 0.45;           // how much of the shade you see through, in this one figure
 
 /**
- * (3) Stood on legs: the socket fixed UP into the bottom mouth and the cord leaving DOWNWARDS between
- * them — what makes this (3) and not (2) inverted. Rods and socket are yours to supply.
+ * (3) Stood on legs: the socket fixed UP into the bottom mouth and the cord leaving DOWNWARDS
+ * between them — what makes this (3) and not (2) inverted. The legs root in the bottom ring's
+ * SOCKETS: `ringLegs` gives the pad centres and returns null with the sockets off or the opening too
+ * small, and the guide then drops the option. Not route-dependent.
  *
  * The shade is translucent here and nowhere else, this being the one figure explaining a fitting
- * entirely INSIDE the lantern (socket, legs, frame); opaque it showed a shade with legs under it, so
- * the skin drops to `LIT_THRU`. The parts inside are WHITE as in the close-ups, the legs
- * lantern-scale grey, and nothing is a new object — `lampHolder`, `ledBulb` and the same
- * `frameSide`, sized to this lantern.
+ * entirely INSIDE the lantern (socket, legs, frame): opaque, it shows a shade with legs under it.
+ * Nothing here is a new object — `lampHolder`, `ledBulb` and the same `frameSide`, sized to this
+ * lantern.
  */
 export function lightLegs(p: Design, smooth: boolean): THREE.Group {
   const g = new THREE.Group();

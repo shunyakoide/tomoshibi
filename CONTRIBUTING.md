@@ -39,7 +39,7 @@ There is no unit-test runner. Correctness is guaranteed by **"the build passes"*
 | `npm run check:hash` | For a change that is *supposed* to leave the geometry identical (a refactor, a comment edit), diffs the vertex hashes before/after to prove not a single vertex moved. Usage is documented at the top of `scripts/hash.mts`. |
 | `npm run check:persist` | Confirms that corrupted `localStorage` / imported JSON is sanitized safely (no crash, no non-watertight parts). |
 | `npm run check:paper` | Confirms the cardboard papercraft output and the washi template are full-scale (1:1), that no part is dropped, and that no `NaN` reaches the SVG or a bad offset the PDF. |
-| `npm run check:glyphs` | Confirms every character the PDFs print has an outline in `src/pdf-glyphs.ts`. The writer sets Latin in Helvetica and draws the rest from those outlines; a character with none is **dropped**, so a new Japanese label prints as a blank space and nothing else notices. Regenerate the table with `tools/pdffont` rather than editing it. |
+| `npm run check:glyphs` | Confirms every character the PDFs print has an outline in `src/io/pdf-glyphs.ts`. The writer sets Latin in Helvetica and draws the rest from those outlines; a character with none is **dropped**, so a new Japanese label prints as a blank space and nothing else notices. Regenerate the table with `tools/pdffont` rather than editing it. |
 | `npm run check:style` | Confirms every font size is a member of the type scale, every corner radius a member of the corner scale, and every class in the DOM has a rule behind it. Needs `npm run build` first, since only Tailwind knows what it generated -- and it FAILS rather than skips without `dist`. |
 | `npm run check:i18n` | Confirms no UI wording lost its translation. The dictionary is keyed by the Japanese string itself, so **rewording a label does not make its translation stale -- it deletes it**, silently, and the app shows Japanese to an English visitor. Also catches entries left orphaned by the reword, and `{placeholder}` mismatches. |
 
@@ -52,6 +52,18 @@ tested directly (`check:manifold` shoots a ray up each pad and counts the faces)
 other mesh with holes, eyeball the render.
 
 ## Architecture (where things live)
+
+`src/` itself holds only the entry, the two barrels, and what more than one area shares
+(`types.ts`, `config.ts`, `i18n.ts`, `util.ts`, `bed.ts`). Everything else is in a directory named
+for what it is:
+
+| | |
+|---|---|
+| `src/studio/` | the app's state and its files — `TomoshibiStudio.tsx` and the hooks, undo, autosave, downloads and routing it owns |
+| `src/io/` | byte-level writers with no domain knowledge — STL, ZIP, PDF |
+| `src/ui/` | every component except the entry and the studio itself; `panel/` and `section/` hold their own heads |
+| `src/guide/` | the build guide, `GuidePage.tsx` included |
+| `src/geometry/` `src/paper/` `src/three/` | the shapes, the templates, the 3D |
 
 - **`src/geometry.ts`** — the core, and the single import point for every shape. Pure
   functions that build the 2D cross-sections and 3D geometry of every part. Returns
@@ -74,16 +86,16 @@ other mesh with holes, eyeball the render.
   dependency — which is what lets `geometry/` name a design without importing `config.ts`.
 - **`src/config.ts`** — presets (control-point templates) and default parameters, checked
   against `Design`.
-- **`src/SectionEditor.tsx`** — the direct-manipulation section editor (SVG). It must draw
+- **`src/ui/section/SectionEditor.tsx`** — the direct-manipulation section editor (SVG). It must draw
   using `geometry.ts` functions (including the dimension constants), never re-implement
   them, or the drawing and the STL will drift apart.
-- **`src/TomoshibiStudio.tsx`** — the app shell: state and composition only. The 3D lives in
+- **`src/studio/TomoshibiStudio.tsx`** — the app shell: state and composition only. The 3D lives in
   **`src/three/`** (`viewport.ts` = renderer/lights/controls, `scenes.ts` = what each view
   draws) and the panel's controls in **`src/ui/`**.
-- **`src/stl.ts`** — STL export and ZIP packaging.
+- **`src/io/stl.ts`** — STL export and ZIP packaging.
 - **`src/papercraft.ts`** — the full-scale A4 cardboard templates and the washi template
   (a pure module built from the same `geometry.ts` functions), rendered as SVG or as PDF
-  through **`src/pdf.ts`**.
+  through **`src/io/pdf.ts`**.
 - **`src/i18n.ts`** — UI translations. Keys are the Japanese UI strings; English is looked
   up in the `EN` dictionary, falling back to Japanese. Edit a wording and its `EN` entry in
   the same commit — `npm run check:i18n` enforces it.

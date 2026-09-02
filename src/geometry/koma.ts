@@ -1,14 +1,10 @@
 /**
- * ============================================================================
- * KOMA — the gear-like hub that bundles the rib tabs
- * ============================================================================
  * Two identical hubs, top and bottom, a small gear with edge-open notches (parallel walls) around
  * the rim: the tab (inner end Ri〜Ri+td) plugs in and the rib extends out through the notch, and the
  * stand cradles the rim. The notch bottom radius comes from `notchR()`, which is `tabTipRi() - 0.5` —
  * the same quantity the rib's tab tip is cut from, so the two cannot drift apart. With a dented tab the notch does NOT reach
  * the tab's inner end — `notchR` sits at the DENT radius, so the wider tab base (further in, at
  * `innerRi`) catches the koma's solid hub. That is the koma stop.
- * ============================================================================
  */
 import type { Design } from "../types.ts";
 import * as THREE from "three";

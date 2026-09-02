@@ -1,19 +1,10 @@
-/**
- * ============================================================================
- * RENDER — the layer both templates go through
- * ============================================================================
- * Parts → laid out → drawn once as ops → handed to a renderer. The cardboard template and the washi
- * template share every line of it; the only thing that differs between them is which parts go in and
- * what the document is called.
- * ============================================================================
- */
 import { layout } from "./layout.ts";
 import { pageOps } from "./draw.ts";
 import { pageSVG } from "./svg.ts";
 import { STYLE, styleCSS } from "./style.ts";
-import { buildPDF } from "../pdf.ts";
+import { buildPDF } from "../io/pdf.ts";
 import type { RawPart } from "./layout.ts";
-import type { Op, Page } from "../pdf.ts";
+import type { Op, Page } from "../io/pdf.ts";
 import type { T } from "../i18n.ts";
 
 // Default translator: an interpolating identity — the Japanese key with its {name} placeholders
@@ -22,9 +13,8 @@ import type { T } from "../i18n.ts";
 export const tid: T = (s, params) => (params ? Object.keys(params).reduce((a, k) => a.split("{" + k + "}").join(String(params[k])), s) : s);
 
 /**
- * Parts → the same pages as SVG: the markup plus the stylesheet generated from STYLE. Both templates
- * render through this one function, so neither can grow a second opinion about how many sheets there
- * are or where a part is split across two of them.
+ * Both templates render through this one function, so neither can grow a second opinion about how
+ * many sheets there are or where a part is split across two of them.
  */
 export function pagesSVG(parts: RawPart[], page: Page, t: T) {
   const lay = layout(parts, page);

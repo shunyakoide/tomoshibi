@@ -1,16 +1,8 @@
 /**
- * ============================================================================
- * ONE WAY OF DOING A STEP — a section, not a sub-step
- * ============================================================================
  * The ways of lighting the lantern are alternatives, so they render as SECTIONS: the title and the
  * body span both columns ABOVE the figure, which is what separates one way from the next. Beside it,
  * a title is only the first line of a paragraph in a column of paragraphs — and numbering them would
  * tell the reader to do all of them.
- *
- * A block of its own because it is the only part of the page nested four deep (way → detail → the
- * numbered sub-step), and because its `print:` utilities are what decide where the printed guide
- * breaks. Nothing here reads the design.
- * ============================================================================
  */
 import React from "react";
 import { Fig } from "./figures.tsx";

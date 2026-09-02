@@ -1,7 +1,4 @@
 /**
- * ============================================================================
- * WHAT THE DESIGN IMPLIES
- * ============================================================================
  * One direction of flow: the design plus the machine settings in, numbers and warnings out. No JSX,
  * no view state — `isLit` / `bedRules` / `paperPreview` are view predicates and stay with the view.
  *
@@ -11,7 +8,6 @@
  * components that read them, since the inspector unmounts in lit view and on every route switch.
  *
  * Not named `figures.ts`: `three/figures.ts` is the guide's off-screen drawings.
- * ============================================================================
  */
 import { useMemo } from "react";
 import type * as THREE from "three";
@@ -19,12 +15,12 @@ import {
   maxRadius, outerR, standBoardLength,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit,
   washiGore,
-} from "./geometry.ts";
-import { paperFit, paperP } from "./papercraft.ts";
-import { fitOnBed } from "./bed.ts";
-import { LIMITS } from "./config.ts";
-import type { T } from "./i18n.ts";
-import type { Design, Route } from "./types.ts";
+} from "../geometry.ts";
+import { paperFit, paperP } from "../papercraft.ts";
+import { fitOnBed } from "../bed.ts";
+import { LIMITS } from "../config.ts";
+import type { T } from "../i18n.ts";
+import type { Design, Route } from "../types.ts";
 
 export type Figures = ReturnType<typeof useFigures>;
 /** A warning line, and usually a "→ do this instead" under it. */
@@ -110,10 +106,7 @@ export function useFigures(p: Design, m: {
  * One COLUMN: bed (3D print) and koma wall (cardboard) are gated on opposite routes, but the
  * pull-out warning belongs to both, so stacking is the only arrangement that cannot overprint.
  * DATA rather than markup, because the narrow strip has to count them and quote one headline, and
- * a fragment is truthy even with every card inside it false. Wide, the column floats bottom-right
- * (bottom-left is the lit hint's); on a phone a three-line card is a quarter of a 357px pane and
- * lands on the bottom opening's ◇ — "widen the opening" sitting on the handle that widens it — so
- * it goes in flow.
+ * a fragment is truthy even with every card inside it false.
  */
 export function buildAlerts(f: Figures, a: {
   isLit: boolean; bedRules: boolean; bedW: number; bedD: number; t: T;

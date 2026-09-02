@@ -1,8 +1,7 @@
 /**
  * Under the export CTA: the one thing you must not get wrong, the ZIP's manifest folded behind it.
  * It renders NOTHING until the export has run, because none of it helps you DECIDE to press the
- * button — worth ~60px of pinned footer at every sheet stop against the five-line / ~95px paragraph
- * it was. **Do not put it back on screen "so people see it".**
+ * button. **Do not put it back on screen "so people see it".**
  *
  * `state` is three-valued — `null` = no export yet (draw nothing), "open"/"shut" = the manifest's
  * fold. Two booleans would allow "folded but never downloaded", which has no drawing.

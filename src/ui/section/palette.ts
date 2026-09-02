@@ -1,12 +1,6 @@
 /**
- * ============================================================================
- * SECTION VIEW — the drawing's own colours
- * ============================================================================
- * Literals rather than `UI` tokens because these are SVG presentation attributes, where a `var()`
- * does not resolve (see ui/theme.ts). Shared by the canvas and by the legend that redraws the
- * canvas's marks at legend size, which is the whole reason it is a module: a legend entry in a
- * slightly different green from the mark it explains reads as two different things.
- * ============================================================================
+ * Literals rather than `var()`, which does not resolve in an SVG presentation attribute. A module
+ * because the legend redraws the canvas's marks at legend size and the two colours may not drift.
  */
 export const C = {
   axis: "#b8a888", outline: "#c4b492", higo: "#c9b593", spine: "#d8c7a3",

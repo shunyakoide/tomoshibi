@@ -1,7 +1,4 @@
 /**
- * ============================================================================
- * PAGE PREVIEW — the cardboard route's print view
- * ============================================================================
  * The cardboard route's output is a document, so its preview is one: the template's own A4 pages,
  * laid out as a PDF viewer would. **Not 3D** — nothing spatial to show.
  *
@@ -12,17 +9,12 @@
  *
  * On screen it is NOT full scale (a 210mm page is ~230px) — hence the note, and hence the ruler
  * printed on every sheet, the only check that catches printer scaling.
- *
- * **No preview of the washi template**, on either route: one sheet of one shape, saying nothing
- * about the mold, downloaded as a PDF and read in a viewer (a 190px dock existed and earned neither
- * gutter). Presentational; no state, no dimensions.
- * ============================================================================
  */
 import React, { useDeferredValue, useMemo } from "react";
-import { paperPagesSVG } from "./papercraft.ts";
-import { UI as ui, useT } from "./ui/theme.ts";
-import type { Lang } from "./i18n.ts";
-import type { Design } from "./types.ts";
+import { paperPagesSVG } from "../papercraft.ts";
+import { UI as ui, useT } from "./theme.ts";
+import type { Lang } from "../i18n.ts";
+import type { Design } from "../types.ts";
 
 export default function PagePreview({ p, matT, lang }: { p: Design; matT: number; lang: Lang }) {
   const t = useT();
@@ -44,15 +36,13 @@ export default function PagePreview({ p, matT, lang }: { p: Design; matT: number
       <style>{css}</style>
       {/* The class is only a marker for an index.css rule — the sheet is markup papercraft writes
           as a string, so there is no element to put utilities on. `auto-fit` collapses the tracks no
-          page landed in and lets the survivors share ALL the width, so two pages become half the
-          pane each rather than two thumbnails in a row of seven. `grid-auto-rows: max-content` is
+          page landed in and lets the survivors share ALL the width. `grid-auto-rows: max-content` is
           load-bearing and `auto` is a bug: this pane is a flex item with a DEFINITE height, and an
           auto row in such a grid is sized against that height rather than its contents (8.5px rows
           behind 243px pages, drawn through each other). The top pad clears the two floating chip
-          rows over this canvas; on a phone the chips are a bar ABOVE this pane, so there is nothing
-          to clear and the sheets go to ONE COLUMN AND TOUCH — the template is one column wide and
-          butt-joined, so the preview is the strip you will tape and a gap would draw a join that
-          does not exist. */}
+          rows over this canvas; on a phone the chips are a bar ABOVE this pane, so the sheets go to
+          ONE COLUMN AND TOUCH — the template is one column wide and butt-joined, so the preview is
+          the strip you will tape and a gap would draw a join that does not exist. */}
       <div dangerouslySetInnerHTML={{ __html: svg }}
         className="pages flex-auto min-h-0 overflow-y-auto [overscroll-behavior:contain]
           grid [grid-template-columns:repeat(auto-fit,minmax(380px,1fr))] [align-content:start]

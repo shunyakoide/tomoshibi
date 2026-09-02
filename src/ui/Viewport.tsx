@@ -1,21 +1,14 @@
 /**
- * ============================================================================
- * THE LEFT PANE — WHAT THE DESIGN LOOKS LIKE RIGHT NOW
- * ============================================================================
- * The WebGL canvas and everything painted over it: the tab rows, the live dimension readout, the
- * warnings, the lit-mode hint, and whichever overlay this view draws instead of a scene.
- *
  * `tabs` and `overlay` are SLOTS. The overlay is `SectionEditor` or `PagePreview`, which between
  * them read eight pieces of state this component has no use for; taking them as elements keeps that
  * state in the studio, where it lives, instead of drilling it through a shell.
  *
  * Rendered unconditionally, lit included. Gate it on anything and the WebGL context is destroyed and
  * recreated on every toggle, against a browser cap of about sixteen.
- * ============================================================================
  */
-import { AlertColumn } from "./ui/Alerts.tsx";
-import { vpBg, useT } from "./ui/theme.ts";
-import type { AlertItem } from "./derived.ts";
+import { AlertColumn } from "./Alerts.tsx";
+import { vpBg, useT } from "./theme.ts";
+import type { AlertItem } from "../studio/derived.ts";
 
 export default function Viewport({
   mainRef, mountRef, isLit, narrow, maxDia, height, glError, chipTxt, tabs, overlay, alerts,
@@ -27,9 +20,7 @@ export default function Viewport({
 }) {
   const t = useT();
   return (
-    // The pane has no share of the screen — it has everything the sheet is not using. At `peek` the
-    // section editor gets ~717px of an 812px phone against the 325px a fixed 40vh gave it. Lit needs
-    // no exception.
+    // The pane has no share of the screen — it has everything the sheet is not using, lit included.
     <main ref={mainRef} className="relative min-w-0 min-h-0 flex-auto h-auto">
       {/* The gradient stays a style: a VALUE that follows `isLit`, ninety characters of punctuation
           as an arbitrary class. */}
