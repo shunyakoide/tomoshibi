@@ -20,8 +20,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.ts";
 import * as kit from "./kit.ts";
 import { useFigures, buildAlerts } from "./derived.ts";
-import { AlertBar, AlertColumn } from "./ui/Alerts.tsx";
+import { AlertBar } from "./ui/Alerts.tsx";
 import { ViewChips, ViewBar, type View } from "./ui/ViewTabs.tsx";
+import Viewport from "./Viewport.tsx";
 import SilhouetteSection from "./ui/panel/SilhouetteSection.tsx";
 import FrameworkSection from "./ui/panel/FrameworkSection.tsx";
 import HigoSection from "./ui/panel/HigoSection.tsx";
@@ -40,7 +41,7 @@ import PagePreview from "./PagePreview.tsx";
 import GuidePage from "./GuidePage.tsx";
 import Welcome from "./Welcome.tsx";
 import { DEFAULTS } from "./config.ts";
-import { accent, vpBg, chipStyle, TContext } from "./ui/theme.ts";
+import { accent, chipStyle, TContext } from "./ui/theme.ts";
 import PresetChips from "./ui/PresetChips.tsx";
 import PointCard from "./ui/PointCard.tsx";
 import PointBar from "./ui/PointBar.tsx";
@@ -305,56 +306,24 @@ export default function TomoshibiStudio() {
     : null;
 
   // ============ Left: viewport ============
+  // The overlay and the tab row are built HERE, beside the state they close over, and handed to
+  // Viewport as elements — see src/Viewport.tsx for why they are slots rather than props.
   const viewport = (
-    // The pane has no share of the screen — it has everything the sheet is not using. At `peek` the
-    // section editor gets ~717px of an 812px phone against the 325px a fixed 40vh gave it. Lit needs
-    // no exception.
-    <main ref={mainRef} className="relative min-w-0 min-h-0 flex-auto h-auto">
-      {/* The gradient stays a style: a VALUE that follows `isLit`, ninety characters of punctuation
-          as an arbitrary class. */}
-      <div ref={mountRef} className="absolute inset-0"
-        style={{ background: vpBg(isLit), transition: "background 0.3s" }} />
-      {/* The section editor, overlaid on the WebGL canvas */}
-      {view === "2d" && (
-        <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag}
-          sel={sel} setSel={setSel} editMode={editMode} compact={narrow} t={t} />
-      )}
-
-      {/* Print view, cardboard: the output is a document, so the preview is one — the template's own
-          pages, over the same (empty) canvas the section editor uses. */}
-      {paperPreview && <PagePreview p={p} matT={matT} lang={lang} />}
-
-      {glError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-10 p-24
-          text-center pointer-events-none">
-          <div className="text-md font-semibold text-[#e0a060]">{t("⚠ 3Dプレビューを初期化できませんでした")}</div>
-          <div className="text-sm font-mono text-[#8a8a96] break-words">{glError}</div>
-          <div className="text-sm text-[#6f6f7a]">
-            {t("お使いのブラウザで WebGL が無効の可能性があります。STLの生成・DLは引き続き利用できます。")}
-          </div>
-        </div>
-      )}
-
-      {/* Floating over the canvas on a wide screen; in the bar above it on a phone. */}
-      {!narrow && <ViewChips view={view} setView={setView} route={route} setRoute={setRoute} isLit={isLit} />}
-
-      {/* Dimension chip (always live). Tighter to the corner on a phone: at 375px the tab strip
-          reaches far enough right that the readout printed through it. Right-aligned either way, so
-          it reads as a status line rather than a control. */}
-      <div className="absolute top-24 right-24 text-base narrow:top-10 narrow:right-12 narrow:text-sm
-        font-mono tracking-[0.05em] text-right pointer-events-none" style={{ color: chip.txt }}>
-        ⌀{maxDia} × H{p.height} mm
-      </div>
-
-      {/* On a phone it is a strip below the viewport instead — see `alertBar`. */}
-      {!narrow && <AlertColumn alerts={alerts} />}
-
-      {isLit && (
-        <div className="absolute bottom-20 left-20 font-sans text-sm text-[#8a8a96] pointer-events-none">
-          {t("鑑賞モード — 編集はタブで「断面」へ")}
-        </div>
-      )}
-    </main>
+    <Viewport mainRef={mainRef} mountRef={mountRef} isLit={isLit} narrow={narrow}
+      maxDia={maxDia} height={p.height} glError={glError} chipTxt={chip.txt} alerts={alerts}
+      tabs={!narrow && <ViewChips view={view} setView={setView} route={route} setRoute={setRoute} isLit={isLit} />}
+      overlay={
+        <>
+          {/* The section editor, overlaid on the WebGL canvas */}
+          {view === "2d" && (
+            <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag}
+              sel={sel} setSel={setSel} editMode={editMode} compact={narrow} t={t} />
+          )}
+          {/* Print view, cardboard: the output is a document, so the preview is one — the template's
+              own pages, over the same (empty) canvas the section editor uses. */}
+          {paperPreview && <PagePreview p={p} matT={matT} lang={lang} />}
+        </>
+      } />
   );
 
   // ============ Right: inspector (hidden in lit mode) ============
