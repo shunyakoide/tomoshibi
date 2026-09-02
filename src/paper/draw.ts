@@ -1,14 +1,4 @@
-/**
- * ============================================================================
- * SHEET DRAWING — one page as drawing ops
- * ============================================================================
- * The sheet's own furniture: the clipped content band, the trim box, the seam half-diamonds and the
- * full-scale check square. Every number in this file is a millimetre of paper.
- *
- * It emits `Op`s, never markup or PDF operators, so the rules that decide whether a print is usable
- * exist exactly once and both renderers translate the same list.
- * ============================================================================
- */
+// Every number in this file is a millimetre of paper.
 import { MARGIN } from "./layout.ts";
 import type { Layout } from "./layout.ts";
 import type { Op, Page, StrokeName, TextName } from "../pdf.ts";
@@ -27,7 +17,7 @@ export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
   ops.push({ k: "clip", x: MARGIN, y: y0, w: lay.CW, h: bot - top });
   const ox = MARGIN, oy = y0 - top;                              // content → page coordinates
   for (const q of lay.placed) {
-    if (q.y >= bot || q.y + q.h <= top) continue;                // not in this band
+    if (q.y >= bot || q.y + q.h <= top) continue;
     const at = ([x, y]: Pt2): Pt2 => [ox + q.x + x, oy + q.y + y];
     path(q.outline.map(at), "cut", true);
     for (const hh of q.holes) path(hh.map(at), "cut", true);
@@ -44,9 +34,9 @@ export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
   // the paper that is neither a seam nor a cut and moves from sheet to sheet.
   const trimBot = page.h - MARGIN;
   // ---- The trim box ----
-  // Drawn IDENTICALLY on every sheet, seam or not: a fact about the paper, not about the parts on it.
-  // Each edge runs the whole width or height rather than closing into a box, because a stacked sheet
-  // covers the lower one's corners — where a box keeps all of its information.
+  // Drawn identically on every sheet, seam or not, and each edge runs the whole width or height
+  // rather than closing into a box: a stacked sheet covers the lower one's corners, which is where a
+  // box keeps all of its information.
   const L = MARGIN, R = MARGIN + lay.CW;
   path([[0, MARGIN], [page.w, MARGIN]], "frame");
   path([[0, trimBot], [page.w, trimBot]], "frame");
@@ -55,17 +45,15 @@ export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
 
   // ---- Joining sheets ----
   // Only where a part actually spans pages, and a seam is read from the ROW — sheets butt, so there
-  // is no overlap to detect. The convention is home-print sewing patterns': HALF-diamonds that
-  // complete into a whole ◇ when two sheets are laid up correctly, because two lines laid on each
-  // other hide a half-millimetre of error where two chevrons that fail to close do not. Each carries
-  // a short code (1A, 1B, 2A …) so there is no doubt which edge meets which.
+  // is no overlap to detect. HALF-diamonds, which complete into a whole ◇ when two sheets are laid
+  // up correctly, because two lines laid on each other hide a half-millimetre of error where two
+  // chevrons that fail to close do not. Each carries a short code (1A, 1B, 2A …) so there is no
+  // doubt which edge meets which.
   //
   // **The seam IS the trim box, which is why sheets butt rather than overlap.** A glue tab puts the
   // join line a centimetre inside the trim edge, so every sheet at a seam carries two blue lines —
   // one to cut on, one to align on — and no drawing makes that pair unambiguous. One line does both:
-  // trim both sheets on it and tape from behind, the join the reference patterns describe ("trim any
-  // white printer border first, then the frames coincide"), which also hands each continuation sheet
-  // 10mm of content back.
+  // trim both sheets on it and tape from behind.
   const next = lay.pages[i + 1], prev = lay.pages[i - 1];
   const cutsBelow = !!(next && row && next.row === row);
   const cutsAbove = !!(prev && row && prev.row === row);
@@ -94,11 +82,9 @@ export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
   }
   if (i === lay.spot.page) {
     // Full-scale check, drawn as an L — a try square, not a bar, because a printer can scale the two
-    // axes by different amounts and a horizontal bar cannot see that. An L rather than a full square
-    // because width is free and height comes out of the parts. BOTH units ride BOTH arms (a tick
-    // where the metric figure falls, another where the imperial one does): one square labelled
-    // "10cm (4in)" is wrong by 1.6mm (4in is 101.6) and does not say which unit it is true to. `scaleSpot` places
-    // it, in room the layout already leaves.
+    // axes by different amounts and a horizontal bar cannot see that. BOTH units ride BOTH arms (a
+    // tick where the metric figure falls, another where the imperial one does): one square labelled
+    // "10cm (4in)" is wrong by 1.6mm (4in is 101.6) and does not say which unit it is true to.
     const x0 = lay.spot.x, ys = lay.spot.y, AX = 76.2, AY = 30;   // 3in across, 3cm down
     path([[x0, ys], [x0 + AX, ys]], "scale");
     path([[x0, ys], [x0, ys + AY]], "scale");
