@@ -33,6 +33,14 @@ const GUIDE_MAT_T = 3;                                    // mm, ordinary single
 const GUIDE_BASE = { ...DEFAULTS, legSockets: true };
 export const GUIDE_P = { stl: GUIDE_BASE, paper: paperP(GUIDE_BASE, GUIDE_MAT_T) };
 
+const WELL = "flex items-center justify-center overflow-hidden rounded-lg ";
+/* A part or kit thumbnail sits on the card's own ground, so it draws no box of its own; a step's
+   figure is the only thing in its column and gets one. */
+const WELL_PART = "aspect-[3/2] mb-8 border border-transparent bg-transparent";
+const WELL_STEP = "aspect-[4/3] border border-edge bg-[#fff]";
+const WELL_IMG = "w-full h-full object-contain";
+const WELL_FAIL = "text-sm text-fine text-center p-8";
+
 /**
  * The figure well. It keeps its box whether the drawing has arrived, has failed, or neither exists:
  * a step that reflows when its image loads is a step you lose your place in. `null` (not undefined)
@@ -41,11 +49,9 @@ export const GUIDE_P = { stl: GUIDE_BASE, paper: paperP(GUIDE_BASE, GUIDE_MAT_T)
  */
 export function Fig({ src, t, part = false }: { src?: string | null; t: T; part?: boolean }) {
   return (
-    <div className={`flex items-center justify-center overflow-hidden rounded-lg ${part
-      ? "aspect-[3/2] mb-8 border border-transparent bg-transparent"
-      : "aspect-[4/3] border border-edge bg-[#fff]"}`}>
-      {src && <img src={src} alt="" className="w-full h-full object-contain" />}
-      {src === null && <span className="text-sm text-fine text-center p-8">{t("図を描けませんでした")}</span>}
+    <div className={`${WELL}${part ? WELL_PART : WELL_STEP}`}>
+      {src && <img src={src} alt="" className={WELL_IMG} />}
+      {src === null && <span className={WELL_FAIL}>{t("図を描けませんでした")}</span>}
     </div>
   );
 }
