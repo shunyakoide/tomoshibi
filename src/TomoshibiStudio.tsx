@@ -20,6 +20,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.ts";
 import * as kit from "./kit.ts";
 import { useFigures, buildAlerts } from "./derived.ts";
+import { AlertBar, AlertColumn } from "./ui/Alerts.tsx";
 import { clamp } from "./util.ts";
 import { useViewport } from "./three/viewport.ts";
 import { buildScene } from "./three/scenes.ts";
@@ -106,18 +107,6 @@ function KitNote({ warn, state, onToggle, t, children }: {
         {t("同梱物")}<span aria-hidden="true" className="text-2xs text-faint">{open ? "▾" : "▸"}</span>
       </button>
       {open && <ul className={`${NOTE_SKIN} mt-2 mb-0 mx-0 p-0 list-none [&>li]:py-[1.5px]`}>{children}</ul>}
-    </div>
-  );
-}
-
-// Two fields rather than free children, so the narrow strip can quote `head` without rendering the
-// whole card.
-function Alert({ head, hint }: { head: string; hint?: string }) {
-  return (
-    <div className="flex items-center gap-10 px-14 py-10 bg-card border border-accent-4
-      rounded-lg shadow-[0_3px_12px_rgba(59,52,43,0.1)] font-sans text-base text-text text-left">
-      <span className="flex-none text-lg">⚠️</span>
-      <span>{head}{hint && <><br /><span className="text-sub">{hint}</span></>}</span>
     </div>
   );
 }
@@ -398,38 +387,12 @@ export default function TomoshibiStudio() {
   // ---- Viewport alerts ----------------------------------------------------------------------
   // Built once and consumed twice — the floating column and, on a phone, the fold-out strip.
   const alerts = buildAlerts(fig, { isLit, bedRules, bedW, bedD, t });
-  const alertCards = alerts.map((a) => <Alert key={a.key} head={a.head} hint={a.hint} />);
 
   // ============ Narrow: the alert column is a strip you tap open ============
-  // In flow an expanded alert costs 115px and two ~200, out of the SAME budget as the inspector. On a
-  // 375×812 phone one open alert cut the panel's scroll window from 261px to 146, and in the print
-  // view to 88px — 7% of the controls reachable at once. Folded it costs ~36px and still SAYS it: the
-  // tint, the ⚠, the first headline (the "→ do this" hint is what the tap is for) and a count.
-  // **Never open by default to be safe.**
-  const alertBar = narrow && alerts.length > 0 ? (
-    <div className="flex-none bg-panel border-t border-edge">
-      <button onClick={() => setAlertsOpen((v) => !v)} aria-expanded={alertsOpen}
-        className="flex items-center gap-8 w-full min-h-36 px-12 py-6 bg-accent-07 border-0
-          border-l-3 border-l-accent-5 border-solid cursor-pointer [font:inherit] text-base
-          text-text text-left">
-        <span className="flex-none text-lg">⚠️</span>
-        {/* min-width 0 is what allows the ellipsis: a flex item's automatic minimum size is its own
-            content, so without it the headline pushes the count and the caret off. */}
-        <span className="flex-auto min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-          {alerts[0].head}
-        </span>
-        {alerts.length > 1 && (
-          <span className="flex-none font-mono text-sm text-sub">+{alerts.length - 1}</span>
-        )}
-        <span aria-hidden="true" className="flex-none text-faint">{alertsOpen ? "▾" : "▸"}</span>
-      </button>
-      {alertsOpen && (
-        <div className="flex flex-col gap-6 px-10 pb-8">
-          {alertCards}
-        </div>
-      )}
-    </div>
-  ) : null;
+  // `alertsOpen` lives here, not in the strip: the strip unmounts when the last alert clears.
+  const alertBar = narrow
+    ? <AlertBar alerts={alerts} open={alertsOpen} onToggle={() => setAlertsOpen((v) => !v)} />
+    : null;
 
   // ============ Left: viewport ============
   const viewport = (
@@ -480,13 +443,8 @@ export default function TomoshibiStudio() {
         ⌀{maxDia} × H{p.height} mm
       </div>
 
-      {/* The alert column, floating in the canvas's bottom-right (on a phone it is a strip below the
-          viewport instead — see `alertBar`). */}
-      {!narrow && alerts.length > 0 && (
-        <div className="absolute bottom-20 right-20 max-w-[60%] flex flex-col items-end gap-10">
-          {alertCards}
-        </div>
-      )}
+      {/* On a phone it is a strip below the viewport instead — see `alertBar`. */}
+      {!narrow && <AlertColumn alerts={alerts} />}
 
       {isLit && (
         <div className="absolute bottom-20 left-20 font-sans text-sm text-[#8a8a96] pointer-events-none">
