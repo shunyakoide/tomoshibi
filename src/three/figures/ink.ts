@@ -1,19 +1,3 @@
-/**
- * ============================================================================
- * INK — the house style every figure is drawn in
- * ============================================================================
- * The palette, the view direction, and the handful of primitives every other file here builds out
- * of: a white face with its own outline (`part`), loose strokes (`inkLines` and the two silhouette
- * helpers), and the accent rod (`wireTube`). Nothing in this file knows what a lantern is — it takes
- * geometry and a colour, so "what a figure LOOKS like" is one file rather than a convention held in
- * thirty places.
- *
- * [The 24° threshold] `EdgesGeometry(geo, 24)` appears in `part` and `wireTube` and nowhere else,
- *   deliberately: high enough that a curved edge's facets do not each draw a line, low enough to
- *   keep a groove's flanks — and low enough that `coil`'s and `legWire`'s 45° facets DO draw, which
- *   is what makes an open tube read as a wound rod. Changing it re-draws every figure in the guide.
- * ============================================================================
- */
 import * as THREE from "three";
 
 // The isometric direction every figure is drawn from. Shared, not camera-local, because the washi
@@ -22,8 +6,8 @@ export const VIEW_DIR = new THREE.Vector3(1, 0.85, 1).normalize();
 // The view direction inside the mold's OWN frame once it is lying in the stand. The group is turned
 // a quarter turn about Z there, so world (x,y,z) reads as local (y,-x,z).
 export const DIR_ON_STAND = new THREE.Vector3(VIEW_DIR.y, -VIEW_DIR.x, VIEW_DIR.z);
-// VIEW_DIR for a solid that has been turned upside down (a half turn about x) — the flipped-over
-// cousin of DIR_ON_STAND, and needed by everything in that solid that draws a silhouette.
+// VIEW_DIR for a solid turned upside down (a half turn about x), needed by everything in such a
+// solid that draws a silhouette.
 export const DIR_UPSIDE_DOWN = new THREE.Vector3(VIEW_DIR.x, -VIEW_DIR.y, -VIEW_DIR.z);
 
 export const INK = 0x33302b;        // edge lines: a shade off the UI's ink (#3b342b), and not pure black
@@ -42,11 +26,15 @@ export const WIRE_R = 1.3;          // mm — the leg/hanger wire (`LOOP_R`, the
 /** A part: white faces + its outline. `hot` draws it as the piece being added. */
 export function part(geo: THREE.BufferGeometry, hot: boolean): THREE.Group {
   const g = new THREE.Group();
+  // polygonOffset pushes the face back so its own outline, drawn on the same surface, does not
+  // z-fight it. Every face material here carries it.
   g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
     color: hot ? HI_FACE : PAPER, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
   })));
-  // 24°: high enough that a curved edge's facets do not each draw a line, low enough to keep a
-  // groove's flanks; lower turns the rib's outer edge into a hatched band.
+  // 24° is load-bearing at BOTH ends: high enough that a curved edge's facets do not each draw a
+  // line (lower turns the rib's outer edge into a hatched band), low enough to keep a groove's
+  // flanks — and low enough that `coil`'s and `legWire`'s 45° facets DO draw. Here and `wireTube`
+  // only; changing it re-draws every figure in the guide.
   g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 24), new THREE.LineBasicMaterial({ color: hot ? HI : INK })));
   return g;
 }
@@ -92,8 +80,8 @@ export function silhouetteLines(rTop: number, rBot: number, yTop: number, yBot: 
 
 /**
  * The same for a SPHERE: its outline is a circle of the same radius in the plane the camera looks
- * straight down. A ball's facets are far under the 24deg threshold, so it draws nothing white on
- * white; faceting it until they draw was tried and reverted.
+ * straight down. A ball's facets are far under the 24° threshold, so it draws nothing white on
+ * white — hence an explicit outline, and not more facets.
  */
 export function silhouetteCircle(r: number, cx: number, cy: number, cz: number, view = VIEW_DIR, n = 64) {
   const a = new THREE.Vector3().crossVectors(view, new THREE.Vector3(0, 1, 0)).normalize();
@@ -112,10 +100,9 @@ export function silhouetteCircle(r: number, cx: number, cy: number, cz: number, 
  * A round segment standing on `yBot`: the white solid AND the two wall lines that make it read, from
  * one height. Every tall round volume in the kit and the fitting is a stack of these.
  *
- * It takes the bottom rather than the centre because that is the bug it exists to stop. Written out,
- * the pattern is a cylinder positioned by its CENTRE and a silhouette given its TOP and BOTTOM — the
- * same height stated twice, in two forms, twenty times over, with nothing to catch a pair that drift
- * apart. Here they cannot: both come from `yBot` and `h`.
+ * It takes the BOTTOM rather than the centre because that is the bug it exists to stop: written out,
+ * a cylinder is positioned by its centre and its silhouette given its top and bottom — the same
+ * height twice, in two forms, with nothing to catch a pair that drift apart.
  */
 export function drum(
   rTop: number, rBot: number, h: number, yBot: number,
@@ -146,9 +133,9 @@ class CoilCurve extends THREE.Curve<THREE.Vector3> {
     return target.set(r * Math.cos(a), this.rise * (t - 0.5), r * Math.sin(a));
   }
 }
-// 8 radial segments, not a round tube's usual 16+: an OPEN tube has no flat cap to anchor a rim edge
-// (see "THE KIT"), so white-on-white it would draw only its two cut ends. At 45deg the facets clear
-// the 24deg edge threshold and the coil reads as a wound, faceted rod.
+// 8 radial segments, not a round tube's usual 16+: an OPEN tube has no flat cap to anchor a rim
+// edge, so white-on-white it would draw only its two cut ends. At 45° the facets clear the 24°
+// edge threshold and the coil reads as a wound, faceted rod.
 export const coil = (rod: number, r0: number, dr: number, turns: number, rise: number) => solid(
   new THREE.TubeGeometry(new CoilCurve(r0, dr, turns, rise), Math.ceil(turns * 48), rod, 8, false));
 

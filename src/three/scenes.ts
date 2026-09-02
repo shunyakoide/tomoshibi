@@ -1,19 +1,3 @@
-/**
- * ============================================================================
- * SCENE BUILDERS — what each view draws
- * ============================================================================
- * `buildScene(state, opts)` empties the viewport's group and refills it for the current view:
- *   mold  … the assembled mold lying in its stand, CAD-style, on a ground grid
- *   print … the parts laid flat on print plates, as the slicer would see them
- *   lit   … the finished lantern glowing in a dark room (no mold at all)
- *
- * `2d` and `print`-on-cardboard draw NO 3D and return early; each is a document over this canvas.
- * The build guide is a page, not a view (three/figures.ts renders its figures off-screen).
- *
- * Every shape comes from geometry.ts — nothing here computes a dimension, or preview and STL drift.
- * The one exception is the print layout's rotate-parts-flat, which is preview-only.
- * ============================================================================
- */
 import * as THREE from "three";
 import {
   maxRadius, outerR, standBoardLength, grooveR, grooveList, higoSpiralPath,
@@ -40,8 +24,8 @@ export type SceneOpts = {
 };
 
 // Dark-room background for the lit view, painted as a scene background rather than left to the
-// mount's CSS gradient: since three r170 alpha survives UnrealBloomPass, so the lit view (the only
-// one with bloom) let the gradient through into a hard horizon seam. Same colour as the lit fog.
+// mount's CSS gradient: alpha survives UnrealBloomPass (three ≥ r170), so the CSS gradient came
+// through the bloom as a hard horizon seam. Same colour as the lit fog.
 const LIT_BG = new THREE.Color(0x070a11);
 
 const GAP = 8;   // spacing between parts on a print plate (mm)
@@ -61,7 +45,6 @@ function frame(s: ViewportState, contentH: number, contentR: number, centerY: nu
   s.setOrbit({ dist: s.baseDist, lookY: centerY });
 }
 
-// The mold itself: N ribs radiating from the axis, plus the two identical koma at each end.
 function moldGroup(p: Design, s: ViewportState): THREE.Group {
   const mold = new THREE.Group();
   for (let k = 0; k < p.boards; k++) {
@@ -69,7 +52,6 @@ function moldGroup(p: Design, s: ViewportState): THREE.Group {
     mesh.rotation.y = (k / p.boards) * Math.PI * 2;
     mold.add(mesh);
   }
-  // The koma are identical top and bottom — same geometry, placed at the two ends.
   const kb = new THREE.Mesh(komaGeometry(p), s.komaMat);
   kb.rotation.x = -Math.PI / 2; kb.position.y = -p.tabLen;
   const kt = new THREE.Mesh(komaGeometry(p), s.komaMat);
@@ -94,7 +76,7 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
     color: 0xc2a266, roughness: 0.75, metalness: 0, emissive: 0x936026, emissiveIntensity: 0.7,
   });
   if (p.spiral) {
-    // Spiral winding: one continuous descending helix, from the same path the grooves use.
+    // One continuous descending helix, from the same path the grooves are cut on.
     const path = higoSpiralPath(p);
     if (path.length > 1) {
       const v = path.map(([a, y, r]) => new THREE.Vector3(r * Math.cos(a), legH + y, r * Math.sin(a)));
@@ -144,7 +126,7 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   // produces a bright band at the equator; the emissive ramp does the shading.
   s.amb.intensity = 0.12;
   s.key.intensity = 0.25; s.key.position.set(180, 320, 200);
-  s.washiMat.roughness = 1.0;          // fully matte (no specular highlights)
+  s.washiMat.roughness = 1.0;
   s.washiMat.emissiveIntensity = 1.15;
   s.bloomPass.enabled = true;
   s.bloomPass.strength = 0.6; s.bloomPass.radius = 0.7; s.bloomPass.threshold = 0.85;  // soft halo
