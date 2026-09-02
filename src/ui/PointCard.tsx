@@ -14,7 +14,7 @@ import { LIMITS } from "../config.ts";
 import { clamp } from "../util.ts";
 import { useT } from "./theme.ts";
 import { SectionLabel, NumInput, SegButton } from "./controls.tsx";
-import { pointOps, makeSetMode } from "./pointEdit.ts";
+import { pointOps, makeSetMode, clampR } from "./pointEdit.ts";
 import type { EditMode } from "./pointEdit.ts";
 import type { Design } from "../types.ts";
 
@@ -49,7 +49,7 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode,
             <SegButton label="◠ カーブ調整" active={editMode === "curve"} onClick={() => setMode("curve")} />
           </div>
           <NumInput label="半径" value={Math.round(pt.r)} min={LIMITS.r[0]} max={LIMITS.r[1]}
-            onChange={(v) => patch({ r: clamp(...LIMITS.r, v) })} />
+            onChange={(v) => patch({ r: clampR(v) })} />
           <NumInput label="高さ位置" value={Math.round(pt.t * p.height)} min={1} max={p.height}
             onChange={setHeightMm} />
           <div className="flex gap-6 mt-4 mb-10">
