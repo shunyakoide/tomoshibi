@@ -21,6 +21,7 @@ import { maxBoards, WASHI_SIDE, WASHI_END } from "./geometry.ts";
 import * as kit from "./kit.ts";
 import { useFigures, buildAlerts } from "./derived.ts";
 import { AlertBar, AlertColumn } from "./ui/Alerts.tsx";
+import { ViewChips, ViewBar, type View } from "./ui/ViewTabs.tsx";
 import SilhouetteSection from "./ui/panel/SilhouetteSection.tsx";
 import FrameworkSection from "./ui/panel/FrameworkSection.tsx";
 import HigoSection from "./ui/panel/HigoSection.tsx";
@@ -40,7 +41,6 @@ import GuidePage from "./GuidePage.tsx";
 import Welcome from "./Welcome.tsx";
 import { DEFAULTS } from "./config.ts";
 import { accent, vpBg, chipStyle, TContext } from "./ui/theme.ts";
-import { Badge } from "./ui/controls.tsx";
 import PresetChips from "./ui/PresetChips.tsx";
 import PointCard from "./ui/PointCard.tsx";
 import PointBar from "./ui/PointBar.tsx";
@@ -50,23 +50,11 @@ import Logo from "./ui/Logo.tsx";
 import type { EditMode } from "./ui/pointEdit.ts";
 import type { Design, Route } from "./types.ts";
 
-/** Which viewport the middle of the screen is showing. Only `route` outlives the session. */
-type View = "2d" | "mold" | "print" | "lit";
 /** Which onboarding card is open: the first-visit one, the one reopened from the ☰ menu, or neither. */
 type WelcomeCard = "first" | "help" | null;
 
 // (The inspector's width is the aside's own `w-336 flex-[0_0_336px]`, written nowhere else.)
-//
-// The floating chip row's shell — one box for both rows (mode tabs `top-16`, route tabs `top-62`);
-// the colours follow `isLit` and come in as a style. Wide only — on a phone they are `chipBar`, a bar
-// above the viewport rather than a float. PagePreview's `pt-124` clears the
-// LOWER row (62 plus the row's own height), so a tab's padding or font size moves that number too.
-const CHIP_BOX = "absolute left-16 flex gap-2 p-4 rounded-lg border backdrop-blur-[6px] "
-  + "shadow-[0_2px_10px_rgba(59,52,43,0.07)]";
-// One skin for both floating tab rows.
-const TAB_SKIN = "px-14 py-7 border-0 rounded-sm cursor-pointer transition-all duration-150 "
-  + "bg-transparent text-[#6f6350] font-sans text-base font-medium "
-  + "aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:font-bold";
+
 // ---- The narrow layout's bottom sheet ----------------------------------------------------------
 // Stops: `peek` (grabber bar alone), `half`, `full` = the shared budget minus `MIN_VIEW`. Fractions
 // of the height the sheet SHARES WITH THE VIEWPORT, not of the window: the chip bar above is one row
@@ -80,14 +68,6 @@ const SHEET_ORDER: SheetStop[] = ["peek", "half", "full"];
 // Under this much travel a drag is a tap, which cycles to the next stop: 6px is the slop a finger
 // puts into a deliberate press.
 const SHEET_TAP = 6;
-// In build order: shape it, see it assembled, print it, light it. Every one is a RENDERING OF YOUR
-// DESIGN — move a ◇ and all four redraw. Not the build guide, whose figures come from one fixed
-// example (GUIDE_P): that is a page off the ☰ menu.
-const VIEWS: [View, string][] = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]];
-// How the mold gets made. Cardboard is beta: same geometry.ts functions as the printed parts, covered
-// by check:paper, but far less has been built on it.
-const ROUTES: [Route, string, string | null][] = [["stl", "3Dプリント", null], ["paper", "段ボール", "beta"]];
-
 // Restored once at startup (module top level, so a lazy initializer can't parse twice).
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 
@@ -279,16 +259,7 @@ export default function TomoshibiStudio() {
   // How tall the sheet is: mid-drag a px number with the transition off, so it tracks the finger;
   // otherwise the current stop, animated.
   const sheetHeight = `${Math.round(sheetH ?? sheetStops[sheet])}px`;
-  const chip = chipStyle(isLit);
-  const chipTone = { background: chip.bg, borderColor: chip.edge };
-  const modeTabs = VIEWS.map(([k, l]) => (
-    <button key={k} className={TAB_SKIN} aria-pressed={view === k} onClick={() => setView(k)}>{t(l)}</button>
-  ));
-  const routeTabs = ROUTES.map(([k, l, badge]) => (
-    <button key={k} className={TAB_SKIN} aria-pressed={route === k} onClick={() => setRoute(k)}>
-      {t(l)}{badge && <Badge>{badge}</Badge>}
-    </button>
-  ));
+  const chip = chipStyle(isLit);   // the dimension readout takes its ink from the same tone
 
   // Everything that acts on the APP or on the design AS A FILE, behind one "☰": wide, beside the
   // wordmark in the panel header; on a phone, top RIGHT of the chip bar — the one strip on screen in
@@ -311,47 +282,9 @@ export default function TomoshibiStudio() {
   ];
   const headerBtns = <OverflowMenu label={t("メニュー")} items={menuItems} />;
 
-  // ============ Narrow: the chips move OUT of the viewport, and become dropdowns ============
-  // Floating over the canvas the two rows were ~100px of a 357px pane, over exactly where the top
-  // opening's ◇ is; in a bar they covered nothing but still wrapped to two rows (85px) in English,
-  // and the labels are the app's top-level navigation, so shortening them was never on. As dropdowns
-  // the same two choices cost ONE row in every language.
-  //
-  // NATIVE `<select>`s: on a phone that opens the OS picker — a better touch target than anything
-  // hand-rolled, keyboard and screen-reader behaviour correct, no focus-trap code to own. The `beta`
-  // badge becomes text; an <option> cannot carry markup.
-  const modeSelect = (
-    <span className="relative inline-flex">
-      <select value={view} aria-label={t("表示")} onChange={(e) => setView(e.target.value as View)}
-        className={"appearance-none [-webkit-appearance:none] min-h-38 pl-11 pr-26 py-0 rounded-md font-sans text-base font-bold leading-none border cursor-pointer " + "bg-accent text-[#fff] border-accent"}>
-        {VIEWS.map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}
-      </select>
-      {/* A sibling, not a background image: it takes the fill colour of the select's state, which a
-          background image cannot. */}
-      <span aria-hidden="true" className={"absolute right-9 top-1/2 -translate-y-1/2 pointer-events-none text-2xs " + "text-[#fff]"}>▾</span>
-    </span>
-  );
-  const routeSelect = (
-    <span className="relative inline-flex">
-      <select value={route} aria-label={t("つくりかた")} onChange={(e) => setRoute(e.target.value as Route)}
-        className={"appearance-none [-webkit-appearance:none] min-h-38 pl-11 pr-26 py-0 rounded-md font-sans text-base font-bold leading-none border cursor-pointer " + "bg-card text-text border-card-edge"}>
-        {ROUTES.map(([k, l, badge]) => (
-          <option key={k} value={k}>{t(l)}{badge ? ` (${badge})` : ""}</option>
-        ))}
-      </select>
-      <span aria-hidden="true" className={"absolute right-9 top-1/2 -translate-y-1/2 pointer-events-none text-2xs " + "text-sub"}>▾</span>
-    </span>
-  );
-  const chipBar = narrow ? (
-    <nav className="flex-none flex items-center gap-8 px-10 py-6 bg-panel border-b border-edge">
-      {modeSelect}
-      {/* Lit drops the route control for the same reason it drops the inspector — it is a viewing
-          mode. The view control stays: this bar is the only way back out of lit. */}
-      {!isLit && routeSelect}
-      <span className="flex-auto" />
-      {headerBtns}
-    </nav>
-  ) : null;
+  const chipBar = narrow
+    ? <ViewBar view={view} setView={setView} route={route} setRoute={setRoute} isLit={isLit} menu={headerBtns} />
+    : null;
 
   // ---- Narrow: the selected ◇, in flow above the sheet -----------------------------------------
   // Section view only — the only place a ◇ exists to select, and `sel` outlives a view change. See
@@ -402,15 +335,8 @@ export default function TomoshibiStudio() {
         </div>
       )}
 
-      {/* Mode tabs. Floating over the canvas on a wide screen; in the bar above it on a phone. */}
-      {!narrow && <div className={`${CHIP_BOX} top-16`} style={chipTone}>{modeTabs}</div>}
-
-      {/* On the viewport, not in the panel: it changes what this whole view IS. Shown on every view
-          except lit, because `bedRules` gates the bed-overflow warning, the height hint and the
-          rib-length warning colour, all of which surface in the SECTION view. */}
-      {!isLit && !narrow && (
-        <div className={`${CHIP_BOX} top-62`} style={chipTone}>{routeTabs}</div>
-      )}
+      {/* Floating over the canvas on a wide screen; in the bar above it on a phone. */}
+      {!narrow && <ViewChips view={view} setView={setView} route={route} setRoute={setRoute} isLit={isLit} />}
 
       {/* Dimension chip (always live). Tighter to the corner on a phone: at 375px the tab strip
           reaches far enough right that the readout printed through it. Right-aligned either way, so
