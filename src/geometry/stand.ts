@@ -1,14 +1,10 @@
 /**
- * ============================================================================
- * STAND — two saddle posts and the base plate that spaces them
- * ============================================================================
  * Holds the assembled mold clear of the table so it can be turned while bamboo is wound and washi
  * pasted. Constant-thickness posts drop into slots in one thin plate: every face prints flat, so
  * there are no overhangs and no supports, and one plate holds both posts at the correct spacing.
  * This is the far side of the koma↔stand seam: `standGeometry` calls `komaR()` for the saddle
  * radius, and the post height traces back through `standSaddleH → maxRadius → outerR`, which is why
  * editing the profile moves the stand's dimensions too.
- * ============================================================================
  */
 import type { Design } from "../types.ts";
 import * as THREE from "three";
