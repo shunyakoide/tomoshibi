@@ -86,7 +86,11 @@ export default function Legend({ accent, editMode, compact }: {
     : { top: 62, right: 16, maxWidth: 300 };
 
   return (
-    <div className="rounded-lg" style={{
+    // stopPropagation on the WRAPPER, not only on the pill: in compact the whole panel takes pointer
+    // events, and the rows grid sits outside the button, so a thumb landing on the legend's text
+    // reached the pane's own pointerdown and cleared the selected ◇ — with the legend parked bottom-
+    // left over the drawing, exactly where a thumb rests.
+    <div className="rounded-lg" onPointerDown={(e) => { if (compact) e.stopPropagation(); }} style={{
       position: "absolute", pointerEvents: compact ? "auto" : "none", ...pos,
       fontFamily: "'IBM Plex Sans JP',sans-serif",
       background: "rgba(255,253,248,0.82)", border: `1px solid ${C.faint}`,
@@ -94,8 +98,8 @@ export default function Legend({ accent, editMode, compact }: {
     }}>
       {compact ? (
         // The pill and the card's heading are one element, so the title does not move when it opens.
-        // stopPropagation because the pane's own pointerdown clears the point selection.
-        <button onPointerDown={(e) => e.stopPropagation()} onClick={() => setOpen((v) => !v)}
+        // The wrapper stops the pointerdown for the whole panel, this button included.
+        <button onClick={() => setOpen((v) => !v)}
           aria-expanded={open} style={{
             display: "flex", alignItems: "center", gap: 7, minHeight: 34, padding: shown ? "0 0 6px" : "0 12px",
             background: "transparent", border: "none", cursor: "pointer",

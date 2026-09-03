@@ -33,9 +33,17 @@ export function useFigures(p: Design, m: {
   const { bedW, bedD, matT, route, washiSide, washiEnd, t } = m;
 
   const maxDia = Math.round(maxRadius(p) * 2);
+  // The mold this route actually makes: on cardboard `paperP`, not the design on screen, since thick
+  // material sets the board thickness and can clamp the rib count. The washi panel is one rib-to-rib
+  // bay wide, so it must be cut for that mold — as must the pull-out check further down.
+  const moldSrc = useMemo(() => (route === "paper" ? paperP(p, matT) : p), [route, p, matT]);
   // Washi panel figures for the readout. A 0.5mm meridian sweep, so memoized (dragging re-renders
   // constantly).
-  const washiG = useMemo(() => washiGore(p, { side: washiSide, end: washiEnd }), [p, washiSide, washiEnd]);
+  // `moldSrc`, NOT `p`: the panel the readout describes has to be the panel the PDF cuts, and
+  // `downloadPaperKit` has always passed `moldSrc`. Reading `p` here made the two disagree the
+  // moment `maxBoards` clamped the count — at matT 8 the screen said 80x223 x8 while the file in
+  // the ZIP was 124x223 x5, understating the width by 55%.
+  const washiG = useMemo(() => washiGore(moldSrc, { side: washiSide, end: washiEnd }), [moldSrc, washiSide, washiEnd]);
   // Whether this opening has room for the sockets at all — asked apart from the checkbox, so the
   // panel can say "they will not fit here" without saying it to someone who turned them off. The
   // function the geometry reads, so the two cannot disagree.
@@ -87,10 +95,6 @@ export function useFigures(p: Design, m: {
   const thinWall = fit !== null && fit.wall < fit.thin;
   // Stable identity, so the preview's memo isn't invalidated by every unrelated render.
   const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
-  // The mold this route actually makes: on cardboard `paperP`, not the design on screen, since thick
-  // material sets the board thickness and can clamp the rib count. The washi panel is one rib-to-rib
-  // bay wide, so it must be cut for that mold — as must the pull-out check below.
-  const moldSrc = useMemo(() => (route === "paper" ? paperP(p, matT) : p), [route, p, matT]);
   // Can the ribs still come out once the paste has dried? A deep body on a small mouth traps them in
   // the shade, and nothing else notices: every part prints, fits the bed and is watertight. Not a
   // route question — a cardboard mold leaves by the same hole.

@@ -97,6 +97,12 @@ export default function TomoshibiStudio() {
   // Runs after the clamp above, so what lands in localStorage is always the clamped design.
   useAutosave({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd, route });
 
+  // The note is a DOWNLOAD's own confirmation, and `PanelFooter` picks which manifest to show from
+  // `route` — so a note left standing across a route switch describes a ZIP that was never made.
+  // Switching to 段ボール after an STL export used to show 「原寸 100% で印刷」 and list the
+  // cardboard PDF. Clearing on the route, not on the export, because ☰ →はじめかた can switch it too.
+  useEffect(() => { setKitNote(null); }, [route]);
+
   useEffect(() => {
     const viewChanged = prevView.current !== view;
     prevView.current = view;
@@ -117,8 +123,11 @@ export default function TomoshibiStudio() {
     setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setMatT(s.matT);
     setWashiSide(s.washiSide); setWashiEnd(s.washiEnd); setRoute(s.route);
   });
+  // Every field, the same list `importDesign` applies: a partial reset left the washi allowances and
+  // the cardboard thickness standing while the dialog said すべて.
   const resetAll = () => kit.resetAll(t, (s) => {
-    setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setRoute(s.route);
+    setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setMatT(s.matT);
+    setWashiSide(s.washiSide); setWashiEnd(s.washiEnd); setRoute(s.route);
   });
 
   // ---- Derived figures ----
@@ -242,7 +251,7 @@ export default function TomoshibiStudio() {
         <SilhouetteSection p={p} setP={setP} drag={drag} setDrag={setDrag} />
         <FrameworkSection p={p} setP={setP} boardsMax={boardsMax} drag={drag} setDrag={setDrag} />
         <HigoSection p={p} setP={setP} drag={drag} setDrag={setDrag} />
-        <WashiSection boards={p.boards} side={washiSide} end={washiEnd}
+        <WashiSection boards={moldSrc.boards} side={washiSide} end={washiEnd}
           setSide={setWashiSide} setEnd={setWashiEnd} gore={washiG} />
         <RingSection legSockets={!!p.legSockets} legsFit={legsFit}
           onToggle={() => setP((o) => ({ ...o, legSockets: !o.legSockets }))} />
