@@ -175,6 +175,29 @@ r = load();
 t("1e-9 gap → spacing at or above T_GAP", r.p.pts.every((q, i) => i === 0 || q.t - r.p.pts[i - 1].t >= T_GAP - 1e-9));
 t("1e-9 gap → watertight", manifoldOK(r.p) === true);
 
+// ---- boolean fields ----
+// Every numeric field is coerced and none of the booleans were, so a hand-edited or foreign file
+// could keep a STRING in one: `"neckBot": "false"` is truthy where profile.ts reads it, and
+// serializeState writes it back out, so the design stays a Design that fails its own type.
+save({ p: { ...DEFAULTS, neckBot: "false", lighten: 1, spiral: "yes", legSockets: null },
+  bedW: 256, bedD: 256, printRibs: 1 });
+r = load();
+t("non-boolean flags → real booleans",
+  ["neckBot", "neckTop", "lighten", "spiral", "legSockets"].every((k) => typeof (r.p as any)[k] === "boolean"));
+t("wrong-typed flag → the DEFAULTS answer, not !!value",
+  r.p.neckBot === DEFAULTS.neckBot && r.p.spiral === DEFAULTS.spiral && r.p.legSockets === DEFAULTS.legSockets);
+t("coerced flags survive the round trip as booleans", typeof parse(serialize(r)).p.lighten === "boolean");
+t("non-boolean flags → watertight", manifoldOK(r.p) === true);
+
+// The two OPTIONAL flags mean something by being absent: `neckBot ?? neckOn ?? true` reads a missing
+// `neckOn` as "no answer here", which a defaulted `false` would answer for it.
+save({ p: { ...DEFAULTS, neckOn: "no", noTabDent: 7 }, bedW: 256, bedD: 256, printRibs: 1 });
+r = load();
+t("wrong-typed optional flags → dropped, not defaulted",
+  r.p.neckOn === undefined && r.p.noTabDent === undefined);
+save({ p: { ...DEFAULTS, neckOn: false }, bedW: 256, bedD: 256, printRibs: 1 });
+t("a real optional flag is still preserved", load().p.neckOn === false);
+
 // ---- sanitize of Bézier tangent handles (ho/hi) ----
 // Valid handles preserved. Broken handles (non-finite, JSON-serialized Infinity=null,
 // non-object) are dropped and fall back to automatic tangents (outerR must not become NaN).
