@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { Design } from "../../types.ts";
-import { openingR, ringGeometry } from "../../geometry.ts";
+import { openingR, ringGeometry, wireRingGeometry } from "../../geometry.ts";
 import { CORD_R, WIRE_R, part, wireTube } from "./ink.ts";
 import { pendantSocket } from "./kit-lamps.ts";
 
@@ -68,10 +68,10 @@ export function hangWire(radius: number) {
 }
 
 /** The hanger where it goes: the arch over the opening, its ends past the rim. */
-export function hangPlaced(p: Design, rings = true): THREE.Group {
+export function hangPlaced(p: Design, rings = true, smooth = false): THREE.Group {
   const g = new THREE.Group();
   if (rings) {
-    const ring = part(ringGeometry(p, true), false);
+    const ring = part(smooth ? wireRingGeometry(p, true) : ringGeometry(p, true), false);
     ring.rotation.x = -Math.PI / 2;
     g.add(ring);                                 // at y = 0, the hoop standing above it
   }
@@ -90,8 +90,8 @@ export function hangBend() {
  * (2b) In place: the ring, the arch over it, and the SOCKET hanging in the U by its cap — the whole
  * mechanism, so it is drawn rather than described. A bare cord through the U holds nothing up.
  */
-export function hangSet(p: Design): THREE.Group {
-  const g = hangPlaced(p);
+export function hangSet(p: Design, smooth = false): THREE.Group {
+  const g = hangPlaced(p, true, smooth);
   const socket = pendantSocket({ crop: true });   // the kit card's holder, cut off below its cap
   socket.position.y = arcApexY(openingR(p, true)) - 34;   // its cap top (local y = 34) up against the U
   g.add(socket);

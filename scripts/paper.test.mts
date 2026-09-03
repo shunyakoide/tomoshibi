@@ -19,16 +19,21 @@
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
 import { winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
-import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR } from "../src/geometry.ts";
+import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR, openingR, ringGeometry, ringLegs, wireRing2D } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
+import type { Design } from "../src/types.ts";
 
 let fail = 0;
 const bad = (msg: string) => { console.log("FAIL:", msg); fail++; };
 const en = makeT("en"); // the PDF is drawn with the English labels (base-14 fonts have no CJK glyphs)
 const eq = (a: number, b: number, msg: string, tol = 0.01) => { if (Math.abs(a - b) > tol) bad(`${msg}: ${a} != ${b}`); };
-// Bounding box of the point list (outline + holes)
+// Every point a part puts on paper. `bend` is in it because the opening hoops are a bend line and
+// NOTHING else — an outline-only reader gets Math.max of an empty list, which is -Infinity, and the
+// NaN travels all the way to a seam assertion that then passes for the wrong reason.
+const pts2 = (q: any) => [q.outline, ...(q.holes || []), ...(q.bend || [])].flat();
+// Bounding box of the point list
 const bb = (q: any) => {
-  const a = [q.outline, ...(q.holes || [])].flat();
+  const a = pts2(q);
   const xs = a.map((v: number[]) => v[0]), ys = a.map((v: number[]) => v[1]);
   return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
 };
@@ -84,11 +89,12 @@ for (const preset of PRESETS)
           // The mold and nothing else: koma is 2 sheets, or 1 ("×2") when 2 would spill onto an extra
           // page. The washi panel is its own PDF beside this one in the ZIP, so a sheet of it
           // appearing here would mean it is printed twice.
-          if (parts.length !== nRibParts + 1 && parts.length !== nRibParts + 2) bad(`${tag}: part count ${parts.length}`);
+          // + 2 opening hoops, which are on this document on every design (section 8).
+          if (parts.length !== nRibParts + 3 && parts.length !== nRibParts + 4) bad(`${tag}: part count ${parts.length}`);
           if (parts.some((q) => q.name.startsWith("和紙"))) bad(`${tag}: washi panel laid out among the cardboard pages`);
           if (clamped && pk.boards !== nMax) bad(`${tag}: clamp mismatch`);
           for (const q of parts) {
-            const pts = [q.outline, ...(q.holes || [])].flat();
+            const pts = pts2(q);
             if (!pts.length) bad(`${tag}: ${q.name} empty`);
             for (const [x, y] of pts) if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
             for (const m of q.marks || []) for (const v of m) if (!Number.isFinite(v)) bad(`${tag}: ${q.name} has NaN in marks`);
@@ -121,7 +127,7 @@ for (const preset of PRESETS)
           const CH = 297 - 2 * MARGIN;      // a full sheet
           const CH0 = CH - TOPBAR;          // sheet 1, which gives up its top strip to the check bar
           const tallest = Math.max(...parts.map((q) => {
-            const a = [q.outline, ...(q.holes || [])].flat();
+            const a = pts2(q);
             const ys = a.map((v) => v[1]), xs = a.map((v) => v[0]);
             // Too wide for the paper → rotated 90°, so the width becomes the height
             const w = Math.max(...xs) - Math.min(...xs), h = Math.max(...ys) - Math.min(...ys);
@@ -283,8 +289,11 @@ for (const preset of PRESETS)
       // Every part must still be LABELLED: winAnsi drops what it cannot draw rather than mangling
       // it, so a Japanese translator would leave the names silently blank with every check above
       // still passing. This is the one that notices.
+      // Escaped the way `pdf.ts` writes a literal string, or the two hoops — the only names on this
+      // sheet with brackets in them — are looked for in a form the file cannot legally contain.
+      const asWritten = (v: string) => v.replace(/[\\()]/g, (c) => "\\" + c);
       for (const q of paperParts(p, 5, en).parts)
-        if (!cs.includes(q.name)) bad(`${tag} cardboard: "${q.name}" is not labelled in the PDF`);
+        if (!cs.includes(asWritten(q.name))) bad(`${tag} cardboard: "${q.name}" is not labelled in the PDF`);
       // The same sheet in Japanese — the app's default language, and the one the writer could not
       // print at all until it carried its own outlines. Nothing about the file's structure may change
       // (pdfStructure again, including the rule that no raw multi-byte reaches a Tj), and every
@@ -311,8 +320,10 @@ for (const preset of PRESETS)
 //     reorder the two lists over that same 0.01, and a key from the first few points ties paths);
 //   · a part name is centred by `text-anchor: middle` in SVG and by a pre-shifted x in the PDF, so
 //     its x is not comparable and text sorts on y + content;
-//   · SVG escapes `<` as `&lt;`.
-// A fourth difference appearing means a renderer has drifted, not that the tolerance needs widening.
+//   · each format escapes what its own syntax cannot carry raw — SVG writes `<` as `&lt;`, and a PDF
+//     literal string backslashes `(`, `)` and `\`, which the opening hoops' names are the first
+//     labels here to contain. Both are undone before comparing; neither moves anything on paper.
+// A further difference appearing means a renderer has drifted, not that the tolerance needs widening.
 const r2 = (v: string | number) => (+v).toFixed(2);
 const pkey = (v: string) => String(v.split(" ").length).padStart(6) + "|"
   + v.split(" ").map((x: string) => (Math.round(+x * 10) / 10).toFixed(1).padStart(9)).join(",");
@@ -332,7 +343,10 @@ const pdfPaths = (s2: string) => pdfBody(s2)
   .map((seg) => [...seg.matchAll(/(-?[\d.]+) (-?[\d.]+) [ml]\n?/g)].flatMap((m) => [r2(m[1]), r2(m[2])]).join(" "))
   .filter(Boolean).sort(byPath);
 const pdfText = (s2: string) => [...pdfBody(s2).matchAll(/1 0 0 -1 ([\d.-]+) ([\d.-]+) Tm \((.*?)\) Tj/g)]
-  .map((m) => `${r2(m[1])} ${r2(m[2])} ${m[3]}`).sort(byText);
+  // The PDF's own escaping, undone on the same footing as the SVG's entities above: a literal string
+  // has to backslash `(`, `)` and `\` or the file will not parse, and the opening hoops are the first
+  // labels on this sheet to carry brackets — 口輪(上) / "Ring (top)".
+  .map((m) => `${r2(m[1])} ${r2(m[2])} ${m[3].replace(/\\([\\()])/g, "$1")}`).sort(byText);
 
 const sameDrawing = (svg: string, pdf: string, tag: string) => {
   const cmp = (x: string[], y: string[], what: string, anchored?: boolean) => {
@@ -401,7 +415,7 @@ for (const preset of PRESETS)
       const wparts = washiParts(pk).parts;
       if (!wparts.length) bad(`${tag}: washi panel missing`);
       for (const q of parts)
-        for (const [x, y] of [q.outline, ...(q.holes || [])].flat())
+        for (const [x, y] of pts2(q))
           if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
       // Integrated independently of washiGore, as in section 4: the panel must cover the arc.
       const fr = fukuroRange(p), y0 = fr.lo * height, y1 = fr.hi * height;
@@ -420,9 +434,100 @@ for (const preset of PRESETS)
       if (pk.boards < 4) bad(`${tag}: rib count clamped to ${pk.boards}`);
     }
 
+// ---- 8. The opening hoops (the cardboard route's wire rings) ----
+// The 3D route prints these two parts; cardboard draws them at 1:1 and the maker bends wire on the
+// line. So the criteria are not paper's usual ones — there is nothing to cut and nothing to fold —
+// but the two that decide whether the hoop fits the lantern it was drawn for:
+//
+//   · it lands in the very band the PRINTED ring fills, which is measured off `ringGeometry`'s own
+//     vertices rather than copied from `ring.ts`'s constants — copy them and this passes forever;
+//   · the eyes are there exactly when `ringLegs()` says so, at the angles the printed pads sit at,
+//     and big enough for a leg of the same wire to pass. Two answers to "does this design have legs"
+//     is the failure: the template offering eyes the guide's leg step has been filtered out of.
+//
+// Plus the one thing a bend line can be wrong about that a cut line cannot: a wire is ONE length, so
+// a jump between consecutive points is a hoop that cannot be bent, not merely a coarse curve.
+const ringBand = (p: Design, top: boolean) => {
+  const pos = ringGeometry(p, top).getAttribute("position");
+  let lo = Infinity, hi = 0;
+  for (let i = 0; i < pos.count; i++) {
+    const r = Math.hypot(pos.getX(i), pos.getY(i));
+    if (r < lo) lo = r;
+    if (r > hi) hi = r;
+  }
+  return { lo, hi };
+};
+let nh = 0;
+for (const preset of PRESETS)
+  for (const height of [140, 205, 400])
+    for (const legSockets of [false, true]) {
+      nh++;
+      const p: Design = { ...DEFAULTS, ...preset, height, legSockets };
+      const tag = `hoop ${preset.key} h${height} legs${legSockets ? "on" : "off"}`;
+      const hoops = paperParts(p, 5).parts.filter((q) => q.name.startsWith("口輪"));
+      if (hoops.length !== 2) bad(`${tag}: ${hoops.length} hoops on the sheet, want 2`);
+      for (const q of hoops) {
+        // Nothing to cut. An outline or a hole here is a black line telling someone to cut the hoop
+        // out of the paper, which is the one misreading this part has to be immune to.
+        if (q.outline.length || (q.holes || []).length) bad(`${tag}: ${q.name} carries a cut line`);
+        if ((q.bend || []).length !== 1) bad(`${tag}: ${q.name} has ${(q.bend || []).length} bend lines, want 1`);
+        if (!q.note) bad(`${tag}: ${q.name} has no note — it is the one part on the sheet nobody cuts`);
+      }
+      // The printed ring's band. The TOP ring is always a plain annulus (no pads, no marker tab), so
+      // its vertices give the two rim radii directly, and the wire's own diameter is the wall between.
+      const band = ringBand(p, true);
+      const wireD = band.hi - band.lo;
+      const legs = ringLegs(p);
+      let topR = 0;
+      for (const top of [true, false]) {
+        const side = top ? "top" : "bottom";
+        const path = wireRing2D(p, top);
+        const rad = path.map(([x, y]) => Math.hypot(x, y));
+        const R = Math.max(...rad), rMin = Math.min(...rad);
+        if (top) {
+          topR = R;
+          // Same inner face, same outer face: the wire fills the band the print would have.
+          eq(R - wireD / 2, band.lo, `${tag} ${side} inner face`);
+          eq(R + wireD / 2, band.hi, `${tag} ${side} outer face`);
+        } else {
+          // Both hoops follow their own opening, and nothing else may move between them.
+          eq(R - topR, openingR(p, false) - openingR(p, true), `${tag} hoop spacing follows the openings`);
+        }
+        // Eyes: `ringLegs` is the only gate, and only the bottom hoop takes them.
+        const eyed = rMin < R - 0.5;
+        if (eyed !== (!top && !!legs)) bad(`${tag} ${side}: eyes=${eyed}, ringLegs=${!!legs}`);
+        if (eyed) {
+          const eyeR = (R - rMin) / 2;
+          const bore = 2 * eyeR - wireD;
+          if (bore < 3) bad(`${tag}: an eye's bore is ${bore.toFixed(2)}mm — a leg of the same wire will not pass`);
+          for (let i = 0; i < legs!.n; i++) {
+            const a = (i / legs!.n) * Math.PI * 2;   // the angles ringGeometry puts its pads at
+            const wx = rMin * Math.cos(a), wy = rMin * Math.sin(a);
+            const near = Math.min(...path.map(([x, y]) => Math.hypot(x - wx, y - wy)));
+            // Half a sampling chord: an eye's deepest point is only a SAMPLE when its circle happens
+            // to divide evenly, so a tighter bound fails on the sampler's parity rather than on the
+            // geometry. Wide enough to survive that, narrow enough that an eye off its pad's angle
+            // (6mm at 20°) or missing altogether still reads as missing.
+            if (near > 1.1) bad(`${tag}: no eye at ${Math.round((a * 180) / Math.PI)}° (nearest point ${near.toFixed(2)}mm)`);
+          }
+        }
+        let jump = 0;
+        for (let i = 0; i < path.length; i++) {
+          const [x0, y0] = path[i], [x1, y1] = path[(i + 1) % path.length];   // closed: the wrap counts
+          jump = Math.max(jump, Math.hypot(x1 - x0, y1 - y0));
+        }
+        if (jump > 2.2) bad(`${tag} ${side}: a ${jump.toFixed(2)}mm jump in the bend line`);
+      }
+      // On the mold's sheets, and only there: the washi template is traced under paper and has
+      // nothing to bend.
+      const bends = (paperPagesSVG(p, 5).svg.match(/class="bend"/g) || []).length;
+      if (bends !== 2) bad(`${tag}: ${bends} bend lines drawn on the cardboard pages, want 2`);
+      if ((washiPagesSVG(p).svg.match(/class="bend"/g) || []).length) bad(`${tag}: a bend line on the washi template`);
+    }
+
 // Japanese labels cannot be drawn with base-14 fonts, so they must be dropped, never emitted raw.
 if (winAnsi("和紙 ×8") !== " ×8") bad(`winAnsi should drop Japanese: ${JSON.stringify(winAnsi("和紙 ×8"))}`);
 if (winAnsi("50mm ← 定規で確認") !== "50mm <- ") bad(`winAnsi arrow fold: ${JSON.stringify(winAnsi("50mm ← 定規で確認"))}`);
 
-console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme combos, ${fail} FAIL ===`);
+console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme + ${nh} hoop combos, ${fail} FAIL ===`);
 process.exit(fail ? 1 : 0);

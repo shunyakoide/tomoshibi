@@ -9,7 +9,13 @@ export const STYLE = {
   scale: { stroke: "#000", w: 0.6 },                             // the full-scale check square (thick: a ruler gets laid on it)
   frame: { stroke: "#1769c8", w: 0.2 },                          // the sheet's trim box — drawn on every sheet, seam or not
   join: { stroke: "#1769c8", w: 0.25 },                          // sheet-join half-diamonds (blue = align, never cut)
+  // A line to form WIRE against — the cardboard route's opening hoops. Blue for the same reason
+  // the frame and the diamonds are: on this sheet blue already means "lay something on this, never
+  // cut it", and a third colour would be a third thing to learn. Twice `join`'s width because a
+  // wire is laid along it and a hairline disappears under 2mm of steel.
+  bend: { stroke: "#1769c8", w: 0.5 },
   pname: { fill: "#999", size: 3.4, anchor: "middle" },          // part name, faint, inside the part
+  pnote: { fill: "#888", size: 2.6, anchor: "middle" },          // the line under a part name: what to DO with the part
   note: { fill: "#888", size: 2.6, anchor: "start" },
   jlabel: { fill: "#1769c8", size: 2.4, anchor: "start" },        // a seam's code (1A, 1B, 2A …), beside its diamond
 } satisfies StyleTable;

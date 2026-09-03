@@ -26,21 +26,24 @@ export type Step = {
   id: string; title: string; body: string; paperBody?: string; fig?: string; stl?: boolean;
   wip?: string; options?: Way[];
 };
-export type KitItem = { name: string; fig?: string; note?: string; opt?: boolean };
+/** One thing you supply yourself. `paper` overrides the fields the cardboard route reads
+ *  differently — the wire is optional on the 3D route and not on the one that bends its own hoops. */
+export type KitItem = { name: string; fig?: string; note?: string; opt?: boolean; paper?: { note?: string; opt?: boolean } };
 export type KitGroup = { id: string; title: string; items: KitItem[] };
 
 // The parts the mold is made of. `n` is either a CONSTANT or it is not printed at all: two koma, two
 // posts, one base and one ring at each end are facts about the mold, while how many ribs it takes is
 // the reader's own decision — so that one says so in words rather than naming a number this page
-// cannot know. The cardboard route cuts only the mold itself (see paperParts): no stand, and no
-// rings, which belong to the finished lantern rather than to the template.
+// cannot know. The cardboard route makes no stand; it DOES make both rings, bent from wire against
+// the lines its template draws (`wirePart` in src/paper/mold.ts), which is why those two rows are
+// not `stl` even though only one route prints them.
 export const PARTS: PartRow[] = [
   { id: "rib", name: "羽根板", note: "設計した枚数" },
   { id: "koma", name: "コマ", n: 2 },
   { id: "column", name: "支柱", n: 2, stl: true },
   { id: "base", name: "土台", n: 1, stl: true },
-  { id: "ringBottom", name: "口輪(下)", n: 1, stl: true },
-  { id: "ringTop", name: "口輪(上)", n: 1, stl: true },
+  { id: "ringBottom", name: "口輪(下)", n: 1 },
+  { id: "ringTop", name: "口輪(上)", n: 1 },
 ];
 
 // The build, in order. `fig` names a scene in three/figures.ts; bodies are i18n keys like every
@@ -60,7 +63,11 @@ export const STEPS: Step[] = [
     body: "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1か所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。",
   },
   {
-    id: "rings", title: "口輪をはめる", fig: "rings", stl: true,
+    // Both routes, since both end up with a hoop at each opening — one printed, one bent from wire on
+    // the line the template draws. The step is the same step; only where the hoop COMES FROM differs,
+    // which is what `paperBody` is for.
+    id: "rings", title: "口輪をはめる", fig: "rings",
+    paperBody: "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてあるので、曲げた輪は羽根板の外側にすっと入ります。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。",
     body: "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。",
   },
   {
@@ -132,7 +139,7 @@ export const STEPS: Step[] = [
         // one fixing, the nut. The cardboard line has to say where the leg ends go as well, since a
         // hoop cut from card has no bores in it.
         body: "脚と枠を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは脚のあいだから下へ逃がします。",
-        paperBody: "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚と枠を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。",
+        paperBody: "段ボールの型では下の口輪の線に、脚を通す輪っかが3ヶ所入っています。針金で曲げてあれば、脚の先はそこへ通して折り返すだけです。あとは同じで、脚と枠を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。",
         // The wire work: a pendant holder's cord leaves through a threaded stem with a nut on it, so
         // a loop bent in the wire's end stacks on that stem and one nut clamps the lot, which is how
         // the ready-made lantern kits do it. The slots read the same on BOTH routes on purpose: they
@@ -190,7 +197,10 @@ export const KIT: KitGroup[] = [
     // for; it is also the one tool on the page you use up.
     { name: "カミソリ", fig: "kitRazor", note: "はみ出した和紙を切る" },
     { name: "ライト", fig: "kitLight", note: "熱を持ちにくい LED のもの" },
-    { name: "ワイヤー", fig: "kitWire", opt: true, note: "脚を付けるか吊るす場合" },
+    // Optional on the 3D route, where the rings are printed and wire serves only two of the lighting
+    // ways. On cardboard the hoops themselves are wire, so it is as unconditional as the bamboo.
+    { name: "ワイヤー", fig: "kitWire", opt: true, note: "脚を付けるか吊るす場合",
+      paper: { opt: false, note: "口輪に。脚や吊り線にも" } },
   ] },
   { id: "tools", title: "道具", items: [
     { name: "のりを塗るはけ", fig: "kitPasteBrush", opt: true, note: "障子貼り用の糊刷毛など" },

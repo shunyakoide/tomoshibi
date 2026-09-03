@@ -176,7 +176,7 @@ Three things about this are worth keeping:
 
 So it can be built without a 3D printer, the app lays each part's 2D outline out at **A4 full scale (1:1)** as a PDF (`src/papercraft.ts` → `paperPDF(p, matT)`), downloaded from the print view as `tomoshibi_katagami.zip` **with the washi PDF beside it** — one download per route, the same shape the STL kit's ZIP has.
 
-- **The template PDF is the mold only — ribs and koma.** The washi panel is the other file in the ZIP, never pages spliced into this one.
+- **The template PDF is the mold — ribs and koma — plus the two opening hoops** (see "Opening hoops on cardboard" below). The washi panel is the other file in the ZIP, never pages spliced into this one.
 - **It is a PDF, and it used to be a self-contained HTML page.** That page carried a screen-only preamble (print at 100%, no margins, fit-to-page off) every line of which existed BECAUSE the medium was HTML. A PDF is already A4 at exact size, so only the printer's 100% setting is still worth saying, and it is the one line `KitNote` does not fold away. Do not reintroduce an HTML route to get Japanese labels back — see `pdf.ts` for how they print now.
 - **The shape comes only from `geometry.ts`'s pure functions.** Do not reimplement a dimension on the paper side; if this drifts, the papercraft and the STL produce different molds.
 - **Don't cut the grooves (higo-me).** You cannot carve a 0.5mm V into cardboard, so the outer edge is cut smooth (`ribOutline2D(p, k, { smooth: true })`) and the bamboo positions are marked with **dashed ticks** from the same `grooveList()` as the STL.
@@ -206,6 +206,64 @@ So it can be built without a 3D printer, the app lays each part's 2D outline out
 - **The half-diamonds are OPEN chevrons**, ends on the frame edge, apex inward — open because the frame line already draws their base, and closing them lays a second stroke along the very line the sheets align by. Two sheets laid up correctly bring opposed chevrons base-to-base and the ◇ closes; a millimetre out and it visibly doesn't, which beats "line the two lines up" (two lines on top of each other hide half a millimetre of error).
 - **Two per seam, a fifth in from each end, each with a code** (`1A`/`1B`, `2A`/`2B`, …): one mark leaves the sheet free to pivot on it, so two pin rotation as well as offset. The left/right chevrons carry **no** code, the layout being one column wide — those edges have no neighbour and are trim marks only.
 - **There are no corner registration crosses, and the `reg` and `glue` styles are gone with them.** The box's own full-bleed intersections are better crosses (they run to the paper's edge). A style in `STYLE` that nothing draws is a lie about what is on the sheet, so delete the entry with its last consumer.
+## Opening hoops on cardboard (bent from wire)
+
+The 3D route prints a hoop for each opening (`ringGeometry`). The cardboard route has nothing to
+print one with, so the template draws the hoop's **centreline at 1:1** and the maker bends wire on the
+line (`wireRing2D` in `src/geometry/ring.ts` → `wirePart` in `src/paper/mold.ts`). Before this the
+route printed no hoop at all and the guide told you to cut one out of card and pierce three holes in
+it — which is exactly as strong as the card.
+
+- **It is the SAME hoop, in the same place.** `openingR() + RING_FIT + WIRE_D/2`, with `WIRE_D` equal
+  to the printed hoop's `RING_WALL`, so the bent wire fills the band `annulusGeo` would have filled:
+  the same inner face against the ribs, the same outer face for the bamboo, and the same washi cover
+  allowance folded over it. `check:paper` §8 asserts both faces against `ringGeometry`'s own vertices
+  rather than against the constants, because constants copied into a gate agree with themselves
+  forever.
+- **`WIRE_D` is a constant and stays one**, for the reason `LEG_D` is (see the leg-socket section).
+  The sheet is a line you lay wire ON, so the wire's thickness moves nothing but where that line is
+  drawn — a fraction of a millimetre on a hoop held by bamboo and paste. A template that asked for a
+  wire gauge would be asking before it can draw anything.
+- **The eyes are `ringLegs()`'s answer, not a second opinion.** The bottom hoop takes `LEG_N` eyes at
+  the angles the printed ring puts its pads, when and only when `ringLegs(p)` is non-null. An eye is
+  far smaller than a pad, so a design that function turns down for room has no legs to hang on one
+  anyway — and one answer is what stops the template offering eyes for a leg step the guide has
+  filtered out. Do not give the eyes a fit test of their own.
+- **An eye is a full turn of the wire, tangent to the hoop from the INSIDE**: the line runs up to the
+  hoop, goes once round a circle of `EYE_R` centred `EYE_R` further in, and carries on — the shape a
+  pair of round-nose pliers makes, and a path the wire really can be bent along.
+- **The eye is a ⌀10 loop, and it is sized to be BENDABLE, not merely to admit a leg.** Bore =
+  `2·EYE_R - WIRE_D` = 8mm. It was ⌀4 first, which is the very tip of a pair of round-nose pliers and
+  comes out lopsided by hand; a centimetre of loop is something you can form, and it takes a knotted
+  cord for a pendant as readily as a leg. `check:paper` §8 fails below a 3mm bore.
+- **The hoops have an EMPTY `outline`, and that is the point.** They are the only parts on the sheet
+  with nothing to cut. `RawPart.outline` may therefore be empty, `pageOps` draws no `cut` path for
+  one, and the hoop is drawn in a new `bend` style — **blue**, because on this sheet blue already
+  means "lay something on this, never cut it" (the trim box, the join diamonds), and a third colour
+  would be a third thing to learn. It is twice `join`'s width: a hairline disappears under 2mm of
+  steel. Giving a hoop an outline "so the layout has something" prints a black line telling someone
+  to cut it out.
+- **`RawPart.note` exists for the same reason** — one line of small print under the part's name,
+  centred (`pnote`). Every other line on the paper is a cut line or a hint beside one, so the one
+  part nobody cuts has to say so out loud: 「針金(2mm)を曲げる線」. Keep it short in **both**
+  languages; it is set inside a hoop that is ⌀22 at the `LIMITS` floor.
+- **They cost a sheet on a third of designs, and that is the cheap option.** Over `check:paper`'s
+  1,080-design sweep the template went **1,620 → 1,980 sheets**: 720 designs pay nothing and 360 gain
+  one page. A separate hoop PDF — the other way this was considered — costs one page on *every*
+  design, so riding in the room the mold's own layout leaves is strictly better. Nesting the smaller
+  hoop inside the larger would save nothing: the pages that grow do so because the hoops open a new
+  ROW, whose height is the bigger hoop's either way.
+- **There is no wire equivalent of the printed ring's marker tab.** Two bent hoops of ⌀116 and ⌀108
+  are as easy to mix up as two printed ones, and a tab cannot be bent into wire by hand. What tells
+  them apart is that they are bent on two separately labelled lines, so the ring step says to mark
+  which is which before they leave the paper. Do not invent a bend for it.
+- **The guide follows the part, not the route.** The ring step runs on both routes with a
+  `paperBody`; `PARTS` lists both hoops on both routes; the wire stops being `任意` on the cardboard
+  route (`KitItem.paper`); and every figure that draws a ring — the parts list, the ring/higo/dry/pull
+  steps, the lit shade, the hanger — picks `wireRingGeometry` or `ringGeometry` off the same `smooth`
+  flag. `wireRingGeometry` is a **drawing**: nothing exports it to STL, so it is not on
+  `check:manifold`'s list.
+
 ## Washi template (cutting the paper skin before pasting)
 
 Trimming the washi AFTER it is pasted is the fiddliest step of the build and a torn wet edge shows, so the app also prints the paper skin's own flat pattern: **one panel = the surface between two adjacent ribs**, at A4 full scale. `washiGore(p, {side, end, span})` → `washiParts` / `washiPDF` in `papercraft.ts`. Fixed items:
@@ -217,7 +275,7 @@ Trimming the washi AFTER it is pasted is the fiddliest step of the build and a t
 - **Guides are never cut lines.** The dashed guides mark the true rib lines (inset by `side`) and the opening lines; the short ticks mark the bamboo positions from the same `grooveList()` as the mold. They are traced from the same station list as the cut outline, so they cannot drift off a sharp shoulder.
 - **The template is traced, not glued on** — washi is translucent, so it is slipped under the paper. Never instruct the user to glue it to the material; that is the cardboard template's flow.
 - **There is no on-screen preview of the washi panel, and it is not an oversight.** It is one sheet of one shape, it says nothing about the mold, and the PDF opens in a viewer that shows it better than a 190px dock did. A dock existed briefly on both routes and was removed at the user's request — do not rebuild it, and do not draw the panel a second way for a thumbnail either.
-  - **`washiPagesSVG()` survives that removal on purpose**: it is the SVG encoding of the very pages `washiPDF` writes, and **`check:paper` section 6 compares the two coordinate by coordinate** (3,942 paths over 36 designs), plus the fact that the UI language moves no coordinate. That comparison is what stands between a hand-rolled PDF and a file that disagrees with everything else here. The three encoding differences it tolerates are named in its comment; a fourth appearing means a renderer has drifted, not that the tolerance needs widening.
+  - **`washiPagesSVG()` survives that removal on purpose**: it is the SVG encoding of the very pages `washiPDF` writes, and **`check:paper` section 6 compares the two coordinate by coordinate** (3,942 paths over 36 designs), plus the fact that the UI language moves no coordinate. That comparison is what stands between a hand-rolled PDF and a file that disagrees with everything else here. The encoding differences it tolerates are named in its comment — rounding, the two ways a label is centred, and each format's own escaping (SVG's `&lt;`, and the backslashes a PDF literal string must put on `(`, `)` and `\`, which the hoops' bracketed names were the first labels here to need). A further one appearing means a renderer has drifted, not that the tolerance needs widening.
 - **The washi template is not an output method, and has no download of its own.** It is the paper skin you need on top of whichever mold you built, so it lives with the design settings (the 「和紙」 section) and **rides along with whichever output you pick**, as `tomoshibi_washi_a4_beta.pdf` inside that route's ZIP. Do not re-add it to the output toggle: the toggle is mutually exclusive and the washi is needed in both cases. **One download per route, one deliverable per document.**
   - **It is its own PDF on the cardboard route too, not pages appended to the mold's template.** The two are printed at different moments — the mold once, the skin once per lantern, often on different paper — and `pagesPDF` numbers and seams the sheets of ONE document, so splicing them makes the seam codes span things that never join.
   - **Its panel width follows the rib count, so the cardboard copy is cut from `paperP(p, matT)`** — the CLAMPED `pk.boards`, the mold that template actually makes. That is why `paperP` is exported. `check:paper` pins it three ways: a clamped count must widen the panel (§1), the panel is on its own sheets and not on the cardboard pages (§4), and the same holds in the shipped bytes (§5).
@@ -233,7 +291,7 @@ Which route someone is on — `route`: `"stl"` / `"paper"` — is **app-level st
 - **The print bed only exists on the STL route.** Cardboard prints on A4 and anything larger simply **continues onto the next page, butt-joined** — so there is no size limit to warn about. `bedRules = route === "stl"` gates the overflow warning (in *every* view, not just the print view — it used to nag a cardboard user in the section view), the "→ lower the body height to Nmm" hint, and the warn colouring on the rib-length readout. Do not reintroduce a bed check that ignores the route: shrinking a design for a limit that route doesn't have is the bug this prevents.
 - **The print view is a different kind of view per route.** STL gets the 3D plates (`buildPrint`); cardboard gets **`src/ui/PagePreview.tsx`** — the template's own A4 pages as SVG over the (idle) canvas, exactly the way the section editor overlays its SVG; `buildScene` returns early for it, the same as for `"2d"`. **Its output is a document, so its preview is a document** — there is nothing spatial to show, and a WebGL page needs a canvas texture to say what a stroke of ink says for free. **Neither view previews the washi template** — it downloads as a PDF and is read as one (see "Washi template").
 - **The preview never lays parts out itself.** It renders `paperPagesSVG()` — the same ops, through the same renderer, as the PDF — so the page count, the parts on each page and the part spanning two pages are the template's own answers. An earlier version packed the parts onto a field of A4 sheets of its own devising; the moment that disagrees with the template, the user believes the wrong one. On screen it is **not** full scale (hence the note, and hence the printed ruler).
-- **The guide branches on the route too, and reads it through `paperP`.** On cardboard the page describes the mold that route *makes*: the material thickness becomes the board thickness, thick material clamps the rib count, the ribs are drawn with a **smooth outer edge and no lightening windows** (the template cuts neither), and the stand and ring steps are filtered out rather than reworded. Building it from the design on screen instead is the same bug the washi panel had — a page that counts ribs the template does not cut.
+- **The guide branches on the route too, and reads it through `paperP`.** On cardboard the page describes the mold that route *makes*: the material thickness becomes the board thickness, thick material clamps the rib count, the ribs are drawn with a **smooth outer edge and no lightening windows** (the template cuts neither), and the stand steps are filtered out rather than reworded. The **ring step is not** — both routes end up with a hoop at each opening, so it is one step with a `paperBody`, and every figure that draws a ring picks the printed one or the bent one off the same `smooth` flag. Building it from the design on screen instead is the same bug the washi panel had — a page that counts ribs the template does not cut.
 - **On a phone the sheets are ONE COLUMN and they TOUCH** (`PagePreview.tsx`, the `narrow:` utilities on the pane). Both halves are the document's own structure, not a small-screen accommodation: the template's layout is one column wide, and consecutive sheets are **butt-joined** — cut both on the blue trim box, put the cut edges together, tape from behind. So the preview is the strip you will tape, in the order you will tape it, and a gap between two sheets would draw a join the finished template does not have. It reads: the half-diamonds of a seam sit directly above their partners and a part's cut line runs on across. This replaced a 2-up grid of 150px tracks, inherited from when the pane was `40vh`; the pane is now the whole phone at rest, so that was trading a readable 355px page for two thumbnails nothing could be read on.
 - **`grid-auto-rows: max-content` is load-bearing, and `auto` is a bug** (the pane's layout is utilities in `PagePreview.tsx`; only the sheet itself — `.pages .pg` — is still a CSS rule, because papercraft writes that class into an SVG string). This pane is a flex item with a *definite* height, and an `auto` row in a grid whose own height is definite gets sized against that height rather than against its contents — so with the inspector sheet pulled up the four rows came out **8.5px** each while every page still rendered 243px, and each sheet was drawn straight through the three below it. It was never narrow-only: on a 1440×900 desktop the same design gave 170px rows for 742px pages. A row has to be as tall as the sheet standing in it, and the sheet's size is the one thing here that is not ours to choose (the SVG carries A4's ratio).
 - **The choice is offered on the welcome card**, and switched in the print view by the segmented chip **on the viewport, next to the mode tabs** — not in the inspector. It changes what the whole view *is*, so it does not belong at the bottom of a long scroll; the panel below it only holds that route's settings (bed size / material thickness) and names the route in its section hint.

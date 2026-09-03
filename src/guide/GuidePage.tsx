@@ -153,7 +153,7 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
         </ul>
         {!stl && (
           <p className={PAPER_NOTE}>
-            {t("段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。")}
+            {t("段ボールの型には支柱・土台がありません(型紙が刷るのは、型そのものと口輪を曲げる線です)。回すときは手で持つか、箱などに載せてください。")}
           </p>
         )}
 
@@ -162,7 +162,9 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
           <div key={g.id} className={KIT_GROUP}>
             <h3 className={KIT_H3}>{t(g.title)}</h3>
             <ul className={GRID}>
-              {g.items.map((it) => (
+              {/* The cardboard route reads a few of these differently — see `KitItem.paper`. Merged
+                  here rather than in the list so the entry stays one thing with one name. */}
+              {g.items.map((raw) => ({ ...raw, ...(!stl && raw.paper ? raw.paper : null) })).map((it) => (
                 <li key={it.name} className={CARD}>
                   <Fig src={it.fig ? figs[it.fig] : undefined} t={t} part />
                   <div className={CARD_LINE}>

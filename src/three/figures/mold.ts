@@ -7,7 +7,7 @@ import * as THREE from "three";
 import type { Design } from "../../types.ts";
 import {
   fukuroRange, grooveList, grooveR, higoSpiralPath, komaGeometry, komaR, maxRadius, openingR,
-  outerR, ribGeometry, ringGeometry, boardGeometry, standCollarTop, standGeometry, standSaddleH,
+  outerR, ribGeometry, ringGeometry, wireRingGeometry, boardGeometry, standCollarTop, standGeometry, standSaddleH,
   standSlotSep, washiSurface,
 } from "../../geometry.ts";
 import { HI, HI_FACE, INK, LIT_FACE, VIEW_DIR, part } from "./ink.ts";
@@ -181,7 +181,8 @@ export function moldPieces(p: Design, { ribs = true, komaBot = true, komaTop = t
   if (rings) {
     const { lo: t0, hi: t1 } = fukuroRange(p);
     for (const top of [false, true]) {
-      const r = part(ringGeometry(p, top), hot === "rings");
+      // Cardboard bends its hoops from wire (see `wireRing2D`); 3D prints them.
+      const r = part(smooth ? wireRingGeometry(p, top) : ringGeometry(p, top), hot === "rings");
       r.rotation.x = -Math.PI / 2;
       r.position.y = (top ? t1 : t0) * p.height;    // the openings, which is where they seat
       g.add(r);
@@ -281,7 +282,7 @@ export function pullScene(p: Design, smooth: boolean): THREE.Group {
   const rz = (dir * Math.PI) / 2;
   const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, PULL_YAW, rz, "YXZ"));
   const mold = moldPieces(p, {
-    komaBot: false, komaTop: false, smooth, rings: !smooth, higo: true, washi: "all",
+    komaBot: false, komaTop: false, smooth, rings: true, higo: true, washi: "all",
     pull: {
       dir: VIEW_DIR.clone().applyQuaternion(q.invert()),   // the camera, in the mold's own frame
       slide: -dir * (p.height + p.tabLen * 2) * 0.62,
