@@ -14,7 +14,9 @@ export type Row = { y: number; h: number };
 export type PageBand = { top: number; row: Row | null; y0: number; bot: number };
 /** Where the full-scale check square goes — a sheet and a corner on it. */
 export type Spot = { page: number; x: number; y: number };
-export type Layout = { placed: Placed[]; CW: number; CH: number; pages: PageBand[]; spot: Spot };
+/** A part no orientation fits across the sheet: its ORIENTED width and the overhang, both mm. */
+export type Overflow = { name: string; w: number; over: number };
+export type Layout = { placed: Placed[]; CW: number; CH: number; pages: PageBand[]; spot: Spot; over: Overflow[] };
 /** A page mid-construction: `y0`/`bot` are filled by the pass after the row loop. */
 export type PageDraft = { top: number; row: Row | null; y0?: number; bot?: number };
 
@@ -72,9 +74,14 @@ export function layout(parts: RawPart[], page: Page): Layout {
 
   // Orient every part before any packing decision — a part too wide for the paper is rotated 90° —
   // so the row ordering below sorts on the ORIENTED height, not on the wrong dimension.
+  const over: Overflow[] = [];
   const oriented = parts.map((raw) => {
     let q = toPage(raw, false);
     if (q.w > CW) { const r = toPage(raw, true); if (r.w <= CW) q = r; }
+    // Neither way round fits ACROSS the sheet. Pages only ever split DOWN, so there is no next sheet
+    // for the overhang to continue onto and `pageOps`' clip discards it — on paper only, with no
+    // seam and nothing on screen. Recorded so the one place that knows can say so out loud.
+    if (q.w > CW) over.push({ name: raw.name, w: q.w, over: q.w - CW });
     return q;
   });
 
@@ -119,7 +126,7 @@ export function layout(parts: RawPart[], page: Page): Layout {
       pg.bot = !next || (pg.row && next.row === pg.row)
         ? pg.top + cap(i) : Math.min(pg.top + cap(i), next.top);
     });
-    return { placed, CW, CH, pages: pages as PageBand[] };
+    return { placed, CW, CH, pages: pages as PageBand[], over };
   };
 
   // --- Which order to pack in ---
@@ -154,9 +161,11 @@ const SQ = { w: 86, h: 34 };
  */
 function scaleSpot(lay: Omit<Layout, "spot">): Spot | null {
   for (let i = 0; i < lay.pages.length; i++) {
-    const { top, bot, y0, row } = lay.pages[i];
-    const prev = lay.pages[i - 1];
-    const oy = y0 - top, bandTop = y0 + (prev && prev.bot > top ? 1 : 0), bandBot = y0 + (bot - top);
+    const { top, bot, y0 } = lay.pages[i];
+    // The band starts at `y0`. It used to add 1mm when `prev.bot > top`, which cannot happen:
+    // `build` sets a page's `bot` to the next page's `top` exactly when the row continues, and to
+    // its own cap otherwise. Zero hits over 7,704 page boundaries across both templates.
+    const oy = y0 - top, bandTop = y0, bandBot = y0 + (bot - top);
     const near = lay.placed.filter((q) => q.y < bot && q.y + q.h > top)
       .map((q) => ({ x: MARGIN + q.x, y: oy + q.y, w: q.w, h: q.h }));
     // Candidates: the band's top-left corner plus the bottom-right corners the parts leave (the

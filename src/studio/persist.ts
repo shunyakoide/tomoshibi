@@ -7,10 +7,14 @@
  * must not make `outerR` NaN (a non-manifold STL) or hand the first render an oversized `boards`
  * (a koma whose notches overlap). Verified by `npm run check:persist`.
  */
-import { DEFAULTS, LIMITS } from "../config.ts";
+import { DEFAULTS, LIMITS, T_GAP } from "../config.ts";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
 import { clamp } from "../util.ts";
 import type { Design, NumericDesignKey, Pt, Route } from "../types.ts";
+
+/** Cardboard thickness (mm) a fresh state starts at. Here because sanitize's fallback and 「初期化」
+ *  have to agree — reset used to skip `matT` entirely, and two literals would drift apart anyway. */
+export const MAT_T = 5;
 
 /**
  * Everything one save holds: the design plus the machine settings, which are facts about the maker
@@ -65,7 +69,7 @@ function validatePts(pts: unknown): Pt[] {
   for (const q of pts) {
     if (!q || !Number.isFinite(q.t) || !Number.isFinite(q.r)) return DEFAULTS.pts.map((q2) => ({ ...q2 }));
   }
-  return pts
+  const sorted = pts
     .map((q) => {
       const out: Pt = { t: clamp(0, 1, q.t), r: clamp(...LIMITS.r, q.r) };
       if (q.sharp) out.sharp = true;
@@ -75,6 +79,32 @@ function validatePts(pts: unknown): Pt[] {
       return out;
     })
     .sort((a, b) => a.t - b.t);
+  const legal = legalizePts(sorted);
+  // Thinning can leave fewer than `outerR` can interpolate between (every point inside one T_GAP).
+  return legal.length >= LIMITS.pts[0] ? legal : DEFAULTS.pts.map((q) => ({ ...q }));
+}
+
+/**
+ * The two silhouette rules the loop above does not cover: the point COUNT ceiling and the minimum
+ * spacing. Both are geometry rather than taste — points packed tighter than `T_GAP` make
+ * `grooveOuterPts`' outline cross itself and the rib extrudes with open edges, which is a file the
+ * slicer refuses. Clamping `r` and `t` alone let a 30-point hand-edited file through and it did
+ * exactly that.
+ *
+ * THINS rather than rejects: a foreign or older file keeps as much of its shape as the editor could
+ * legally express, which is the same promise `sanitizeSaved` makes about every other field.
+ */
+function legalizePts(sorted: Pt[]): Pt[] {
+  const kept: Pt[] = [];
+  for (const q of sorted) if (!kept.length || q.t - kept[kept.length - 1].t >= T_GAP) kept.push(q);
+  const max = LIMITS.pts[1];
+  if (kept.length <= max) return kept;
+  // Still over the ceiling. Both ends survive — they ARE the openings, and the neck's radius — and
+  // the interior is sampled evenly. A subset of an already-spaced list only widens the gaps.
+  const out = [kept[0]];
+  for (let i = 1; i < max - 1; i++) out.push(kept[Math.round((i * (kept.length - 1)) / (max - 1))]);
+  out.push(kept[kept.length - 1]);
+  return out;
 }
 
 // Coerce numbers. Non-finite (string / missing / NaN) fall back to DEFAULTS; out-of-range
@@ -88,6 +118,24 @@ function coerceNums(p: Design): Design {
   return p;
 }
 
+/**
+ * Boolean fields. `coerceNums` covers every numeric one and nothing covered these, so a hand-edited
+ * or foreign file with `"neckBot": "false"` arrived as the STRING: truthy at `profile.ts`'s
+ * `p.neckBot ?? p.neckOn ?? true`, and written straight back out by `serializeState` — a `Design`
+ * permanently failing its own type. A wrong type falls back to DEFAULTS, the same answer the
+ * numeric path gives, rather than to `!!value`, which would read `"false"` as true.
+ *
+ * The two optional flags are DROPPED rather than defaulted when they are the wrong type: `neckBot ??
+ * neckOn ?? true` reads absence as "no answer here, ask the next one", which `false` would answer.
+ */
+const BOOL_KEYS = ["neckBot", "neckTop", "lighten", "spiral", "legSockets"] as const;
+const OPT_BOOL_KEYS = ["neckOn", "noTabDent"] as const;
+function coerceBools(p: Design): Design {
+  for (const k of BOOL_KEYS) if (typeof p[k] !== "boolean") p[k] = DEFAULTS[k];
+  for (const k of OPT_BOOL_KEYS) if (p[k] !== undefined && typeof p[k] !== "boolean") delete p[k];
+  return p;
+}
+
 // Sanitize a shape p: shallow-merge missing fields from DEFAULTS, validate pts, coerce numbers,
 // clamp boards. The boards clamp brings TomoshibiStudio's self-healing effect forward, so the first
 // render cannot produce a non-watertight koma.
@@ -96,6 +144,7 @@ function sanitizeP(rawP: unknown): Design {
   const p: Design = { ...DEFAULTS, ...raw };   // missing fields are filled from the single source of truth, DEFAULTS
   p.pts = validatePts(raw && raw.pts);
   coerceNums(p);
+  coerceBools(p);
   p.boards = Math.min(p.boards, maxBoards(p));
   return p;
 }
@@ -124,7 +173,7 @@ export function sanitizeSaved(saved: unknown): SavedState | null {
   const bedW = clampNum(raw.bedW, 100, 420, 256);   // UI numInput allowed range
   const bedD = clampNum(raw.bedD, 100, 420, 256);
   const printRibs = Math.round(clampNum(raw.printRibs, 1, 16, 1)); // 1..boards; upper bound further clamped on the boards side
-  const matT = clampNum(raw.matT, 1, 10, 5);        // paper-template material thickness (mm). UI stepper allowed range
+  const matT = clampNum(raw.matT, 1, 10, MAT_T);    // paper-template material thickness (mm). UI stepper allowed range
   // How this person builds the mold: "stl" (3D print) or "paper" (cardboard). A fact about the
   // maker, not the design, but it decides whether the print bed constrains anything at all, so it is
   // restored alongside the bed. Anything else falls back to "stl".

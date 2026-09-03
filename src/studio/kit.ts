@@ -7,10 +7,11 @@
 import type * as THREE from "three";
 import {
   maxRadius, ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
+  WASHI_SIDE, WASHI_END,
 } from "../geometry.ts";
 import { exportZip, zipBundle, downloadFile, type Part } from "../io/stl.ts";
 import { paperPDF, washiPDF } from "../papercraft.ts";
-import { serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION, type SavedState } from "./persist.ts";
+import { serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION, MAT_T, type SavedState } from "./persist.ts";
 import { DEFAULTS, WASHI_PDF } from "../config.ts";
 import type { T } from "../i18n.ts";
 import type { Design } from "../types.ts";
@@ -101,8 +102,13 @@ export function importDesign(file: File | undefined, t: T, apply: (s: SavedState
 }
 
 /** Back to the defaults, localStorage included. `apply` runs only if the confirm is accepted. */
-export function resetAll(t: T, apply: (s: Pick<SavedState, "p" | "bedW" | "bedD" | "printRibs" | "route">) => void): void {
+export function resetAll(t: T, apply: (s: SavedState) => void): void {
   if (!window.confirm(t("すべての設定を初期状態に戻します。よろしいですか?"))) return;
   try { localStorage.removeItem(STORAGE_KEY); } catch { /* continue even if storage is disabled */ }
-  apply({ p: DEFAULTS, bedW: 256, bedD: 256, printRibs: 1, route: "stl" });
+  // The WHOLE state, and the type says so. A `Pick` of five fields left `matT`, `washiSide` and
+  // `washiEnd` standing while the dialog promised すべて — a reset design whose washi PDF was still
+  // cut to the allowances you set before it. And the removeItem above cannot cover for that: the
+  // next state change re-runs useAutosave, which writes the survivors straight back under the same
+  // key. Resetting is what apply does; removeItem only handles closing the tab immediately after.
+  apply({ p: DEFAULTS, bedW: 256, bedD: 256, printRibs: 1, matT: MAT_T, washiSide: WASHI_SIDE, washiEnd: WASHI_END, route: "stl" });
 }

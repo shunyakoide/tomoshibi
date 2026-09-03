@@ -66,7 +66,7 @@ function BoardGroup({ matT, setMatT }: { matT: number; setMatT: (v: number) => v
       </Stepper>
       {/* Counterpart to the 3D route's bed warning: on paper there is no machine size to exceed, and
           saying nothing would read as a missing check. */}
-      <Note>{t("大きさの制限はありません。A4 に収まらない部品は次のページに続きます(両方を青い枠で切り、同じ番号の半ダイヤが◇になるよう突き合わせて裏からテープ)。")}</Note>
+      <Note>{t("A4 に収まらない部品は次のページに続きます(両方を青い枠で切り、同じ番号の半ダイヤが◇になるよう突き合わせて裏からテープ)。続くのは縦方向だけです。")}</Note>
     </>
   );
 }

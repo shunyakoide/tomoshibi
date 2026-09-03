@@ -11,6 +11,12 @@ import { Badge } from "./controls.tsx";
 import Logo from "./Logo.tsx";
 import type { Route } from "../types.ts";
 
+// Everything a keyboard can land on inside the card. `[tabindex="-1"]` is deliberately excluded:
+// programmatically focusable is not the same as tabbable, and including it would put stops in the
+// cycle that Tab cannot otherwise reach.
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]),'
+  + ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /** Which of the three drawn step marks to render. */
 type StepKind = "section" | "export" | "build";
 
@@ -76,20 +82,43 @@ export default function Welcome({ route = null, onPick, onClose }: {
 }) {
   const t = useT();
   const btnRef = useRef<HTMLButtonElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Esc closes, and focus starts on the (only) button so the keyboard isn't stranded behind the scrim.
+  //
+  // Tab is trapped, because `aria-modal` is a PROMISE that the rest of the page is inert and nothing
+  // here makes it so: Tab used to walk out of the card into the view chips behind the scrim and on
+  // through the whole app, never coming back, while a screen reader was told the background did not
+  // exist. The trap is what makes the attribute true.
   useEffect(() => {
     btnRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "Tab") return;
+      const card = cardRef.current;
+      if (!card) return;
+      // `offsetParent` drops anything display:none — a step's button in a collapsed block would
+      // otherwise become a stop you can tab to but cannot see.
+      const stops = [...card.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null);
+      if (!stops.length) return;
+      const first = stops[0], last = stops[stops.length - 1], here = document.activeElement;
+      if (!card.contains(here)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+      else if (!e.shiftKey && here === last) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && here === first) { e.preventDefault(); last.focus(); }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   return (
-    <div onClick={onClose}
+    // Closed on a press that BEGINS on the backdrop, not on any click whose target is the overlay:
+    // `click` fires on the common ancestor, so pressing inside the card and releasing outside it —
+    // a text selection, a mis-aimed drag — counted as dismissing, and `closeWelcome` had already
+    // written the seen flag, so the card never came back on its own.
+    <div onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
       className="fixed inset-0 z-50 flex justify-center overflow-y-auto p-20
         bg-[rgba(43,36,26,0.42)] backdrop-blur-[3px]">
-      <div role="dialog" aria-modal="true" aria-label={t("はじめかた")} onClick={(e) => e.stopPropagation()}
+      <div ref={cardRef} role="dialog" aria-modal="true" aria-label={t("はじめかた")}
         /* `m-auto` centres this, NOT the overlay's align-items: centred by align-items a card
            taller than the window overflows in BOTH directions, and a scroll container cannot reach
            what is above its start edge. An auto margin resolves to 0 once the free space goes

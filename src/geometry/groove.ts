@@ -48,21 +48,63 @@ export function grooveOuterPts(p: Design, grooves: number[], gR: number): Pt2[] 
     ys.add(Math.max(0, it.g - (it.cs > 0 ? it.hyC : it.hyO)));
     ys.add(Math.min(h, it.g + (it.cs > 0 ? it.hyO : it.hyC)));
   }
-  const pts: Pt2[] = [];
-  for (const y of [...ys].sort((a, b) => a - b)) {
-    let dip = 0, nx = 0, ny = 0;                        // nearest groove wins (grooves never overlap: pitch ≫ width)
-    for (const it of info) {
-      const d = y - it.g;
-      const wy = (d === 0 || Math.sign(d) === it.cs) ? it.hyC : it.hyO; // which flank (center/opening) this y is on
-      if (Math.abs(d) < wy) {
-        const v = it.depth * (1 - Math.abs(d) / wy);
-        if (v > dip) { dip = v; nx = it.nx; ny = it.ny; }
+  const sorted = [...ys].sort((a, b) => a - b);
+  const sample = (depthScale: number): Pt2[] => {
+    const pts: Pt2[] = [];
+    for (const y of sorted) {
+      let dip = 0, nx = 0, ny = 0;                      // nearest groove wins (grooves never overlap: pitch ≫ width)
+      for (const it of info) {
+        const d = y - it.g;
+        const wy = (d === 0 || Math.sign(d) === it.cs) ? it.hyC : it.hyO; // which flank (center/opening) this y is on
+        if (Math.abs(d) < wy) {
+          const v = it.depth * depthScale * (1 - Math.abs(d) / wy);
+          if (v > dip) { dip = v; nx = it.nx; ny = it.ny; }
+        }
       }
+      const base = outerR(p, Math.min(Math.max(y, 0), h) / h);
+      pts.push([base + dip * nx, y + dip * ny]);
     }
-    const base = outerR(p, Math.min(Math.max(y, 0), h) / h);
-    pts.push([base + dip * nx, y + dip * ny]);
-  }
+    return pts;
+  };
+  // Full depth first, and returned untouched unless it folds: every silhouette that was sound stays
+  // vertex-for-vertex what it was, which is what makes this checkable with check:hash.
+  let pts = sample(1);
+  for (const s of DEPTH_BACKOFF) { if (!foldsOver(pts)) break; pts = sample(s); }
   return pts;
+}
+// How far the notch backs off, in steps, when the outline folds. Depth rather than width: a
+// shallower V keeps the same footprint on the surface and still catches the bamboo, where a
+// narrower one would stop being the undercut it exists to be.
+const DEPTH_BACKOFF = [0.7, 0.45, 0.25, 0.1];
+// Samples scanned ahead for a crossing. Every fold observed sits inside ONE groove's own flanks and
+// spans at most 7 samples, so this is a short window rather than the whole O(n²) outline — which
+// matters because check:manifold calls this tens of thousands of times.
+const FOLD_SCAN = 24;
+/**
+ * Does the outer edge cross itself? The notch is offset along the surface NORMAL, so on a steep face
+ * its tip travels in y as well as in x. Where the profile turns sharply — control points at the
+ * editor's `T_GAP` with a large radius swing — that travel outruns the flank's own y half-width and
+ * the outline folds back THROUGH itself; the extrusion then opens edges and the slicer refuses the
+ * STL, with every gate reporting 0 FAIL.
+ *
+ * DETECTED rather than predicted. The closed-form threshold (depth × |slope| against the flank's
+ * half-width) also fires on shapes that are perfectly sound, because a NON-MONOTONE outline is the
+ * normal state here — the undercut is the whole point of the notch, and all three presets are
+ * non-monotone. A proper crossing is not normal, and separates the two.
+ */
+function foldsOver(pts: Pt2[]): boolean {
+  const n = pts.length;
+  for (let i = 0; i + 1 < n; i++) {
+    const end = Math.min(n - 1, i + FOLD_SCAN);
+    for (let j = i + 2; j < end; j++) if (segCross(pts[i], pts[i + 1], pts[j], pts[j + 1])) return true;
+  }
+  return false;
+}
+/** Proper segment crossing — endpoints touching (which adjacent samples always do) is not one. */
+function segCross(a: Pt2, b: Pt2, c: Pt2, d: Pt2): boolean {
+  const side = (o: Pt2, u: Pt2, v: Pt2) => (u[0] - o[0]) * (v[1] - o[1]) - (u[1] - o[1]) * (v[0] - o[0]);
+  const d1 = side(c, d, a), d2 = side(c, d, b), d3 = side(a, b, c), d4 = side(a, b, d);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
 }
 // Groove half-width (mm) = bamboo rib radius + relief. In one place so the groove-making side
 // (ribOutline2D) and the drawing side (SectionEditor) always use the same value (no section/STL

@@ -14,7 +14,7 @@
  * Print styles live in index.css: the browser's own "Save as PDF" is the paper version, which is why
  * the guide is not a PDF the app writes.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { disposeFigures } from "../three/figures.ts";
 import { KIT, KIT_FIGS, PARTS, STEPS } from "./content.ts";
 import { Fig, GUIDE_P, drawn, figure } from "./figures.tsx";

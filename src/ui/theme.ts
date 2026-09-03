@@ -52,10 +52,14 @@ export const vpBg = (isLit: boolean) => (isLit
   ? "radial-gradient(circle at 50% 40%, #1b2230 0%, #070a11 100%)"
   : "radial-gradient(circle at 50% 34%, #eef0f3 0%, #c3c8d0 52%, #939ba6 100%)");
 
-// Floating overlay chips (mode tabs, dimension readout) have to stay legible on both backgrounds.
+// Floating overlay chips (mode tabs, dimension readout) have to stay legible on both backgrounds,
+// and "legible" is a measured number: `txt` on `bg` over the view's own ground, at the 12px these
+// are set in, must clear WCAG AA's 4.5:1. Lit 5.6:1, unlit 5.2:1 against the darkest end of the
+// light gradient. The unlit ink used to be #8a7c66 — 3.6:1, under the line — while the mode tabs
+// quietly hardcoded a passing colour of their own and only the readout wore the failing one.
 export const chipStyle = (isLit: boolean) => (isLit
   ? { bg: "rgba(16,16,18,0.72)", edge: "rgba(255,255,255,0.08)", txt: "#8a8a96" }
-  : { bg: "rgba(255,255,255,0.85)", edge: "rgba(59,52,43,0.08)", txt: "#8a7c66" });
+  : { bg: "rgba(255,255,255,0.85)", edge: "rgba(59,52,43,0.08)", txt: "#6f6350" });
 
 // Defaults to identity, so a control rendered outside the provider shows the Japanese key rather
 // than throwing.

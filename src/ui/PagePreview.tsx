@@ -10,9 +10,9 @@
  * On screen it is NOT full scale (a 210mm page is ~230px) — hence the note, and hence the ruler
  * printed on every sheet, the only check that catches printer scaling.
  */
-import React, { useDeferredValue, useMemo } from "react";
+import { useDeferredValue, useMemo } from "react";
 import { paperPagesSVG } from "../papercraft.ts";
-import { UI as ui, useT } from "./theme.ts";
+import { useT } from "./theme.ts";
 import type { Lang } from "../i18n.ts";
 import type { Design } from "../types.ts";
 
