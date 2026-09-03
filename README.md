@@ -76,7 +76,7 @@ life in April 2026. An older Node fails at `npm install` rather than degrading.
 - **View tabs** — switch between **Section / Assembly / Print / Lit**. (The build guide is a page of its own, at `/guide`, opened from the **☰** menu.)
 - **Right panel** — pick a preset, then drag the section's control points to reshape; the sections below (Frame, Bamboo ribs, Washi, Print bed…) hold the finer settings.
 - **Preview** — drag to orbit, wheel / pinch to zoom.
-- **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `config.json` backup of your design. (STL compresses well: a default kit is about 190 KB zipped.)
+- **Export** — the Print view downloads a ZIP of every part as separate STLs, plus a `tomoshibi_config.json` backup of your design. (STL compresses well: a default kit is about 190 KB zipped.)
 - **If you're lost** — a card on your first visit says what the object on screen actually is (the mold, not the lantern); the **☰** menu's first row reopens it any time. The legend at the top-right of the section view redraws the ◇ marks themselves, and follows the edit mode you are in.
 
 ### From print to lantern
@@ -153,7 +153,8 @@ what you see is exactly what you print.
 Geometry changes must stay **watertight**. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
 dev setup, the verification gates (`npm run lint` / `typecheck` / `check:manifold` / `check:hash` /
 `check:persist` / `check:paper` / `check:glyphs` / `check:i18n` / `check:style`), and the design invariants to preserve.
-CI runs them on every push and pull request. The design decisions behind the mold — the part
+CI runs all of them on every push and pull request except `check:hash`, which needs a before
+and an after and so is run locally around a change meant to leave the STL identical. The design decisions behind the mold — the part
 roles, the print-fit invariants, why each shape is the shape it is — are in
 [docs/design-notes.md](docs/design-notes.md).
 

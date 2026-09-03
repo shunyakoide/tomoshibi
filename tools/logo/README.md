@@ -6,7 +6,7 @@ computed, so a nudge to one file puts it out of step with the other eleven.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install fonttools
-.venv/bin/python build.py            # writes the SVGs next to itself
+.venv/bin/python build.py            # OVERWRITES public/*.svg and src/ui/Logo.tsx
 ```
 
 `glyphs.json` and `latin.json` hold the glyph outlines already extracted from the fonts, so the
