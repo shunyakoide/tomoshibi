@@ -118,6 +118,24 @@ function coerceNums(p: Design): Design {
   return p;
 }
 
+/**
+ * Boolean fields. `coerceNums` covers every numeric one and nothing covered these, so a hand-edited
+ * or foreign file with `"neckBot": "false"` arrived as the STRING: truthy at `profile.ts`'s
+ * `p.neckBot ?? p.neckOn ?? true`, and written straight back out by `serializeState` — a `Design`
+ * permanently failing its own type. A wrong type falls back to DEFAULTS, the same answer the
+ * numeric path gives, rather than to `!!value`, which would read `"false"` as true.
+ *
+ * The two optional flags are DROPPED rather than defaulted when they are the wrong type: `neckBot ??
+ * neckOn ?? true` reads absence as "no answer here, ask the next one", which `false` would answer.
+ */
+const BOOL_KEYS = ["neckBot", "neckTop", "lighten", "spiral", "legSockets"] as const;
+const OPT_BOOL_KEYS = ["neckOn", "noTabDent"] as const;
+function coerceBools(p: Design): Design {
+  for (const k of BOOL_KEYS) if (typeof p[k] !== "boolean") p[k] = DEFAULTS[k];
+  for (const k of OPT_BOOL_KEYS) if (p[k] !== undefined && typeof p[k] !== "boolean") delete p[k];
+  return p;
+}
+
 // Sanitize a shape p: shallow-merge missing fields from DEFAULTS, validate pts, coerce numbers,
 // clamp boards. The boards clamp brings TomoshibiStudio's self-healing effect forward, so the first
 // render cannot produce a non-watertight koma.
@@ -126,6 +144,7 @@ function sanitizeP(rawP: unknown): Design {
   const p: Design = { ...DEFAULTS, ...raw };   // missing fields are filled from the single source of truth, DEFAULTS
   p.pts = validatePts(raw && raw.pts);
   coerceNums(p);
+  coerceBools(p);
   p.boards = Math.min(p.boards, maxBoards(p));
   return p;
 }
