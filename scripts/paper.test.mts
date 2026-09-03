@@ -19,7 +19,7 @@
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
 import { winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
-import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR, openingR, ringGeometry, ringLegs, wireRing2D } from "../src/geometry.ts";
+import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
 import type { Design } from "../src/types.ts";
 
@@ -174,7 +174,7 @@ for (const preset of PRESETS)
   for (const height of [140, 205, 300, 400])
     for (const boards of [4, 6, 8, 12, 16])
       for (const spiral of [false, true])
-        for (const [side, end] of [[3, 3], [0, 0], [10, 5]]) {
+        for (const [side, end] of [[WASHI_SIDE, WASHI_END], [3, 3], [0, 0], [10, 5]]) {
           nw++;
           const p = { ...DEFAULTS, ...preset, height, boards, spiral };
           const tag = `${preset.key} h${height} b${boards} sp${spiral ? 1 : 0} s${side} e${end}`;
