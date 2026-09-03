@@ -1,6 +1,5 @@
 // Undo and redo stay in the open, not in the ☰: they are the recovery path for a direct-manipulation
 // editor, which is the frequent case an overflow menu exists to make room for.
-import React from "react";
 import { useT } from "./theme.ts";
 import { Button } from "./controls.tsx";
 import type { UndoRedo } from "../studio/hooks.ts";

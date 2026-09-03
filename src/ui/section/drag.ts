@@ -72,15 +72,27 @@ export function sectionDrag(ctx: {
     };
   };
 
-  // On the WINDOW, so the pointer may leave the small hit target mid-drag.
-  const startDrag = (key: string, onMove: (e: PointerEvent) => void) => {
-    const up = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", up);
+  // On the WINDOW, so the pointer may leave the small hit target mid-drag — and therefore filtered
+  // by `pointerId`, because a window listener hears EVERY pointer. Without the filter a second
+  // finger put down anywhere on the screen dragged the ◇ the first one was holding, and a second
+  // finger lifted ended the first one's drag.
+  //
+  // `pointercancel` fires INSTEAD of `pointerup` — an iOS edge-swipe, a touch-count overflow, the
+  // browser taking the gesture away. Listening for only `pointerup` left the drag live: the move
+  // listener stayed bound, `setDrag(null)` never ran, and the next unrelated pointer move anywhere
+  // on the page moved that control point. `ui/sheet.ts` has always handled both; this was the outlier.
+  const startDrag = (key: string, id: number, onMove: (e: PointerEvent) => void) => {
+    const move = (e: PointerEvent) => { if (e.pointerId === id) onMove(e); };
+    const end = (e: PointerEvent) => {
+      if (e.pointerId !== id) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
       setDrag(null);
     };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", up);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
     setDrag(key);
   };
 
@@ -90,7 +102,7 @@ export function sectionDrag(ctx: {
     const start = p[cfg.key];
     const f = freezeMap();
     const s0 = f.toSvg(e.clientX, e.clientY);
-    startDrag(cfg.key, (ev) => {
+    startDrag(cfg.key, e.pointerId, (ev) => {
       const c = f.toSvg(ev.clientX, ev.clientY);
       const dSvg = cfg.axis === "y" ? s0.y - c.y : c.x - s0.x; // up/right direction is positive
       setP((o) => ({ ...o, [cfg.key]: clamp(cfg.min, cfg.max, Math.round(start + dSvg / f.s)) }));
@@ -108,7 +120,7 @@ export function sectionDrag(ctx: {
     const f = freezeMap();
     const s0 = f.toSvg(sx, sy);
     let moved = false;
-    startDrag("pt" + i, (ev) => {
+    startDrag("pt" + i, e.pointerId, (ev) => {
       if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) moved = true;
       if (!moved) return;
       if (editMode === "curve") return;   // in curve-adjust mode the point doesn't move (only the handles do)
@@ -140,7 +152,7 @@ export function sectionDrag(ctx: {
     e.preventDefault();
     e.stopPropagation();
     const f = freezeMap();
-    startDrag("h" + i + which, (ev) => {
+    startDrag("h" + i + which, e.pointerId, (ev) => {
       const m = f.toModel(ev.clientX, ev.clientY);
       setP((o) => {
         const pts = o.pts.map((q) => ({ ...q, ho: q.ho ? { ...q.ho } : undefined, hi: q.hi ? { ...q.hi } : undefined }));

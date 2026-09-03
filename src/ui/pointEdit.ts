@@ -6,13 +6,9 @@
  */
 import type React from "react";
 import { bakeBezierHandles } from "../geometry.ts";
-import { LIMITS } from "../config.ts";
+import { LIMITS, T_GAP } from "../config.ts";
 import { clamp } from "../util.ts";
 import type { Design, Pt } from "../types.ts";
-
-// How close two control points may get, in `t`. Big enough that the spline between them stays
-// well-conditioned; small enough that it is never what you notice while dragging.
-const T_GAP = 0.04;
 
 /**
  * How far a point may travel in `t` without passing a neighbour, which keeps `pts` ascending —

@@ -17,8 +17,11 @@ const ROUTES: [Route, string, string | null][] = [["stl", "3Dプリント", null
 // tab's padding or font size moves that number too.
 const CHIP_BOX = "absolute left-16 flex gap-2 p-4 rounded-lg border backdrop-blur-[6px] "
   + "shadow-[0_2px_10px_rgba(59,52,43,0.07)]";
+// No ink of its own: the unpressed colour is INHERITED from the chip box, which takes it from
+// `chipStyle` along with the ground it sits on. Hardcoding it here meant the two moved apart — the
+// box went dark in the lit view while the text stayed the light view's brown, at 3.3:1.
 const TAB_SKIN = "px-14 py-7 border-0 rounded-sm cursor-pointer transition-all duration-150 "
-  + "bg-transparent text-[#6f6350] font-sans text-base font-medium "
+  + "bg-transparent text-[color:inherit] font-sans text-base font-medium "
   + "aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:font-bold";
 
 /** Wide: two rows of chips floating over the canvas. */
@@ -28,7 +31,7 @@ export function ViewChips({ view, setView, route, setRoute, isLit }: {
 }) {
   const t = useT();
   const chip = chipStyle(isLit);
-  const tone = { background: chip.bg, borderColor: chip.edge };
+  const tone = { background: chip.bg, borderColor: chip.edge, color: chip.txt };
   return (
     <>
       <div className={`${CHIP_BOX} top-16`} style={tone}>

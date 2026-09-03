@@ -79,8 +79,6 @@ const SCENES: Record<string, Scene> = {
   hangSet: (p) => hangSet(p),
 };
 
-export const FIGURES = Object.keys(SCENES);
-
 /**
  * Render one figure to a PNG data URL, or null if it cannot be drawn (no WebGL, unknown id). Drawn
  * at 2x and shown at 1x, so the thin edge lines survive a high-density screen and printing.

@@ -43,8 +43,10 @@ There is no unit-test runner. Correctness is guaranteed by **"the build passes"*
 | `npm run check:style` | Confirms every font size is a member of the type scale, every corner radius a member of the corner scale, and every class in the DOM has a rule behind it. Needs `npm run build` first, since only Tailwind knows what it generated -- and it FAILS rather than skips without `dist`. |
 | `npm run check:i18n` | Confirms no UI wording lost its translation. The dictionary is keyed by the Japanese string itself, so **rewording a label does not make its translation stale -- it deletes it**, silently, and the app shows Japanese to an English visitor. Also catches entries left orphaned by the reword, and `{placeholder}` mismatches. |
 
-CI runs all of these on every push and pull request, but run them locally first --
-`check:manifold` is the slow one and it is the one that matters most.
+CI runs all of these on every push and pull request EXCEPT `check:hash`, which compares a
+before and an after and so has nothing to compare against on a single commit -- it is yours
+to run locally, around a change that should leave the STL identical. Run the rest locally
+first too: `check:manifold` is the slow one and it is the one that matters most.
 
 Manifold verification has a known blind spot: edge counting cannot see a hole that got
 filled in -- the shell stays closed either way. The leg sockets are the one place this is

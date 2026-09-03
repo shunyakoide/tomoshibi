@@ -13,7 +13,7 @@
  */
 import type * as THREE from "three";
 import * as G from "../src/geometry.ts";
-import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
+import { PRESETS, DEFAULTS, LIMITS, T_GAP } from "../src/config.ts";
 import type { Design, Pt } from "../src/types.ts";
 
 /** One part's verdict. `reason` is what gets printed when it fails. */
@@ -196,6 +196,38 @@ for (const height of [hLo, 205, hHi]) {
   }
 }
 console.log(`\n=== silhouette extremes (h ${hLo}..${hHi} × r ${rLo}..${rHi}): ${exTotal} checks, ${exFail} FAIL ===`);
+
+// ============ Control-point spacing / count sweep ============
+// Every sweep above rewrites `pts` by scaling `q.r` and copying `q.t` — three separate places do it,
+// each spreading `{...q}` — so `t` is preserved by construction and the tightest spacing any of them
+// exercises is a preset's own 0.09, against an editor floor of T_GAP = 0.04. The largest count they
+// reach is 5, against a permitted LIMITS.pts[1]. Spacing and count are the two degrees of freedom
+// direct manipulation exposes, and nothing swept either: which is how a silhouette reachable by
+// DRAGGING ALONE folded `grooveOuterPts`' outline through itself and extruded a rib with open edges,
+// while this script printed 0 FAIL on 48,801 checks.
+// The radius alternates because a fold needs a sharp turn, not merely a tight gap. higoD 3 is in
+// because the notch reach, and so the fold, is largest there.
+let spcFail = 0, spcTotal = 0;
+for (const preset of PRESETS)
+  for (const nPts of [3, 5, LIMITS.pts[1]])
+    for (const gap of [T_GAP, T_GAP * 1.5, 0.1])
+      for (const swing of [0, 20])
+        for (const height of [hLo, 205, 400])
+          for (const higoD of [2, 3]) {
+            const mid = preset.pts.reduce((s, q) => s + q.r, 0) / preset.pts.length;
+            const pts: Pt[] = Array.from({ length: nPts }, (_, i) => ({
+              t: 0.05 + i * gap,
+              r: Math.min(rHi, Math.max(rLo, mid + (i % 2 ? swing : -swing))),
+            }));
+            if (pts[nPts - 1].t > 0.99) continue;   // past the top opening — not a design the editor can make
+            const base = { ...DEFAULTS, ...preset, pts, height, higoD };
+            const p = { ...base, boards: Math.min(8, G.maxBoards(base)) };
+            for (const r of checkParts(p)) {
+              spcTotal++;
+              if (!r.ok) { spcFail++; if (spcFail <= 40) console.log(`✗[S] ${preset.key} n${nPts} gap${gap} sw${swing} h${height} hd${higoD} :: ${r.name} → ${r.reason}`); }
+            }
+          }
+console.log(`\n=== control-point spacing (gap ${T_GAP}..0.1 × ${LIMITS.pts[0]}..${LIMITS.pts[1]} points): ${spcTotal} checks, ${spcFail} FAIL ===`);
 
 // ============ Bottom-ring leg sockets sweep ============
 // The bottom ring carries three onigiri pads with a leg bore each, unless `p.legSockets` is off or
