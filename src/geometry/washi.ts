@@ -17,8 +17,17 @@ import { grooveList, grooveR } from "./groove.ts";
 // square to a straight axis the side edge runs slightly longer than the true meridian (~4% at the
 // steepest slope with 8 ribs, ~2% with 12, shrinking as (π/N)²). Damp washi absorbs that; the exact
 // alternative (a cone-chain unroll, curved axis) would trade it for extra horizontal seams.
-export const WASHI_SIDE = 3;   // default overlap (のりしろ) added on EACH side, mm. Panels overlap on the rib.
-export const WASHI_END = 3;    // default overhang past each opening, mm. Folded over the opening ring.
+// Default overlap (のりしろ) added on EACH side, mm. Panels overlap on the rib. 3mm held on a lantern
+// actually built from this template — it is not a guess, and it is not short.
+export const WASHI_SIDE = 3;
+// Default overhang past each opening, mm, folded over the opening ring. Twice the side allowance
+// because on that same build the END was the one that came up short. That is the whole reason: do
+// not re-derive it from an argument about how much glue area a fold leaves, since the side came
+// through exactly that argument intact. Still a control with the same 0..15 range; only its start
+// moved. **The build was on the 3D-print route** — nothing has been made on cardboard yet, and its
+// hoop is bent wire rather than a printed band, so treat 6 as carried over rather than confirmed
+// there.
+export const WASHI_END = 6;
 const WASHI_STEP = 0.5;        // meridian sampling (mm) — the same 0.5 the rib outline and the
                                // groove edge sample at.
 const WASHI_TICK = 5;          // length of the bamboo-rib tick drawn inward from the edge (mm)
