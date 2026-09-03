@@ -187,6 +187,18 @@ So it can be built without a 3D printer, the app lays each part's 2D outline out
 - **Don't output a stand.** The papercraft is the mold only (ribs + koma); the user provides their own. A cardboard cross stand was generated once and removed at the user's request. The 3D-print stand is unaffected.
 - **Pages split DOWN only, so a part wider than the content column is CLIPPED — and that must never be silent again.** `layout` orients each part once (rotating it 90° if that makes it fit across) and, when neither way round fits, places it at `x = 0` anyway; `pageOps` then clips to `CW` and the overhang is gone, with no seam, no extra sheet and nothing on screen. An egg preset scaled ×3 (⌀564, well inside `LIMITS.r`) loses **72mm off every rib**, and the washi panel starts losing width at ⌀250 on four ribs (`π·R/N + side > CW`), a document with **no preview at all**. The UI said the opposite in so many words — 「大きさの制限はありません」 — and that clause is gone; the sheet-joining sentence stays, now ending "続くのは縦方向だけです". `layout` records the offending parts as `Overflow { name, w, over }`, `templateOverflow` collects them for whichever documents the route ships, and it surfaces as a viewport alert beside the bed-overflow and pull-out ones. **Continuing a part sideways is a different feature** — it needs horizontal seam codes and an assembly order the current half-diamond vocabulary does not have. Until it exists, the alert is the honest answer; do not re-add a "no size limit" claim to get the sentence back.
 
+- **A part keeps `EDGE` (3mm) clear of the trim box, and that white travels with its ROW.** Without it
+  a part is placed at the content column's own origin and its cut line lands exactly on the blue trim
+  line: black over blue, nothing for a blade to clear, and no telling which of the two lines you are
+  meant to follow. 3mm is half of `GAP`, so the sheet's edge is as far from a part as a neighbouring
+  part's edge is — the trim box is simply another neighbour. It is carried as part of the row's
+  height (the row is `EDGE` taller, its parts sit `EDGE` down inside it) and **never as a page-space
+  offset on `y0`**: a page that CONTINUES a row is a seam, and padding that would open a 3mm break in
+  a spanning part's cut line at the very join the two sheets are butted on. `CW` stays the trim
+  width — the frame, the clip and the join diamonds are drawn to the paper, not to the column — and
+  only the packing and the overflow test read `colW = CW - 2·EDGE`. Measured over the sweep: **zero**
+  extra sheets.
+
 **The full-scale check mark is an L — a try square, not a bar — and it goes wherever the layout already leaves room.** Shrinking under "fit to page" is the biggest source of accidents and this is the only way to catch it with a ruler; one mark answers for the whole job, since a printer scales every page alike. It is drawn thick (the `scale` style, 0.6mm) so a ruler's edge has something to line up against.
 
 - **Two arms, because a printer can scale the two axes differently and a horizontal bar cannot see that at all.** This is why every printable sewing pattern prints a *square* rather than a line ([Seamwork](https://help.seamwork.com/hc/en-us/articles/360004182294-The-test-square-on-my-digital-pattern-is-too-small), [Sussex Seamstress](https://www.sussexseamstress.com/sewing-tips-blog/how-to-print-and-assemble-pdf-sewing-patterns)). Do not reduce it to one line.
