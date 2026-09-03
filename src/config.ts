@@ -42,6 +42,14 @@ export const DEFAULTS: Design = {
 // most the section view will add.
 export const LIMITS = { height: [60, 2000], r: [10, 600], pts: [2, 8] } as const satisfies Record<string, readonly [number, number]>;
 
+// How close two control points may get, in `t`. Big enough that the spline between them stays
+// well-conditioned; small enough that it is never what you notice while dragging.
+// Here rather than beside the drag it clamps because it is a LIMIT like the three above: the editor
+// enforces it, persist re-enforces it on a file the editor did not write, and check:manifold sweeps
+// down to it. While it lived module-private in the UI the gates could not read the floor they had to
+// corner, and a silhouette packed to it opened the rib's edges with every gate reporting 0 FAIL.
+export const T_GAP = 0.04;
+
 /**
  * A scrub row edits ONE numeric field, so its `key` is constrained to the numeric keys rather than
  * `string`: a row naming `pts` or a field that no longer exists fails here instead of silently

@@ -7,7 +7,7 @@
  * must not make `outerR` NaN (a non-manifold STL) or hand the first render an oversized `boards`
  * (a koma whose notches overlap). Verified by `npm run check:persist`.
  */
-import { DEFAULTS, LIMITS } from "../config.ts";
+import { DEFAULTS, LIMITS, T_GAP } from "../config.ts";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
 import { clamp } from "../util.ts";
 import type { Design, NumericDesignKey, Pt, Route } from "../types.ts";
@@ -65,7 +65,7 @@ function validatePts(pts: unknown): Pt[] {
   for (const q of pts) {
     if (!q || !Number.isFinite(q.t) || !Number.isFinite(q.r)) return DEFAULTS.pts.map((q2) => ({ ...q2 }));
   }
-  return pts
+  const sorted = pts
     .map((q) => {
       const out: Pt = { t: clamp(0, 1, q.t), r: clamp(...LIMITS.r, q.r) };
       if (q.sharp) out.sharp = true;
@@ -75,6 +75,32 @@ function validatePts(pts: unknown): Pt[] {
       return out;
     })
     .sort((a, b) => a.t - b.t);
+  const legal = legalizePts(sorted);
+  // Thinning can leave fewer than `outerR` can interpolate between (every point inside one T_GAP).
+  return legal.length >= LIMITS.pts[0] ? legal : DEFAULTS.pts.map((q) => ({ ...q }));
+}
+
+/**
+ * The two silhouette rules the loop above does not cover: the point COUNT ceiling and the minimum
+ * spacing. Both are geometry rather than taste — points packed tighter than `T_GAP` make
+ * `grooveOuterPts`' outline cross itself and the rib extrudes with open edges, which is a file the
+ * slicer refuses. Clamping `r` and `t` alone let a 30-point hand-edited file through and it did
+ * exactly that.
+ *
+ * THINS rather than rejects: a foreign or older file keeps as much of its shape as the editor could
+ * legally express, which is the same promise `sanitizeSaved` makes about every other field.
+ */
+function legalizePts(sorted: Pt[]): Pt[] {
+  const kept: Pt[] = [];
+  for (const q of sorted) if (!kept.length || q.t - kept[kept.length - 1].t >= T_GAP) kept.push(q);
+  const max = LIMITS.pts[1];
+  if (kept.length <= max) return kept;
+  // Still over the ceiling. Both ends survive — they ARE the openings, and the neck's radius — and
+  // the interior is sampled evenly. A subset of an already-spaced list only widens the gaps.
+  const out = [kept[0]];
+  for (let i = 1; i < max - 1; i++) out.push(kept[Math.round((i * (kept.length - 1)) / (max - 1))]);
+  out.push(kept[kept.length - 1]);
+  return out;
 }
 
 // Coerce numbers. Non-finite (string / missing / NaN) fall back to DEFAULTS; out-of-range

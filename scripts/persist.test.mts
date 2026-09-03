@@ -16,7 +16,7 @@ globalThis.localStorage = {
 
 const P = await import("../src/studio/persist.ts");
 const G = await import("../src/geometry.ts");
-const { DEFAULTS, LIMITS } = await import("../src/config.ts");
+const { DEFAULTS, LIMITS, T_GAP } = await import("../src/config.ts");
 type SavedState = import("../src/studio/persist.ts").SavedState;
 
 // Most of what goes in below is deliberately NOT a valid SavedState. The casts live here rather
@@ -152,6 +152,28 @@ t("bedW/bedD out of range → 100..420", r.bedW >= 100 && r.bedD <= 420);
 save({ p: { ...DEFAULTS, pts: [{ t: -3, r: 60 }, { t: 9, r: 20 }] }, bedW: 256, bedD: 256, printRibs: 1 });
 r = load();
 t("clamp pts t to [0,1]", r.p.pts.every((q) => q.t >= 0 && q.t <= 1));
+
+// ---- the two silhouette rules a file can break that the editor cannot ----
+// Clamping `r` and `t` is not enough: the point COUNT ceiling and the minimum spacing are the rules
+// that keep `grooveOuterPts`' outline from folding through itself. A 30-point hand-edited file used
+// to restore as 30 points and hand the slicer a rib with 18 open edges, and check:manifold never saw
+// it because no sweep varied control-point spacing. Both directions are asserted: legal after
+// restore, AND watertight.
+const packed = Array.from({ length: 30 }, (_, i) => ({ t: i / 29, r: i % 2 ? 50 : 30 }));
+save({ p: { ...DEFAULTS, pts: packed }, bedW: 256, bedD: 256, printRibs: 1 });
+r = load();
+t(`30 pts → thinned to ${LIMITS.pts[1]} or fewer`, r.p.pts.length <= LIMITS.pts[1]);
+t(`30 pts → still ${LIMITS.pts[0]} or more`, r.p.pts.length >= LIMITS.pts[0]);
+t("30 pts → spacing at or above T_GAP", r.p.pts.every((q, i) => i === 0 || q.t - r.p.pts[i - 1].t >= T_GAP - 1e-9));
+t("30 pts → watertight", manifoldOK(r.p) === true);
+
+// Sub-T_GAP spacing at a legal count: nothing above catches this, and it is the exact shape the
+// editor's own clamp refuses.
+save({ p: { ...DEFAULTS, pts: [{ t: 0.30, r: 80 }, { t: 0.30 + 1e-9, r: 120 }, { t: 0.34, r: 80 }] },
+  bedW: 256, bedD: 256, printRibs: 1 });
+r = load();
+t("1e-9 gap → spacing at or above T_GAP", r.p.pts.every((q, i) => i === 0 || q.t - r.p.pts[i - 1].t >= T_GAP - 1e-9));
+t("1e-9 gap → watertight", manifoldOK(r.p) === true);
 
 // ---- sanitize of Bézier tangent handles (ho/hi) ----
 // Valid handles preserved. Broken handles (non-finite, JSON-serialized Infinity=null,
