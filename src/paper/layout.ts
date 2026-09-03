@@ -161,11 +161,10 @@ const SQ = { w: 86, h: 34 };
  */
 function scaleSpot(lay: Omit<Layout, "spot">): Spot | null {
   for (let i = 0; i < lay.pages.length; i++) {
-    const { top, bot, y0, row } = lay.pages[i];
-    const prev = lay.pages[i - 1];
-    // `bandTop` is always `y0`: `build` sets a page's `bot` to the next page's `top` exactly when the
-    // row continues, and to its own cap otherwise, so `prev.bot > top` cannot hold. Measured over
-    // 5,046 page boundaries across both templates: zero hits.
+    const { top, bot, y0 } = lay.pages[i];
+    // The band starts at `y0`. It used to add 1mm when `prev.bot > top`, which cannot happen:
+    // `build` sets a page's `bot` to the next page's `top` exactly when the row continues, and to
+    // its own cap otherwise. Zero hits over 7,704 page boundaries across both templates.
     const oy = y0 - top, bandTop = y0, bandBot = y0 + (bot - top);
     const near = lay.placed.filter((q) => q.y < bot && q.y + q.h > top)
       .map((q) => ({ x: MARGIN + q.x, y: oy + q.y, w: q.w, h: q.h }));

@@ -29,12 +29,11 @@ export type Mark = [number, number, number, number];
 export type WashiOpts = { side?: number; end?: number; span?: number };
 /**
  * One flattened panel. `outline` is the cut line, `marks`/`guides` hints that are never cut, `sTot`
- * the meridian ARC LENGTH (not the body height), `stretch` the worst flattening slack — which the
- * page reports rather than scales away.
+ * the meridian ARC LENGTH (not the body height).
  */
 export type WashiGore = {
   outline: Pt2[]; marks: Mark[]; guides: Pt2[][];
-  sTot: number; wMax: number; stretch: number;
+  sTot: number; wMax: number;
   span: number; side: number; end: number; N: number;
 };
 
@@ -83,16 +82,13 @@ export function washiGore(p: Design, opts: WashiOpts = {}): WashiGore {
   // Arc length accumulates as chords of the sampled polyline — the very line the user cuts along, so
   // the paper length matches the drawn line exactly.
   const st: Station[] = [];
-  let s = 0, prev: { y: number; R: number; w: number } | null = null, stretch = 0;
+  let s = 0, prev: { y: number; R: number; w: number } | null = null;
   for (let i = 0; i <= n; i++) {
     const y = y0 + ((y1 - y0) * i) / n, R = outerR(p, y / h);
     const w = (Math.PI * R * span) / N;
     if (prev) {
       const ds = Math.hypot(y - prev.y, R - prev.R);                    // true meridian element
       s += ds;
-      // How much longer the pattern's side edge runs than the meridian it follows (the unavoidable
-      // flattening error). Peaks where the profile is steepest.
-      if (ds > 1e-9) stretch = Math.max(stretch, Math.hypot(ds, w - prev.w) / ds - 1);
     }
     st.push({ y, R, s, w });
     prev = { y, R, w };
@@ -128,5 +124,5 @@ export function washiGore(p: Design, opts: WashiOpts = {}): WashiGore {
   for (const sgn of [-1, 1]) guides.push(st.map((q) => [sgn * q.w, q.s]));
   if (end > 0) for (const i of [0, n]) guides.push([[-(st[i].w + side), st[i].s], [st[i].w + side, st[i].s]]);
 
-  return { outline, marks, guides, sTot, wMax: Math.max(...st.map((q) => q.w)) + side, stretch, span, side, end, N };
+  return { outline, marks, guides, sTot, wMax: Math.max(...st.map((q) => q.w)) + side, span, side, end, N };
 }

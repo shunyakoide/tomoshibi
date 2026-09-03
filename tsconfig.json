@@ -39,6 +39,13 @@
     "strict": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
+    // A declaration nothing reads is dead weight the compiler can see for free, and it accumulates
+    // quietly: a review turned up 19 of them at once — an unused `React` default import in seven
+    // files (the automatic JSX runtime has not needed one since 17), a destructuring list in
+    // TomoshibiStudio that had drifted apart from what the file renders, and two locals left behind
+    // when a branch was removed. Turned on with that count at zero, so it stays there.
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
 
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,

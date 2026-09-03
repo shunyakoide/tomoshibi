@@ -4,7 +4,6 @@
  * a title is only the first line of a paragraph in a column of paragraphs — and numbering them would
  * tell the reader to do all of them.
  */
-import React from "react";
 import { Fig } from "./figures.tsx";
 import type { Way } from "./content.ts";
 import type { T } from "../i18n.ts";

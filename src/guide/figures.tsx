@@ -1,6 +1,5 @@
 // Everything the page renders comes from `GUIDE_P` and nothing from the design on screen, which is
 // what makes the guide a manual rather than a report on your lantern.
-import React from "react";
 import { DEFAULTS } from "../config.ts";
 import { paperP } from "../papercraft.ts";
 import { figureImage } from "../three/figures.ts";
