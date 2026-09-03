@@ -3,7 +3,7 @@
  * detail or a button's styling lands back here, the file starts growing towards the 1,400 lines it
  * used to be.
  */
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
 import * as kit from "./kit.ts";
 import { useFigures, buildAlerts } from "./derived.ts";
@@ -38,7 +38,7 @@ import Toolbar from "../ui/Toolbar.tsx";
 import OverflowMenu, { type MenuItem } from "../ui/Menu.tsx";
 import Logo from "../ui/Logo.tsx";
 import type { EditMode } from "../ui/pointEdit.ts";
-import type { Design, Route } from "../types.ts";
+import type { Route } from "../types.ts";
 
 /** Which onboarding card is open: the first-visit one, the one reopened from the ☰ menu, or neither. */
 type WelcomeCard = "first" | "help" | null;
@@ -135,9 +135,11 @@ export default function TomoshibiStudio() {
   // the sections that read it: the inspector unmounts in lit view, and `heightLimit` alone would
   // then re-walk up to 1,941 heights on every round trip.
   const fig = useFigures(p, { bedW, bedD, matT, route, washiSide, washiEnd, t });
+  // Only what this file itself renders. The rest of `fig` reaches `buildAlerts` as `fig`, so
+  // destructuring it here just made a second, silently drifting list of the same fields.
   const {
-    maxDia, washiG, legsFit, topOpen, botOpen, overParts,
-    ribFits, ribLen, heightLimit, fit, washiOpts, moldSrc, pull,
+    maxDia, washiG, legsFit, topOpen, botOpen,
+    ribFits, ribLen, washiOpts, moldSrc,
   } = fig;
 
   const isLit = view === "lit";   // lit = a viewing mode: panel hidden, dark background
@@ -148,7 +150,7 @@ export default function TomoshibiStudio() {
 
   // ---- The sheet's geometry ----
   const sheetCtl = useBottomSheet({ narrow, isLit, lang });
-  const { barRef, asideRef, mainRef } = sheetCtl;
+  const { mainRef } = sheetCtl;
 
   const chip = chipStyle(isLit);   // the dimension readout takes its ink from the same tone
 

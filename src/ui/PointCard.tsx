@@ -1,7 +1,6 @@
 // The drawing's gestures as explicit, typed, keyboard-reachable UI. Edits `pts` and nothing else.
 import React from "react";
 import { LIMITS } from "../config.ts";
-import { clamp } from "../util.ts";
 import { useT } from "./theme.ts";
 import { SectionLabel, NumInput, SegButton } from "./controls.tsx";
 import { pointOps, makeSetMode, clampR } from "./pointEdit.ts";

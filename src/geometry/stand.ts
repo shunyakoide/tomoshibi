@@ -74,7 +74,6 @@ function standProfile(seatR: number, H: number, halfOpen: number, colW: number):
 export function standCollarTop(): number { return BASE_T + COLLAR_H; } // the height the column foot rests at (= collar top face)
 export function standSaddleH(p: Design): number { return maxRadius(p) + 15; }  // the column-local saddle center height
 export function standGeometry(p: Design): THREE.ExtrudeGeometry {
-  const R = maxRadius(p);
   const kR = komaR(p);
   const H = standSaddleH(p);         // saddle center (koma center) height (max radius + 15mm floor clearance)
   const saddleR = kR + SADDLE_FIT;   // U-groove receiving radius (koma edge + clearance)

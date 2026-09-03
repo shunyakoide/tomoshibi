@@ -3,7 +3,6 @@
  * view. They are TEMPLATES, not modes, so which chip is lit is DERIVED from the control points
  * (`matchPreset`) rather than remembered from the click — undo, import and restore then need no flag.
  */
-import React from "react";
 import { outerR } from "../geometry.ts";
 import { DEFAULTS, PRESETS } from "../config.ts";
 import { useT } from "./theme.ts";
