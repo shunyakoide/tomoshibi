@@ -1,4 +1,4 @@
-import { ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, notchR } from "../geometry.ts";
+import { ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, notchR, wireRing2D } from "../geometry.ts";
 import { A4, layout } from "./layout.ts";
 import { pagesPDF, pagesSVG, tid } from "./render.ts";
 import type { RawPart } from "./layout.ts";
@@ -36,6 +36,23 @@ function komaPart(pk: Design, name: string): RawPart {
 }
 
 /**
+ * An opening hoop, as a line to bend WIRE against rather than anything to cut. The 3D route prints
+ * these two parts; cardboard has nothing to print them with, so the template draws them full scale
+ * and the maker bends them (`wireRing2D` — the same `openingR()` the printed ring is sized from).
+ *
+ * The only part on the sheet with an empty `outline`, and the reason `note` exists: every other line
+ * on this paper is a cut line or a hint beside one, so a hoop that said nothing would be cut out.
+ */
+function wirePart(pk: Design, top: boolean, t: T): RawPart {
+  return {
+    name: t(top ? "口輪(上)" : "口輪(下)"),
+    outline: [],
+    bend: [wireRing2D(pk, top)],
+    note: t("針金(2mm)を曲げる線"),
+  };
+}
+
+/**
  * The design as the CARDBOARD route builds it: measured material thickness in place of the printed
  * board thickness, the rib count clamped to what that thickness still allows, `fit: 0` (the 3D-print
  * 0.3mm would leave a cardboard joint wobbling) and `noTabDent` (see the dent note above).
@@ -70,9 +87,9 @@ export function paperFit(p: Design, matT: number) {
 }
 
 /**
- * Every part to lay out: ribs + koma and nothing else — the washi panel is a separate document. The
- * returned p is `paperP()`'s, so `boards` is already clamped to maxBoards;
- * `clamped` reports it so the UI/page can warn.
+ * Every part to lay out: the mold (ribs + koma) plus the two opening hoops — and nothing else, the
+ * washi panel being a separate document. The returned p is `paperP()`'s, so `boards` is already
+ * clamped to maxBoards; `clamped` reports it so the UI/page can warn.
  */
 export function paperParts(p: Design, matT: number, t: T = tid) {
   const pk = paperP(p, matT);            // = the mold this template actually cuts (thickness applied, count clamped)
@@ -90,10 +107,14 @@ export function paperParts(p: Design, matT: number, t: T = tid) {
   // onto an extra koma-only page. Decided by comparing the page count on A4 (the print page).
   const twoKoma = [komaPart(pk, `${t("コマ")} 1/2`), komaPart(pk, `${t("コマ")} 2/2`)];
   const oneKoma = [komaPart(pk, `${t("コマ")} ×2`)];
-  const pageCount = (ks: RawPart[]) => layout([...ribParts, ...ks], A4).pages.length;
+  // The hoops go LAST — they are the one thing here nobody cuts, and the given order is the order
+  // the parts are cut in. They ride in the page-count comparison below because that comparison has
+  // to be made on the document that actually prints, not on the mold half of it.
+  const wires = [wirePart(pk, false, t), wirePart(pk, true, t)];
+  const pageCount = (ks: RawPart[]) => layout([...ribParts, ...ks, ...wires], A4).pages.length;
   const komas = pageCount(twoKoma) > pageCount(oneKoma) ? oneKoma : twoKoma;
-  // Mold only — the washi panel is its own document.
-  const parts = [...ribParts, ...komas];
+  // The mold and the hoops it will be pulled out of — the washi panel is its own document.
+  const parts = [...ribParts, ...komas, ...wires];
   return { parts, pk, clamped, nMax, wall };
 }
 

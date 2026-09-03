@@ -51,6 +51,8 @@ Each is settled, each was reverted at least once, each has its reasoning in the 
   rib fits a koma printed last month because both parts derive from the same function.
 - **The papercraft cuts no grooves, opens no lightening windows and emits no stand**, and it skips the
   tab-tip dent (`noTabDent`) for tab strength.
+- **The cardboard route's opening hoops are a BEND line, never a cut outline** — blue, empty `outline`,
+  eyes gated on `ringLegs()` alone. `WIRE_D` is a constant, not a control.
 - **The washi template is not an output method** — it ships with whichever route you pick, as its own
   PDF, on both.
 - **The build guide is a page, not a view**, and it is generic: it prints no dimension, and states no

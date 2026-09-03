@@ -46,7 +46,9 @@ export default function PanelFooter({
               lose it: hence the one line that is not folded away. */}
           <KitNote warn={<><strong>{t("原寸 100% で印刷")}</strong>{t("(「用紙に合わせる」は不可)")}</>}
             state={kitNote} onToggle={toggle} t={t}>
-            <li><span className="font-mono">tomoshibi_katagami_a4.pdf</span>{t(" — 型紙")}</li>
+            {/* Enumerated like the STL list beside it, and for the same reason: the hoops are new
+                to this document, and a ZIP that is "the template" says nothing about what is in it. */}
+            <li><span className="font-mono">tomoshibi_katagami_a4.pdf</span>{t(" — 型紙(羽根板・コマ・口輪)")}</li>
             <li><span className="font-mono">{WASHI_PDF}</span>{t(" — 和紙の型紙(原寸で印刷)")}</li>
           </KitNote>
         </>

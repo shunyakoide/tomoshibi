@@ -12,7 +12,9 @@ export const LAMP_INK = 0x8f949c;       // the lamp's own body: a grey, light en
 /** The lantern itself, at its own coordinates: shade, the bamboo in it, and the rings in its mouths. */
 export function litShade(p: Design, smooth: boolean, opacity = 1): THREE.Group {
   return moldPieces(p, {
-    ribs: false, komaBot: false, komaTop: false, smooth, rings: !smooth, higo: true, washi: "lit",
+    // Both routes: the finished lantern has a hoop at each mouth either way — printed on one,
+    // bent from wire on the other, which `moldPieces` picks by the same `smooth`.
+    ribs: false, komaBot: false, komaTop: false, smooth, rings: true, higo: true, washi: "lit",
     washiOpacity: opacity,
   });
 }

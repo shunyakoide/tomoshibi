@@ -2,10 +2,16 @@ import type { Mark } from "../geometry.ts";
 import type { Page } from "../io/pdf.ts";
 import type { Pt2 } from "../types.ts";
 
-/** A part as geometry hands it over: mm, y UP, plus the hints that are drawn but never cut. */
-export type RawPart = { name: string; outline: Pt2[]; holes?: Pt2[][]; guides?: Pt2[][]; marks?: Mark[] };
+/**
+ * A part as geometry hands it over: mm, y UP, plus the hints that are drawn but never cut.
+ *
+ * `outline` is the CUT line and may be empty — the wire hoops are a `bend` line and nothing else, and
+ * an empty cut path is the honest way to say a part has nothing to cut. `note` is one line of small
+ * print under the part's name, for a part whose name does not say what to do with it.
+ */
+export type RawPart = { name: string; outline: Pt2[]; holes?: Pt2[][]; guides?: Pt2[][]; bend?: Pt2[][]; marks?: Mark[]; note?: string };
 /** The same part in page coordinates — y DOWN from its own top-left corner — and its footprint. */
-export type PagePart = { name: string; outline: Pt2[]; holes: Pt2[][]; guides: Pt2[][]; marks: Mark[]; w: number; h: number };
+export type PagePart = { name: string; outline: Pt2[]; holes: Pt2[][]; guides: Pt2[][]; bend: Pt2[][]; marks: Mark[]; note?: string; w: number; h: number };
 /** A part with its place in the single content column (mm, before the page band offsets it). */
 export type Placed = PagePart & { x: number; y: number };
 /** A packing row: where it starts down the column, and how tall its tallest part made it. */
@@ -51,7 +57,7 @@ function bbox(pts: Pt2[]) {
  */
 function toPage(part: RawPart, rot: boolean): PagePart {
   const conv = ([x, y]: Pt2): Pt2 => (rot ? [y, -x] : [x, y]);   // 90° rotation (keeping y-up)
-  const all = [part.outline, ...(part.holes || []), ...(part.guides || [])].flat()
+  const all = [part.outline, ...(part.holes || []), ...(part.guides || []), ...(part.bend || [])].flat()
     .concat((part.marks || []).flatMap((m) => [[m[0], m[1]], [m[2], m[3]]]));
   const b = bbox(all.map(conv));
   const fix = (q: Pt2): Pt2 => { const [x, y] = conv(q); return [x - b.x0, b.y1 - y]; };
@@ -60,7 +66,9 @@ function toPage(part: RawPart, rot: boolean): PagePart {
     outline: part.outline.map(fix),
     holes: (part.holes || []).map((hh) => hh.map(fix)),
     guides: (part.guides || []).map((g) => g.map(fix)),
+    bend: (part.bend || []).map((g) => g.map(fix)),
     marks: (part.marks || []).map((m): Mark => [...fix([m[0], m[1]]), ...fix([m[2], m[3]])]),
+    note: part.note,
     w: b.w, h: b.h,
   };
 }
