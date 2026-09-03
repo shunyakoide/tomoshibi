@@ -103,6 +103,10 @@ const EN: Record<string, string> = {
   // Printed on every sheet, in both languages, so keep both SHORT: the note shares its band with
   // the right-aligned footer.
   "← 定規で確認": "<- check with a ruler",
+  // The line under an opening hoop's name. Every other line on that sheet is a cut line or a hint
+  // beside one, so the one part nobody cuts has to say so. Short in BOTH languages: it is set inside
+  // a hoop that can be as small as ⌀22 at the LIMITS floor.
+  "針金(2mm)を曲げる線": "bend 2mm wire on this line",
   // ---- Summary ----
   "最大径": "Max diameter",
   "羽根板の全長": "Rib length",
@@ -119,8 +123,8 @@ const EN: Record<string, string> = {
   "2つに複製": "duplicate to two",
   // The export's manifest, folded behind a disclosure and opened when the download happens.
   "同梱物": "In the ZIP",
-  " — 型紙": " — the template",
   " — 和紙の型紙(原寸で印刷)": " — washi template (print at 100%)",
+  " — 型紙(羽根板・コマ・口輪)": " — the template: ribs, koma, opening hoops",
   " — 羽根板・コマ・土台・口輪": " — ribs, koma, stand, opening rings",
   " — 設計のバックアップ": " — design backup",
   // ---- Warnings / status ----
@@ -242,8 +246,8 @@ const EN: Record<string, string> = {
   "口輪(上)": "Ring (top)",
   "編集中": "draft",
   "図を描けませんでした": "Figure unavailable",
-  "段ボールの型には支柱・土台・口輪はありません(型紙は型そのものだけです)。回すときは手で持つか、箱などに載せてください。":
-    "The cardboard mold has no posts, base or rings — the template cuts the mold itself. Hold it in your hands as you turn it, or rest it on a box.",
+  "段ボールの型には支柱・土台がありません(型紙が刷るのは、型そのものと口輪を曲げる線です)。回すときは手で持つか、箱などに載せてください。":
+    "The cardboard mold has no posts and no base — the template cuts the mold itself and draws the lines its opening hoops are bent on. Hold it in your hands as you turn it, or rest it on a box.",
   "「印刷」ビューへ →": "Go to the Print view →",
   "部品をつくる": "Make the parts",
   "「印刷」ビューから STL を書き出し、羽根板・コマ・支柱・土台・口輪を印刷します。コマと支柱は上下で同じ部品なので、スライサーで2つに複製してください。":
@@ -275,6 +279,8 @@ const EN: Record<string, string> = {
   "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。":
     "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are. The rings stay behind with the lantern; trim the overhanging washi at the rim.",
   "口輪をはめる": "Fit the opening rings",
+  "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてあるので、曲げた輪は羽根板の外側にすっと入ります。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。":
+    "Bend wire along the blue lines on the template to make the two opening hoops. Each line follows its own opening, so the hoop you bend drops onto the ribs' outer edge. Overlap the two ends a little and twist them together. Nothing holds either the hoops or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the hoops when you paste, which is why they stay in the lantern after the mold comes out. The two hoops are bent on separate lines, so mark which is which once they are off the paper.",
   "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。":
     "Slip a ring over each opening. Their bore follows the opening, so they drop onto the ribs' outer edge. Nothing holds either the rings or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the rings when you paste, which is why they stay in the lantern after the mold comes out. The one with the leg sockets is the bottom.",
   "灯りをつける": "Put a light in it",
@@ -290,6 +296,7 @@ const EN: Record<string, string> = {
   "ワイヤー": "Wire",
   "任意": "optional",
   "脚を付けるか吊るす場合": "for the legs or for hanging it",
+  "口輪に。脚や吊り線にも": "for the opening hoops, and for legs or a hanger",
   "ワイヤーを曲げる": "for bending the wire",
   "のり": "Paste",
   "でんぷんのり、または木工用ボンド": "starch paste or wood glue",
@@ -325,8 +332,8 @@ const EN: Record<string, string> = {
   "Uにコードを入れると、ソケットが引っ掛かります。両端は上の開口の縁の下に入れます。":
     "Drop the cord into the U and the socket catches in it. Tuck the two ends under the rim of the top opening.",
   "脚を付けて下から留める": "Add legs and fix it from below",
-  "段ボールの型では口輪を刷りません。下の開口に厚紙で輪をつくって貼り、脚の先を挿す穴を3ヶ所あけておきます。あとは同じで、脚と枠を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。":
-    "The cardboard route prints no opening ring. Make one from card, glue it into the bottom opening and pierce three holes in it for the leg ends. The rest is the same: take the lamp with its legs and its frame on it in through the bottom opening to stand it up, and run the cord out between the legs.",
+  "段ボールの型では下の口輪の線に、脚を通す輪っかが3ヶ所入っています。針金で曲げてあれば、脚の先はそこへ通して折り返すだけです。あとは同じで、脚と枠を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。":
+    "On the cardboard route the bottom hoop's line carries three eyes for the legs. Bend it from wire and the leg ends simply pass through them and fold back. The rest is the same: take the lamp with its legs and its frame on it in through the bottom opening to stand it up, and run the cord out between the legs.",
   "脚と枠を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは脚のあいだから下へ逃がします。":
     "Take the lamp with its legs and its frame on it in through the bottom opening and push the leg ends into the bottom ring's leg sockets to stand it up. The frame runs up inside the body and shows a little of itself at the top opening, holding the body taut between the two ends. The cord runs down and out between the legs.",
   // The wire work under that one. The socket's threaded stem and its fixing nut are one pair of

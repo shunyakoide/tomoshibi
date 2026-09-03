@@ -22,7 +22,7 @@ export { equatorY, grooveOuterPts, grooveR, grooveList, higoSpiralPath } from ".
 // ---- Parts ----
 export { ribInnerX, ribOutline2D, ribPullFit, lightenHoles2D, ribNumberHoles2D, ribShape, ribGeometry } from "./geometry/rib.ts";
 export { komaShape, komaGeometry } from "./geometry/koma.ts";
-export { openingR, ringGeometry, ringLegs, ringLegsFit } from "./geometry/ring.ts";
+export { openingR, ringGeometry, ringLegs, ringLegsFit, wireRing2D, wireRingGeometry } from "./geometry/ring.ts";
 export {
   standCollarTop, standSaddleH, standGeometry, standSlotSep, standBoardLength, boardGeometry,
 } from "./geometry/stand.ts";

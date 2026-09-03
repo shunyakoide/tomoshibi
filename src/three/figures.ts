@@ -1,6 +1,6 @@
 import type { Design } from "../types.ts";
 import * as THREE from "three";
-import { boardGeometry, komaGeometry, ringGeometry, standGeometry } from "../geometry.ts";
+import { boardGeometry, komaGeometry, ringGeometry, standGeometry, wireRingGeometry } from "../geometry.ts";
 import { DIR_ON_STAND, VIEW_DIR, coil, part } from "./figures/ink.ts";
 import {
   pasteBrush, pasteTub, pliers, razorBlade, smoothBrush, sprayBottle, tapeAndThread, washiStack,
@@ -28,8 +28,11 @@ const SCENES: Record<string, Scene> = {
   koma: (p) => part(komaGeometry(p), false),
   column: (p) => part(standGeometry(p), false),
   base: (p) => part(boardGeometry(p), false),
-  ringBottom: (p) => part(ringGeometry(p, false), false),
-  ringTop: (p) => part(ringGeometry(p, true), false),
+  // `sm` is the route, and here it decides what the part IS: cardboard bends its hoops from wire
+  // against the template's line, so drawing the printed ring — leg-socket pads and all — would show
+  // a part that route never makes.
+  ringBottom: (p, sm) => part(sm ? wireRingGeometry(p, false) : ringGeometry(p, false), false),
+  ringTop: (p, sm) => part(sm ? wireRingGeometry(p, true) : ringGeometry(p, true), false),
   // Steps.
   stand: (p) => standPieces(p, "column"),
   ribsIn: (p, sm) => moldPieces(p, { komaTop: false, hot: "oneRib", smooth: sm }),
@@ -42,9 +45,10 @@ const SCENES: Record<string, Scene> = {
   // the finished shade. The bands ride along from here, muted.
   rings: (p, sm) => moldPieces(p, { smooth: sm, rings: true, hot: "rings", band: true }),
   // Winding: the mold as the last three steps left it, bamboo on, standing upright; the stand comes
-  // out one step later, for the pasting. `smooth` is the cardboard route, whose guide has no ring
-  // step and no band advice (its koma holds by friction), so the figure must show neither.
-  higo: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, hot: "higo" }),
+  // out one step later, for the pasting. `smooth` is the cardboard route, which has no band advice
+  // (its koma holds by friction) — but it DOES have a ring step now, so the rings ride along here on
+  // both routes.
+  higo: (p, sm) => moldPieces(p, { smooth: sm, rings: true, band: !sm, higo: true, hot: "higo" }),
   // Pasting: the mold where the reader left it — IN THE STAND, which is what the stand is for. The
   // cardboard route has no stand, so there it stands on its koma; that is also why the panels are
   // placed per orientation rather than once (see `washiPieces`).
@@ -53,7 +57,7 @@ const SCENES: Record<string, Scene> = {
     : moldOnStand(p, null, false, DIR_ON_STAND)),
   // Drying: every bay pasted, and OFF the stand, nothing turning while it dries. What is left of the
   // mold to see is what sticks out past the paper (necks, tabs, both koma).
-  dry: (p, sm) => moldPieces(p, { smooth: sm, rings: !sm, band: !sm, higo: true, washi: "all" }),
+  dry: (p, sm) => moldPieces(p, { smooth: sm, rings: true, band: !sm, higo: true, washi: "all" }),
   pull: (p, sm) => pullScene(p, sm),
   lightSet: (p, sm) => lightSet(p, sm),
   lightHang: (p, sm) => lightHang(p, sm),
@@ -76,7 +80,7 @@ const SCENES: Record<string, Scene> = {
   legStack: () => legStack(),
   legStood: () => legStood(),
   hangBend: () => hangBend(),
-  hangSet: (p) => hangSet(p),
+  hangSet: (p, sm) => hangSet(p, sm),
 };
 
 /**
