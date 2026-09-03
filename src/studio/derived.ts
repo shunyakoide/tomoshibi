@@ -16,7 +16,7 @@ import {
   ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit,
   washiGore,
 } from "../geometry.ts";
-import { paperFit, paperP } from "../papercraft.ts";
+import { paperFit, paperP, templateOverflow } from "../papercraft.ts";
 import { fitOnBed } from "../bed.ts";
 import { LIMITS } from "../config.ts";
 import type { T } from "../i18n.ts";
@@ -95,6 +95,10 @@ export function useFigures(p: Design, m: {
   const thinWall = fit !== null && fit.wall < fit.thin;
   // Stable identity, so the preview's memo isn't invalidated by every unrelated render.
   const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
+  // Parts of the templates this route ships that are wider than A4's content column. The layout
+  // clips them away rather than continuing them sideways, so without this nobody finds out until
+  // they hold the sheet — and the washi template has no preview to look at first.
+  const overSheet = useMemo(() => templateOverflow(p, matT, washiOpts, route, t), [p, matT, washiOpts, route, t]);
   // Can the ribs still come out once the paste has dried? A deep body on a small mouth traps them in
   // the shade, and nothing else notices: every part prints, fits the bed and is watertight. Not a
   // route question — a cardboard mold leaves by the same hole.
@@ -102,7 +106,7 @@ export function useFigures(p: Design, m: {
 
   return {
     maxDia, washiG, legsFit, topOpen, botOpen, bedFit, overParts,
-    ribFits, ribLen, ribBaseOver, heightLimit, fit, thinWall, washiOpts, moldSrc, pull,
+    ribFits, ribLen, ribBaseOver, heightLimit, fit, thinWall, washiOpts, moldSrc, pull, overSheet,
   };
 }
 
@@ -136,6 +140,17 @@ export function buildAlerts(f: Figures, a: {
     key: "wall",
     head: t("コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです", { wall: f.fit.wall.toFixed(1) }),
     hint: t("→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる"),
+  });
+  // A part wider than the sheet is CLIPPED, not continued: pages split downward only. Loud, because
+  // the sheet looks complete — the cut line simply stops at the trim box, and the piece you fold is
+  // short. Named parts and the widest overhang, so the size of the problem is on screen.
+  if (f.overSheet.length > 0) alerts.push({
+    key: "sheet",
+    head: t("{parts} が A4 の幅に収まりません — はみ出す {mm}mm は印刷されません", {
+      parts: [...new Set(f.overSheet.map((o) => o.name))].join(" · "),
+      mm: Math.ceil(Math.max(...f.overSheet.map((o) => o.over))),
+    }),
+    hint: t("→ 断面図で最大半径を小さくする / 羽根板を増やす"),
   });
   // The mold has to come back out of the shade it made. The one warning here about a design that
   // cannot be BUILT rather than printed or cut, so it is the last thing anyone finds out on their

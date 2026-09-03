@@ -57,8 +57,8 @@ const EN: Record<string, string> = {
   "プリントベッド": "Print bed",
   "3Dプリント": "3D print",
   "段ボール": "Cardboard",
-  "大きさの制限はありません。A4 に収まらない部品は次のページに続きます(両方を青い枠で切り、同じ番号の半ダイヤが◇になるよう突き合わせて裏からテープ)。":
-    "There is no size limit: a part too big for A4 simply continues on the next page. Trim both sheets on the blue box, butt the cut edges until each pair of half-diamonds closes into a full ◇, and tape from behind.",
+  "A4 に収まらない部品は次のページに続きます(両方を青い枠で切り、同じ番号の半ダイヤが◇になるよう突き合わせて裏からテープ)。続くのは縦方向だけです。":
+    "A part too big for A4 continues on the next page: trim both sheets on the blue box, butt the cut edges until each pair of half-diamonds closes into a full ◇, and tape from behind. It continues downward only.",
   "定番サイズ": "Common size",
   "カスタム": "Custom",
   "配置": "Layout",
@@ -143,6 +143,9 @@ const EN: Record<string, string> = {
   // The rib has to come back out of the shade it shaped, through one of the two openings. This is
   // about the finished lantern, not the print, so the English says come out rather than fit.
   "羽根板の幅 {w}mm — 開口 ⌀{d}mm から抜けません": "The rib is {w}mm wide — it cannot come out of the ⌀{d}mm opening",
+  "{parts} が A4 の幅に収まりません — はみ出す {mm}mm は印刷されません":
+    "{parts} will not fit across A4 — the {mm}mm that overhangs is not printed",
+  "→ 断面図で最大半径を小さくする / 羽根板を増やす": "→ reduce the widest radius in the section view / add ribs",
   "→ 断面図で開口を広げる / ふくらみを抑える": "→ Widen the opening in the section view / flatten the bulge",
   "鑑賞モード — 編集はタブで「断面」へ": "Viewing mode — switch to the Section tab to edit",
   // ---- Section editor (SectionEditor) ----
