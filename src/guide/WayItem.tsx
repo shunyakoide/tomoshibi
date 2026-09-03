@@ -51,7 +51,7 @@ export default function WayItem({ o, stl, figs, t }: {
                 <div className={DETAIL_NUM}>
                   {d.title && <h5 className={DETAIL_TITLE}>{t(d.title)}</h5>}
                   <p className={DETAIL_BODY}>
-                    {d.body ? t(d.body) : t("未記入")}
+                    {t(d.body)}
                   </p>
                 </div>
               </li>

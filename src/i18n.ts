@@ -280,7 +280,6 @@ const EN: Record<string, string> = {
   "灯りをつける": "Put a light in it",
   "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。":
     "There are {n} ways to light it. Whichever you pick, the bulb sits just inside the washi, so use an LED rather than a filament bulb.",
-  "未記入": "Not written yet",
   "材料と道具": "Materials and tools",
   "材料": "Materials",
   "道具": "Tools",

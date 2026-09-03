@@ -38,5 +38,10 @@ for (const preset of PRESETS)
           out.push(`${tag} koma  ${hash(G.komaGeometry(p))}`);
           out.push(`${tag} stand ${hash(G.standGeometry(p))}`);
           out.push(`${tag} board ${hash(G.boardGeometry(p))}`);
+          // The opening rings are parts too. Left out, a change in geometry/ring.ts could move every
+          // ring vertex and still merge as "zero hash diff" — the one gate whose whole job is to
+          // prove a refactor changed nothing, blind to a fifth of what it ships.
+          out.push(`${tag} ring.bot ${hash(G.ringGeometry(p, false))}`);
+          out.push(`${tag} ring.top ${hash(G.ringGeometry(p, true))}`);
         }
 console.log(out.join("\n"));
