@@ -12,6 +12,10 @@ import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
 import { clamp } from "../util.ts";
 import type { Design, NumericDesignKey, Pt, Route } from "../types.ts";
 
+/** Cardboard thickness (mm) a fresh state starts at. Here because sanitize's fallback and 「初期化」
+ *  have to agree — reset used to skip `matT` entirely, and two literals would drift apart anyway. */
+export const MAT_T = 5;
+
 /**
  * Everything one save holds: the design plus the machine settings, which are facts about the maker
  * rather than the lantern. Also the shape of the exported JSON and the ZIP's config.json, so a
@@ -150,7 +154,7 @@ export function sanitizeSaved(saved: unknown): SavedState | null {
   const bedW = clampNum(raw.bedW, 100, 420, 256);   // UI numInput allowed range
   const bedD = clampNum(raw.bedD, 100, 420, 256);
   const printRibs = Math.round(clampNum(raw.printRibs, 1, 16, 1)); // 1..boards; upper bound further clamped on the boards side
-  const matT = clampNum(raw.matT, 1, 10, 5);        // paper-template material thickness (mm). UI stepper allowed range
+  const matT = clampNum(raw.matT, 1, 10, MAT_T);    // paper-template material thickness (mm). UI stepper allowed range
   // How this person builds the mold: "stl" (3D print) or "paper" (cardboard). A fact about the
   // maker, not the design, but it decides whether the print bed constrains anything at all, so it is
   // restored alongside the bed. Anything else falls back to "stl".
