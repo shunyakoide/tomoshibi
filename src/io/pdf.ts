@@ -24,8 +24,8 @@ import type { Pt2 } from "../types.ts";
  * has no stroke and `cut` no font size, so a path drawn with a text style would print a hairline
  * where a cut line belongs, and now fails to compile instead.
  */
-export type StrokeName = "cut" | "tick" | "guide" | "scale" | "frame" | "join";
-export type TextName = "pname" | "note" | "jlabel";
+export type StrokeName = "cut" | "tick" | "guide" | "scale" | "frame" | "join" | "bend";
+export type TextName = "pname" | "pnote" | "note" | "jlabel";
 export type StrokeStyle = { stroke: string; w: number; dash?: number[] };
 export type TextStyle = { fill: string; size: number; anchor: "start" | "middle" | "end" };
 export type StyleTable = Record<StrokeName, StrokeStyle> & Record<TextName, TextStyle>;

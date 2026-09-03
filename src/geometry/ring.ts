@@ -8,7 +8,7 @@
  * `LEG_N` flat "onigiri" pads (rounded triangles), each with a bore at its middle that a leg rod
  * pushes into. Too small an opening falls back to a plain hoop with the marker tab instead.
  */
-import type { Design } from "../types.ts";
+import type { Design, Pt2 } from "../types.ts";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { outerR } from "./profile.ts";
@@ -155,4 +155,67 @@ export function ringGeometry(p: Design, top: boolean): THREE.BufferGeometry {
     geos.push(onigiriGeo(legs.Rc * Math.cos(a), legs.Rc * Math.sin(a), legs.triR, [TRI_ROUND, 0, 0], rot, legs.bore, RING_H));
   }
   return mergeGeometries(geos.map((g) => (g.index ? g.toNonIndexed() : g)), false);
+}
+
+// ---- The cardboard route's hoop, bent from wire ----
+// That route has nothing to print a ring WITH, so the same hoop is bent from wire against a 1:1 line
+// the template draws. It is sized from the same `openingR() + RING_FIT` as the printed one and is
+// the same 2mm across, so the wire lands in the very band `annulusGeo` would have filled and a
+// lantern built either way takes the same washi over the same rim.
+const WIRE_D = 2;     // the wire the template is drawn for (mm) — RING_WALL's twin, deliberately
+// A CONSTANT, for the reason `LEG_D` is one: the sheet is a line you lay wire ON, so the wire's own
+// thickness moves nothing but where that line is drawn — a fraction of a millimetre on a hoop held
+// by bamboo and paste. It is not a dimension worth a control, and a template that asked for one
+// would be asking before it can draw anything.
+// Eye centreline radius (mm), so the eye reads as a ⌀10 loop: ⌀8 of clear hole once the wire's own
+// thickness is off, ⌀12 over the outside. Sized to be BENDABLE rather than to just admit a leg — a
+// ⌀4 eye is the very tip of a pair of round-nose pliers and comes out lopsided by hand, where a
+// centimetre of loop is something you can form, and leaves room to hook a leg or knot a cord for a
+// pendant through it.
+const EYE_R = 5;
+const BEND_SEG = 2;   // longest chord between two sampled points on a bend line (mm)
+
+/**
+ * The wire hoop's CENTRELINE, one closed polyline in the ring's own plane (mm, centred on the
+ * origin) — what the cardboard template draws at full scale for the wire to be bent against.
+ *
+ * The bottom hoop carries eyes when the design asked for leg sockets, at the same angles the printed
+ * ring puts its pads: the wire runs up to the hoop, takes a full turn around the eye and carries on,
+ * which is the shape a pair of round-nose pliers makes and the reason the eye is drawn tangent from
+ * the inside rather than hung off the rim. **Whether there are eyes is `ringLegs()`'s answer, not a
+ * second opinion** — an eye is far smaller than a pad, so every design it turns down for room has no
+ * legs to hang on one anyway, and one answer is what keeps the template and the guide agreeing.
+ */
+export function wireRing2D(p: Design, top: boolean): Pt2[] {
+  const R = openingR(p, top) + RING_FIT + WIRE_D / 2;
+  const legs = top ? null : ringLegs(p);
+  const pts: Pt2[] = [];
+  // Sample an arc EXCLUDING its end point, so the pieces below chain without a doubled vertex.
+  const arc = (r: number, cx: number, cy: number, a0: number, a1: number) => {
+    const n = Math.max(2, Math.ceil((Math.abs(a1 - a0) * r) / BEND_SEG));
+    for (let i = 0; i < n; i++) {
+      const a = a0 + ((a1 - a0) * i) / n;
+      pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+  };
+  if (!legs) { arc(R, 0, 0, 0, 2 * Math.PI); return pts; }
+  const step = (2 * Math.PI) / legs.n;
+  for (let i = 0; i < legs.n; i++) {
+    const a = i * step;
+    // The eye's centre sits EYE_R in along the same ray, so the eye circle meets the hoop exactly at
+    // the hoop line: the wire passes that point twice, once entering the turn and once leaving it.
+    arc(EYE_R, (R - EYE_R) * Math.cos(a), (R - EYE_R) * Math.sin(a), a, a + 2 * Math.PI);
+    arc(R, 0, 0, a, a + step);
+  }
+  return pts;
+}
+
+/**
+ * The same hoop as a solid, for the guide's figures on the cardboard route — the centreline swept by
+ * a round section of the wire's own diameter. **A drawing, not a printed part**: nothing exports it
+ * to STL, so it is not on `check:manifold`'s list and does not have to be watertight.
+ */
+export function wireRingGeometry(p: Design, top: boolean): THREE.BufferGeometry {
+  const path = wireRing2D(p, top).map(([x, y]) => new THREE.Vector3(x, y, 0));
+  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(path, true, "centripetal"), path.length, WIRE_D / 2, 8, true);
 }

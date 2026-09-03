@@ -19,13 +19,19 @@ export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
   for (const q of lay.placed) {
     if (q.y >= bot || q.y + q.h <= top) continue;
     const at = ([x, y]: Pt2): Pt2 => [ox + q.x + x, oy + q.y + y];
-    path(q.outline.map(at), "cut", true);
+    // A part with nothing to cut draws no cut line at all, rather than an empty path: the wire hoops
+    // are a bend line and a name, and a stray `d=""` is a path the SVG comparison has to explain.
+    if (q.outline.length) path(q.outline.map(at), "cut", true);
     for (const hh of q.holes) path(hh.map(at), "cut", true);
     for (const gd of q.guides || []) path(gd.map(at), "guide");  // open polyline: a guide, not a cut
+    for (const bd of q.bend || []) path(bd.map(at), "bend", true);   // closed: a wire's own loop
     for (const m of q.marks) path([at([m[0], m[1]]), at([m[2], m[3]])], "tick");
     // The part name goes faintly **inside the part**, for identification after cutting. Slightly
     // below centre (62%) because near the top it would land on a cut-away side like a post's U-saddle.
     text(ox + q.x + q.w / 2, oy + q.y + q.h * 0.62, q.name, "pname");
+    // One line under it, only where the name does not say what the part is for — a hoop is a line to
+    // bend on, and the sheet's whole vocabulary otherwise says "cut this".
+    if (q.note) text(ox + q.x + q.w / 2, oy + q.y + q.h * 0.62 + 4, q.note, "pnote");
   }
   ops.push({ k: "unclip" });
 
