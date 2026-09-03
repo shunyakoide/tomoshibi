@@ -41,6 +41,17 @@ const FOOTER = 0;    // No band at the foot of every page: the parts get the ful
 export const TOPBAR = 36;
 // Sheets BUTT at the trim box — no overlap, no glue tab (see "Joining sheets" in `pageOps`).
 const GAP = 6;       // Gap between parts (mm). Margin for cutting them apart.
+// What a part keeps clear of the TRIM BOX — half of GAP, so the sheet's edge is exactly as far from
+// a part as a neighbouring part's edge is. Without it a part is placed at the column's own origin and
+// its cut line lands ON the blue trim line: black over blue, no room for a blade, and no way to tell
+// which of the two lines you are following.
+//
+// Carried as part of the ROW rather than as a page-space offset, which is what keeps the page
+// splitter out of it: a row is EDGE taller and its parts sit EDGE down inside it, so a page that
+// begins a row shows that white and a page that CONTINUES one — a seam — shows none. Add it to `y0`
+// instead and a spanning part gets a 3mm break in its cut line at the very join the sheets are
+// butted on. (The `TOPBAR` note below is the same trap from the other side.)
+const EDGE = GAP / 2;
 
 function bbox(pts: Pt2[]) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -77,7 +88,9 @@ function toPage(part: RawPart, rot: boolean): PagePart {
 // the top of that row, so there is nothing to join. A seam happens only for a row taller than one
 // page, and the sheets then BUTT at the trim line (see "Joining sheets" in `pageOps`).
 export function layout(parts: RawPart[], page: Page): Layout {
-  const CW = page.w - 2 * MARGIN;              // content width
+  const CW = page.w - 2 * MARGIN;              // content width = the trim box, which is what the clip,
+                                              // the frame and the join diamonds are all drawn to
+  const colW = CW - 2 * EDGE;                  // ...and what is left for PARTS once both edges are kept clear
   const CH = page.h - 2 * MARGIN - FOOTER;     // content height (usable height per page)
 
   // Orient every part before any packing decision — a part too wide for the paper is rotated 90° —
@@ -85,22 +98,24 @@ export function layout(parts: RawPart[], page: Page): Layout {
   const over: Overflow[] = [];
   const oriented = parts.map((raw) => {
     let q = toPage(raw, false);
-    if (q.w > CW) { const r = toPage(raw, true); if (r.w <= CW) q = r; }
+    if (q.w > colW) { const r = toPage(raw, true); if (r.w <= colW) q = r; }
     // Neither way round fits ACROSS the sheet. Pages only ever split DOWN, so there is no next sheet
     // for the overhang to continue onto and `pageOps`' clip discards it — on paper only, with no
     // seam and nothing on screen. Recorded so the one place that knows can say so out loud.
-    if (q.w > CW) over.push({ name: raw.name, w: q.w, over: q.w - CW });
+    if (q.w > colW) over.push({ name: raw.name, w: q.w, over: q.w - colW });
     return q;
   });
 
   const build = (qs: PagePart[], topbar: number) => {
     // --- (1) Pack into rows ---
     const placed: Placed[] = [], rows: Row[] = [];
-    let y = 0, rowX = 0, rowH = 0;
-    const endRow = () => { if (rowH > 0) { rows.push({ y, h: rowH }); y += rowH + GAP; rowX = 0; rowH = 0; } };
+    // A row's box is EDGE taller than its parts and they sit at its foot of that strip, so the white
+    // travels with the row wherever the pager puts it (see EDGE).
+    let y = 0, rowX = EDGE, rowH = 0;
+    const endRow = () => { if (rowH > 0) { rows.push({ y, h: rowH + EDGE }); y += rowH + EDGE + GAP; rowX = EDGE; rowH = 0; } };
     for (const q of qs) {
-      if (rowX > 0 && rowX + q.w > CW) endRow();
-      placed.push({ ...q, x: rowX, y });
+      if (rowX > EDGE && rowX + q.w > CW - EDGE) endRow();
+      placed.push({ ...q, x: rowX, y: y + EDGE });
       rowX += q.w + GAP;
       rowH = Math.max(rowH, q.h);
     }
