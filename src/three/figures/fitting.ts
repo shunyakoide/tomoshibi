@@ -16,7 +16,7 @@ import { BULB_FOOT, SOCKET_H, SOCKET_R, ledBulb } from "./kit-lamps.ts";
  * exploded-then-assembled pair `lightSet` uses.
  */
 export const STEM_R = 5.5, STEM_H = 28;      // the threaded stem the cord leaves by, and the nut runs on
-export const NUT_R = 9.5, NUT_H = 6;         // across the corners: a hex draws its own edges, unlike a tube
+const NUT_R = 9.5, NUT_H = 6;                // across the corners: a hex draws its own edges, unlike a tube
 export const LOOP_R = 8.6;                   // the loop bent in the leg wire end (WIRE_R: ink.ts)
 
 // Where the stack of loops starts — far down the stem for the drawing's sake, not the fitting's: the
@@ -26,7 +26,7 @@ export const LOOP_Y = -14;
 
 // One leg's shape — arm out, drop, and how far the foot lands outside the arm. The wire figure and
 // the assembled one draw the same leg; only the close-up cuts it short.
-export const LEG = [50, 76, 26] as const;
+const LEG = [50, 76, 26] as const;
 
 /** The holder, mouth up, with its stem and thread. `crop` cuts the shell short for the close-up. */
 export function lampHolder(crop: boolean) {
@@ -43,7 +43,7 @@ export function lampHolder(crop: boolean) {
 }
 
 /** The fixing nut: a hex prism with the stem's bore through it — without the bore it is a plug. */
-export function hexNut() {
+function hexNut() {
   const s = new THREE.Shape();
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
@@ -88,15 +88,15 @@ export function legWire(arm: number, drop: number, splay: number) {
 // camera one always points nearly along the view axis: AWAY it projects up the page and all three
 // stay countable, AT the reader it collapses to a stub behind the socket. So legs on 0/120/240,
 // gaps on 60/180/300; see the cord for what uses them.
-export const LEG_PHASE = 0;
+const LEG_PHASE = 0;
 
 // FOUR eyes, not three: the frame's goes on with the legs', under the same nut. Placed last and
 // lowest, its arms being the only ones that rise and would climb through the legs' loops.
 export const STACK_GAP = 3.4;                  // between eyes: a wire thickness and a little daylight
-export const stackEnd = (n: number) => LOOP_Y - (n - 1) * STACK_GAP - WIRE_R;   // where a tightened nut comes to
+const stackEnd = (n: number) => LOOP_Y - (n - 1) * STACK_GAP - WIRE_R;   // where a tightened nut comes to
 
 /** The three loops stacked on the stem, each turned a third of a turn on from the last. */
-export function legLoops(g: THREE.Group, arm: number, drop: number, splay: number) {
+function legLoops(g: THREE.Group, arm: number, drop: number, splay: number) {
   for (let i = 0; i < 3; i++) {
     const w = legWire(arm, drop, splay);
     w.rotation.y = LEG_PHASE + (i / 3) * Math.PI * 2;
@@ -107,7 +107,7 @@ export function legLoops(g: THREE.Group, arm: number, drop: number, splay: numbe
 }
 
 /** The frame's eye, added to the bottom of that stack, with its arms cropped at `top`. */
-export function frameOnStem(g: THREE.Group, top: number) {
+function frameOnStem(g: THREE.Group, top: number) {
   const f = frameFoot(top);
   f.position.y = LOOP_Y - 3 * STACK_GAP;
   g.add(f);
@@ -148,7 +148,7 @@ export function legBend() {
  * The eye lies FLAT (xz) while the hoop stands in xy, a quarter turn of twist between them. The curve
  * is CLOSED: butted end to end it kinked at the shoulder.
  */
-export const FRAME_W = 44, FRAME_H = 150;     // half-width at the belly, and overall height
+const FRAME_W = 44, FRAME_H = 150;     // half-width at the belly, and overall height
 
 // One side, foot to shoulder: up and OUT off the eye, clear of the lamp, then in again at the top.
 export const frameSide = (sx: number, y0: number, W: number, H: number) => [
@@ -167,7 +167,7 @@ export const frameSide = (sx: number, y0: number, W: number, H: number) => [
 
 // The eye at the foot: one flat turn about the stem's axis, entered from -x and left towards +x,
 // stepping down through the turn so the wire does not lie on itself. `y0` is where it starts.
-export function frameEye(y0: number) {
+function frameEye(y0: number) {
   const pts = [];
   const N = 30;
   for (let i = 1; i < N; i++) {
@@ -211,7 +211,7 @@ export function frameBend() {
  * shrinks the socket to a detail in the two stem figures. SAME wire, same `frameSide`: crop the
  * drawing, never redraw the object.
  */
-export function frameFoot(top: number) {
+function frameFoot(top: number) {
   const side = (sx: number, y0: number) => frameSide(sx, y0, FRAME_W, FRAME_H).filter((v) => v.y <= top);
   const pts = [...side(-1, 0.9).reverse(), ...frameEye(0.9), ...side(1, -0.9)];
   const g = new THREE.Group();
