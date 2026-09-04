@@ -12,10 +12,6 @@ import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
 import { clamp } from "../util.ts";
 import type { Design, NumericDesignKey, Pt, Route } from "../types.ts";
 
-/** Cardboard thickness (mm) a fresh state starts at. Here because sanitize's fallback and 「初期化」
- *  have to agree — reset used to skip `matT` entirely, and two literals would drift apart anyway. */
-export const MAT_T = 5;
-
 /**
  * Everything one save holds: the design plus the machine settings, which are facts about the maker
  * rather than the lantern. Also the shape of the exported JSON and the ZIP's config.json, so a
@@ -26,6 +22,22 @@ export type SavedState = {
   bedW: number; bedD: number; printRibs: number;
   matT: number; washiSide: number; washiEnd: number;
   route: Route;
+};
+
+/**
+ * A brand-new state: what a first visit starts from, and what 「初期化」 goes back to. ONE object,
+ * because three places used to answer that question separately — the studio's `useState`
+ * initializers, `sanitizeSaved`'s per-field fallbacks, and `kit.resetAll` — and they had already
+ * drifted: this file kept `MAT_T = 5` precisely so the last two would agree, and the studio wrote a
+ * bare `5` anyway. Reading a default from anywhere but here is how the next one drifts.
+ */
+export const FRESH: SavedState = {
+  p: DEFAULTS,
+  bedW: 256, bedD: 256,        // print bed (mm) — a common 256mm machine until the maker says otherwise
+  printRibs: 1,
+  matT: 5,                     // cardboard thickness (mm). A starting point; the route asks for a measurement
+  washiSide: WASHI_SIDE, washiEnd: WASHI_END,
+  route: "stl",
 };
 
 export const STORAGE_KEY = "tomoshibi.studio";
@@ -170,18 +182,18 @@ export function sanitizeSaved(saved: unknown): SavedState | null {
   const raw = saved as Record<string, unknown>;
   if (INCOMPATIBLE_VERSIONS.has(raw.schemaVersion)) return null;
   const clampNum = (v: unknown, lo: number, hi: number, def: number) => { const n = Number(v); return Number.isFinite(n) ? clamp(lo, hi, n) : def; };
-  const bedW = clampNum(raw.bedW, 100, 420, 256);   // UI numInput allowed range
-  const bedD = clampNum(raw.bedD, 100, 420, 256);
-  const printRibs = Math.round(clampNum(raw.printRibs, 1, 16, 1)); // 1..boards; upper bound further clamped on the boards side
-  const matT = clampNum(raw.matT, 1, 10, MAT_T);    // paper-template material thickness (mm). UI stepper allowed range
+  const bedW = clampNum(raw.bedW, 100, 420, FRESH.bedW);   // UI numInput allowed range
+  const bedD = clampNum(raw.bedD, 100, 420, FRESH.bedD);
+  const printRibs = Math.round(clampNum(raw.printRibs, 1, 16, FRESH.printRibs)); // 1..boards; upper bound further clamped on the boards side
+  const matT = clampNum(raw.matT, 1, 10, FRESH.matT);    // paper-template material thickness (mm). UI stepper allowed range
   // How this person builds the mold: "stl" (3D print) or "paper" (cardboard). A fact about the
   // maker, not the design, but it decides whether the print bed constrains anything at all, so it is
   // restored alongside the bed. Anything else falls back to "stl".
-  const route = raw.route === "paper" ? "paper" : "stl";
+  const route = raw.route === "paper" ? "paper" : FRESH.route;
   // Washi-template allowances (mm). Purely a paper margin — nothing in the mold depends on them,
   // so any out-of-range value just clamps back into the UI stepper's range.
-  const washiSide = clampNum(raw.washiSide, 0, 15, WASHI_SIDE);
-  const washiEnd = clampNum(raw.washiEnd, 0, 15, WASHI_END);
+  const washiSide = clampNum(raw.washiSide, 0, 15, FRESH.washiSide);
+  const washiEnd = clampNum(raw.washiEnd, 0, 15, FRESH.washiEnd);
   return { p: sanitizeP(raw.p), bedW, bedD, printRibs, matT, washiSide, washiEnd, route };
 }
 
