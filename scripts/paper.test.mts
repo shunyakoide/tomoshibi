@@ -392,7 +392,7 @@ for (const preset of PRESETS)
   }
 
 // ---- 7. The silhouette extremes (the corners of LIMITS) ----
-// Cardboard has no size limit — a part too tall for A4 continues on the next sheet — so it is the
+// Cardboard has no HEIGHT limit — a part too tall for A4 continues on the next sheet — so it is the
 // route that meets a 2m body, and the one the sweeps above say nothing about (they run 140..400mm at
 // the presets' own radii). This walks the corners of the box the editor allows and asserts what would
 // make the template wrong rather than merely large: the rib still drawn at full scale (its length is

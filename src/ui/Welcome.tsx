@@ -72,9 +72,14 @@ const POINTS = [
 // The two ways to make the mold. Sub-line = what you receive, since "3D print / cardboard" names
 // the equipment, not the output. Cardboard keeps its beta badge: this card is where it is chosen,
 // and offering it without the caveat oversells it.
+//
+// Cardboard's sub-line said "no size limit", which was written when the print bed stopped applying
+// to this route and overshot: pages split DOWNWARD only, so a part WIDER than A4's content column
+// is clipped, and `derived.ts` raises an alert saying exactly that. What is actually unbounded is
+// the other axis — sheets butt vertically — so that is what it now claims.
 const ROUTES: [Route, string, string, string | null][] = [
   ["stl", "3Dプリンタ", "STL 一式をダウンロード", null],
-  ["paper", "段ボール", "A4 原寸の型紙を印刷 · 大きさの制限なし", "beta"],
+  ["paper", "段ボール", "A4 原寸の型紙を印刷 · 縦につないで大きく", "beta"],
 ];
 
 export default function Welcome({ route = null, onPick, onClose }: {
