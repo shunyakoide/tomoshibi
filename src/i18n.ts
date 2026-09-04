@@ -241,7 +241,6 @@ const EN: Record<string, string> = {
   "土台": "Base",
   "口輪(下)": "Ring (bottom)",
   "口輪(上)": "Ring (top)",
-  "編集中": "draft",
   "図を描けませんでした": "Figure unavailable",
   "段ボールの型には支柱・土台がありません(型紙が刷るのは、型そのものと口輪を曲げる線です)。回すときは手で持つか、箱などに載せてください。":
     "The cardboard mold has no posts and no base — the template cuts the mold itself and draws the lines its opening hoops are bent on. Hold it in your hands as you turn it, or rest it on a box.",

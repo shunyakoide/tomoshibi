@@ -47,7 +47,6 @@ export type SectionFrame = {
   Ymm: (y: number) => number;
   viewBox: string;
   /** CSS px per SVG unit, as the browser will render it. 1 before the pane has been measured. */
-  k: number;
   hitPt: number; hitAdd: number;
   rPt: number; rRing: number; rH: number; rAdd: number; rTan: number;
   markStroke: string;
@@ -107,5 +106,5 @@ export function sectionFrame(
   // Below this the drawing is context rather than a work surface, and a 34px pill is a fifth of it.
   const showLegend = !compact || pane.h === 0 || pane.h >= 220;
 
-  return { s, topY, X, Xm, Y, Ymm, viewBox, k, hitPt, hitAdd, rPt, rRing, rH, rAdd, rTan, markStroke, showLabels, showLegend };
+  return { s, topY, X, Xm, Y, Ymm, viewBox, hitPt, hitAdd, rPt, rRing, rH, rAdd, rTan, markStroke, showLabels, showLegend };
 }

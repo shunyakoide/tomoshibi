@@ -133,15 +133,15 @@ function coerceNums(p: Design): Design {
 /**
  * Boolean fields. `coerceNums` covers every numeric one and nothing covered these, so a hand-edited
  * or foreign file with `"neckBot": "false"` arrived as the STRING: truthy at `profile.ts`'s
- * `p.neckBot ?? p.neckOn ?? true`, and written straight back out by `serializeState` — a `Design`
- * permanently failing its own type. A wrong type falls back to DEFAULTS, the same answer the
- * numeric path gives, rather than to `!!value`, which would read `"false"` as true.
+ * `p.neckBot ?? true`, and written straight back out by `serializeState` — a `Design` permanently
+ * failing its own type. A wrong type falls back to DEFAULTS, the same answer the numeric path
+ * gives, rather than to `!!value`, which would read `"false"` as true.
  *
- * The two optional flags are DROPPED rather than defaulted when they are the wrong type: `neckBot ??
- * neckOn ?? true` reads absence as "no answer here, ask the next one", which `false` would answer.
+ * `noTabDent` is DROPPED rather than defaulted when it is the wrong type: it is optional, and
+ * absence is the answer the papercraft's callers rely on — a defaulted `false` would state one.
  */
 const BOOL_KEYS = ["neckBot", "neckTop", "lighten", "spiral", "legSockets"] as const;
-const OPT_BOOL_KEYS = ["neckOn", "noTabDent"] as const;
+const OPT_BOOL_KEYS = ["noTabDent"] as const;
 function coerceBools(p: Design): Design {
   for (const k of BOOL_KEYS) if (typeof p[k] !== "boolean") p[k] = DEFAULTS[k];
   for (const k of OPT_BOOL_KEYS) if (p[k] !== undefined && typeof p[k] !== "boolean") delete p[k];
@@ -168,19 +168,18 @@ export function saveState(state: SavedState): void {
   } catch { /* the app works even if saving fails (next launch simply starts from DEFAULTS) */ }
 }
 
-// Read saved.p even when the version is unknown — the shallow merge is forward-compatible, so
-// machine invariants are not thrown away. Only add a version here on a real breaking change.
-const INCOMPATIBLE_VERSIONS = new Set<unknown>(); // e.g. on a breaking change, add the affected version here
-
 // Parsed object → sanitized SavedState (null if invalid). Every externally-sourced object —
 // localStorage restore, file load, ZIP-embedded config — passes through here, so making corrupt
 // values safe is one path rather than one per caller.
+// `schemaVersion` is written into every save and never read back: the shallow merge is
+// forward-compatible, so an unknown version still yields a design, and rejecting one would throw
+// away a file this function can otherwise salvage. A real breaking change is where a version test
+// gets written — against the version it breaks, which is knowable only then.
 export function sanitizeSaved(saved: unknown): SavedState | null {
   if (!saved || typeof saved !== "object") return null;
   // The one cast in the file: past this line every field is read through a coercion that cannot
   // return anything but a number.
   const raw = saved as Record<string, unknown>;
-  if (INCOMPATIBLE_VERSIONS.has(raw.schemaVersion)) return null;
   const clampNum = (v: unknown, lo: number, hi: number, def: number) => { const n = Number(v); return Number.isFinite(n) ? clamp(lo, hi, n) : def; };
   const bedW = clampNum(raw.bedW, 100, 420, FRESH.bedW);   // UI numInput allowed range
   const bedD = clampNum(raw.bedD, 100, 420, FRESH.bedD);

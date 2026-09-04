@@ -33,10 +33,10 @@ const armAt = (radius: number) => Math.sqrt(Math.max(radius * radius - HANG_OFF 
  * socket from. The arch is a parabola through the rim, so the apex follows from the radius alone and
  * nothing has to be BUILT to ask where it is.
  */
-export const arcApexY = (radius: number) => radius * ARC_HIGH * (1 - (BOWL_W / armAt(radius)) ** 2);
+const arcApexY = (radius: number) => radius * ARC_HIGH * (1 - (BOWL_W / armAt(radius)) ** 2);
 
 /** The hanger: one wire, arcing down from the rim to the U in its middle and back up again. */
-export function hangWire(radius: number) {
+function hangWire(radius: number) {
   const rimX = armAt(radius), endX = armAt(radius + UNDER_RIM);
   const high = radius * ARC_HIGH;
   // The arch, as a parabola: `high` above the rim in the middle, back through the rim's own level

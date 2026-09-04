@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { makeT } from "../src/i18n.ts";
+import { scan, unescape_ } from "./lib/scan.mts";
 
 const en = makeT("en");
 let fail = 0, pass = 0;
@@ -37,62 +38,7 @@ const ALLOW = new Set([
 ]);
 
 // ---- Source scanning ----------------------------------------------------------------------
-// A character scanner rather than a regex: a regex `//` strip eats the `//` inside a URL, and
-// matching literals without tracking comments picks up Japanese in a comment. It also has to see
-// literals NESTED IN template literals, where the `t()` call inside is what we are after.
-function scan(src: string): { literals: string[]; code: string } {
-  const literals: string[] = [];      // plain '…' / "…" literals (not template literals)
-  let code = "";            // source with comments blanked out, literals kept
-  let i = 0;
-  const n = src.length;
-  while (i < n) {
-    const c = src[i], d = src[i + 1];
-    if (c === "/" && d === "/") {                       // line comment
-      while (i < n && src[i] !== "\n") i++;
-      continue;
-    }
-    if (c === "/" && d === "*") {                       // block comment
-      i += 2;
-      while (i < n && !(src[i] === "*" && src[i + 1] === "/")) i++;
-      i += 2;
-      continue;
-    }
-    if (c === '"' || c === "'" || c === "`") {
-      const quote = c, start = i;
-      let body = "";
-      i++;
-      while (i < n) {
-        if (src[i] === "\\") { body += src[i] + src[i + 1]; i += 2; continue; }
-        if (src[i] === quote) break;
-        // Inside a template literal, `${ … }` is code again: recurse so nested literals are seen.
-        if (quote === "`" && src[i] === "$" && src[i + 1] === "{") {
-          let depth = 1, j = i + 2;
-          while (j < n && depth > 0) {
-            if (src[j] === "{") depth++;
-            else if (src[j] === "}") depth--;
-            j++;
-          }
-          const inner = scan(src.slice(i + 2, j - 1));
-          literals.push(...inner.literals);
-          code += inner.code;
-          i = j;
-          continue;
-        }
-        body += src[i];
-        i++;
-      }
-      i++;                                              // closing quote
-      if (quote !== "`") literals.push(unescape_(body));
-      code += src.slice(start, i);
-      continue;
-    }
-    code += c;
-    i++;
-  }
-  return { literals, code };
-}
-// Undo the escapes that matter for matching a dictionary key written the same way.
-const unescape_ = (s: string) => s.replace(/\\(["'`\\])/g, "$1").replace(/\\n/g, "\n");
+// `scan` is shared with check:glyphs (scripts/lib/scan.mts); the reasoning lives there.
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

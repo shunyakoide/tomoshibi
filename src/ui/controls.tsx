@@ -211,13 +211,13 @@ export const SEG_SKIN = "rounded-md cursor-pointer bg-card text-text border bord
 
 /** One option of a segmented control (edit mode, smooth/corner). */
 export function SegButton({ label, active, onClick }: {
-  label: string | React.ReactNode; active: boolean; onClick: () => void;
+  label: string; active: boolean; onClick: () => void;
 }) {
   const t = useT();
   return (
     <button aria-pressed={active} onClick={onClick}
       className={`flex-1 px-4 py-7 ${SEG_SKIN}`}>
-      {typeof label === "string" ? t(label) : label}
+      {t(label)}
     </button>
   );
 }

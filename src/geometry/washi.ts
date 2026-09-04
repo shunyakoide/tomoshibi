@@ -5,7 +5,7 @@
  */
 import type { Design, Pt2 } from "../types.ts";
 import { fukuroRange, outerR } from "./profile.ts";
-import { grooveList, grooveR } from "./groove.ts";
+import { grooveList } from "./groove.ts";
 
 // Same construction as a globe gore:
 //   ・vertical    = the meridian ARC LENGTH s(y) = ∫√(1+R'(y)²)dy — NOT the raw height.
@@ -43,7 +43,7 @@ export type WashiOpts = { side?: number; end?: number; span?: number };
 export type WashiGore = {
   outline: Pt2[]; marks: Mark[]; guides: Pt2[][];
   sTot: number; wMax: number;
-  span: number; side: number; end: number; N: number;
+  span: number; end: number;
 };
 
 /**
@@ -120,10 +120,9 @@ export function washiGore(p: Design, opts: WashiOpts = {}): WashiGore {
 
   // Bamboo-rib (higo) heights, from the same grooveList as the mold: k=0 the left-edge rib, k=1 the
   // right-edge one — identical without spiral, shifted by step/boards with it.
-  const gR = grooveR(p);
   const marks: Mark[] = [];
-  for (const g of grooveList(p, gR, 0)) { const q = at(g); marks.push([-(q.w + side), q.s, -(q.w + side) + WASHI_TICK, q.s]); }
-  for (const g of grooveList(p, gR, 1)) { const q = at(g); marks.push([q.w + side, q.s, q.w + side - WASHI_TICK, q.s]); }
+  for (const g of grooveList(p, 0)) { const q = at(g); marks.push([-(q.w + side), q.s, -(q.w + side) + WASHI_TICK, q.s]); }
+  for (const g of grooveList(p, 1)) { const q = at(g); marks.push([q.w + side, q.s, q.w + side - WASHI_TICK, q.s]); }
 
   // Guides (dashed, not cut): the two rib lines (the panel edge less the overlap — line these up
   // with the ribs) and the two opening lines (where the overhang folds over). Traced from the cut
@@ -133,5 +132,5 @@ export function washiGore(p: Design, opts: WashiOpts = {}): WashiGore {
   for (const sgn of [-1, 1]) guides.push(st.map((q) => [sgn * q.w, q.s]));
   if (end > 0) for (const i of [0, n]) guides.push([[-(st[i].w + side), st[i].s], [st[i].w + side, st[i].s]]);
 
-  return { outline, marks, guides, sTot, wMax: Math.max(...st.map((q) => q.w)) + side, span, side, end, N };
+  return { outline, marks, guides, sTot, wMax: Math.max(...st.map((q) => q.w)) + side, span, end };
 }

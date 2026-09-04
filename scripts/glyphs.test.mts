@@ -9,6 +9,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { GLYPHS } from "../src/io/pdf-glyphs.ts";
+import { scan } from "./lib/scan.mts";
 
 // Kept in step with SOURCES / EXTRA in tools/pdffont/build.py — a module that starts printing has
 // to be added to both, and this script is what says so out loud.
@@ -24,11 +25,18 @@ const EXTRA = "←→↑▼—";
 let fail = 0;
 const bad = (m: string) => { fail++; console.log("FAIL: " + m); };
 
-/** Characters outside WinAnsi in the string literals of `file`, comments stripped. */
+/**
+ * Characters outside WinAnsi in the string literals of `file`, comments stripped.
+ *
+ * The comments come off with the shared scanner rather than a regex. A `//` strip written as a
+ * regex blanks the rest of any line holding a `//` inside a STRING — and `src/paper/svg.ts` holds
+ * `xmlns="http://www.w3.org/2000/svg"` — so a label written after one would vanish from this
+ * alphabet and print as a blank. That is the failure this gate exists to catch, and it was sitting
+ * inside the gate. `scan().code` keeps every literal verbatim, so what is matched below is
+ * unchanged; only the comment stripping got honest.
+ */
 function charsIn(file: string): Set<string> {
-  const src = readFileSync(new URL("../" + file, import.meta.url), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/[^\n]*/g, "");
+  const src = scan(readFileSync(new URL("../" + file, import.meta.url), "utf8")).code;
   const out = new Set<string>();
   for (const m of src.matchAll(/"([^"\\\n]*)"|'([^'\\\n]*)'|`([^`\\]*)`/g))
     for (const ch of m[1] ?? m[2] ?? m[3] ?? "") if (ch.charCodeAt(0) > 0xff) out.add(ch);

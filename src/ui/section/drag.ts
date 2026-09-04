@@ -17,12 +17,12 @@ import type { Design, NumericDesignKey } from "../../types.ts";
 
 /**
  * A draggable dimension handle. `key` names the design field it edits (so the inspector row and the
- * handle highlight together), `axis` which way the drag counts.
+ * handle highlight together).
  */
 export type Handle = {
-  key: NumericDesignKey; label: string; x: number; y: number; axis: "x" | "y";
+  key: NumericDesignKey; label: string; x: number; y: number;
   min: number; max: number; cursor: string; guide: [number, number, number, number];
-  lx: number; ly: number; anchor: "start" | "middle" | "end";
+  lx: number; ly: number; anchor: "end";
 };
 
 export type SectionDrag = {
@@ -104,7 +104,7 @@ export function sectionDrag(ctx: {
     const s0 = f.toSvg(e.clientX, e.clientY);
     startDrag(cfg.key, e.pointerId, (ev) => {
       const c = f.toSvg(ev.clientX, ev.clientY);
-      const dSvg = cfg.axis === "y" ? s0.y - c.y : c.x - s0.x; // up/right direction is positive
+      const dSvg = s0.y - c.y;   // dragged up = larger, the one direction a handle here counts in
       setP((o) => ({ ...o, [cfg.key]: clamp(cfg.min, cfg.max, Math.round(start + dSvg / f.s)) }));
     });
   };

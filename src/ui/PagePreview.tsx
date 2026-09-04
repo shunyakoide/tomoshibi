@@ -13,21 +13,15 @@
 import { useDeferredValue, useMemo } from "react";
 import { paperPagesSVG } from "../papercraft.ts";
 import { useT } from "./theme.ts";
-import type { Lang } from "../i18n.ts";
 import type { Design } from "../types.ts";
 
-export default function PagePreview({ p, matT, lang }: { p: Design; matT: number; lang: Lang }) {
+export default function PagePreview({ p, matT }: { p: Design; matT: number }) {
   const t = useT();
   // Deferred: laying the pages out and parsing the markup back into a DOM costs ~100ms, and a slider
   // drag asks for it 60 times a second. The pages trail the drag and settle when it stops.
   const dp = useDeferredValue(p);
-  // `lang` rather than `t` in the deps for the same reason it is passed that way to the scene
-  // builder: useLang builds a fresh t on every render, which would defeat the memo entirely.
-  const { svg, css, pages } = useMemo(
-    () => paperPagesSVG(dp, matT, t),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- t is derived from lang (new identity per render)
-    [dp, matT, lang],
-  );
+  // `t` is memoized on `lang` in useLang, so it is a stable dep rather than a fresh closure.
+  const { svg, css, pages } = useMemo(() => paperPagesSVG(dp, matT, t), [dp, matT, t]);
 
   return (
     <div className="absolute inset-0 flex flex-col pointer-events-auto">

@@ -7,22 +7,17 @@ import { pointOps, makeSetMode, clampR } from "./pointEdit.ts";
 import type { EditMode } from "./pointEdit.ts";
 import type { Design } from "../types.ts";
 
-export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode, compact = false }: {
+export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode }: {
   p: Design;
   setP: React.Dispatch<React.SetStateAction<Design>>;
   sel: number | null;
   setSel: (i: number | null) => void;
   editMode: EditMode;
   setEditMode: (m: EditMode) => void;
-  /** On a phone `ui/PointBar.tsx` carries this instead, and the card renders nothing. */
-  compact?: boolean;
 }) {
   const t = useT();
   const { pt, isEnd, canDelete, patch, setHeightMm, del } = pointOps(p, setP, sel, setSel);
   const setMode = makeSetMode(setP, setEditMode);
-
-  // What the bar does not carry is set by dragging the ◇, whose radius is printed beside the mark.
-  if (compact) return null;
 
   return (
     <div className="mb-20">
