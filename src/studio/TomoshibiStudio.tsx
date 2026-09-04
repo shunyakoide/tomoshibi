@@ -28,6 +28,7 @@ import { FRESH, loadSaved, loadWelcomeSeen, saveWelcomeSeen, type SavedState } f
 import SectionEditor from "../ui/section/SectionEditor.tsx";
 import PagePreview from "../ui/PagePreview.tsx";
 import GuidePage from "../guide/GuidePage.tsx";
+import { NotePage, NotesIndexPage } from "../notes/NotesPage.tsx";
 import Welcome from "../ui/Welcome.tsx";
 import { accent, chipStyle, TContext } from "../ui/theme.ts";
 import PresetChips from "../ui/PresetChips.tsx";
@@ -39,6 +40,7 @@ import Logo from "../ui/Logo.tsx";
 import type { EditMode } from "../ui/pointEdit.ts";
 import type { Design } from "../types.ts";
 import { REPO_URL } from "../config.ts";
+import { getNote } from "../notes/content.ts";
 
 /** Which onboarding card is open: the first-visit one, the one reopened from the ☰ menu, or neither. */
 type WelcomeCard = "first" | "help" | null;
@@ -100,6 +102,9 @@ export default function TomoshibiStudio() {
   // Renamed on the way in: `route` is this file's word for how the mold gets MADE.
   const { route: page, go: goPage } = usePageRoute();
   const guide = page === "guide";
+  const notes = page === "notes";
+  const note = page ? getNote(page, lang) : null;
+  const noteSlug = note ? page : null;
 
   // Clamp the rib count to what fits the koma, whatever made it too large (board thickness,
   // tolerance, the opening ◇): overlapping notches produce a non-watertight koma.
@@ -168,6 +173,7 @@ export default function TomoshibiStudio() {
     { kind: "item", label: t("はじめかた"), onClick: () => setWelcome("help") },
     // The app's primary navigation stays visible: do not fold a VIEW in here.
     { kind: "item", label: t("作り方"), onClick: () => goPage("guide") },
+    { kind: "item", label: t("Notes"), onClick: () => goPage("notes") },
     // The app is served from a static host with no install step, so the ☰ is the only place it can
     // say where it came from. Named for what is there, not just for the host it is on.
     { kind: "item", label: t("ソースコード (GitHub)"), href: REPO_URL },
@@ -304,7 +310,16 @@ export default function TomoshibiStudio() {
             document open over the print view would hide the thing it just sent you to. */}
         {guide && (
           <GuidePage route={route} onClose={() => goPage(null)}
-            onGoPrint={() => { goPage(null); setView("print"); }} />
+            onGoPrint={() => { goPage(null); setView("print"); }}
+            onGoNote={(slug, hash) => goPage(slug, hash)} />
+        )}
+        {notes && (
+          <NotesIndexPage lang={lang} onClose={() => goPage(null)}
+            onOpen={(slug) => goPage(slug)} />
+        )}
+        {noteSlug && (
+          <NotePage slug={noteSlug} lang={lang} onClose={() => goPage(null, "", true)}
+            onBackToNotes={() => goPage("notes")} onBackToGuide={() => goPage("guide")} />
         )}
       </div>
     </TContext.Provider>
