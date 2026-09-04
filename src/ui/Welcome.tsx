@@ -62,13 +62,6 @@ const STEPS: [StepKind, string, string][] = [
   ["build", "貼る", "竹ひごを巻いて和紙を貼る"],
 ];
 
-const POINTS = [
-  "画面に映っているのは提灯そのものではなく、その上で組み立てる「型」です",
-  // beta in the string rather than as a badge: this is a sentence in a bullet list, and the badge
-  // element belongs on the things you press.
-  "和紙の型紙(先に切っておく用・beta)は、どちらの出力にも付いてきます",
-];
-
 // The two ways to make the mold. Sub-line = what you receive, since "3D print / cardboard" names
 // the equipment, not the output. Cardboard keeps its beta badge: this card is where it is chosen,
 // and offering it without the caveat oversells it.
@@ -139,7 +132,13 @@ export default function Welcome({ route = null, onPick, onClose }: {
             bg-transparent border-0 rounded-full cursor-pointer font-sans text-2xl leading-none
             text-faint hover:bg-card hover:text-text" title={t("閉じる")} aria-label={t("閉じる")}>×</button>
         <Logo variant="full" className="h-62 w-auto text-head max-[480px]:h-44" />
-        <div className="mt-8 text-md text-sub">{t("和紙提灯の「張型」をつくる")}</div>
+        {/* The card's one job: say what you can DO here, in words someone who has never made a
+            lantern already knows. It used to say 「張型」— the correct trade word, and the reason a
+            bullet had to follow it explaining that the shape on screen was not a lantern. Leading
+            with the outcome (a lantern, yours, any shape) makes that bullet unnecessary: the three
+            steps below then SHOW that what this site hands you is the mold, which is what 「型から」
+            says without stopping to define itself. */}
+        <div className="mt-8 text-md text-sub">{t("好きな形の和紙提灯を、型からつくれます")}</div>
 
         {/* The three steps, with arrows between them */}
         <div className="flex items-stretch gap-4 my-18 mb-16 bg-card border border-card-edge
@@ -162,15 +161,6 @@ export default function Welcome({ route = null, onPick, onClose }: {
             </React.Fragment>
           ))}
         </div>
-
-        <ul className="list-none flex flex-col gap-8">
-          {POINTS.map((s) => (
-            <li key={s} className="flex gap-9 text-base leading-[1.6] text-text">
-              <span aria-hidden="true" className="w-5 h-5 rounded-full flex-none mt-7 bg-accent" />
-              <span>{t(s)}</span>
-            </li>
-          ))}
-        </ul>
 
         {/* Two buttons rather than a segmented toggle: each is also the "start" action, so nobody
             chooses and then confirms. */}

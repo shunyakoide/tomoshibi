@@ -25,17 +25,13 @@ const EN: Record<string, string> = {
   // ---- Welcome / onboarding (first run, reopened from the ☰ menu in the header) ----
   "閉じる": "Close",
   "はじめかた": "Getting started",
-  "和紙提灯の「張型」をつくる": "Design the forming mold for a washi paper lantern",
+  "好きな形の和紙提灯を、型からつくれます": "Make a washi lantern in any shape you like — starting from its mold",
   "断面を決める": "Draw the section",
   "◇ドラッグで形をつくる": "Drag the ◇ to shape the curve",
   "出力する": "Export it",
   "STL か 原寸の型紙": "STL, or a 1:1 paper template",
   "貼る": "Build it",
   "竹ひごを巻いて和紙を貼る": "Wind bamboo, paste the washi",
-  "画面に映っているのは提灯そのものではなく、その上で組み立てる「型」です":
-    "What you see is not the lantern itself — it is the mold the lantern is built on",
-  "和紙の型紙(先に切っておく用・beta)は、どちらの出力にも付いてきます":
-    "The washi template (beta) — for cutting the paper before pasting — comes with either output",
   // ---- Welcome / the route choice (3D print vs cardboard) ----
   "どちらでつくりますか?": "How will you make it?",
   "後からいつでも変更できます": "Changeable at any time",
