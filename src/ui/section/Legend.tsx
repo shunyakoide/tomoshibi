@@ -71,7 +71,7 @@ export default function Legend({ accent, editMode, compact }: {
   accent: string; editMode: EditMode; compact: boolean;
 }) {
   const t = useT();
-  const g = LEGEND[editMode] || LEGEND.move;
+  const g = LEGEND[editMode];
   // "→ 右パネルで編集" is a wide-layout fact: a legend that names a panel the layout does not have
   // is worse than no legend.
   const rows: [GlyphKind, string, string][] = compact

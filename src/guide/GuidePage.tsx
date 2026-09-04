@@ -192,14 +192,11 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
               <div>
                 <h3 className={STEP_H3}>
                   <span className={STEP_NUM}>{i + 1}</span>
-                  {/* Title and badge in one flex item, so the badge keeps its own 5px against the
-                      words instead of taking the h3's 10px gap as well. */}
-                  <span>{t(s.title)}{s.wip && <Badge>{t("編集中")}</Badge>}</span>
+                  <span>{t(s.title)}</span>
                 </h3>
                 {/* The count comes from the options actually offered here, not from the list: one
                     needs the leg sockets, and "three ways" over two sections is a visible lie. */}
                 <p className={STEP_P}>{t(!stl && s.paperBody ? s.paperBody : s.body, s.options && { n: options[s.id].length })}</p>
-                {s.wip && <p className={STEP_P}>{t(s.wip)}</p>}
                 {s.options && (
                   <ul className={WAY_UL}>
                     {options[s.id].map((o) => (

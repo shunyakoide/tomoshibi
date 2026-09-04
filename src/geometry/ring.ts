@@ -110,10 +110,9 @@ function annulusGeo(rOuter: number, rInner: number, N: number, cx = 0, cy = 0, d
 }
 // An "onigiri" pad: an equilateral triangle centered at (cx, cy), circumradius R, rotated by `rot`,
 // bore of radius `boreR` at the center, extruded along Z. `t` = corner rounding as a fraction of the
-// edge, one number or per-corner [t0,t1,t2]; t=0 stays sharp (where the pad meets the ring).
+// edge, per-corner [t0,t1,t2]; 0 stays sharp (where the pad meets the ring).
 // Independently watertight.
-function onigiriGeo(cx: number, cy: number, R: number, t: number | [number, number, number], rot: number, boreR: number, depth: number): THREE.ExtrudeGeometry {
-  const tv = Array.isArray(t) ? t : [t, t, t];
+function onigiriGeo(cx: number, cy: number, R: number, tv: [number, number, number], rot: number, boreR: number, depth: number): THREE.ExtrudeGeometry {
   const V = [0, 1, 2].map((k) => {
     const a = rot + (k * 2 * Math.PI) / 3;
     return new THREE.Vector2(cx + R * Math.cos(a), cy + R * Math.sin(a));

@@ -257,9 +257,10 @@ export default function TomoshibiStudio() {
           setP((o) => ({ ...o, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })), ...(pr.height ? { height: pr.height } : {}) }));
         }} />
 
-        {view === "2d" && (
-          <PointCard p={p} setP={setP} sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode}
-            compact={narrow} />
+        {/* Narrow: `ui/PointBar.tsx` carries this instead. Gated HERE rather than by a `compact`
+            prop the card early-returned on, which ran its hooks' worth of work before dropping it. */}
+        {view === "2d" && !narrow && (
+          <PointCard p={p} setP={setP} sel={sel} setSel={setSel} editMode={editMode} setEditMode={setEditMode} />
         )}
 
         <SilhouetteSection p={p} setP={setP} drag={drag} setDrag={setDrag} />
