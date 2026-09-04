@@ -219,7 +219,7 @@ export default function TomoshibiStudio() {
           )}
           {/* The output is a document, so the preview is one — the template's own pages, over the
               same (empty) canvas the section editor uses. */}
-          {paperPreview && <PagePreview p={p} matT={matT} lang={lang} />}
+          {paperPreview && <PagePreview p={p} matT={matT} />}
         </>
       } />
   );
