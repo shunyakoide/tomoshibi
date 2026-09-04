@@ -38,6 +38,7 @@ import OverflowMenu, { type MenuItem } from "../ui/Menu.tsx";
 import Logo from "../ui/Logo.tsx";
 import type { EditMode } from "../ui/pointEdit.ts";
 import type { Design } from "../types.ts";
+import { REPO_URL } from "../config.ts";
 
 /** Which onboarding card is open: the first-visit one, the one reopened from the ☰ menu, or neither. */
 type WelcomeCard = "first" | "help" | null;
@@ -49,8 +50,7 @@ export default function TomoshibiStudio() {
   /**
    * Everything that SURVIVES a reload, in one record whose shape IS `SavedState` — the design plus
    * the machine settings, which are facts about the maker rather than the lantern (the build route
-   * among them: it decides whether a print bed constrains this design at all, see
-   * docs/design-notes.md "Build route").
+   * among them: it decides whether a print bed constrains this design at all).
    *
    * **One record, because the eight fields were previously eight `useState`s and that made the same
    * list five more times** — the initializers' own defaults, `useAutosave`, `exportDesign`,
@@ -168,6 +168,9 @@ export default function TomoshibiStudio() {
     { kind: "item", label: t("はじめかた"), onClick: () => setWelcome("help") },
     // The app's primary navigation stays visible: do not fold a VIEW in here.
     { kind: "item", label: t("作り方"), onClick: () => goPage("guide") },
+    // The app is served from a static host with no install step, so the ☰ is the only place it can
+    // say where it came from. Named for what is there, not just for the host it is on.
+    { kind: "item", label: t("ソースコード (GitHub)"), href: REPO_URL },
     // A setting, not a verb: the row names the thing, the right-hand side shows what it would become.
     { kind: "item", label: t("言語"), value: lang === "ja" ? "English" : "日本語", onClick: toggleLang },
     { kind: "sep" },
