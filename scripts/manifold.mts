@@ -224,7 +224,7 @@ for (const preset of PRESETS)
             const p = { ...base, boards: Math.min(8, G.maxBoards(base)) };
             for (const r of checkParts(p)) {
               spcTotal++;
-              if (!r.ok) { spcFail++; if (spcFail <= 40) console.log(`✗[S] ${preset.key} n${nPts} gap${gap} sw${swing} h${height} hd${higoD} :: ${r.name} → ${r.reason}`); }
+              if (!r.ok) { spcFail++; if (spcFail <= 40) console.log(`✗[C] ${preset.key} n${nPts} gap${gap} sw${swing} h${height} hd${higoD} :: ${r.name} → ${r.reason}`); }
             }
           }
 console.log(`\n=== control-point spacing (gap ${T_GAP}..0.1 × ${LIMITS.pts[0]}..${LIMITS.pts[1]} points): ${spcTotal} checks, ${spcFail} FAIL ===`);
@@ -304,6 +304,5 @@ for (const preset of PRESETS)
 console.log(`\n=== bottom-ring leg sockets: ${lgTotal} checks, ${lgFail} FAIL ===`);
 console.log(`sockets cut: ${lgOn} / plain hoop + marker (off, or no room): ${lgOff}`);
 
-const bad = fail + hfail + spFail + exFail + lgFail;
-if (bad > 0) process.exitCode = 1;
+const bad = fail + hfail + spFail + spcFail + exFail + lgFail;
 process.exit(bad ? 1 : 0);

@@ -87,9 +87,6 @@ save({ p: DEFAULTS, printRibs: 1 });
 r = load();
 t("bedW missing → 256", r.bedW === 256 && r.bedD === 256);
 
-save({ p: { ...DEFAULTS, neckOn: false }, bedW: 256, bedD: 256, printRibs: 1 });
-t("legacy neckOn preserved", load().p.neckOn === false);
-
 // ---- bottom-ring leg sockets (legSockets) ----
 // One flag deciding which of two solids the bottom ring is, so both must survive the round-trip
 // watertight. Neither state may be left to DEFAULTS: a test that saved only the default would stop
@@ -133,7 +130,7 @@ save({ p: { ...DEFAULTS, pitch: 0 }, bedW: 256, bedD: 256, printRibs: 1 });
 r = load();
 t("pitch=0 → clamped to positive range", r.p.pitch >= 8);
 t("grooveList returns a finite count even after pitch=0 restore", (() => {
-  const gs = G.grooveList(r.p, r.p.higoD / 2 + 0.25);
+  const gs = G.grooveList(r.p, G.grooveR(r.p));
   return Array.isArray(gs) && gs.length < 1000;
 })());
 
@@ -189,14 +186,13 @@ t("wrong-typed flag → the DEFAULTS answer, not !!value",
 t("coerced flags survive the round trip as booleans", typeof parse(serialize(r)).p.lighten === "boolean");
 t("non-boolean flags → watertight", manifoldOK(r.p) === true);
 
-// The two OPTIONAL flags mean something by being absent: `neckBot ?? neckOn ?? true` reads a missing
-// `neckOn` as "no answer here", which a defaulted `false` would answer for it.
-save({ p: { ...DEFAULTS, neckOn: "no", noTabDent: 7 }, bedW: 256, bedD: 256, printRibs: 1 });
+// The OPTIONAL flag means something by being absent, so a wrong type drops it rather than
+// defaulting it: `noTabDent` unset is "the app's own state", and a defaulted `false` would state one.
+save({ p: { ...DEFAULTS, noTabDent: 7 }, bedW: 256, bedD: 256, printRibs: 1 });
 r = load();
-t("wrong-typed optional flags → dropped, not defaulted",
-  r.p.neckOn === undefined && r.p.noTabDent === undefined);
-save({ p: { ...DEFAULTS, neckOn: false }, bedW: 256, bedD: 256, printRibs: 1 });
-t("a real optional flag is still preserved", load().p.neckOn === false);
+t("wrong-typed optional flag → dropped, not defaulted", r.p.noTabDent === undefined);
+save({ p: { ...DEFAULTS, noTabDent: true }, bedW: 256, bedD: 256, printRibs: 1 });
+t("a real optional flag is still preserved", load().p.noTabDent === true);
 
 // ---- sanitize of Bézier tangent handles (ho/hi) ----
 // Valid handles preserved. Broken handles (non-finite, JSON-serialized Infinity=null,

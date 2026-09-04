@@ -109,7 +109,7 @@ export function bakeBezierHandles(pts: Pt[]): Pt[] {
 export function fukuroRange(p: Design): { lo: number; hi: number } {
   const pts = (p.pts && p.pts.length >= 2) ? p.pts : null;
   if (!pts) return { lo: cutTbot(p), hi: 1 - cutTtop(p) };
-  const nB = p.neckBot ?? p.neckOn ?? true, nT = p.neckTop ?? p.neckOn ?? true;
+  const nB = p.neckBot ?? true, nT = p.neckTop ?? true;
   return { lo: nB ? pts[0].t : 0, hi: nT ? pts[pts.length - 1].t : 1 };
 }
 // The design basis for neck/tab is the control-point radius, so toggling a neck does not change the
@@ -130,7 +130,7 @@ export function outerR(p: Design, t: number): number {
   const pts = (p.pts && p.pts.length) ? p.pts : [{ t: 0.5, r: (p.rTop + p.rBot) / 2 }];
   if (pts.length === 1) return Math.max(8, pts[0].r);
   const fp = pts[0], lp = pts[pts.length - 1];
-  const nB = p.neckBot ?? p.neckOn ?? true, nT = p.neckTop ?? p.neckOn ?? true;
+  const nB = p.neckBot ?? true, nT = p.neckTop ?? true;
   const kR = komaR(p); // tab (koma) size = opening when there is no neck
   // With a neck: widen the opening outward to the control point, then a vertical rectangle from
   // there to y=0/1. Without: the opening becomes the tab size (body end set to kR, no slanted taper).

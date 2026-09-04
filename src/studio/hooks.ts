@@ -2,7 +2,7 @@
  * The stateful behaviours that draw nothing. No geometry and no three.js — only React, localStorage
  * and window events.
  */
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { saveState } from "./persist.ts";
 import { makeT, loadLang, saveLang } from "../i18n.ts";
 import { currentRoute, routeHref } from "./route.ts";
@@ -128,7 +128,12 @@ export function useLang(): { lang: Lang; toggleLang: () => void; t: T } {
   // Japanese from localStorage, so without this the document claims English while showing Japanese.
   // Not cosmetic — `lang` picks a mobile browser's CJK font fallback and a screen reader's voice.
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
-  return { lang, toggleLang: toggle, t: makeT(lang) };
+  // Memoized on `lang`, so `t` is a stable identity between renders. An unmemoized `makeT(lang)`
+  // is a fresh closure every render, which silently defeats every memo that lists `t` in its
+  // deps — `derived.ts`'s overSheet was recomputing the whole template layout on every frame of
+  // a drag, and PagePreview had to depend on `lang` instead and opt out of exhaustive-deps.
+  const t = useMemo(() => makeT(lang), [lang]);
+  return { lang, toggleLang: toggle, t };
 }
 
 /**
