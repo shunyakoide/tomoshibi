@@ -3,8 +3,8 @@
  * detail or a button's styling lands back here, the file starts growing towards the 1,400 lines it
  * used to be.
  */
-import { useEffect, useRef, useState } from "react";
-import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { maxBoards } from "../geometry.ts";
 import * as kit from "./kit.ts";
 import { useFigures, buildAlerts } from "./derived.ts";
 import { AlertBar } from "../ui/Alerts.tsx";
@@ -24,12 +24,11 @@ import type { KitNoteState } from "../ui/panel/KitNote.tsx";
 import { useViewport } from "../three/viewport.ts";
 import { buildScene } from "../three/scenes.ts";
 import { useAutosave, useLang, useNarrow, usePageRoute, useUndoRedo } from "./hooks.ts";
-import { loadSaved, loadWelcomeSeen, saveWelcomeSeen } from "./persist.ts";
+import { FRESH, loadSaved, loadWelcomeSeen, saveWelcomeSeen, type SavedState } from "./persist.ts";
 import SectionEditor from "../ui/section/SectionEditor.tsx";
 import PagePreview from "../ui/PagePreview.tsx";
 import GuidePage from "../guide/GuidePage.tsx";
 import Welcome from "../ui/Welcome.tsx";
-import { DEFAULTS } from "../config.ts";
 import { accent, chipStyle, TContext } from "../ui/theme.ts";
 import PresetChips from "../ui/PresetChips.tsx";
 import PointCard from "../ui/PointCard.tsx";
@@ -38,7 +37,7 @@ import Toolbar from "../ui/Toolbar.tsx";
 import OverflowMenu, { type MenuItem } from "../ui/Menu.tsx";
 import Logo from "../ui/Logo.tsx";
 import type { EditMode } from "../ui/pointEdit.ts";
-import type { Route } from "../types.ts";
+import type { Design } from "../types.ts";
 
 /** Which onboarding card is open: the first-visit one, the one reopened from the ☰ menu, or neither. */
 type WelcomeCard = "first" | "help" | null;
@@ -47,20 +46,35 @@ type WelcomeCard = "first" | "help" | null;
 const SAVED = typeof window !== "undefined" ? loadSaved() : null;
 
 export default function TomoshibiStudio() {
-  const [p, setP] = useState(SAVED?.p ?? DEFAULTS);
+  /**
+   * Everything that SURVIVES a reload, in one record whose shape IS `SavedState` — the design plus
+   * the machine settings, which are facts about the maker rather than the lantern (the build route
+   * among them: it decides whether a print bed constrains this design at all, see
+   * docs/design-notes.md "Build route").
+   *
+   * **One record, because the eight fields were previously eight `useState`s and that made the same
+   * list five more times** — the initializers' own defaults, `useAutosave`, `exportDesign`,
+   * `importDesign` and `resetAll` — and a field reaching some of them and not the rest has already
+   * shipped twice: 「初期化」 left the washi allowances standing, and the ZIP's config went out as a
+   * `Pick` of five. Now the list exists only in the type, and adding a field to `SavedState` is the
+   * whole change. Transient view state (`view`, `sel`, `drag`, …) deliberately stays out: it is not
+   * saved, and folding it in here would put a camera angle in the backup file.
+   */
+  const [s, setS] = useState<SavedState>(SAVED ?? FRESH);
+  const { p, route, printRibs, bedW, bedD, matT, washiSide, washiEnd } = s;
+  /** Write one field of it. The controls take a plain `(v) => void`, so they never see the record. */
+  const set = useCallback(<K extends keyof SavedState>(k: K, v: SavedState[K]) =>
+    setS((o) => ({ ...o, [k]: v })), []);
+  /**
+   * The design's own setter, keeping the `Dispatch<SetStateAction<Design>>` shape its callers pass
+   * around: the section editor updates FROM the previous design on every pointer move, and a
+   * plain-value setter would make each of those read a `p` captured one render ago.
+   */
+  const setP = useCallback<React.Dispatch<React.SetStateAction<Design>>>(
+    (v) => setS((o) => ({ ...o, p: typeof v === "function" ? v(o.p) : v })), []);
+
   const [view, setView] = useState<View>("2d");           // section view first: easiest place to read the shape
-  // NOT transient — a fact about the maker, not the design, and it decides whether a print bed
-  // constrains this design at all (docs/design-notes.md "Build route").
-  const [route, setRoute] = useState<Route>(SAVED?.route ?? "stl");
   const [drag, setDrag] = useState<string | null>(null);           // key being dragged (highlights handles / slider rows)
-  const [printRibs, setPrintRibs] = useState(SAVED?.printRibs ?? 1);
-  const [bedW, setBedW] = useState(SAVED?.bedW ?? 256);   // print bed (mm). Restored as a machine setting
-  const [bedD, setBedD] = useState(SAVED?.bedD ?? 256);
-  const [matT, setMatT] = useState(SAVED?.matT ?? 5);     // measured cardboard thickness (mm)
-  // Washi allowances (mm): side = the overlap where panels lap over a rib, end = how far the sheet
-  // runs past the opening to fold over the ring.
-  const [washiSide, setWashiSide] = useState(SAVED?.washiSide ?? WASHI_SIDE);
-  const [washiEnd, setWashiEnd] = useState(SAVED?.washiEnd ?? WASHI_END);
   const [sel, setSel] = useState<number | null>(null);             // selected control point in the section editor (transient)
   const [editMode, setEditMode] = useState<EditMode>("move"); // section editor: "move" points / "curve" tangent handles
   const [alertsOpen, setAlertsOpen] = useState(false);             // narrow only: the alert strip, folded (see alertBar)
@@ -90,12 +104,14 @@ export default function TomoshibiStudio() {
   // Clamp the rib count to what fits the koma, whatever made it too large (board thickness,
   // tolerance, the opening ◇): overlapping notches produce a non-watertight koma.
   const boardsMax = maxBoards(p);
+  // `setP` is listed because it is no longer a `useState` setter the lint rule knows is stable. It
+  // is stable — `useCallback([])` — so the effect still runs only when the count or the ceiling moves.
   useEffect(() => {
     if (p.boards > boardsMax) setP((o) => ({ ...o, boards: boardsMax }));
-  }, [p.boards, boardsMax]);
+  }, [p.boards, boardsMax, setP]);
 
   // Runs after the clamp above, so what lands in localStorage is always the clamped design.
-  useAutosave({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd, route });
+  useAutosave(s);
 
   // The note is a DOWNLOAD's own confirmation, and `PanelFooter` picks which manifest to show from
   // `route` — so a note left standing across a route switch describes a ZIP that was never made.
@@ -117,18 +133,11 @@ export default function TomoshibiStudio() {
   // than at definition time.
   const downloadKit = () => kit.downloadKit({ p, nRibs, bedW, bedD, washiSide, washiEnd, t });
   const downloadPaperKit = () => kit.downloadPaperKit({ p, matT, moldSrc, washiOpts, t });
-  const exportDesign = () =>
-    kit.exportDesign({ p, bedW, bedD, printRibs, matT, washiSide, washiEnd, route });
-  const importDesign = (file: File | undefined) => kit.importDesign(file, t, (s) => {
-    setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setMatT(s.matT);
-    setWashiSide(s.washiSide); setWashiEnd(s.washiEnd); setRoute(s.route);
-  });
-  // Every field, the same list `importDesign` applies: a partial reset left the washi allowances and
-  // the cardboard thickness standing while the dialog said すべて.
-  const resetAll = () => kit.resetAll(t, (s) => {
-    setP(s.p); setBedW(s.bedW); setBedD(s.bedD); setPrintRibs(s.printRibs); setMatT(s.matT);
-    setWashiSide(s.washiSide); setWashiEnd(s.washiEnd); setRoute(s.route);
-  });
+  // Both hand the WHOLE record over, so `setS` IS the apply callback: a restore or a reset that
+  // reinstates only the fields someone remembered to list is the bug this collapse exists for.
+  const exportDesign = () => kit.exportDesign(s);
+  const importDesign = (file: File | undefined) => kit.importDesign(file, t, setS);
+  const resetAll = () => kit.resetAll(t, setS);
 
   // ---- Derived figures ----
   // Everything the design implies, in one memoized pass (src/studio/derived.ts). Called HERE rather than in
@@ -171,7 +180,7 @@ export default function TomoshibiStudio() {
   const headerBtns = <OverflowMenu label={t("メニュー")} items={menuItems} />;
 
   const chipBar = narrow
-    ? <ViewBar view={view} setView={setView} route={route} setRoute={setRoute} isLit={isLit} menu={headerBtns} />
+    ? <ViewBar view={view} setView={setView} route={route} setRoute={(r) => set("route", r)} isLit={isLit} menu={headerBtns} />
     : null;
 
   // ---- Narrow: the selected ◇, in flow above the sheet -----------------------------------------
@@ -197,7 +206,7 @@ export default function TomoshibiStudio() {
   const viewport = (
     <Viewport mainRef={mainRef} mountRef={mountRef} isLit={isLit} narrow={narrow}
       maxDia={maxDia} height={p.height} glError={glError} chipTxt={chip.txt} alerts={alerts}
-      tabs={!narrow && <ViewChips view={view} setView={setView} route={route} setRoute={setRoute} isLit={isLit} />}
+      tabs={!narrow && <ViewChips view={view} setView={setView} route={route} setRoute={(r) => set("route", r)} isLit={isLit} />}
       overlay={
         <>
           {/* The section editor, overlaid on the WebGL canvas */}
@@ -254,13 +263,13 @@ export default function TomoshibiStudio() {
         <FrameworkSection p={p} setP={setP} boardsMax={boardsMax} drag={drag} setDrag={setDrag} />
         <HigoSection p={p} setP={setP} drag={drag} setDrag={setDrag} />
         <WashiSection boards={moldSrc.boards} side={washiSide} end={washiEnd}
-          setSide={setWashiSide} setEnd={setWashiEnd} gore={washiG} />
+          setSide={(v) => set("washiSide", v)} setEnd={(v) => set("washiEnd", v)} gore={washiG} />
         <RingSection legSockets={!!p.legSockets} legsFit={legsFit}
           onToggle={() => setP((o) => ({ ...o, legSockets: !o.legSockets }))} />
         {view === "print" && (
           <ExportSection route={route} p={p} nRibs={nRibs}
-            bedW={bedW} bedD={bedD} setBedW={setBedW} setBedD={setBedD}
-            setPrintRibs={setPrintRibs} matT={matT} setMatT={setMatT} />
+            bedW={bedW} bedD={bedD} setBedW={(v) => set("bedW", v)} setBedD={(v) => set("bedD", v)}
+            setPrintRibs={(v) => set("printRibs", v)} matT={matT} setMatT={(v) => set("matT", v)} />
         )}
         {/* The wordmark, phone only, at the END of the scroll: the panel header it sat in is gone
             here, and at the top it would spend the first 40px of every pull on identity. */}
@@ -285,7 +294,7 @@ export default function TomoshibiStudio() {
           onChange={(e) => { importDesign(e.target.files?.[0]); e.target.value = ""; }} />
         {welcome && (
           <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome}
-            onPick={(r) => { setRoute(r); closeWelcome(); }} />
+            onPick={(r) => { set("route", r); closeWelcome(); }} />
         )}
         {/* The guide's one outbound link closes it as well as switching the view: leaving the
             document open over the print view would hide the thing it just sent you to. */}
