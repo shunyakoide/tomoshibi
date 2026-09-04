@@ -227,6 +227,7 @@ const EN: Record<string, string> = {
   // winding, pasting, drying, pulling and lighting are not assembly, and half of them happen after
   // the mold comes apart.
   "作り方": "How to build it",
+  "ソースコード (GitHub)": "Source code (GitHub)",
   "3Dプリントで型をつくる": "Build the mold by 3D printing",
   "段ボールで型をつくる": "Build the mold from cardboard",
   // The figures draw one representative lantern and the page prints no dimensions, so the lead says

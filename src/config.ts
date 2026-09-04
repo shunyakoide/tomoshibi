@@ -35,8 +35,8 @@ export const DEFAULTS: Design = {
 };
 
 // The one table every clamp reads — the section editor's drag, the typed fields, the scrub row and
-// persist's sanitize. The floors are geometry and the ceilings are not; see docs/design-notes.md
-// "How big may a design get" before moving either.
+// persist's sanitize. The floors are geometry and the ceilings are not; know which is which
+// before moving either.
 // `pts` is a COUNT, not a millimetre range like the other two: the fewest control points `outerR`
 // can interpolate between (`fukuroSpline`'s div-0 guard exists because two is reachable) and the
 // most the section view will add.
@@ -70,3 +70,8 @@ export const SIL_ROWS: SilRow[] = [
 // One place: written into two ZIPs, printed in two notes. `_beta` is part of the name on purpose —
 // the file outlives the screen it came from, so the caveat travels with it.
 export const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";
+
+// The project's own page. In the ☰ so the app can say where it came from — a browser app with no
+// install step leaves no other trail back to its source, and the licence and the issue tracker are
+// both there.
+export const REPO_URL = "https://github.com/shunyakoide/tomoshibi";
