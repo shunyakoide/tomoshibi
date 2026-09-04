@@ -105,7 +105,7 @@ export function useFigures(p: Design, m: {
   const pull = useMemo(() => ribPullFit(moldSrc), [moldSrc]);
 
   return {
-    maxDia, washiG, legsFit, topOpen, botOpen, bedFit, overParts,
+    maxDia, washiG, legsFit, topOpen, botOpen, overParts,
     ribFits, ribLen, ribBaseOver, heightLimit, fit, thinWall, washiOpts, moldSrc, pull, overSheet,
   };
 }

@@ -9,18 +9,20 @@
 // ---- Profile and the sizes derived from it ----
 export {
   bakeBezierHandles, fukuroRange, outerR, maxRadius,
-  cutTbot, cutTtop, cutYbot, cutYtop, cutT,
-  komaR, tabDepth, effBoardWidth, maxBoards, innerRi,
+  cutYbot, cutYtop,
+  komaR, maxBoards, innerRi,
   tabDented, notchR,
 } from "./geometry/profile.ts";
-// (TAB_DENT_W/H stay internal: rib.ts imports them from profile.ts directly. The public surface here
-//  was deliberately left exactly as it was before the split, so no caller could tell it happened.)
+// (TAB_DENT_W/H stay internal: rib.ts imports them from profile.ts directly. The surface here was
+//  left exactly as it was before the split, so no caller could tell it happened — and then trimmed
+//  once, of the names that split had carried out of `profile.ts` for nobody: a re-export with no
+//  importer is not a stable surface, it is a claim that something out there depends on it.)
 
 // ---- Bamboo-rib grooves ----
-export { equatorY, grooveOuterPts, grooveR, grooveList, higoSpiralPath } from "./geometry/groove.ts";
+export { grooveOuterPts, grooveR, grooveList, higoSpiralPath } from "./geometry/groove.ts";
 
 // ---- Parts ----
-export { ribInnerX, ribOutline2D, ribPullFit, lightenHoles2D, ribNumberHoles2D, ribShape, ribGeometry } from "./geometry/rib.ts";
+export { ribOutline2D, ribPullFit, lightenHoles2D, ribGeometry } from "./geometry/rib.ts";
 export { komaShape, komaGeometry } from "./geometry/koma.ts";
 export { openingR, ringGeometry, ringLegs, ringLegsFit, wireRing2D, wireRingGeometry } from "./geometry/ring.ts";
 export {
@@ -34,4 +36,4 @@ export { WASHI_SIDE, WASHI_END, washiGore, washiSurface } from "./geometry/washi
 // `Design`/`Pt` are NOT re-exported here — a design is not a shape, it is the input every shape is
 // made from, and it lives in types.ts so persist, the UI and the templates can name it without
 // importing geometry at all.
-export type { Mark, WashiOpts, WashiGore } from "./geometry/washi.ts";
+export type { Mark, WashiOpts } from "./geometry/washi.ts";

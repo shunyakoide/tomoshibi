@@ -1,10 +1,11 @@
 import * as THREE from "three";
 import {
-  maxRadius, outerR, standBoardLength, grooveR, grooveList, higoSpiralPath,
+  maxRadius, standBoardLength,
   ribGeometry, komaGeometry, standGeometry, boardGeometry,
   standCollarTop, standSaddleH, standSlotSep, ringGeometry, washiSurface,
 } from "../geometry.ts";
 import { fitOnBed } from "../bed.ts";
+import { higoGeometries } from "./higo.ts";
 import type { ViewportHandle, ViewportState } from "./viewport.ts";
 import type { Design, Route } from "../types.ts";
 
@@ -75,20 +76,10 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   const higoMat = new THREE.MeshStandardMaterial({
     color: 0xc2a266, roughness: 0.75, metalness: 0, emissive: 0x936026, emissiveIntensity: 0.7,
   });
-  if (p.spiral) {
-    // One continuous descending helix, from the same path the grooves are cut on.
-    const path = higoSpiralPath(p);
-    if (path.length > 1) {
-      const v = path.map(([a, y, r]) => new THREE.Vector3(r * Math.cos(a), legH + y, r * Math.sin(a)));
-      const curve = new THREE.CatmullRomCurve3(v);
-      s.group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, v.length * 2, p.higoD / 2, 8, false), higoMat));
-    }
-  } else {
-    for (const gy of grooveList(p, grooveR(p))) {
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(outerR(p, gy / p.height), p.higoD / 2, 10, 96), higoMat);
-      ring.rotation.x = Math.PI / 2; ring.position.y = legH + gy;
-      s.group.add(ring);
-    }
+  for (const { geo, y } of higoGeometries(p, { radial: 10 })) {
+    const ring = new THREE.Mesh(geo, higoMat);
+    ring.position.y = legH + y;
+    s.group.add(ring);
   }
 
   // Legs: splayed from the bottom rim (= the lower opening) to the floor. Graphite, so they read as
@@ -294,7 +285,6 @@ export function buildScene(s: ViewportHandle, { p, view, viewChanged, printRibs,
   s.amb.intensity = view === "print" ? 0.5 : lightVP ? 0.3 : 0.5;
   s.key.intensity = view === "print" ? 0.85 : lightVP ? 1.1 : 0.85;
   s.key.position.set(view === "print" ? 80 : 240, view === "print" ? 500 : 380, view === "print" ? 120 : 280);
-  s.bulb.intensity = 0;
   s.washiMat.emissiveIntensity = 0;
   s.bloomPass.enabled = false;   // the lit builder turns it back on
 

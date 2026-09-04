@@ -103,13 +103,13 @@ export function bakeBezierHandles(pts: Pt[]): Pt[] {
 // Effective outer radius: t∈[0,1] → mm. One continuous spline from the ends (t=0/1) to the apex with
 // no vertical neck inserted — a neck there would put a flat-to-curve kink at the joint — so the ends
 // are spline control points (rBot/rTop) and the outline stays smooth even with few points. The end
-// bands carrying no bamboo (the neck) are handled separately via cutT/cutY, radius continuous. The
+// bands carrying no bamboo (the neck) are handled separately via cutTbot/cutTtop, radius continuous. The
 // lamp body (curve + grooves) is the t-range BETWEEN the outermost control points; the neck lies
 // outside them at exactly their radius, so no flare or S-curve appears at the join.
 export function fukuroRange(p: Design): { lo: number; hi: number } {
   const pts = (p.pts && p.pts.length >= 2) ? p.pts : null;
   if (!pts) return { lo: cutTbot(p), hi: 1 - cutTtop(p) };
-  const nB = p.neckBot ?? p.neckOn ?? true, nT = p.neckTop ?? p.neckOn ?? true;
+  const nB = p.neckBot ?? true, nT = p.neckTop ?? true;
   return { lo: nB ? pts[0].t : 0, hi: nT ? pts[pts.length - 1].t : 1 };
 }
 // The design basis for neck/tab is the control-point radius, so toggling a neck does not change the
@@ -130,7 +130,7 @@ export function outerR(p: Design, t: number): number {
   const pts = (p.pts && p.pts.length) ? p.pts : [{ t: 0.5, r: (p.rTop + p.rBot) / 2 }];
   if (pts.length === 1) return Math.max(8, pts[0].r);
   const fp = pts[0], lp = pts[pts.length - 1];
-  const nB = p.neckBot ?? p.neckOn ?? true, nT = p.neckTop ?? p.neckOn ?? true;
+  const nB = p.neckBot ?? true, nT = p.neckTop ?? true;
   const kR = komaR(p); // tab (koma) size = opening when there is no neck
   // With a neck: widen the opening outward to the control point, then a vertical rectangle from
   // there to y=0/1. Without: the opening becomes the tab size (body end set to kR, no slanted taper).
@@ -157,8 +157,6 @@ export function cutTbot(p: Design): number { const pts = p.pts; return (pts && p
 export function cutTtop(p: Design): number { const pts = p.pts; return (pts && pts.length) ? 1 - pts[pts.length - 1].t : 0; }
 export function cutYbot(p: Design): number { return cutTbot(p) * (p.height || 1); }
 export function cutYtop(p: Design): number { return cutTtop(p) * (p.height || 1); }
-function cutY(p: Design): number { return Math.max(cutYbot(p), cutYtop(p)); }
-export function cutT(p: Design): number { return cutY(p) / Math.max(1, p.height); }
 // Koma outer radius = the hub that bundles the tabs; the tab (inner end Ri〜Ri+td) meets its outer
 // rim. Ri and tabDepth are top-bottom symmetric, so the two koma are identical (only one kind).
 export function komaR(p: Design): number {

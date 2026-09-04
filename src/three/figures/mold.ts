@@ -6,10 +6,11 @@
 import * as THREE from "three";
 import type { Design } from "../../types.ts";
 import {
-  fukuroRange, grooveList, grooveR, higoSpiralPath, komaGeometry, komaR, maxRadius, openingR,
-  outerR, ribGeometry, ringGeometry, wireRingGeometry, boardGeometry, standCollarTop, standGeometry, standSaddleH,
+  fukuroRange, komaGeometry, komaR, maxRadius, openingR,
+  ribGeometry, ringGeometry, wireRingGeometry, boardGeometry, standCollarTop, standGeometry, standSaddleH,
   standSlotSep, washiSurface,
 } from "../../geometry.ts";
+import { higoGeometries } from "../higo.ts";
 import { HI, HI_FACE, INK, LIT_FACE, VIEW_DIR, part } from "./ink.ts";
 
 /**
@@ -22,7 +23,7 @@ export const ribGeo = (p: Design, k: number, smooth: boolean) => ribGeometry(smo
  * The rubber bands holding the assembly while you work: one just outside each koma, the only thing
  * here that is not a part — a plain torus sized off `komaR`. Accent while the step is ABOUT them.
  */
-export const BAND_OFF = 0xe3b39d;
+const BAND_OFF = 0xe3b39d;
 export function bands(p: Design, hot: boolean): THREE.Group {
   const g = new THREE.Group();
   const r = komaR(p);
@@ -42,34 +43,16 @@ export function bands(p: Design, hot: boolean): THREE.Group {
  * the outer edge, not sunk in (`grooveR` = higoD/2 + 0.25, so the V is 0.5mm wider than the rod). No
  * route branch: cardboard's ticks are at the same heights.
  */
-export const HIGO_OFF = 0xbfa06a;      // bamboo tan, once the step has moved on (see `bands` for why muted)
+const HIGO_OFF = 0xbfa06a;      // bamboo tan, once the step has moved on (see `bands` for why muted)
 // `near` draws only the camera-facing half of each ring, for the one see-through figure: eight far
 // rings over eight near ones is a rattan basket. The arc ends at the silhouette; a spiral stays whole.
-export function higoWinding(p: Design, hot: boolean, near = false): THREE.Group {
+function higoWinding(p: Design, hot: boolean, near = false): THREE.Group {
   const g = new THREE.Group();
-  const r = p.higoD / 2;
   const mat = () => new THREE.MeshBasicMaterial({ color: hot ? HI : HIGO_OFF });
-  if (p.spiral) {
-    const path = higoSpiralPath(p);
-    if (path.length > 1) {
-      const curve = new THREE.CatmullRomCurve3(path.map(([a, y, rad]) =>
-        new THREE.Vector3(rad * Math.cos(a), y, rad * Math.sin(a))));
-      g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, path.length * 2, r, 8, false), mat()));
-    }
-  } else {
-    for (const y of grooveList(p, grooveR(p))) {
-      const geo = near
-        ? new THREE.TorusGeometry(outerR(p, y / p.height), r, 8, 64, Math.PI)
-        : new THREE.TorusGeometry(outerR(p, y / p.height), r, 8, 96);
-      // Aim the half-arc by turning the GEOMETRY in its own plane: a `rotation.y` composes with the
-      // flattening quarter turn and tilts the ring instead. A torus's arc starts at its own 0, so its
-      // midpoint sits a quarter turn on; -45° lands it on the camera's bearing after rotateX.
-      if (near) geo.rotateZ(-Math.PI / 4);
-      geo.rotateX(Math.PI / 2);
-      const ring = new THREE.Mesh(geo, mat());
-      ring.position.y = y;
-      g.add(ring);
-    }
+  for (const { geo, y } of higoGeometries(p, { radial: 8, near })) {
+    const ring = new THREE.Mesh(geo, mat());
+    ring.position.y = y;
+    g.add(ring);
   }
   return g;
 }
@@ -79,19 +62,19 @@ export function higoWinding(p: Design, hot: boolean, near = false): THREE.Group 
  * `rotation.y = k·2π/N` is azimuth −k·2π/N — a quarter turn and a sign apart, so at the naive angle a
  * panel straddles a rib. Bay k = [ribPhi(k), ribPhi(k+1)].
  */
-export const ribPhi = (k: number, d: number) => Math.PI / 2 + k * d;
+const ribPhi = (k: number, d: number) => Math.PI / 2 + k * d;
 
 /**
  * The washi, pasted. One `LatheGeometry` PER BAY, not one skin with a slice missing: the seams are
  * the instruction. Surface = the mold's own, offset `higoD` along the NORMAL, not x (`washiProfile`);
  * `fukuroRange` only; no cover allowance drawn. Double-sided and IVORY (white on white is invisible).
  */
-export const WASHI_FACE = 0xf3ede2;
-export function washiProfile(p: Design): THREE.Vector2[] {
+const WASHI_FACE = 0xf3ede2;
+function washiProfile(p: Design): THREE.Vector2[] {
   return washiSurface(p).map(([r, y]: [number, number]) => new THREE.Vector2(r, y));
 }
 
-export function washiSkin(p: Design, bays: number[], hotBay: number | null, face = WASHI_FACE, opacity = 1): THREE.Group {
+function washiSkin(p: Design, bays: number[], hotBay: number | null, face = WASHI_FACE, opacity = 1): THREE.Group {
   const g = new THREE.Group();
   const prof = washiProfile(p);
   const d = (Math.PI * 2) / p.boards;
@@ -131,7 +114,7 @@ export function washiYaw(p: Design, dir: THREE.Vector3): number {
 }
 
 /** Every bay pasted — the shade left to dry, still one lathe per bay. Nothing is highlighted. */
-export function washiWhole(p: Design, face: number, opacity = 1): THREE.Group {
+function washiWhole(p: Design, face: number, opacity = 1): THREE.Group {
   const bays: number[] = [];
   for (let k = 0; k < p.boards; k++) bays.push(k);
   return washiSkin(p, bays, null, face, opacity);
@@ -151,7 +134,7 @@ export function washiPieces(p: Design): THREE.Group {
  * Which rib is drawn FACE-ON from `dir`. A rib is a flat plate extruded along its own z, so rib k's
  * faces look out at azimuth π/2 − k·2π/N; the nearest to the camera's is the only readable one.
  */
-export function faceOnRib(p: Design, dir: THREE.Vector3): number {
+function faceOnRib(p: Design, dir: THREE.Vector3): number {
   const d = (Math.PI * 2) / p.boards;
   const k = Math.round((Math.PI / 2 - Math.atan2(dir.z, dir.x)) / d);
   return ((k % p.boards) + p.boards) % p.boards;
@@ -161,13 +144,13 @@ export function faceOnRib(p: Design, dir: THREE.Vector3): number {
  * Which paper is on the mold: a whole shade ("all"), a whole shade lit ("lit"), or the pasting step's
  * alternating panels — which is the VIEW DIRECTION, the mold being yawed to suit (`washiYaw`).
  */
-export type WashiKind = "all" | "lit" | THREE.Vector3 | null;
+type WashiKind = "all" | "lit" | THREE.Vector3 | null;
 
 /** One rib on its way out: the direction it faces (which picks the rib) and how far it has come. */
-export type PullState = { dir: THREE.Vector3; slide: number } | null;
+type PullState = { dir: THREE.Vector3; slide: number } | null;
 
 /** What of the mold to draw. `hot` names the piece the step being drawn ADDS; null highlights none. */
-export type MoldOpts = {
+type MoldOpts = {
   ribs?: boolean; komaBot?: boolean; komaTop?: boolean; hot?: string | null; smooth?: boolean;
   rings?: boolean; band?: boolean; higo?: boolean; washi?: WashiKind; washiOpacity?: number; pull?: PullState;
 };
@@ -269,7 +252,7 @@ export function moldOnStand(p: Design, hot: string | null, smooth: boolean, wash
  */
 // Yaw off square: at 0° the frame fills with the inside of the lantern, at 45° the shade flattens
 // into a leaf. 15° keeps the mouth a readable ellipse.
-export const PULL_YAW = (15 * Math.PI) / 180;
+const PULL_YAW = (15 * Math.PI) / 180;
 export function pullScene(p: Design, smooth: boolean): THREE.Group {
   const root = new THREE.Group();
   const w = new THREE.Group();

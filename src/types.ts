@@ -18,12 +18,16 @@ export type Pt = { t: number; r: number; sharp?: boolean; ho?: Handle; hi?: Hand
 export type Pt2 = [number, number];
 
 /**
- * The design — the object called `p` everywhere here. The two optional fields are not settings:
- * they are the two ways a design reaches geometry without coming from the editor.
- *   `neckOn`   — the legacy single neck flag, from designs saved before it split into
- *                neckBot/neckTop. Read only as a fallback (`p.neckBot ?? p.neckOn ?? true`).
- *   `noTabDent`— set by the papercraft, which trades the koma stop for tab strength on cardboard
+ * The design — the object called `p` everywhere here. The one optional field is not a setting: it is
+ * the way a design reaches geometry without coming from the editor.
+ *   `noTabDent`— set by the papercraft, which trades the koma stop for tab strength on cardboard.
  *                Never set by the app's own state.
+ *
+ * There was a second, `neckOn` — the single neck flag that neckBot/neckTop replaced, read as
+ * `p.neckBot ?? p.neckOn ?? true`. That fallback could not fire: `sanitizeP` spreads `DEFAULTS`
+ * before the saved fields, so `neckBot` was already `true` by the time the `??` chain ran, and a
+ * legacy file's `neckOn: false` restored with its necks ON. It was removed rather than repaired —
+ * nothing had read it since the split, so there was no behaviour to preserve, only a claim to drop.
  */
 export type Design = {
   /** Lamp-body height (mm). The silhouette's t axis spans this. */
@@ -61,8 +65,6 @@ export type Design = {
   spiral: boolean;
   /** Leg sockets in the bottom opening ring. A checkbox, never dimensions. */
   legSockets: boolean;
-  /** Legacy: the single neck flag that neckBot/neckTop replaced. Read as a fallback only. */
-  neckOn?: boolean;
   /** Papercraft only: force a plain tab + full-depth notch (cardboard tears at the dent). */
   noTabDent?: boolean;
 };

@@ -1,16 +1,16 @@
 import * as THREE from "three";
 import type { Design } from "../../types.ts";
 import { fukuroRange, maxRadius, openingR, ringLegs } from "../../geometry.ts";
-import { CORD_INK, CORD_R, LIT_FACE, part, wireTube } from "./ink.ts";
+import { LIT_FACE, cordTube, part, wireTube } from "./ink.ts";
 import { moldPieces } from "./mold.ts";
 import { BULB_FOOT, SOCKET_H, SOCKET_R, ledBulb } from "./kit-lamps.ts";
-import { FRAME_YAW, LOOP_R, LOOP_Y, STACK_GAP, STEM_H, frameWire, lampHolder } from "./fitting.ts";
+import { FRAME_YAW, LOOP_R, LOOP_Y, STACK_GAP, STEM_H, frameWire, lampCord, lampHolder } from "./fitting.ts";
 import { hangPlaced } from "./hang.ts";
 
-export const LAMP_INK = 0x8f949c;       // the lamp's own body: a grey, light enough not to out-weigh the ink
+const LAMP_INK = 0x8f949c;       // the lamp's own body: a grey, light enough not to out-weigh the ink
 
 /** The lantern itself, at its own coordinates: shade, the bamboo in it, and the rings in its mouths. */
-export function litShade(p: Design, smooth: boolean, opacity = 1): THREE.Group {
+function litShade(p: Design, smooth: boolean, opacity = 1): THREE.Group {
   return moldPieces(p, {
     // Both routes: the finished lantern has a hoop at each mouth either way — printed on one,
     // bent from wire on the other, which `moldPieces` picks by the same `smooth`.
@@ -24,17 +24,14 @@ export function litShade(p: Design, smooth: boolean, opacity = 1): THREE.Group {
  * hanging shade has an up, and it is the design's own. It dips `CORD_DIP` below the rim to meet the
  * opening and runs `CORD_UP` of the body height above, cut off at the top: "this continues".
  */
-export const CORD_DIP = 6;              // mm below the opening rim, so the cord meets the ring
-export const CORD_UP = 0.42;            // x body height above the shade
+const CORD_DIP = 6;              // mm below the opening rim, so the cord meets the ring
+const CORD_UP = 0.42;            // x body height above the shade
 export function lightHang(p: Design, smooth: boolean): THREE.Group {
   const g = new THREE.Group();
   g.add(litShade(p, smooth));
   const yTop = fukuroRange(p).hi * p.height;       // the top opening = where the cord goes in
   const len = p.height * CORD_UP + CORD_DIP;
-  const cord = new THREE.Mesh(
-    new THREE.CylinderGeometry(CORD_R, CORD_R, len, 12),
-    new THREE.MeshBasicMaterial({ color: CORD_INK }),
-  );
+  const cord = cordTube(len);
   cord.position.y = yTop - CORD_DIP + len / 2;
   g.add(cord);
   // The hanger. What carries the shade is not the lamp: the lamp hangs on the cord INSIDE, the shade
@@ -50,9 +47,9 @@ export function lightHang(p: Design, smooth: boolean): THREE.Group {
  * looks like the other two with their fittings cropped off. The floor disc says "on the floor". The
  * lamp is generic and sized off the BOTTOM opening (`LAMP_FIT`).
  */
-export const LAMP_FIT = 0.62;           // x the bottom opening radius: it has to pass through the mouth
-export const LAMP_MAX = 38;             // mm — beyond this it is a floor lamp, not something you cover
-export const LAMP_LIFT = 0.48;          // x body height: the exploded gap above the lamp
+const LAMP_FIT = 0.62;           // x the bottom opening radius: it has to pass through the mouth
+const LAMP_MAX = 38;             // mm — beyond this it is a floor lamp, not something you cover
+const LAMP_LIFT = 0.48;          // x body height: the exploded gap above the lamp
 export function lightSet(p: Design, smooth: boolean): THREE.Group {
   const g = new THREE.Group();
   const y0 = fukuroRange(p).lo * p.height;         // where the shade would come to rest = the floor
@@ -78,8 +75,8 @@ export function lightSet(p: Design, smooth: boolean): THREE.Group {
   return g;
 }
 
-export const LEG_DROP = 0.42;           // x body height, and the splay is 0.35 of that: the lit view's own
-export const LIT_THRU = 0.45;           // how much of the shade you see through, in this one figure
+const LEG_DROP = 0.42;           // x body height, and the splay is 0.35 of that: the lit view's own
+const LIT_THRU = 0.45;           // how much of the shade you see through, in this one figure
 
 /**
  * (3) Stood on legs: the socket fixed UP into the bottom mouth and the cord leaving DOWNWARDS
@@ -118,17 +115,9 @@ export function lightLegs(p: Design, smooth: boolean): THREE.Group {
   // The cord leaves the socket, drops, and TURNS OUT of the frame: straight down between three legs
   // it reads as a fourth. Along screen-right (world +x−z), so the bend is square to the reader.
   const drop = p.height * LEG_DROP, splay = drop * 0.35;
-  const cordMat = new THREE.MeshBasicMaterial({ color: CORD_INK });
   const yB = y0 - STEM_H, dropLen = drop * 0.62;
-  const down = new THREE.Mesh(new THREE.CylinderGeometry(CORD_R, CORD_R, dropLen, 12), cordMat);
-  down.position.y = yB - dropLen / 2;
-  g.add(down);
-  const runLen = maxRadius(p) * 1.3;
-  const run = new THREE.Mesh(new THREE.CylinderGeometry(CORD_R, CORD_R, runLen, 12), cordMat);
-  run.rotation.z = -Math.PI / 2;
-  run.rotation.y = Math.PI / 4;                  // (1, 0, -1)/√2 = straight right on screen
-  run.position.set((runLen / 2) * Math.SQRT1_2, yB - dropLen, -(runLen / 2) * Math.SQRT1_2);
-  g.add(run);
+  // -45° is (1, 0, -1)/√2 — straight right on screen, which is where this frame has the room.
+  lampCord(g, yB, dropLen, maxRadius(p) * 1.3, -Math.PI / 4);
   if (!legs) return g;
   // Each leg starts where it is fixed — the eye on the stem — not at the ring: with the shade
   // see-through, a leg beginning in mid-air at the rim contradicted the panels beside it.

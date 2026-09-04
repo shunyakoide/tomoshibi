@@ -2,7 +2,7 @@
  * The stateful behaviours that draw nothing. No geometry and no three.js — only React, localStorage
  * and window events.
  */
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { saveState } from "./persist.ts";
 import { makeT, loadLang, saveLang } from "../i18n.ts";
 import { currentRoute, routeHref } from "./route.ts";
@@ -22,11 +22,11 @@ export type UndoRedo = { undo: () => void; redo: () => void; canUndo: boolean; c
  * and commits once it settles: a drag coalesces into one entry, and discrete edits (preset switch,
  * add/delete point, sharp⇄smooth) come through the same path.
  */
-export function useUndoRedo(
-  p: Design,
-  setP: (np: Design) => void,
-  { cap = 60, settle = 350 }: { cap?: number; settle?: number } = {},
-): UndoRedo {
+const HIST_CAP = 60;      // snapshots kept
+const HIST_SETTLE = 350;  // ms of quiet before a run of edits is committed as one
+
+export function useUndoRedo(p: Design, setP: (np: Design) => void): UndoRedo {
+  const cap = HIST_CAP, settle = HIST_SETTLE;
   const hist = useRef<Design[]>([p]);         // snapshots, oldest first
   const idx = useRef(0);            // current position in `hist`
   const restoring = useRef(false);  // a setP caused BY undo/redo must not be re-committed
@@ -87,7 +87,8 @@ export function useUndoRedo(
  * the last action is never lost. Mount this AFTER the rib-count clamp, so what is saved is always
  * post-clamp and never a design that rebuilds into a non-watertight koma.
  */
-export function useAutosave(state: SavedState, delay = 300): void {
+export function useAutosave(state: SavedState): void {
+  const delay = 300;   // ms of quiet before a write; `pagehide` flushes whatever is still pending
   useEffect(() => {
     const id = setTimeout(() => saveState(state), delay);
     const flush = () => { clearTimeout(id); saveState(state); };
@@ -128,7 +129,12 @@ export function useLang(): { lang: Lang; toggleLang: () => void; t: T } {
   // Japanese from localStorage, so without this the document claims English while showing Japanese.
   // Not cosmetic — `lang` picks a mobile browser's CJK font fallback and a screen reader's voice.
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
-  return { lang, toggleLang: toggle, t: makeT(lang) };
+  // Memoized on `lang`, so `t` is a stable identity between renders. An unmemoized `makeT(lang)`
+  // is a fresh closure every render, which silently defeats every memo that lists `t` in its
+  // deps — `derived.ts`'s overSheet was recomputing the whole template layout on every frame of
+  // a drag, and PagePreview had to depend on `lang` instead and opt out of exhaustive-deps.
+  const t = useMemo(() => makeT(lang), [lang]);
+  return { lang, toggleLang: toggle, t };
 }
 
 /**
