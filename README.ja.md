@@ -120,8 +120,8 @@ npm run preview    # ビルド結果を http://localhost:8174 で確認
 `check:manifold` / `check:hash` / `check:persist` / `check:paper` / `check:glyphs` / `check:i18n` /
 `check:style`）は [CONTRIBUTING.md](CONTRIBUTING.md) にあります。CI は push と PR のたびに全部を
 回しますが、`check:hash` だけは前後の比較が要るのでローカルで、STL が変わらないはずの変更の前後に
-実行します。型そのものの設計判断 — 各部品の役割、印刷嵌合の不変条件、なぜその形なのか — は
-[docs/design-notes.md](docs/design-notes.md) にあります。
+実行します。型そのものの設計判断 — 各部品の役割、印刷嵌合の不変条件、なぜその寸法なのか — は
+`src/geometry/` 各モジュールの冒頭コメントに、その値のすぐ隣に書いてあります。
 
 ## ライセンス
 

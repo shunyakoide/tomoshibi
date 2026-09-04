@@ -1,7 +1,7 @@
 /**
  * The one conversion from "[[x,y],…]" to a THREE.Shape. Every extruded part goes through
  * `shapeFromPts` rather than building a Shape by hand, which is how you forget to clean the holes as
- * well as the outline (see docs/design-notes.md "Two kinds of earcut degeneracy").
+ * well as the outline — the hole ring and the outline are two separate degeneracies.
  */
 import type { Pt2 } from "../types.ts";
 import * as THREE from "three";

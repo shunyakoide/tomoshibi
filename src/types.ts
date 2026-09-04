@@ -23,7 +23,7 @@ export type Pt2 = [number, number];
  *   `neckOn`   — the legacy single neck flag, from designs saved before it split into
  *                neckBot/neckTop. Read only as a fallback (`p.neckBot ?? p.neckOn ?? true`).
  *   `noTabDent`— set by the papercraft, which trades the koma stop for tab strength on cardboard
- *                (docs/design-notes.md "Papercraft"). Never set by the app's own state.
+ *                Never set by the app's own state.
  */
 export type Design = {
   /** Lamp-body height (mm). The silhouette's t axis spans this. */
@@ -59,7 +59,7 @@ export type Design = {
   lighten: boolean;
   /** Spiral winding: offset each rib's grooves so the bamboo forms one continuous helix. */
   spiral: boolean;
-  /** Leg sockets in the bottom opening ring. A checkbox, never dimensions (docs/design-notes.md). */
+  /** Leg sockets in the bottom opening ring. A checkbox, never dimensions. */
   legSockets: boolean;
   /** Legacy: the single neck flag that neckBot/neckTop replaced. Read as a fallback only. */
   neckOn?: boolean;

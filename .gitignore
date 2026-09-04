@@ -30,3 +30,9 @@ tools/logo/assets.json
 tools/*/.venv/
 # the font subset tools/pdffont downloads; only the outlines it extracts are committed
 tools/pdffont/subset.woff2
+
+# working notes, kept out of the repo on purpose: they are a diary of what was tried and
+# measured in one session, nothing verifies them, and they go stale without ever looking wrong.
+# What a contributor must not break lives in CONTRIBUTING.md and in the module header comments.
+CLAUDE.md
+docs/design-notes.md

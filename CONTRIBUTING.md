@@ -119,10 +119,10 @@ for what it is:
 - The section editor and papercraft must reuse `geometry.ts` functions rather than
   re-deriving dimensions.
 - The mold's part definitions and relationships (rib / koma / stand / groove / neck / tab /
-  opening ring) are fixed — see [`docs/design-notes.md`](docs/design-notes.md) for the full design
-  rules and the print-fit invariants (the shared values that let a reprinted part still fit a
-  previously printed one). **Read the note for the area you are changing before you change it**:
-  most of what is in there is there because it was got wrong once.
+  opening ring) are fixed. The **print-fit invariants** — `innerRi` / `tabTipRi` / `notchR`, all
+  single definitions in `src/geometry/profile.ts` — are what let a rib printed today still fit a
+  koma printed months ago. Change one and check both parts. Each module's own header comment
+  states the rules for its area; read it before you change that area.
 
 ## Adding a shape preset
 

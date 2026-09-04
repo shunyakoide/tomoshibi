@@ -6,8 +6,8 @@
  * guard), so splitting them would buy an import cycle.
  *
  * It is also where the **print-fit invariants** are aggregated — `innerRi` / `tabTipRi` / `notchR`
- * below (see docs/design-notes.md "Part joints"). Those single definitions are the only reason a reprinted rib
- * still fits a koma printed last month; change one and check both parts.
+ * below. Those single definitions are the only reason a reprinted rib still fits a koma printed
+ * last month; change one and check both parts.
  *
  * Pure arithmetic: no three.js, React or DOM, and nothing here builds geometry.
  */
