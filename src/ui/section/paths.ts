@@ -7,7 +7,7 @@
  *
  * Every dimension comes from the `geometry.ts` barrel, so what is drawn here is what gets printed.
  */
-import { outerR, cutYbot, cutYtop, fukuroRange, grooveR, grooveList, grooveOuterPts, komaR, ribOutline2D, lightenHoles2D } from "../../geometry.ts";
+import { outerR, cutYbot, cutYtop, fukuroRange, grooveList, grooveOuterPts, komaR, ribOutline2D, lightenHoles2D } from "../../geometry.ts";
 import { C } from "./palette.ts";
 import type { SectionFrame } from "./frame.ts";
 import type { Design, Pt2 } from "../../types.ts";
@@ -30,9 +30,8 @@ export type SectionSample = {
 
 export function sampleSection(p: Design): SectionSample {
   const H = p.height;
-  const gR = grooveR(p);                     // shared with geometry, so drawn groove = printed groove
-  const gs = grooveList(p, gR);
-  const op = grooveOuterPts(p, gs, gR);
+  const gs = grooveList(p);
+  const op = grooveOuterPts(p, gs);
   return {
     fr: fukuroRange(p),
     gs,

@@ -12,6 +12,7 @@ import type { Design, Pt2 } from "../types.ts";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { outerR } from "./profile.ts";
+import { circlePts } from "../util.ts";
 
 // The hoop goes AROUND the outside of the opening: its INNER diameter matches the opening's outer
 // one (see RING_FIT below).
@@ -71,13 +72,6 @@ export function ringLegs(p: Design): { n: number; bore: number; triR: number; Rc
 export function ringLegsFit(p: Design): boolean { return ringLegs({ ...p, legSockets: true }) !== null; }
 
 // A full-circle point list, optionally centered at (cx, cy). absarc(0,2π) leaves a duplicate
-// start=end point → degenerate triangle, so it is N points over 0..2π left unclosed (Shape/Path
-// close it themselves).
-function circlePts(r: number, N: number, cx = 0, cy = 0): THREE.Vector2[] {
-  const pts: THREE.Vector2[] = [];
-  for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2; pts.push(new THREE.Vector2(cx + r * Math.cos(a), cy + r * Math.sin(a))); }
-  return pts;
-}
 // A flat annulus (ring) extruded along Z, centered at (cx, cy). Independently watertight.
 // `mark` > 0 puts one square tab of that depth on the INNER rim (a marker, not a feature — MARK_D).
 function annulusGeo(rOuter: number, rInner: number, N: number, cx = 0, cy = 0, depth = RING_H, mark = 0): THREE.ExtrudeGeometry {

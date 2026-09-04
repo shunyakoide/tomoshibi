@@ -5,6 +5,7 @@
  */
 import * as THREE from "three";
 import { DIR_ON_STAND, bristleFringe, drum, inkLines, silhouetteLines, solid } from "./ink.ts";
+import { circlePts } from "../../util.ts";
 
 /** A tub with its lid on: starch paste. (Wood glue comes in a bottle; the tub is the first-named.) */
 export function pasteTub() {
@@ -53,17 +54,6 @@ export function tapeAndThread() {
     .addScaledVector(back, 56).setY(0);                         // resting on the same ground
   g.add(spool);
   return g;
-}
-
-/** N points evenly around a circle — the construction `ring.ts` uses for a hole in a Shape: a
- * cap-plane curve, so it draws smooth at any resolution. */
-export function circlePts(r: number, n: number, cx = 0, cy = 0) {
-  const pts = [];
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    pts.push(new THREE.Vector2(cx + r * Math.cos(a), cy + r * Math.sin(a)));
-  }
-  return pts;
 }
 
 /**
