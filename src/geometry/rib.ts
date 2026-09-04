@@ -53,14 +53,14 @@ export function ribInnerX(p: Design): (y: number) => number {
 // gets the chord at its own half-thickness, 2√(R²−(t/2)²); `PULL_CLEAR` is slack for it to turn in,
 // the band being curved, since a rib exactly as wide as the chord binds.
 const PULL_CLEAR = 2;   // mm of slack left for the plate to turn as it comes out
-export function ribPullFit(p: Design): { band: number; chord: number; openR: number; ok: boolean } {
+export function ribPullFit(p: Design): { band: number; openR: number; ok: boolean } {
   const h = p.height, innerX = ribInnerX(p);
   let band = 0;
   for (let y = 0; y <= h; y += 0.5) band = Math.max(band, outerR(p, y / h) - innerX(y));
   // Out of the WIDER of the two mouths — nothing makes a rib leave by one end rather than the other.
   const R = Math.max(outerR(p, 0), outerR(p, 1));
   const chord = 2 * Math.sqrt(Math.max(0, R * R - (p.boardT / 2) ** 2));
-  return { band, chord, openR: R, ok: band + PULL_CLEAR <= chord };
+  return { band, openR: R, ok: band + PULL_CLEAR <= chord };
 }
 
 // The rib's outline point list, shared by the 2D section drawing and the 3D geometry, so the two
@@ -105,7 +105,7 @@ const Y_STAGGER = 0.13; // amount (mm) to offset the window's y-ends off the out
 // the slope term below overtakes the flat-face band. Under ~2mm the strip prints as a tear line, and
 // the old constant band left 0.2mm on the steepest shape the app allowed.
 const BAND_SOLID = 3;
-export function lightenHoles2D(p: Design): { holes: Pt2[][]; spineW: number; bandW: number } {
+export function lightenHoles2D(p: Design): { holes: Pt2[][] } {
   const h = p.height, td = tabDepth(p);
   const spineW = Math.max(9, td + 3), bandW = 11, strut = 8, MIN_MAT = 12;
   const oS = (y: number) => outerR(p, Math.min(Math.max(y, 0), h) / h); // smooth outer edge
@@ -160,7 +160,7 @@ export function lightenHoles2D(p: Design): { holes: Pt2[][]; spineW: number; ban
     for (let i = ns; i >= 0; i--) { const y = ya + ((yb - ya) * i) / ns; poly.push([xi(y), y]); }
     holes.push(poly);
   }
-  return { holes, spineW, bandW };
+  return { holes };
 }
 
 // ============ Rib ============

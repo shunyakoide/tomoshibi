@@ -43,7 +43,7 @@ export type WashiOpts = { side?: number; end?: number; span?: number };
 export type WashiGore = {
   outline: Pt2[]; marks: Mark[]; guides: Pt2[][];
   sTot: number; wMax: number;
-  span: number; side: number; end: number; N: number;
+  span: number; end: number;
 };
 
 /**
@@ -133,5 +133,5 @@ export function washiGore(p: Design, opts: WashiOpts = {}): WashiGore {
   for (const sgn of [-1, 1]) guides.push(st.map((q) => [sgn * q.w, q.s]));
   if (end > 0) for (const i of [0, n]) guides.push([[-(st[i].w + side), st[i].s], [st[i].w + side, st[i].s]]);
 
-  return { outline, marks, guides, sTot, wMax: Math.max(...st.map((q) => q.w)) + side, span, side, end, N };
+  return { outline, marks, guides, sTot, wMax: Math.max(...st.map((q) => q.w)) + side, span, end };
 }

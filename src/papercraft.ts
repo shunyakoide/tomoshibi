@@ -7,11 +7,8 @@
  * React/DOM-free (stl.ts opens or downloads the bytes).
  */
 export { A4, MARGIN, TOPBAR } from "./paper/layout.ts";
-export { STYLE } from "./paper/style.ts";
-export { pagesPDF } from "./paper/render.ts";
 export { paperP, paperFit, paperParts, paperPagesSVG, paperPDF } from "./paper/mold.ts";
 export { washiParts, washiPDF, washiPagesSVG } from "./paper/skin.ts";
-export type { Overflow } from "./paper/layout.ts";
 
 import { A4, layout, type Overflow } from "./paper/layout.ts";
 import { paperP, paperParts } from "./paper/mold.ts";

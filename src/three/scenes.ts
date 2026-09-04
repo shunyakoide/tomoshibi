@@ -294,7 +294,6 @@ export function buildScene(s: ViewportHandle, { p, view, viewChanged, printRibs,
   s.amb.intensity = view === "print" ? 0.5 : lightVP ? 0.3 : 0.5;
   s.key.intensity = view === "print" ? 0.85 : lightVP ? 1.1 : 0.85;
   s.key.position.set(view === "print" ? 80 : 240, view === "print" ? 500 : 380, view === "print" ? 120 : 280);
-  s.bulb.intensity = 0;
   s.washiMat.emissiveIntensity = 0;
   s.bloomPass.enabled = false;   // the lit builder turns it back on
 

@@ -20,9 +20,7 @@ export type ViewportState = {
   renderer: THREE.WebGLRenderer;
   composer: EffectComposer;
   bloomPass: UnrealBloomPass;
-  poolTex: THREE.CanvasTexture;
   group: THREE.Group;
-  bulb: THREE.PointLight;
   /** The contact shadow: a plane with a radial-gradient map, whose opacity the views set. */
   shadow: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   amb: THREE.AmbientLight;
@@ -110,8 +108,9 @@ export function createViewport(mount: HTMLElement): { state: ViewportState; disp
   const amb = new THREE.AmbientLight(0xffffff, 0.55);
   const key = new THREE.DirectionalLight(0xffffff, 0.85); key.position.set(240, 380, 280);
   const rim = new THREE.DirectionalLight(0x8890a8, 0.35); rim.position.set(-260, 120, -260);
-  const bulb = new THREE.PointLight(0xffc37a, 0, 900, 1.5);
-  scene.add(amb, key, rim, bulb);
+  // No point light: the lit view is self-emitting (emissive + bloom), which is why the one that
+  // stood here was created at intensity 0 and never raised. See `buildLit` in scenes.ts.
+  scene.add(amb, key, rim);
 
   // CAD-style ground grid (assembly view only). The distance fades into the bg with fog.
   const groundGrid = new THREE.GridHelper(2400, 48, 0xaab0ba, 0xc7ccd4);
@@ -143,7 +142,7 @@ export function createViewport(mount: HTMLElement): { state: ViewportState; disp
 
   // Complete once the two methods below are attached; their controls do not exist yet.
   const state = {
-    scene, camera, renderer, composer, bloomPass, poolTex, group, bulb, shadow, amb, key, groundGrid, envMap,
+    scene, camera, renderer, composer, bloomPass, group, shadow, amb, key, groundGrid, envMap,
     // Lit: floor (dark room) and the pool of light
     litFloorMat: new THREE.MeshStandardMaterial({ color: 0x0a0d16, roughness: 1, metalness: 0 }),
     litPoolMat: new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
