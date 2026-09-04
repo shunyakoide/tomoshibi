@@ -16,7 +16,7 @@ export function pasteTub() {
 }
 
 /** A roll: a prism with a bore, stood on its axis so the bore is what you see. */
-export function rollGeo(rOut: number, rIn: number, h: number) {
+function rollGeo(rOut: number, rIn: number, h: number) {
   const s = new THREE.Shape().absarc(0, 0, rOut, 0, Math.PI * 2, false);
   s.holes.push(new THREE.Path().absarc(0, 0, rIn, 0, Math.PI * 2, true));
   const geo = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 32 });
@@ -85,7 +85,7 @@ export function pasteBrush() {
 }
 
 /** A rectangle with round ends — the plan of a shoe brush. */
-export function stadium(len: number, wid: number) {
+function stadium(len: number, wid: number) {
   const r = wid / 2, x = len / 2 - r;
   const s = new THREE.Shape();
   s.absarc(x, 0, r, -Math.PI / 2, Math.PI / 2, false);
@@ -118,7 +118,7 @@ export function smoothBrush() {
  * the jaw-above-axis arm; the other is it mirrored in y. The gripping face is the near-flat run along
  * y ~ 0.3, so at zero rotation the jaws are shut.
  */
-export const PLIER_ARM = [
+const PLIER_ARM = [
   [-95, 2.4], [-77, 3.8], [-55, 5.8], [-33, 8.4], [-15, 11.2], [-3, 14.5],  // jaw, back edge
   [9, 13], [19, 6], [25, -2],                                               // the neck, past the head
   [45, -14], [70, -27], [95, -40], [112, -49],                              // handle, outer edge
@@ -129,13 +129,13 @@ export const PLIER_ARM = [
 ];
 // Half the jaw opening. Pliers are drawn OPEN: shut, the two gripping faces coincide and the pair
 // reads as one flat tapered blade. The gap is the tool.
-export const PLIER_OPEN = (10 * Math.PI) / 180;
+const PLIER_OPEN = (10 * Math.PI) / 180;
 /**
  * Marks, drawn the way `bristleFringe` draws bristles: short lines on a face a line-art solid has
  * nothing else to show on. Ticks serrate the jaw partway along (a real long-nose's teeth sit back
  * from the point); one line marks the rubber grip's start. `z` is the front face.
  */
-export function plierMarks(sign: number, z: number) {
+function plierMarks(sign: number, z: number) {
   const pts = [];
   for (const x of [-72, -60, -48, -36]) pts.push(x, sign * 0.6, z, x, sign * 3.6, z);
   pts.push(45, sign * -14, z, 45, sign * -32, z);
@@ -171,7 +171,7 @@ export function pliers() {
  * gets trimmed with (not a bare double-edge blade). The shape is all outline; the comb teeth across
  * the guard rail are `bristleFringe`'s kind of INK stroke, and they say which end cuts.
  */
-export const RAZOR_L = 180, RAZOR_HW = 11, RAZOR_GW = 8.5, RAZOR_T = 5;
+const RAZOR_L = 180, RAZOR_HW = 11, RAZOR_GW = 8.5, RAZOR_T = 5;
 export function razorBlade() {
   const g = new THREE.Group();
   const hw = RAZOR_HW, gw = RAZOR_GW, x1 = RAZOR_L / 2;
@@ -219,7 +219,7 @@ export function washiStack() {
  * its head screws on, and you work it with a trigger, which reaches PAST the nozzle as a real one
  * does. Proportions are a 500ml sprayer's (⌀70, ~175 tall), not measurements.
  */
-export const SPRAY_R = 35;              // bottle radius: ⌀70, a 500ml sprayer
+const SPRAY_R = 35;              // bottle radius: ⌀70, a 500ml sprayer
 export function sprayBottle() {
   const g = new THREE.Group();
   // The bottle, bottom up. Each segment gets its own pair of tangent lines: a smooth wall draws

@@ -60,8 +60,8 @@ export function ledBulb(view = VIEW_DIR) {
  * aspect is real (KAPPLAKE is ⌀35x10, so 3.5:1); its SIZE is not — at true scale beside a bulb it
  * would be a dot in a 300px well.
  */
-export const PUCK_R = 38, PUCK_FOOT_H = 7, PUCK_LENS_H = 15;    // 76 across, 22 high = the real 3.5:1
-export function puckLight() {
+const PUCK_R = 38, PUCK_FOOT_H = 7, PUCK_LENS_H = 15;    // 76 across, 22 high = the real 3.5:1
+function puckLight() {
   const g = new THREE.Group();
   g.add(drum(PUCK_R - 4, PUCK_R - 6, PUCK_FOOT_H, 0, { seg: 48 }));
   // Straight-sided, and wider than the foot, so the overhang is one clean step: tapering it as well
@@ -82,7 +82,7 @@ export function puckLight() {
 }
 
 /** The holder with a bulb screwed into it: one lamp, hanging, rather than two things to buy. */
-export function pendantLamp() {
+function pendantLamp() {
   const g = new THREE.Group();
   const socket = pendantSocket();
   socket.position.y = 17;                      // its mouth down on y = 0
