@@ -227,6 +227,16 @@ const EN: Record<string, string> = {
   // winding, pasting, drying, pulling and lighting are not assembly, and half of them happen after
   // the mold comes apart.
   "作り方": "How to build it",
+  "Notes": "Notes",
+  "制作ノート": "Build notes",
+  "作り方ページに入れると重くなる、材料選び・失敗例・考えたことの置き場所です。":
+    "A place for material choices, failures and thoughts that would make the build guide too heavy.",
+  "補足": "Note",
+  "関連ノート": "Related note",
+  "Tomoshibiを作った理由": "Why I made Tomoshibi",
+  "← Notes一覧": "← All notes",
+  "作り方へ戻る": "Back to the build guide",
+  "ノートが見つかりません": "Note not found",
   "ソースコード (GitHub)": "Source code (GitHub)",
   "3Dプリントで型をつくる": "Build the mold by 3D printing",
   "段ボールで型をつくる": "Build the mold from cardboard",

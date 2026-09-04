@@ -143,7 +143,7 @@ export function useLang(): { lang: Lang; toggleLang: () => void; t: T } {
  * is the same gesture as the ×. A deep link has no entry to go back to and `back()` would take a
  * first-time visitor off the site, so the first close after one REPLACES instead.
  */
-export function usePageRoute(): { route: PageRoute; go: (r: PageRoute) => void } {
+export function usePageRoute(): { route: PageRoute; go: (r: PageRoute, hash?: string, replace?: boolean) => void } {
   const [route, setRoute] = useState<PageRoute>(currentRoute);
   // Whether this session pushed the entry we are standing on. A popstate means the browser moved
   // us, so whatever we pushed is no longer ours to go back to.
@@ -163,14 +163,21 @@ export function usePageRoute(): { route: PageRoute; go: (r: PageRoute) => void }
     }
   }, []);
 
-  const go = useCallback((next: PageRoute) => {
-    if (next === currentRoute()) { setRoute(next); return; }
-    if (next === null && pushed.current) {
+  const go = useCallback((next: PageRoute, hash = "", replace = false) => {
+    if (next === currentRoute()) {
+      if (hash && window.location.hash !== hash) writeUrl(() => window.history.replaceState(null, "", routeHref(next, hash)));
+      setRoute(next);
+      return;
+    }
+    if (replace) {
+      writeUrl(() => window.history.replaceState(null, "", routeHref(next, hash)));
+      pushed.current = false;
+    } else if (next === null && pushed.current) {
       // popstate will set the state; do not set it here as well, or the two disagree for a frame.
       if (writeUrl(() => window.history.back())) return;
     } else if (next === null) {
       writeUrl(() => window.history.replaceState(null, "", routeHref(null)));
-    } else if (writeUrl(() => window.history.pushState(null, "", routeHref(next)))) {
+    } else if (writeUrl(() => window.history.pushState(null, "", routeHref(next, hash)))) {
       pushed.current = true;
     }
     setRoute(next);
