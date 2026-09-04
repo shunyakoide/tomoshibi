@@ -5,7 +5,7 @@
  */
 import type { Design, Pt2 } from "../types.ts";
 import { fukuroRange, outerR } from "./profile.ts";
-import { grooveList, grooveR } from "./groove.ts";
+import { grooveList } from "./groove.ts";
 
 // Same construction as a globe gore:
 //   ・vertical    = the meridian ARC LENGTH s(y) = ∫√(1+R'(y)²)dy — NOT the raw height.
@@ -120,10 +120,9 @@ export function washiGore(p: Design, opts: WashiOpts = {}): WashiGore {
 
   // Bamboo-rib (higo) heights, from the same grooveList as the mold: k=0 the left-edge rib, k=1 the
   // right-edge one — identical without spiral, shifted by step/boards with it.
-  const gR = grooveR(p);
   const marks: Mark[] = [];
-  for (const g of grooveList(p, gR, 0)) { const q = at(g); marks.push([-(q.w + side), q.s, -(q.w + side) + WASHI_TICK, q.s]); }
-  for (const g of grooveList(p, gR, 1)) { const q = at(g); marks.push([q.w + side, q.s, q.w + side - WASHI_TICK, q.s]); }
+  for (const g of grooveList(p, 0)) { const q = at(g); marks.push([-(q.w + side), q.s, -(q.w + side) + WASHI_TICK, q.s]); }
+  for (const g of grooveList(p, 1)) { const q = at(g); marks.push([q.w + side, q.s, q.w + side - WASHI_TICK, q.s]); }
 
   // Guides (dashed, not cut): the two rib lines (the panel edge less the overlap — line these up
   // with the ribs) and the two opening lines (where the overhang folds over). Traced from the cut

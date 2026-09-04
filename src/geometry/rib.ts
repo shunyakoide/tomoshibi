@@ -6,7 +6,7 @@
 import type { Design, Pt2 } from "../types.ts";
 import * as THREE from "three";
 import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, tabDepth, tabDented, TAB_DENT_W, TAB_DENT_H } from "./profile.ts";
-import { grooveDepth, grooveList, grooveOuterPts, grooveR, profileSlope } from "./groove.ts";
+import { grooveDepth, grooveList, grooveOuterPts, profileSlope } from "./groove.ts";
 import { shapeFromPts } from "./shape.ts";
 
 // [Rib inner edge = crescent] Hollowed toward the centre so the rib pulls out of the opening after
@@ -69,13 +69,13 @@ export function ribPullFit(p: Design): { band: number; openR: number; ok: boolea
 // `opts.smooth` returns a smooth outer edge with no grooves cut — for the cardboard template, which
 // ticks the bamboo positions instead, 0.5mm V notches not being cuttable in board.
 export function ribOutline2D(p: Design, k = 0, opts: { smooth?: boolean } = {}): Pt2[] {
-  const h = p.height, tl = p.tabLen, gR = grooveR(p);
+  const h = p.height, tl = p.tabLen;
   // Grooves run over the whole lamp body (between the outermost control points) but not right up to
   // the ends: `grooveLattice` insets the range by gR*1.6 and `grooveList` starts a further half-pitch
   // in, so no groove sits next to an opening (a barb there does not hold).
-  const grooves = grooveList(p, gR, k);
+  const grooves = grooveList(p, k);
   // Outer edge: grooves cut along the surface normal (opts.smooth = no grooves, for the paper template).
-  const outerEdge = grooveOuterPts(p, opts.smooth ? [] : grooves, gR);
+  const outerEdge = grooveOuterPts(p, opts.smooth ? [] : grooves);
   const Ri = innerRi(p), STEP = 0.5, pts: Pt2[] = [];
   // Tab = a straight tongue, its outer edge exactly the koma outer radius kR (no overhang).
   const kR = komaR(p), dent = tabDented(p); // both tips get the inner-corner dent (matched by the koma notch)

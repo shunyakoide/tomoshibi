@@ -6,10 +6,11 @@
 import * as THREE from "three";
 import type { Design } from "../../types.ts";
 import {
-  fukuroRange, grooveList, grooveR, higoSpiralPath, komaGeometry, komaR, maxRadius, openingR,
-  outerR, ribGeometry, ringGeometry, wireRingGeometry, boardGeometry, standCollarTop, standGeometry, standSaddleH,
+  fukuroRange, komaGeometry, komaR, maxRadius, openingR,
+  ribGeometry, ringGeometry, wireRingGeometry, boardGeometry, standCollarTop, standGeometry, standSaddleH,
   standSlotSep, washiSurface,
 } from "../../geometry.ts";
+import { higoGeometries } from "../higo.ts";
 import { HI, HI_FACE, INK, LIT_FACE, VIEW_DIR, part } from "./ink.ts";
 
 /**
@@ -47,29 +48,11 @@ export const HIGO_OFF = 0xbfa06a;      // bamboo tan, once the step has moved on
 // rings over eight near ones is a rattan basket. The arc ends at the silhouette; a spiral stays whole.
 export function higoWinding(p: Design, hot: boolean, near = false): THREE.Group {
   const g = new THREE.Group();
-  const r = p.higoD / 2;
   const mat = () => new THREE.MeshBasicMaterial({ color: hot ? HI : HIGO_OFF });
-  if (p.spiral) {
-    const path = higoSpiralPath(p);
-    if (path.length > 1) {
-      const curve = new THREE.CatmullRomCurve3(path.map(([a, y, rad]) =>
-        new THREE.Vector3(rad * Math.cos(a), y, rad * Math.sin(a))));
-      g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, path.length * 2, r, 8, false), mat()));
-    }
-  } else {
-    for (const y of grooveList(p, grooveR(p))) {
-      const geo = near
-        ? new THREE.TorusGeometry(outerR(p, y / p.height), r, 8, 64, Math.PI)
-        : new THREE.TorusGeometry(outerR(p, y / p.height), r, 8, 96);
-      // Aim the half-arc by turning the GEOMETRY in its own plane: a `rotation.y` composes with the
-      // flattening quarter turn and tilts the ring instead. A torus's arc starts at its own 0, so its
-      // midpoint sits a quarter turn on; -45° lands it on the camera's bearing after rotateX.
-      if (near) geo.rotateZ(-Math.PI / 4);
-      geo.rotateX(Math.PI / 2);
-      const ring = new THREE.Mesh(geo, mat());
-      ring.position.y = y;
-      g.add(ring);
-    }
+  for (const { geo, y } of higoGeometries(p, { radial: 8, near })) {
+    const ring = new THREE.Mesh(geo, mat());
+    ring.position.y = y;
+    g.add(ring);
   }
   return g;
 }

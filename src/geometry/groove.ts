@@ -27,12 +27,12 @@ export function equatorY(p: Design): number {
 // walls form above and below it.
 // Returns [[x,y],…] from y=0 to y=h with the endpoints exact (the smooth opening radius);
 // `grooves=[]` returns the plain smooth edge. Shared by `ribOutline2D` and the section drawing.
-export function grooveOuterPts(p: Design, grooves: number[], gR: number): Pt2[] {
-  const h = p.height, mid = equatorY(p), STEP = 0.5;
+export function grooveOuterPts(p: Design, grooves: number[]): Pt2[] {
+  const h = p.height, mid = equatorY(p), STEP = 0.5, gR = grooveR(p);
   const info = grooves.map((g) => {
     const sl = profileSlope(p, g);                     // dR/dy
     const T = Math.hypot(1, sl);                       // |tangent| = 1/cosθ
-    const depth = grooveDepth(p, gR);                  // constant perpendicular depth (matches the flat notch)
+    const depth = grooveDepth(p);                      // constant perpendicular depth (matches the flat notch)
     const skew = Math.min(0.62, 0.24 + Math.abs(sl) * 0.32);
     const cs = g < mid ? 1 : -1;                        // toward the center (equator): +y when g is below the equator
     // Along-surface half-widths → y half-widths (÷T). Center side gentle (wide), opening side steep (narrow).
@@ -122,13 +122,13 @@ export function profileSlope(p: Design, y: number): number {
 // (the tip travels `depth × √(1+slope²)` inward, not `depth`), which keeps the lightening window
 // from being cut straight through a groove — hence shared rather than repeated.
 const GROOVE_DEEP = 2.1; // perpendicular depth factor; on a flat face this equals the legacy radial depth.
-export function grooveDepth(p: Design, gR: number = grooveR(p)): number { return Math.min(p.higoD * 1.5, gR * GROOVE_DEEP); }
+export function grooveDepth(p: Design): number { return Math.min(p.higoD * 1.5, grooveR(p) * GROOVE_DEEP); }
 // The groove-distribution lattice (valid range [gLo,gHi] within the lamp body, count n, spacing
 // step), in one place so grooveList and higoSpiralPath use the same one — diverge, and the mold and
 // the drawing disagree. gM = gR*1.6 is a half-pitch-equivalent buffer: no groove closer than that to
 // the opening (neck).
-function grooveLattice(p: Design, gR: number) {
-  const h = p.height, fr = fukuroRange(p), gM = gR * 1.6;
+function grooveLattice(p: Design) {
+  const h = p.height, fr = fukuroRange(p), gM = grooveR(p) * 1.6;
   const gLo = fr.lo * h + gM, gHi = fr.hi * h - gM, span = gHi - gLo;
   const n = span > 0.5 ? Math.max(1, Math.round(span / p.pitch)) : 0;
   return { gLo, gHi, span, n, step: n > 0 ? span / n : 0 };
@@ -141,8 +141,8 @@ function grooveLattice(p: Design, gR: number) {
 //   lattice point on the opposite side comes in, so the count stays constant to ±1; the range
 //   includes the gM buffer, so even an end groove keeps its near-opening clearance. k=0 / no spiral
 //   is completely identical to normal (does not change existing STL).
-export function grooveList(p: Design, gR: number, k = 0): number[] {
-  const { gLo, gHi, n, step } = grooveLattice(p, gR);
+export function grooveList(p: Design, k = 0): number[] {
+  const { gLo, gHi, n, step } = grooveLattice(p);
   if (n === 0) return [];
   if (!p.spiral || !p.boards) {
     const gs: number[] = [];
@@ -162,8 +162,8 @@ export function grooveList(p: Design, gR: number, k = 0): number[] {
 // mm]. The height decreases as the angle increases, matching grooveList's shift direction.
 export function higoSpiralPath(p: Design): [number, number, number][] {
   const seg = 48;   // samples per turn of the helix
-  const gR = grooveR(p), h = p.height;
-  const { gHi, n, step } = grooveLattice(p, gR);
+  const h = p.height;
+  const { gHi, n, step } = grooveLattice(p);
   if (n === 0) return [];
   const yTop = gHi - step * 0.5, turns = n; // from the top groove, over n turns to the bottom groove
   const M = Math.max(2, Math.round(seg * turns));

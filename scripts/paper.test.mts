@@ -19,7 +19,7 @@
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
 import { winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
-import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, grooveR, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
+import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
 import type { Design } from "../src/types.ts";
 
@@ -203,7 +203,7 @@ for (const preset of PRESETS)
           eq(Math.max(...gx), wMax, `${tag} rib guide inset by the overlap`, 0.05);
           eq(Math.min(...gx), -wMax, `${tag} rib guide inset by the overlap`, 0.05);
           // Bamboo-rib ticks: one per groove on each edge (spiral shifts the right edge, not the count-by-edge).
-          const nTicks = grooveList(p, grooveR(p), 0).length + grooveList(p, grooveR(p), 1).length;
+          const nTicks = grooveList(p, 0).length + grooveList(p, 1).length;
           if ((q.marks || []).length !== nTicks) bad(`${tag}: ${q.marks.length} ticks vs ${nTicks} grooves`);
           for (const v of [...q.outline.flat(), ...q.guides.flat(2), ...(q.marks || []).flat()])
             if (!Number.isFinite(v)) bad(`${tag}: NaN in the washi pattern`);

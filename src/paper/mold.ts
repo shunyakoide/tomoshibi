@@ -1,4 +1,4 @@
-import { ribOutline2D, grooveList, grooveR, outerR, komaShape, maxBoards, notchR, wireRing2D } from "../geometry.ts";
+import { ribOutline2D, grooveList, outerR, komaShape, maxBoards, notchR, wireRing2D } from "../geometry.ts";
 import { A4, layout } from "./layout.ts";
 import { pagesPDF, pagesSVG, tid } from "./render.ts";
 import type { RawPart } from "./layout.ts";
@@ -20,7 +20,7 @@ function ribPart(pk: Design, k: number, name: string): RawPart {
   const outline = ribOutline2D(pk, k, { smooth: true });
   // Ticks come from the same `grooveList()` as the STL grooves: horizontal lines TICK mm inward from
   // the outer edge. Pass k, so spiral winding's per-rib shift is marked where 3D cuts it.
-  const marks = grooveList(pk, grooveR(pk), k).map((y): Mark => {
+  const marks = grooveList(pk, k).map((y): Mark => {
     const x = outerR(pk, Math.min(Math.max(y, 0), h) / h);
     return [x, y, x - TICK, y];
   });
