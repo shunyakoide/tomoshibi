@@ -104,6 +104,11 @@ for what it is:
 
 ## Conventions
 
+- **`README.md` and `README.ja.md` are the same document in two languages, and they move
+  together.** No gate checks it, so it is on the author: edit one, edit the other in the
+  same commit. A page that looks complete while being a release behind is worse than a
+  short one, which is why the Japanese half is a full translation rather than a summary —
+  a summary is the form that goes stale without ever looking wrong.
 - **Comments are in English.** Include units and intent for formulas and dimensions.
 - **Relative imports carry their real extension** (`./geometry.ts`, `./ui/controls.tsx`).
   Vite does not need it, but the check scripts are run by plain `node`, which will not map
