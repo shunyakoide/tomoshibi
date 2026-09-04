@@ -70,3 +70,8 @@ export const SIL_ROWS: SilRow[] = [
 // One place: written into two ZIPs, printed in two notes. `_beta` is part of the name on purpose —
 // the file outlives the screen it came from, so the caveat travels with it.
 export const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";
+
+// The project's own page. In the ☰ so the app can say where it came from — a browser app with no
+// install step leaves no other trail back to its source, and the licence and the issue tracker are
+// both there.
+export const REPO_URL = "https://github.com/shunyakoide/tomoshibi";
