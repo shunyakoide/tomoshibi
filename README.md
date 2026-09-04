@@ -2,16 +2,14 @@
   <img src="public/mark-512-transparent.png" alt="" width="88" />
 </p>
 
+<p align="center"><b>English</b> · <a href="README.ja.md">日本語</a></p>
+
 # 灯 Tomoshibi — washi lantern molds
 
 A browser generator for the **3D-printable forming mold ("harigata")** that washi paper lanterns are
 built on. Shape the cross-section and it writes the print-ready STLs — or, with no printer, a
 full-scale A4 template for cutting the same mold out of cardboard. No backend: everything runs
 client-side and the build output is static files.
-
-> **灯 Tomoshibi** — 和紙提灯（紙のランプ）を自作するための
-> **3Dプリント用「張型（はりがた）」ジェネレーター**。ブラウザ上で断面を編集すると STL が、
-> 3Dプリンタが無ければ原寸 A4 の段ボール型紙が出ます。
 
 **→ [Open the app](https://shunyakoide.github.io/tomoshibi/)** — nothing to install.
 
@@ -83,9 +81,6 @@ degrading.
 4. Let it dry, then pull the koma out (toward the tab side) and slip the ribs out through the openings.
 5. Glue the opening rings into the two openings, and fit your own light.
 
-> **制作フロー**: 出力 → コマ2枚のノッチに羽根板を差し込む → 溝に竹ひごを巻く → 糊＋和紙を
-> 張る → 乾燥 → コマを外し羽根板を開口から抜く → 火袋の完成 → 口輪を貼る → 照明化。
-
 The app's **build guide** (☰ → How to build it) walks the same route with every step drawn, lists
 what you supply yourself, and ends with three ways to light it: cover a lamp standing on the floor,
 hang it from a pendant cord, or add legs and fix the lamp in from below.
@@ -136,27 +131,3 @@ print-fit invariants, why each shape is the shape it is — are in
 ## License
 
 [MIT](LICENSE) © 2026 Shunya Koide
-
----
-
-## 日本語（概要）
-
-提灯づくりの工程は「**型に竹ひごを巻く → 和紙を貼る → 乾いたら型をばらして抜く**」。
-その型を分割部品として出力するのが本アプリです。
-
-- **羽根板** — 型の面を作る放射状の板（N枚）。外縁に竹ひご用の V 溝、両端に爪。
-- **コマ** — 爪を束ねる歯車状のハブ（上下2個）。
-- **土台** — コマを U 字サドルで受けて型を宙に浮かせ、回しながら作業できる台（3Dプリントのみ）。
-- **口輪** — 完成した提灯の開口に貼る薄い平リング（完成品にコマは残らないため）。開口の形を保つ。
-  下側は輪の内側に脚ソケット（3ヶ所の平パッド＋⌀6の穴）を付けられる。開口が小さく入らない場合は、
-  内ふちに小さな出っ張りを付けた輪のみになる（上下の見分け用）。段ボールでは針金(2mm)を曲げる線として出力。
-
-**特長**: 断面の直接編集 / 竹ひご溝（螺旋巻き対応・羽根に通し番号を刻印）/
-3Dプリンタが無くても作れる段ボール型紙（原寸 A4・**開発中/beta**）/
-貼る前に切るための和紙の型紙（原寸 A4・**検証中/beta**）/ 作り方ページ / 英日 UI 切替 /
-全パーツ水密（自動スイープで検証）。
-
-**使い方**: 上部タブで **断面/組立/印刷/点灯** を切替、右パネルで断面の制御点をドラッグして形を調整、
-印刷ビューから一式を ZIP で書き出し。作り方・言語・バックアップ・ソースコードへのリンクは
-ヘッダーの **☰** メニューに。ライセンスは [MIT](LICENSE)。
-アプリは **[こちら](https://shunyakoide.github.io/tomoshibi/)**（インストール不要・ブラウザのみで動作）。

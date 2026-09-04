@@ -68,6 +68,8 @@ Each is settled, each was reverted at least once, each has its reasoning in the 
   outside it.
 - **Comments are in English.** Units and intent for formulas and dimensions. The code says what; a
   comment says why, in a sentence.
+- **`README.md` and `README.ja.md` are one document in two languages.** Edit one, edit the other in
+  the same commit. No gate catches this one.
 - **UI strings are Japanese, and the Japanese IS the dictionary key**, so editing any user-facing
   wording means editing `EN` in the same commit. Run `check:i18n`.
 - **Do not commit without being asked.** Report what passed and wait.
