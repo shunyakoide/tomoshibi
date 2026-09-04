@@ -124,9 +124,9 @@ Geometry changes must stay **watertight**. See [CONTRIBUTING.md](CONTRIBUTING.md
 and the verification gates (`lint` / `typecheck` / `check:manifold` / `check:hash` / `check:persist` /
 `check:paper` / `check:glyphs` / `check:i18n` / `check:style`). CI runs all of them on every push and
 pull request except `check:hash`, which needs a before and an after and so is run locally around a
-change meant to leave the STL identical. The design decisions behind the mold — the part roles, the
-print-fit invariants, why each shape is the shape it is — are in
-[docs/design-notes.md](docs/design-notes.md).
+change meant to leave the STL identical. The reasoning behind each shape — the part roles, the
+print-fit invariants, why a dimension is the dimension it is — lives in the module header comments
+under `src/geometry/`, beside the values it constrains.
 
 ## License
 

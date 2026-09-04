@@ -4,7 +4,7 @@
  * watertight". This sweeps a representative parameter range and checks every
  * part (rib / koma / stand / base board / opening rings).
  *
- * Criteria (docs/design-notes.md "STL watertightness"): undirected edge share count 2 =
+ * Criteria: undirected edge share count 2 =
  * closed, 1 = open edge and >2 = non-manifold → FAIL; any NaN vertex → FAIL;
  * any zero-area triangle → FAIL.
  *

@@ -35,8 +35,8 @@ export const DEFAULTS: Design = {
 };
 
 // The one table every clamp reads — the section editor's drag, the typed fields, the scrub row and
-// persist's sanitize. The floors are geometry and the ceilings are not; see docs/design-notes.md
-// "How big may a design get" before moving either.
+// persist's sanitize. The floors are geometry and the ceilings are not; know which is which
+// before moving either.
 // `pts` is a COUNT, not a millimetre range like the other two: the fewest control points `outerR`
 // can interpolate between (`fukuroSpline`'s div-0 guard exists because two is reachable) and the
 // most the section view will add.

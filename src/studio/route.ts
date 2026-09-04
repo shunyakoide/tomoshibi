@@ -1,4 +1,4 @@
-/** Every addressable page. ONE segment each, and that is load-bearing — docs/design-notes.md "Routing". */
+/** Every addressable page. ONE segment each, and that is load-bearing — see `BASE` below. */
 export const ROUTES = ["guide"] as const;
 export type PageRoute = (typeof ROUTES)[number] | null;
 

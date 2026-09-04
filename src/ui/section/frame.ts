@@ -1,7 +1,7 @@
 /**
  * mm → SVG units, the viewBox, and how big a hit target and a mark come out once the browser has
- * scaled the result. Pure, which is what makes the narrow-screen acceptance criteria in
- * docs/design-notes.md testable rather than merely written down.
+ * scaled the result. Pure, which is what makes the narrow-screen acceptance criteria testable
+ * rather than merely written down.
  *
  * `content` is passed IN rather than derived here: deriving it would put the same sampling in two
  * places, which is how the frame and the drawing stop agreeing.

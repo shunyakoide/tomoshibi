@@ -7,7 +7,7 @@ export const accent = "#D95B18";   // the orange of washi lamplight
 export const mono = "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 export const sans = "'IBM Plex Sans JP', 'Hiragino Sans', system-ui, sans-serif";
 
-/** The type scale, in px. Nothing else may set a font size — see docs/design-notes.md. */
+/** The type scale, in px. Nothing else may set a font size — `check:style` enforces it. */
 export const FS = {
   "2xs": 9,     // badges, the select carets, the point bar's button captions
   xs: 10,       // section labels, notes, the small print under a title

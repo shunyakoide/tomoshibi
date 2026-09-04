@@ -50,8 +50,7 @@ export default function TomoshibiStudio() {
   /**
    * Everything that SURVIVES a reload, in one record whose shape IS `SavedState` — the design plus
    * the machine settings, which are facts about the maker rather than the lantern (the build route
-   * among them: it decides whether a print bed constrains this design at all, see
-   * docs/design-notes.md "Build route").
+   * among them: it decides whether a print bed constrains this design at all).
    *
    * **One record, because the eight fields were previously eight `useState`s and that made the same
    * list five more times** — the initializers' own defaults, `useAutosave`, `exportDesign`,
