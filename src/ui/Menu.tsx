@@ -11,7 +11,9 @@ export type MenuItem =
       /** A second line under the label, for a row whose consequence needs stating. */
       hint?: string;
       danger?: boolean;
-      onClick: () => void;
+      /** An external destination instead of an action: the row becomes a real `<a>`. */
+      href?: string;
+      onClick?: () => void;
     };
 
 export default function OverflowMenu({ label, items }: { label: string; items: MenuItem[] }) {
@@ -21,7 +23,7 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
   const [byKey, setByKey] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
-  const rows = useRef<(HTMLButtonElement | null)[]>([]);
+  const rows = useRef<(HTMLElement | null)[]>([]);
   const focusable = items.map((it, i) => (it.kind === "item" ? i : -1)).filter((i) => i >= 0);
 
   // pointerdown rather than click, so the menu is gone by the time the press lands on what is under it.
@@ -76,25 +78,39 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
              off the edge of the phone. */
           className="absolute top-[calc(100%+6px)] right-0 z-40 min-w-208 flex flex-col p-5
             bg-panel border border-edge rounded-xl shadow-[0_10px_28px_rgba(59,52,43,0.18)]">
-          {items.map((it, i) => (it.kind === "sep" ? (
-            <div key={`s${i}`} className="h-1 mx-6 my-5 bg-edge" role="separator" />
-          ) : (
-            <button key={it.label} role="menuitem" tabIndex={-1}
-              ref={(n) => { rows.current[i] = n; }}
-              className={`flex items-center gap-10 min-h-44 px-10 py-6 bg-transparent border-0
-                rounded-md cursor-pointer text-left font-sans text-base
+          {items.map((it, i) => {
+            if (it.kind === "sep") return <div key={`s${i}`} className="h-1 mx-6 my-5 bg-edge" role="separator" />;
+            const skin = `flex items-center gap-10 min-h-44 px-10 py-6 bg-transparent border-0
+                rounded-md cursor-pointer text-left font-sans text-base no-underline
                 ${it.danger ? "text-warn hover:bg-warn-08 hover:text-warn"
-                            : "text-text hover:bg-accent-06 hover:text-accent"}`}
-              onKeyDown={(e) => onKey(e, i)}
-              // The action runs FIRST: it may open a file picker, which needs the row still mounted.
-              onClick={() => { it.onClick(); setOpen(false); }}>
-              <span className="flex-auto min-w-0 flex flex-col gap-2">
-                {it.label}
-                {it.hint && <em className="not-italic text-xs leading-[1.35] text-faint">{it.hint}</em>}
-              </span>
-              {it.value && <span className="flex-none font-mono text-sm text-faint">{it.value}</span>}
-            </button>
-          )))}
+                            : "text-text hover:bg-accent-06 hover:text-accent"}`;
+            const body = (
+              <>
+                <span className="flex-auto min-w-0 flex flex-col gap-2">
+                  {it.label}
+                  {it.hint && <em className="not-italic text-xs leading-[1.35] text-faint">{it.hint}</em>}
+                </span>
+                {it.value && <span className="flex-none font-mono text-sm text-faint">{it.value}</span>}
+                {/* Drawn from the row's KIND, not typed into its label: every href row gets it, and a
+                    translated label cannot lose it. */}
+                {it.href && <span aria-hidden="true" className="flex-none text-sm text-faint">↗</span>}
+              </>
+            );
+            // A real anchor for a destination — middle-click, "open in new tab" and the screen
+            // reader's link role all come from the element, and none of them from an onClick.
+            return it.href ? (
+              <a key={it.label} role="menuitem" tabIndex={-1} href={it.href}
+                target="_blank" rel="noopener noreferrer"
+                ref={(n) => { rows.current[i] = n; }} className={skin}
+                onKeyDown={(e) => onKey(e, i)} onClick={() => setOpen(false)}>{body}</a>
+            ) : (
+              <button key={it.label} role="menuitem" tabIndex={-1}
+                ref={(n) => { rows.current[i] = n; }} className={skin}
+                onKeyDown={(e) => onKey(e, i)}
+                // The action runs FIRST: it may open a file picker, which needs the row still mounted.
+                onClick={() => { it.onClick?.(); setOpen(false); }}>{body}</button>
+            );
+          })}
         </div>
       )}
     </div>
