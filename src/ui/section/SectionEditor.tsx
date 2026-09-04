@@ -73,7 +73,7 @@ export default function SectionEditor({
   });
 
   const handles: Handle[] = [
-    { key: "height", label: "火袋の高さ", x: CX, y: topY, axis: "y", min: LIMITS.height[0], max: LIMITS.height[1],
+    { key: "height", label: "火袋の高さ", x: CX, y: topY, min: LIMITS.height[0], max: LIMITS.height[1],
       cursor: "ns-resize", guide: [CX - 60, topY, CX + 60, topY],
       lx: CX - 22, ly: topY - 8, anchor: "end" },
     // The opening (= neck) radius IS the outermost control point — no separate handle, drag the ◇.

@@ -160,7 +160,8 @@ export function grooveList(p: Design, gR: number, k = 0): number[] {
 // The spiral-winding bamboo rib centerline (for the lit preview): a "one pitch / one turn" continuous
 // spiral from the same lattice as grooveList. Pure — returns [angle rad, height mm (0 basis), radius
 // mm]. The height decreases as the angle increases, matching grooveList's shift direction.
-export function higoSpiralPath(p: Design, seg = 48): [number, number, number][] {
+export function higoSpiralPath(p: Design): [number, number, number][] {
+  const seg = 48;   // samples per turn of the helix
   const gR = grooveR(p), h = p.height;
   const { gHi, n, step } = grooveLattice(p, gR);
   if (n === 0) return [];

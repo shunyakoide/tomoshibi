@@ -21,10 +21,10 @@ export type Way = {
   id: string; fig: string; title: string; body: string; paperBody?: string;
   needs?: (p: Design) => boolean; note?: string; detail?: SubStep[];
 };
-/** One step of the build. `wip` is both the draft badge and the one line saying why. */
+/** One step of the build. */
 export type Step = {
   id: string; title: string; body: string; paperBody?: string; fig?: string; stl?: boolean;
-  wip?: string; options?: Way[];
+  options?: Way[];
 };
 /** One thing you supply yourself. `paper` overrides the fields the cardboard route reads
  *  differently — the wire is optional on the 3D route and not on the one that bends its own hoops. */
@@ -99,9 +99,8 @@ export const STEPS: Step[] = [
     // 11/12/13 would tell the reader to do all three. `options` is what renders a step as sections,
     // each with its own figure, because the difference between the three IS the picture.
     //
-    // Nothing carries `wip` now, but **keep the mechanism for the next unsettled step**, and keep
-    // that wording clear of 「口輪」: the cardboard route prints no rings, and a step must not name a
-    // part its own route never makes.
+    // Whatever this step says, keep it clear of 「口輪」: the cardboard route prints no rings, and a
+    // step must not name a part its own route never makes.
     id: "light", title: "灯りをつける",
     body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
     options: [
