@@ -41,7 +41,7 @@ const EN: Record<string, string> = {
   "後からいつでも変更できます": "Changeable at any time",
   "3Dプリンタ": "3D printer",
   "STL 一式をダウンロード": "Download the STL set",
-  "A4 原寸の型紙を印刷 · 大きさの制限なし": "Print the A4 1:1 template · no size limit",
+  "A4 原寸の型紙を印刷 · 縦につないで大きく": "Print the A4 1:1 template · join sheets to go taller",
   // ---- Toolbar ----
   "元に戻す": "Undo",
   "やり直し": "Redo",
