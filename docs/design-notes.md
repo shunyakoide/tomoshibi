@@ -343,6 +343,31 @@ Which route someone is on — `route`: `"stl"` / `"paper"` — is **app-level st
 - **`TomoshibiStudio.tsx` is state and composition only.** It renders no control of its own and
   builds no 3D. Keep it that way: the moment a scene detail or a button's styling lands back in it,
   the file starts growing towards the 1,400 lines it used to be.
+- **Everything persisted is ONE `useState<SavedState>`, and the field list exists only in that type.**
+  It was eight separate `useState`s, and the cost was not the eight lines — it was that the same
+  eight-field list then had to be written five more times (the initializers' own defaults,
+  `useAutosave`, `exportDesign`, `importDesign`, `resetAll`), and a list written six times drifts.
+  It drifted twice, both shipped: 「初期化」 reinstated a `Pick` of five and left `matT` and the washi
+  allowances standing behind a dialog that promised すべて, and the studio's `matT` initializer read a
+  bare `5` while `persist.ts` kept `MAT_T = 5` **specifically so the fallback and the reset would
+  agree**. Now `setS` *is* the `apply` callback both `importDesign` and `resetAll` take, autosave and
+  export receive the record whole, and adding a field to `SavedState` is the entire change.
+  - **`FRESH` (`persist.ts`) is the single definition of a brand-new state** — first visit,
+    `sanitizeSaved`'s per-field fallbacks, and 「初期化」 are three readings of one answer, and it
+    replaces `MAT_T`, which existed to keep two of those three in step. Read a default from anywhere
+    else and you have started the next drift. `kit.ts` now knows no default at all.
+  - **Transient view state stays OUT** — `view`, `sel`, `drag`, `editMode`, `alertsOpen`, `kitNote`,
+    `welcome`. It is not saved, and folding it in would put a camera angle in the backup file.
+  - **`setP` keeps its `Dispatch<SetStateAction<Design>>` shape** so no caller could tell the
+    collapse happened, and it merges through `setS((o) => …)`: a setter that REPLACED the record
+    would take the seven sibling settings with it on the next ◇ drag. It is `useCallback([])`, hence
+    stable, hence listed in the boards-clamp effect's deps — the lint rule only knows `useState`
+    setters are stable.
+  - **A state library does not solve this.** Eight atoms reinstate the enumeration in
+    `importDesign` / `resetAll` as eight writes; what removes it is the record. Nor is prop drilling
+    the problem here: `InspectorPanel` forwards no domain props at all (it takes `bar` / `header` /
+    `children` / `footer` slots), so the depth is one, and the one value that IS read everywhere —
+    `t` — already has a Context.
 - **`three/viewport.ts` is everything created once per mount**; `scenes.ts` empties and refills the
   group per view. Two views draw no 3D at all and say so by returning early — `2d`, and `print` on
   the cardboard route — both being documents drawn over the same canvas. The only geometry
