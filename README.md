@@ -32,7 +32,7 @@ generates that mold as split parts you can make yourself.
 
 | Part | Role |
 | --- | --- |
-| **Rib (羽根板)** | The radial boards that form the mold surface (N of them, like orange segments). The outer edge carries the lamp-body curve and V-notch grooves for the bamboo; both ends have tabs. |
+| **Rib (羽根板)** | The radial boards that form the mold surface (N of them, like orange segments). The outer edge carries the lamp-body curve and the bamboo seats; both ends have tabs. |
 | **Koma / hub (コマ)** | Two identical gear-like hubs, top and bottom. Notches around the rim hold the rib tabs. |
 | **Stand (土台)** | A base that holds the assembled mold off the table on two U-shaped saddles, so you can turn it while you work. 3D-print route only. |
 | **Opening rings (口輪)** | Thin hoops for the finished lantern's two openings, which keep their shape once the koma are gone. The **bottom one can carry leg sockets** (a checkbox, off by default): three pads with a ⌀6 bore, for legs you supply. Where the opening is too small for them it falls back to a plain hoop with a tab on its inner rim, which tells the two apart once made. |
@@ -41,7 +41,7 @@ generates that mold as split parts you can make yourself.
 
 - **Direct-manipulation section editor** — drag control points to sculpt the silhouette; the 3D preview and the STL stay in exact agreement.
 - **A mold that comes back out** — a deep body on a small opening makes ribs too wide to pull out of the lantern they shaped. The app measures that while you are still shaping the silhouette, along with whether every part fits your bed.
-- **Bamboo-rib grooves** — evenly spaced V-notches with barbs so the bamboo seats and won't slip. Optional **spiral winding (螺旋巻き)** offsets them per rib into one continuous helix; each rib is then unique, so it exports as its own STL engraved with its serial number.
+- **Bamboo-rib grooves** — evenly spaced notches cut toward the axis: a ramp in, a round seat the size of the bamboo, and — where the face is sloped enough to need one — a rounded claw hooked over the seat. Cut toward the axis, the seat takes the winding tension square, so leaving costs the rod radius rather than being resisted by friction. Optional **spiral winding (螺旋巻き)** offsets them per rib into one continuous helix; each rib is then unique, so it exports as its own STL engraved with its serial number.
 - **Cardboard route** (beta) — no 3D printer needed: full-scale A4 pages to cut the mold from cardboard.
 - **Washi template (和紙の型紙)** — the paper skin developed flat, one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. It ships with whichever route you pick.
 - **Build guide** — a step-by-step page of its own (`/guide`, under wherever the app is mounted), drawn from the same `geometry.ts` the STLs are, running past the mold to winding, pasting, drying, pulling the mold out and lighting it.
@@ -97,7 +97,7 @@ A4 PDFs — the mold (`tomoshibi_katagami_a4.pdf`) and the washi one — and you
 measured, so the koma notches are cut to it and the ribs push in with no glue or hardware. The sheet
 carries the ribs, the koma, and the two opening hoops as a blue line to **bend 2mm wire along, not to
 cut**. There is no stand: stand the mold on whatever is to hand. Grooves are not cut either — you
-can't carve a 0.5 mm V-notch into cardboard — so the outer edge is a smooth curve with dashed ticks
+can't cut a seat that fine into cardboard — so the outer edge is a smooth curve with dashed ticks
 marking where each bamboo rib goes. Print at **100%**, never "fit to page"; one sheet carries a check
 square to measure with a ruler. A part too tall for a page continues on the next (cut both on the
 blue frame, butt the edges so the coded half-diamonds close into ◇, tape from behind), but pages only
