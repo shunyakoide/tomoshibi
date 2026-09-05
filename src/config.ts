@@ -67,9 +67,8 @@ export const SIL_ROWS: SilRow[] = [
   { key: "height", label: "火袋の高さ", min: LIMITS.height[0], max: LIMITS.height[1], curve: 2.5, round: 1, unit: "mm" },
 ];
 
-// One place: written into two ZIPs, printed in two notes. `_beta` is part of the name on purpose —
-// the file outlives the screen it came from, so the caveat travels with it.
-export const WASHI_PDF = "tomoshibi_washi_a4_beta.pdf";
+// One place: written into two ZIPs, printed in two notes.
+export const WASHI_PDF = "tomoshibi_washi_a4.pdf";
 
 // The project's own page. In the ☰ so the app can say where it came from — a browser app with no
 // install step leaves no other trail back to its source, and the licence and the issue tracker are
