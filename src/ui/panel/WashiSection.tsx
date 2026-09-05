@@ -1,7 +1,8 @@
 /**
  * The template is not an output method: it ships with whichever route you pick, so there is no
- * download here. Beta because `check:paper` checks the dimensions and nothing checks the FIT —
- * flattening a doubly-curved surface is approximate, and a damp sheet takes up an unmeasured amount.
+ * download here. `check:paper` checks the dimensions; nothing checks the FIT — flattening a
+ * doubly-curved surface is approximate, and a damp sheet takes up an unmeasured amount. That is what
+ * the note below is for, and it stays whatever the template's standing is.
  */
 import { Stepper, SectionLabel, Note } from "../controls.tsx";
 import { useT } from "../theme.ts";
@@ -14,7 +15,7 @@ export default function WashiSection({ boards, side, end, setSide, setEnd, gore 
   const t = useT();
   return (
     <div className="mb-20">
-      <SectionLabel title="和紙" hint="羽根板の間 1面分 · beta" />
+      <SectionLabel title="和紙" hint="羽根板の間 1面分" />
       <Stepper label="のりしろ(左右)" value={side} min={0} max={15} step={1} onChange={setSide}>
         {side} mm
       </Stepper>
@@ -29,7 +30,7 @@ export default function WashiSection({ boards, side, end, setSide, setEnd, gore 
       </div>
       <Note className="mt-2">
         {t("貼る前に和紙を切るための原寸型紙です。どちらの出力にも別 PDF で同梱されます。")}
-        <br />{t("この型紙は検証中です。全面を切る前に、まず 1 面だけ合わせてみてください。")}
+        <br />{t("平面に開くのは近似です。全面を切る前に、まず 1 面だけ合わせてみてください。")}
       </Note>
     </div>
   );

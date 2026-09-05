@@ -210,14 +210,14 @@ const EN: Record<string, string> = {
   "コマ": "Koma",
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
-  "羽根板の間 1面分 · beta": "one rib-to-rib panel · beta",
+  "羽根板の間 1面分": "one rib-to-rib panel",
   "のりしろ(左右)": "Overlap (sides)",
   "被せ代(上下)": "Cover (ends)",
   "1面のサイズ": "Panel size",
   "貼る前に和紙を切るための原寸型紙です。どちらの出力にも別 PDF で同梱されます。":
     "A full-scale template for cutting the washi before you paste it. Either output bundles it as its own PDF.",
-  "この型紙は検証中です。全面を切る前に、まず 1 面だけ合わせてみてください。":
-    "Still being verified: cut one panel and offer it up before you cut them all.",
+  "平面に開くのは近似です。全面を切る前に、まず 1 面だけ合わせてみてください。":
+    "Flattening a curved surface is approximate: cut one panel and offer it up before you cut them all.",
   "TOMOSHIBI 和紙型紙 {name} 原寸": "TOMOSHIBI washi template {name} (full scale)",
 
   // ---- Build guide (the 作り方 page at `/guide`) ----
