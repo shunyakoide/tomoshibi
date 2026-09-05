@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { routeHref } from "../studio/route.ts";
 import { useT } from "../ui/theme.ts";
 import Markdown from "./markdown.tsx";
-import { getNote, listNotes, type NoteSlug } from "./content.ts";
+import { getNote, listNotes } from "./content.ts";
+import type { NoteSlug } from "./slugs.ts";
 import type { Lang } from "../i18n.ts";
 
 const SHELL = "guide fixed inset-0 z-40 overflow-y-auto bg-panel print:static print:overflow-visible print:bg-[#fff]";

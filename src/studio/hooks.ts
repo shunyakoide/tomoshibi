@@ -139,18 +139,19 @@ export function useLang(): { lang: Lang; toggleLang: () => void; t: T } {
 
 /**
  * The current page and the one way to change it (route.ts says what is addressable and why little
- * is). Opening PUSHES and closing goes BACK — one entry in, one out, so the browser's back button
- * is the same gesture as the ×. A deep link has no entry to go back to and `back()` would take a
- * first-time visitor off the site, so the first close after one REPLACES instead.
+ * is). Opening PUSHES and closing UNWINDS every entry this session pushed, so the × and the
+ * browser's back button stay the same gesture even where one page opens another (the guide links
+ * into a note, and the note links back). A deep link has no entry to go back to and `back()` would
+ * take a first-time visitor off the site, so a close with nothing pushed REPLACES instead.
  */
-export function usePageRoute(): { route: PageRoute; go: (r: PageRoute, hash?: string, replace?: boolean) => void } {
+export function usePageRoute(): { route: PageRoute; go: (r: PageRoute, hash?: string) => void } {
   const [route, setRoute] = useState<PageRoute>(currentRoute);
-  // Whether this session pushed the entry we are standing on. A popstate means the browser moved
-  // us, so whatever we pushed is no longer ours to go back to.
-  const pushed = useRef(false);
+  // How many entries this session pushed to reach the page it is standing on. A popstate means the
+  // browser moved us, so whatever we pushed is no longer ours to go back to.
+  const depth = useRef(0);
 
   useEffect(() => {
-    const onPop = () => { pushed.current = false; setRoute(currentRoute()); };
+    const onPop = () => { depth.current = 0; setRoute(currentRoute()); };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -163,22 +164,17 @@ export function usePageRoute(): { route: PageRoute; go: (r: PageRoute, hash?: st
     }
   }, []);
 
-  const go = useCallback((next: PageRoute, hash = "", replace = false) => {
-    if (next === currentRoute()) {
-      if (hash && window.location.hash !== hash) writeUrl(() => window.history.replaceState(null, "", routeHref(next, hash)));
-      setRoute(next);
-      return;
-    }
-    if (replace) {
-      writeUrl(() => window.history.replaceState(null, "", routeHref(next, hash)));
-      pushed.current = false;
-    } else if (next === null && pushed.current) {
+  const go = useCallback((next: PageRoute, hash = "") => {
+    if (next === currentRoute()) { setRoute(next); return; }
+    if (next === null && depth.current > 0) {
+      const ours = depth.current;
+      depth.current = 0;
       // popstate will set the state; do not set it here as well, or the two disagree for a frame.
-      if (writeUrl(() => window.history.back())) return;
+      if (writeUrl(() => window.history.go(-ours))) return;
     } else if (next === null) {
       writeUrl(() => window.history.replaceState(null, "", routeHref(null)));
     } else if (writeUrl(() => window.history.pushState(null, "", routeHref(next, hash)))) {
-      pushed.current = true;
+      depth.current += 1;
     }
     setRoute(next);
   }, []);

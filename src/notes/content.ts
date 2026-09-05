@@ -1,8 +1,7 @@
 import type { Lang } from "../i18n.ts";
+import { isNoteSlug, NOTE_ROUTES, type NoteSlug } from "./slugs.ts";
 import jaMotivation from "./articles/ja/motivation.md?raw";
 import enMotivation from "./articles/en/motivation.md?raw";
-
-export type NoteSlug = "note-motivation";
 
 export type NoteMeta = {
   slug: NoteSlug;
@@ -15,39 +14,32 @@ export type NoteDoc = NoteMeta & {
   body: string;
 };
 
-type NoteSource = {
-  slug: NoteSlug;
-  raw: Record<Lang, string>;
+/** Both languages of every note. A Record over the slugs, so a slug with no article — or with only
+ *  one language — is a compile error rather than an untitled card. */
+const SOURCES: Record<NoteSlug, Record<Lang, string>> = {
+  "note-motivation": { ja: jaMotivation, en: enMotivation },
 };
 
-const SOURCES: NoteSource[] = [
-  {
-    slug: "note-motivation",
-    raw: { ja: jaMotivation, en: enMotivation },
-  },
-];
-
-export const NOTE_ROUTES = SOURCES.map((n) => n.slug);
-
 export function listNotes(lang: Lang): NoteMeta[] {
-  return SOURCES.map((n) => noteDoc(n, lang));
+  return NOTE_ROUTES.map((slug) => noteDoc(slug, lang));
 }
 
 export function getNote(slug: string, lang: Lang): NoteDoc | null {
-  const src = SOURCES.find((n) => n.slug === slug);
-  return src ? noteDoc(src, lang) : null;
+  return isNoteSlug(slug) ? noteDoc(slug, lang) : null;
 }
 
-function noteDoc(src: NoteSource, lang: Lang): NoteDoc {
-  const parsed = parseFrontmatter(src.raw[lang]);
-  return { slug: src.slug, ...parsed };
+function noteDoc(slug: NoteSlug, lang: Lang): NoteDoc {
+  return { slug, ...parseFrontmatter(SOURCES[slug][lang]) };
 }
 
+/** `---` … `---` of `key: value` lines, then the body. Line endings are normalised first: a CRLF
+ *  checkout would otherwise miss the opening fence and print the frontmatter as prose. */
 function parseFrontmatter(raw: string): Omit<NoteDoc, "slug"> {
-  if (!raw.startsWith("---\n")) return { title: "", summary: "", category: "", body: raw.trim() };
-  const end = raw.indexOf("\n---", 4);
-  if (end < 0) return { title: "", summary: "", category: "", body: raw.trim() };
-  const head = raw.slice(4, end).trim().split("\n");
+  const src = raw.replace(/\r\n/g, "\n");
+  if (!src.startsWith("---\n")) return { title: "", summary: "", category: "", body: src.trim() };
+  const end = src.indexOf("\n---", 4);
+  if (end < 0) return { title: "", summary: "", category: "", body: src.trim() };
+  const head = src.slice(4, end).trim().split("\n");
   const meta: Record<string, string> = {};
   for (const line of head) {
     const at = line.indexOf(":");
@@ -58,6 +50,6 @@ function parseFrontmatter(raw: string): Omit<NoteDoc, "slug"> {
     title: meta.title ?? "",
     summary: meta.summary ?? "",
     category: meta.category ?? "",
-    body: raw.slice(end + 5).trim(),
+    body: src.slice(end + 5).trim(),
   };
 }

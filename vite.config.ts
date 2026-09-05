@@ -7,10 +7,12 @@ import tailwind from "@tailwindcss/vite";
 /**
  * Publish the built document a second time as 404.html.
  *
- * The app has one addressable page (`/guide` — see src/studio/route.ts) and a static host has no rewrite
- * rules, so a request for it never reaches index.html. GitHub Pages serves 404.html for any path it
- * cannot match, the browser renders it, and `location.pathname` is left ALONE, which is what the
- * router reads. (A redirecting 404 also works, for a round trip and a route in a query string.)
+ * The app's addressable pages (`ROUTES` in src/studio/route.ts) are ONE segment under the mount, and
+ * a static host has no rewrite rules, so a request for one never reaches index.html. GitHub Pages
+ * serves 404.html for any path it cannot match, the browser renders it, and `location.pathname` is
+ * left ALONE, which is what the router reads. (A redirecting 404 also works, for a round trip and a
+ * route in a query string.) One segment is the load-bearing half: the asset tags are RELATIVE, so a
+ * page at `notes/x` would look for its own JavaScript under `notes/` and find the 404 page again.
  *
  * Copied from the EMITTED index.html rather than the source, so it always carries the same hashed
  * asset tags; a hand-written copy goes stale one build later. `closeBundle` rather than
