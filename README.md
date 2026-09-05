@@ -45,6 +45,7 @@ generates that mold as split parts you can make yourself.
 - **Cardboard route** (beta) — no 3D printer needed: full-scale A4 pages to cut the mold from cardboard.
 - **Washi template (和紙の型紙)** (beta) — the paper skin developed flat, one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. It ships with whichever route you pick.
 - **Build guide** — a step-by-step page of its own (`/guide`, under wherever the app is mounted), drawn from the same `geometry.ts` the STLs are, running past the mold to winding, pasting, drying, pulling the mold out and lighting it.
+- **Build notes** — a page of its own (`/notes`, each article at `/note-…`) for what would weigh the build guide down: the material choices, what failed, and why this exists. A guide step that has a note links straight into it.
 - **English / Japanese UI** — a row in the ☰ menu. Both templates print in the language the app is showing.
 - **Watertight by construction** — every exported part is a closed manifold, verified by an automated sweep (see [CONTRIBUTING](CONTRIBUTING.md)).
 
@@ -71,7 +72,7 @@ degrading.
 - **View tabs** — **Section / Assembly / Print / Lit**, all four rendered from the design in front of you.
 - **Right panel** — pick a preset, then drag the section's control points; the sections below (Frame, Bamboo ribs, Washi, Print bed…) hold the finer settings.
 - **Export** — the Print view downloads the whole kit as one ZIP, with a `tomoshibi_config.json` backup of your design in it. (STL compresses well: a default kit is about 190 KB zipped.)
-- **☰ menu** — the intro card, the build guide, the language, backup save / restore, reset, and a link to this repository.
+- **☰ menu** — the intro card, the build guide, the build notes, the language, backup save / restore, reset, and a link to this repository.
 
 ### From mold to lantern
 
