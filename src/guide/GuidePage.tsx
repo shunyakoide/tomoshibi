@@ -22,6 +22,8 @@ import WayItem, { STEP_P } from "./WayItem.tsx";
 import { useT } from "../ui/theme.ts";
 import { Badge, Button } from "../ui/controls.tsx";
 import type { Way } from "./content.ts";
+import type { NoteSlug } from "../notes/slugs.ts";
+import { routeHref } from "../studio/route.ts";
 import type { Route } from "../types.ts";
 
 /* The kit and parts cards. A class rather than a style object, so the box that goes with the
@@ -62,9 +64,12 @@ const STEP_H3 = "flex items-center gap-10 mt-2 mx-0 mb-8 text-xl font-bold text-
 const STEP_NUM = "flex-none w-24 h-24 rounded-full bg-accent text-[#fff] flex "
   + "items-center justify-center text-base font-bold";
 const WAY_UL = "list-none mt-16 mx-0 mb-0 p-0 flex flex-col gap-20";
+const NOTE_BOX = "mt-14 flex flex-wrap items-center gap-7 text-sm text-sub print:hidden";
+const NOTE_LINK = "inline-flex items-center min-h-26 px-8 rounded-md bg-accent-06 text-accent "
+  + "border border-accent-25 no-underline hover:bg-[#fffaf5] hover:border-accent-45";
 
-export default function GuidePage({ route, onClose, onGoPrint }: {
-  route: Route; onClose: () => void; onGoPrint: () => void;
+export default function GuidePage({ route, onClose, onGoPrint, onGoNote }: {
+  route: Route; onClose: () => void; onGoPrint: () => void; onGoNote: (slug: NoteSlug, hash?: string) => void;
 }) {
   const t = useT();
   const stl = route !== "paper";
@@ -135,6 +140,13 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
         <p className={LEDE}>
           {t("型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図は一例で、大きさや枚数は設計によって変わります。")}
         </p>
+        <div className={NOTE_BOX}>
+          <span>{t("補足")}</span>
+          <a href={routeHref("note-motivation", "#starting-by-copying")} className={NOTE_LINK}
+            onClick={(e) => { e.preventDefault(); onGoNote("note-motivation", "#starting-by-copying"); }}>
+            {t("Tomoshibiを作った理由")}
+          </a>
+        </div>
 
         <h2 className={H2}>{t("部品")}</h2>
         <ul className={GRID}>
@@ -197,6 +209,17 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
                 {/* The count comes from the options actually offered here, not from the list: one
                     needs the leg sockets, and "three ways" over two sections is a visible lie. */}
                 <p className={STEP_P}>{t(!stl && s.paperBody ? s.paperBody : s.body, s.options && { n: options[s.id].length })}</p>
+                {s.notes && (
+                  <div className={NOTE_BOX}>
+                    <span>{t("関連ノート")}</span>
+                    {s.notes.map((n) => (
+                      <a key={`${n.slug}${n.hash ?? ""}`} href={routeHref(n.slug, n.hash)} className={NOTE_LINK}
+                        onClick={(e) => { e.preventDefault(); onGoNote(n.slug, n.hash); }}>
+                        {t(n.label)}
+                      </a>
+                    ))}
+                  </div>
+                )}
                 {s.options && (
                   <ul className={WAY_UL}>
                     {options[s.id].map((o) => (
@@ -215,4 +238,3 @@ export default function GuidePage({ route, onClose, onGoPrint }: {
     </div>
   );
 }
-
