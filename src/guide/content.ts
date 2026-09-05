@@ -8,7 +8,7 @@
  * is counted at the render site from the ways actually offered, not stored here.
  */
 import { ringLegs } from "../geometry.ts";
-import type { NoteSlug } from "../notes/content.ts";
+import type { NoteSlug } from "../notes/slugs.ts";
 import type { Design } from "../types.ts";
 
 /** One entry in the parts list. `n` is printed only where it is a CONSTANT (see the note below);

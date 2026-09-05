@@ -22,7 +22,8 @@ import WayItem, { STEP_P } from "./WayItem.tsx";
 import { useT } from "../ui/theme.ts";
 import { Badge, Button } from "../ui/controls.tsx";
 import type { Way } from "./content.ts";
-import type { NoteSlug } from "../notes/content.ts";
+import type { NoteSlug } from "../notes/slugs.ts";
+import { routeHref } from "../studio/route.ts";
 import type { Route } from "../types.ts";
 
 /* The kit and parts cards. A class rather than a style object, so the box that goes with the
@@ -141,7 +142,7 @@ export default function GuidePage({ route, onClose, onGoPrint, onGoNote }: {
         </p>
         <div className={NOTE_BOX}>
           <span>{t("補足")}</span>
-          <a href="#" className={NOTE_LINK}
+          <a href={routeHref("note-motivation", "#starting-by-copying")} className={NOTE_LINK}
             onClick={(e) => { e.preventDefault(); onGoNote("note-motivation", "#starting-by-copying"); }}>
             {t("Tomoshibiを作った理由")}
           </a>
@@ -212,7 +213,7 @@ export default function GuidePage({ route, onClose, onGoPrint, onGoNote }: {
                   <div className={NOTE_BOX}>
                     <span>{t("関連ノート")}</span>
                     {s.notes.map((n) => (
-                      <a key={`${n.slug}${n.hash ?? ""}`} href="#" className={NOTE_LINK}
+                      <a key={`${n.slug}${n.hash ?? ""}`} href={routeHref(n.slug, n.hash)} className={NOTE_LINK}
                         onClick={(e) => { e.preventDefault(); onGoNote(n.slug, n.hash); }}>
                         {t(n.label)}
                       </a>

@@ -40,7 +40,7 @@ import Logo from "../ui/Logo.tsx";
 import type { EditMode } from "../ui/pointEdit.ts";
 import type { Design } from "../types.ts";
 import { REPO_URL } from "../config.ts";
-import { getNote } from "../notes/content.ts";
+import { isNoteSlug } from "../notes/slugs.ts";
 
 /** Which onboarding card is open: the first-visit one, the one reopened from the ☰ menu, or neither. */
 type WelcomeCard = "first" | "help" | null;
@@ -103,8 +103,7 @@ export default function TomoshibiStudio() {
   const { route: page, go: goPage } = usePageRoute();
   const guide = page === "guide";
   const notes = page === "notes";
-  const note = page ? getNote(page, lang) : null;
-  const noteSlug = note ? page : null;
+  const noteSlug = page && isNoteSlug(page) ? page : null;
 
   // Clamp the rib count to what fits the koma, whatever made it too large (board thickness,
   // tolerance, the opening ◇): overlapping notches produce a non-watertight koma.
@@ -318,7 +317,7 @@ export default function TomoshibiStudio() {
             onOpen={(slug) => goPage(slug)} />
         )}
         {noteSlug && (
-          <NotePage slug={noteSlug} lang={lang} onClose={() => goPage(null, "", true)}
+          <NotePage slug={noteSlug} lang={lang} onClose={() => goPage(null)}
             onBackToNotes={() => goPage("notes")} onBackToGuide={() => goPage("guide")} />
         )}
       </div>
