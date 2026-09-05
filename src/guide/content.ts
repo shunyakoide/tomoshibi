@@ -8,6 +8,7 @@
  * is counted at the render site from the ways actually offered, not stored here.
  */
 import { ringLegs } from "../geometry.ts";
+import type { NoteSlug } from "../notes/slugs.ts";
 import type { Design } from "../types.ts";
 
 /** One entry in the parts list. `n` is printed only where it is a CONSTANT (see the note below);
@@ -24,7 +25,7 @@ export type Way = {
 /** One step of the build. */
 export type Step = {
   id: string; title: string; body: string; paperBody?: string; fig?: string; stl?: boolean;
-  options?: Way[];
+  options?: Way[]; notes?: { slug: NoteSlug; hash?: string; label: string }[];
 };
 /** One thing you supply yourself. `paper` overrides the fields the cardboard route reads
  *  differently — the wire is optional on the 3D route and not on the one that bends its own hoops. */
@@ -53,6 +54,7 @@ export const STEPS: Step[] = [
     id: "make", title: "部品をつくる",
     body: "「印刷」ビューから STL を書き出し、羽根板・コマ・支柱・土台・口輪を印刷します。コマと支柱は上下で同じ部品なので、スライサーで2つに複製してください。",
     paperBody: "「印刷」ビューから型紙 ZIP をダウンロードし、原寸(100%)で刷ります。段ボールに貼るか下敷きにして、線のとおりに切り出します。刃は新しいものを。",
+    notes: [{ slug: "note-motivation", hash: "#why-a-mold-helps", label: "Tomoshibiを作った理由" }],
   },
   {
     id: "ribsIn", title: "コマに羽根板を差す", fig: "ribsIn",
