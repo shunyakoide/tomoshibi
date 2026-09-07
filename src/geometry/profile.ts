@@ -172,6 +172,9 @@ export function tabDepth(p: Design): number {
 }
 // Upper limit on rib width: keep it at or below the opening so it can be pulled out from the
 // larger opening (end radius) after drying.
+// The least band the rib keeps between its outer and inner edges (mm). It lives here rather than in
+// rib.ts because the groove has to know how deep it may cut, and groove.ts sits below rib.ts.
+export const RIB_MIN_BAND = 12;
 export function effBoardWidth(p: Design): number {
   return Math.min(p.boardWidth, Math.max(outerR(p, 0), outerR(p, 1)) - 1);
 }

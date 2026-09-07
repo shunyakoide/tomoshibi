@@ -19,7 +19,7 @@ export {
 //  importer is not a stable surface, it is a claim that something out there depends on it.)
 
 // ---- Bamboo-rib grooves ----
-export { grooveOuterPts, grooveR, grooveList, higoSpiralPath } from "./geometry/groove.ts";
+export { grooveOuterPts, grooveR, grooveList, higoSpiralPath, higoSeat } from "./geometry/groove.ts";
 
 // ---- Parts ----
 export { ribOutline2D, ribPullFit, lightenHoles2D, ribGeometry } from "./geometry/rib.ts";

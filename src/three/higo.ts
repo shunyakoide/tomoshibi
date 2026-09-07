@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { grooveList, grooveR, higoSpiralPath, outerR } from "../geometry.ts";
+import { grooveList, higoSeat, higoSpiralPath } from "../geometry.ts";
 import type { Design } from "../types.ts";
 
 /**
@@ -31,15 +31,19 @@ export function higoGeometries(
       new THREE.Vector3(rad * Math.cos(a), y, rad * Math.sin(a))));
     return [{ geo: new THREE.TubeGeometry(curve, path.length * 2, r, 8, false), y: 0 }];
   }
-  return grooveList(p, grooveR(p)).map((y) => {
+  return grooveList(p).map((g) => {
+    // Where the rod actually lies — under the tooth, on the surface — not on the smooth curve at
+    // the groove's height: on a shoulder those differ by millimetres, and the ring drew inside its
+    // own tooth.
+    const [rad, y] = higoSeat(p, g);
     // `near` draws only the camera-facing half, for the one see-through figure: eight far rings over
     // eight near ones is a rattan basket. Aim the half-arc by turning the GEOMETRY in its own plane —
     // a `rotation.y` on the mesh composes with the flattening quarter turn and tilts the ring
     // instead. A torus's arc starts at its own 0, so its midpoint sits a quarter turn on; -45° lands
     // it on the camera's bearing after the rotateX below.
     const geo = near
-      ? new THREE.TorusGeometry(outerR(p, y / p.height), r, radial, 64, Math.PI)
-      : new THREE.TorusGeometry(outerR(p, y / p.height), r, radial, 96);
+      ? new THREE.TorusGeometry(rad, r, radial, 64, Math.PI)
+      : new THREE.TorusGeometry(rad, r, radial, 96);
     if (near) geo.rotateZ(-Math.PI / 4);
     geo.rotateX(Math.PI / 2);
     return { geo, y };

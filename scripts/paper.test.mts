@@ -316,8 +316,12 @@ for (const preset of PRESETS)
 // Compared as coordinates, not bytes, because the two encodings legitimately differ in three ways
 // and ONLY these three:
 //   · SVG rounds to 2dp and the PDF to 3dp, so a coordinate ending .xx5 double-rounds 0.01mm apart:
-//     the compare carries a tolerance and sorts on a coarse 0.1mm key (a lexicographic sort would
-//     reorder the two lists over that same 0.01, and a key from the first few points ties paths);
+//     the compare carries a tolerance, and pairs the two lists by CONTENT rather than by position.
+//     Sorting cannot pair them on its own — the key is the coordinates, and the two encodings do not
+//     always round the same coordinate to the same key. One tick mark landing on 100.445 sorted
+//     under 100.4 in the PDF and 100.5 on screen, and every path after it in the two lists was
+//     compared against a different one. The sorted order is still where the pairing starts, because
+//     it is right for all but a handful of paths and n² is not free.
 //   · a part name is centred by `text-anchor: middle` in SVG and by a pre-shifted x in the PDF, so
 //     its x is not comparable and text sorts on y + content;
 //   · each format escapes what its own syntax cannot carry raw — SVG writes `<` as `&lt;`, and a PDF
@@ -351,14 +355,27 @@ const pdfText = (s2: string) => [...pdfBody(s2).matchAll(/1 0 0 -1 ([\d.-]+) ([\
 const sameDrawing = (svg: string, pdf: string, tag: string) => {
   const cmp = (x: string[], y: string[], what: string, anchored?: boolean) => {
     if (x.length !== y.length) { bad(`${tag} ${what}: ${x.length} on screen vs ${y.length} in the PDF`); return; }
-    for (let i = 0; i < x.length; i++) {
-      const av = x[i].split(" "), bv = y[i].split(" ");
-      if (av.length !== bv.length) { bad(`${tag} ${what} #${i}: ${av.length} vs ${bv.length} tokens`); return; }
-      for (let j = anchored ? 1 : 0; j < av.length; j++) {
-        const an = Number(av[j]), bn = Number(bv[j]);
-        const ok = Number.isNaN(an) || Number.isNaN(bn) ? av[j] === bv[j] : Math.abs(an - bn) < 0.011;
-        if (!ok) { bad(`${tag} ${what} #${i}: ${av[j]} vs ${bv[j]}`); return; }
+    const xs = x.map((v) => v.split(" ")), ys = y.map((v) => v.split(" "));
+    const same = (a: string[], b: string[]) => {
+      if (a.length !== b.length) return false;
+      for (let j = anchored ? 1 : 0; j < a.length; j++) {
+        const an = Number(a[j]), bn = Number(b[j]);
+        if (Number.isNaN(an) || Number.isNaN(bn) ? a[j] !== b[j] : Math.abs(an - bn) >= 0.011) return false;
       }
+      return true;
+    };
+    let i = 0;
+    while (i < xs.length && same(xs[i], ys[i])) i++;
+    if (i === xs.length) return;
+    // Out of step from here on, which is what a sort boundary looks like and also what one missing
+    // line looks like. Told apart by pairing every drawing with an unclaimed one — a bijection, so
+    // "the PDF drew this one twice" is still a failure. Only ever reached when something is wrong.
+    const used = new Uint8Array(ys.length);
+    for (const a of xs) {
+      let hit = -1;
+      for (let k = 0; k < ys.length && hit < 0; k++) if (!used[k] && same(a, ys[k])) hit = k;
+      if (hit < 0) { bad(`${tag} ${what}: "${a.join(" ")}" is on screen and in no PDF ${what}`); return; }
+      used[hit] = 1;
     }
   };
   cmp(svgPaths(svg), pdfPaths(pdf), "paths", false);

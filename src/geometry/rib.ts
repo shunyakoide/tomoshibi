@@ -5,8 +5,8 @@
  */
 import type { Design, Pt2 } from "../types.ts";
 import * as THREE from "three";
-import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, tabDepth, tabDented, TAB_DENT_W, TAB_DENT_H } from "./profile.ts";
-import { grooveDepth, grooveList, grooveOuterPts, profileSlope } from "./groove.ts";
+import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, RIB_MIN_BAND, tabDepth, tabDented, TAB_DENT_W, TAB_DENT_H } from "./profile.ts";
+import { grooveList, grooveOuterPts, grooveReach } from "./groove.ts";
 import { shapeFromPts } from "./shape.ts";
 
 // [Rib inner edge = crescent] Hollowed toward the centre so the rib pulls out of the opening after
@@ -16,7 +16,6 @@ import { shapeFromPts } from "./shape.ts";
 // 0 at its ends, so it meets the core with no corner. Amplitude = centre depth (outer − core) ×
 // `RIB_CURVE_D`, a RATIO so the proportion survives a profile change, clamped so the inner edge can
 // never cross the outer one.
-const RIB_MIN_BAND = 12;  // minimum band thickness (mm). Remains even after subtracting the groove depth (max higoD*1.5).
 const RIB_CURVE_C = 0.5;  // curve center (t) = the rib center
 const RIB_CURVE_HW = 0.3; // curve half-width (t). Applies only to the middle 60%; the top/bottom 20% each stay core.
 const RIB_CURVE_D = 0.3;  // scoop amount = the center rib depth × this (the real mold is about 20%; slightly deeper, prioritizing ease of removal)
@@ -110,21 +109,14 @@ export function lightenHoles2D(p: Design): { holes: Pt2[][] } {
   const spineW = Math.max(9, td + 3), bandW = 11, strut = 8, MIN_MAT = 12;
   const oS = (y: number) => outerR(p, Math.min(Math.max(y, 0), h) / h); // smooth outer edge
   // The band of solid left between the grooved edge and the window. It cannot be a constant, because
-  // a groove is cut along the surface NORMAL: the notch tip lands `depth × √(1+slope²)` further in
-  // **in x** than the smooth edge at the tip's own height (the normal's y-component drags the tip up
-  // a face itself climbing in x). A gentle face barely exceeds the depth and `bandW` swallows it; a
-  // steep one — a wide, low body — is several times bandW, and the window's outer edge is then drawn
-  // straight through the notch, earcut returning a cap with open edges. Hence the slope term, worst
-  // over ±1.5mm so the 2mm chords between window samples cannot cut the corner either.
-  const gDepth = grooveDepth(p);
-  const reach = (y: number) => {
-    let m = 0;
-    for (let d = -1.5; d <= 1.5; d += 0.75) m = Math.max(m, Math.abs(profileSlope(p, y + d)));
-    return gDepth * Math.hypot(1, m);
-  };
+  // the notch is deeper where the face is steeper (`grooveReach` takes the slope): a gentle face
+  // barely exceeds the flat depth and `bandW` swallows it, a steep one — a wide, low body — reaches
+  // several millimetres further in, and the window's outer edge is then drawn straight through the
+  // notch, earcut returning a cap with open edges. `grooveReach` answers for the whole tooth, ramp
+  // included, so the 2mm chords between window samples cannot cut the corner either.
   // `bandW` is the floor, so every design that was already clear of the notch keeps the exact
   // window it had; BAND_SOLID is the material that has to survive behind the tip once it isn't.
-  const band = (y: number) => Math.max(bandW, reach(y) + BAND_SOLID);
+  const band = (y: number) => Math.max(bandW, grooveReach(p, y) + BAND_SOLID);
   // The window's inner side follows the crescent inner edge, keeping the core a constant spineW
   // wide, so the centre window takes the scoop's shape too. cleanPoly thins the collinear points it
   // leaves, so earcut does not break.
