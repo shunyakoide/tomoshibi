@@ -5,7 +5,7 @@
  */
 import type { Design, Pt2 } from "../types.ts";
 import * as THREE from "three";
-import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, tabDepth, tabDented, TAB_DENT_W, TAB_DENT_H } from "./profile.ts";
+import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, RIB_MIN_BAND, tabDepth, tabDented, TAB_DENT_W, TAB_DENT_H } from "./profile.ts";
 import { grooveList, grooveOuterPts, grooveReach } from "./groove.ts";
 import { shapeFromPts } from "./shape.ts";
 
@@ -16,7 +16,6 @@ import { shapeFromPts } from "./shape.ts";
 // 0 at its ends, so it meets the core with no corner. Amplitude = centre depth (outer − core) ×
 // `RIB_CURVE_D`, a RATIO so the proportion survives a profile change, clamped so the inner edge can
 // never cross the outer one.
-const RIB_MIN_BAND = 12;  // minimum band thickness (mm). Remains even after subtracting the groove depth (max higoD*1.5).
 const RIB_CURVE_C = 0.5;  // curve center (t) = the rib center
 const RIB_CURVE_HW = 0.3; // curve half-width (t). Applies only to the middle 60%; the top/bottom 20% each stay core.
 const RIB_CURVE_D = 0.3;  // scoop amount = the center rib depth × this (the real mold is about 20%; slightly deeper, prioritizing ease of removal)
