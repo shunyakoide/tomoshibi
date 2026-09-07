@@ -85,7 +85,7 @@ function fukuroBezierR(P: Pt[], x: number): number {
 }
 // The one radius function for the lamp body curve: Bézier if there are handles, else Hermite.
 // Cross-section, STL and koma computation all go through it, so they always match.
-function profileR(P: Pt[], x: number): number { return anyHandle(P) ? fukuroBezierR(P, x) : fukuroSpline(P, x); }
+function profileR(P: Pt[], x: number, T?: number[]): number { return anyHandle(P) ? fukuroBezierR(P, x) : fukuroSpline(P, x, T); }
 
 // Bakes each point's Bézier handles from the current Hermite curve on entry to curve-adjust mode
 // (pts unchanged). A cubic Hermite IS a cubic Bézier with the control point shifted Δt/3 along the
@@ -118,11 +118,36 @@ function openMin(p: Design): number {
   const pts = p.pts;
   return (pts && pts.length) ? Math.min(pts[0].r, pts[pts.length - 1].r) : Math.min(p.rTop ?? 60, p.rBot ?? 60);
 }
+// The body's least radius is a scan of the whole curve, and it is asked for by every radius a
+// neck-less body reports and every notch the groove caps — thousands of times per rib, for a value
+// that only changes when a control point moves. So it is remembered per `pts` array, and checked
+// by value before it is served: the editor replaces the array rather than editing a point in
+// place, but a stale minimum would be a silent wrong answer, so nothing here relies on that.
+const minRMemo = new WeakMap<Pt[], { snap: number[]; m: number }>();
+// Everything profileR reads of a point, as numbers (no handle → NaN, which never equals itself, so
+// the comparison below spells that case out).
+const ptsSnap = (pts: Pt[]): number[] =>
+  pts.flatMap((q) => [q.t, q.r, q.sharp ? 1 : 0, q.ho?.dt ?? NaN, q.ho?.dr ?? NaN, q.hi?.dt ?? NaN, q.hi?.dr ?? NaN]);
+function snapHolds(pts: Pt[], snap: number[]): boolean {
+  if (snap.length !== pts.length * 7) return false;
+  const eq = (v: number, w: number) => v === w || (v !== v && w !== w);
+  for (let i = 0, j = 0; i < pts.length; i++, j += 7) {
+    const q = pts[i];
+    if (q.t !== snap[j] || q.r !== snap[j + 1] || (q.sharp ? 1 : 0) !== snap[j + 2]) return false;
+    if (!eq(q.ho?.dt ?? NaN, snap[j + 3]) || !eq(q.ho?.dr ?? NaN, snap[j + 4])) return false;
+    if (!eq(q.hi?.dt ?? NaN, snap[j + 5]) || !eq(q.hi?.dr ?? NaN, snap[j + 6])) return false;
+  }
+  return true;
+}
 function bodyMinR(p: Design): number {
   const pts = p.pts;
   if (!pts || pts.length < 2) return openMin(p);
+  const hit = minRMemo.get(pts);
+  if (hit && snapHolds(pts, hit.snap)) return hit.m;
   let m = Math.min(pts[0].r, pts[pts.length - 1].r);
-  for (let i = 0; i <= 40; i++) { const t = pts[0].t + (pts[pts.length - 1].t - pts[0].t) * i / 40; m = Math.min(m, profileR(pts, t)); }
+  const T = anyHandle(pts) ? undefined : fukuroTangents(pts);   // once for the scan, not per sample
+  for (let i = 0; i <= 40; i++) { const t = pts[0].t + (pts[pts.length - 1].t - pts[0].t) * i / 40; m = Math.min(m, profileR(pts, t, T)); }
+  minRMemo.set(pts, { snap: ptsSnap(pts), m });
   return m;
 }
 export function outerR(p: Design, t: number): number {
@@ -131,18 +156,22 @@ export function outerR(p: Design, t: number): number {
   if (pts.length === 1) return Math.max(8, pts[0].r);
   const fp = pts[0], lp = pts[pts.length - 1];
   const nB = p.neckBot ?? true, nT = p.neckTop ?? true;
-  const kR = komaR(p); // tab (koma) size = opening when there is no neck
   // With a neck: widen the opening outward to the control point, then a vertical rectangle from
   // there to y=0/1. Without: the opening becomes the tab size (body end set to kR, no slanted taper).
+  // kR is only asked for when a neck is off: komaR scans the whole body for its least radius, and
+  // this function is called per sample — asked for every time, it was most of a rib's cost.
+  const kR = nB && nT ? NaN : komaR(p);
   const loT = nB ? fp.t : 0, loR = nB ? fp.r : kR;
   const hiT = nT ? lp.t : 1, hiR = nT ? lp.r : kR;
   if (t <= loT) return Math.max(8, loR);
   if (t >= hiT) return Math.max(8, hiR);
   // The endpoint radius changes with the neck (loR/hiR), but ho/hi are relative vectors, so they
-  // carry over.
-  const first = { t: loT, r: loR, ho: fp.ho, hi: fp.hi, sharp: fp.sharp };
-  const last = { t: hiT, r: hiR, ho: lp.ho, hi: lp.hi, sharp: lp.sharp };
-  const P = [first, ...pts.slice(1, -1), last];
+  // carry over. With both necks on the ends ARE the control points, and `pts` is read as it is.
+  const P = nB && nT ? pts : [
+    { t: loT, r: loR, ho: fp.ho, hi: fp.hi, sharp: fp.sharp },
+    ...pts.slice(1, -1),
+    { t: hiT, r: hiR, ho: lp.ho, hi: lp.hi, sharp: lp.sharp },
+  ];
   return Math.max(8, profileR(P, t));                             // lamp body (between control points)
 }
 export function maxRadius(p: Design): number {
