@@ -331,26 +331,28 @@ for (const preset of PRESETS)
 const r2 = (v: string | number) => (+v).toFixed(2);
 const pkey = (v: string) => String(v.split(" ").length).padStart(6) + "|"
   + v.split(" ").map((x: string) => (Math.round(+x * 10) / 10).toFixed(1).padStart(9)).join(",");
-const byPath = (a: string, b: string) => (pkey(a) < pkey(b) ? -1 : pkey(a) > pkey(b) ? 1 : 0);
 const tkey = (v: string) => v.split(" ").slice(1).join(" ");
-const byText = (a: string, b: string) => (tkey(a) < tkey(b) ? -1 : tkey(a) > tkey(b) ? 1 : 0);
-const svgPaths = (svg: string) => [...svg.matchAll(/ d="([^"]+)"/g)]
-  .map((m) => m[1].replace(/[MLZ]/g, " ").trim().split(/\s+/).map(r2).join(" ")).sort(byPath);
-const svgText = (svg: string) => [...svg.matchAll(/<text x="([\d.-]+)" y="([\d.-]+)"[^>]*>([^<]*)</g)]
-  .map((m) => `${r2(m[1])} ${r2(m[2])} ${m[3].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")}`)
-  .sort(byText);
+// Sorted on a key computed once per entry, not once per comparison: `pkey` splits and reformats
+// the whole path, and paid on every comparison it was half of this gate's time.
+const sortBy = (key: (v: string) => string) => (vs: string[]) =>
+  vs.map((v) => [key(v), v] as const).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)).map((x) => x[1]);
+const byPath = sortBy(pkey), byText = sortBy(tkey);
+const svgPaths = (svg: string) => byPath([...svg.matchAll(/ d="([^"]+)"/g)]
+  .map((m) => m[1].replace(/[MLZ]/g, " ").trim().split(/\s+/).map(r2).join(" ")));
+const svgText = (svg: string) => byText([...svg.matchAll(/<text x="([\d.-]+)" y="([\d.-]+)"[^>]*>([^<]*)</g)]
+  .map((m) => `${r2(m[1])} ${r2(m[2])} ${m[3].replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")}`));
 const pdfBody = (s2: string) => [...s2.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map((m) => m[1]).join("\n");
-const pdfPaths = (s2: string) => pdfBody(s2)
+const pdfPaths = (s2: string) => byPath(pdfBody(s2)
   .replace(/BT[\s\S]*?ET/g, "")            // a text block's `Tm` matrix ends in "m" — not a moveto
   .replace(GLYPH_RE, "")                   // an outlined character is text, not a line on the sheet
   .split(/\bS\b/)
   .map((seg) => [...seg.matchAll(/(-?[\d.]+) (-?[\d.]+) [ml]\n?/g)].flatMap((m) => [r2(m[1]), r2(m[2])]).join(" "))
-  .filter(Boolean).sort(byPath);
-const pdfText = (s2: string) => [...pdfBody(s2).matchAll(/1 0 0 -1 ([\d.-]+) ([\d.-]+) Tm \((.*?)\) Tj/g)]
+  .filter(Boolean));
+const pdfText = (s2: string) => byText([...pdfBody(s2).matchAll(/1 0 0 -1 ([\d.-]+) ([\d.-]+) Tm \((.*?)\) Tj/g)]
   // The PDF's own escaping, undone on the same footing as the SVG's entities above: a literal string
   // has to backslash `(`, `)` and `\` or the file will not parse, and the opening hoops are the first
   // labels on this sheet to carry brackets — 口輪(上) / "Ring (top)".
-  .map((m) => `${r2(m[1])} ${r2(m[2])} ${m[3].replace(/\\([\\()])/g, "$1")}`).sort(byText);
+  .map((m) => `${r2(m[1])} ${r2(m[2])} ${m[3].replace(/\\([\\()])/g, "$1")}`));
 
 const sameDrawing = (svg: string, pdf: string, tag: string) => {
   const cmp = (x: string[], y: string[], what: string, anchored?: boolean) => {

@@ -320,8 +320,10 @@ export function grooveReach(p: Design, y: number): number {
   let deep = 0;
   // Over every floor the retry can settle on: a flatter floor narrows the cleft, which sets the
   // seat back but also draws its arc away from the face, and neither wins everywhere.
-  for (let t = -REACH_W; t <= REACH_W + 1e-9; t += 0.5)
-    for (const flat of FLOOR_RETRY) deep = Math.max(deep, Math.min(cap, cleft(p, profileSlope(p, y + t), 1, flat).depth));
+  for (let t = -REACH_W; t <= REACH_W + 1e-9; t += 0.5) {
+    const sl = profileSlope(p, y + t);
+    for (const flat of FLOOR_RETRY) deep = Math.max(deep, Math.min(cap, cleft(p, sl, 1, flat).depth));
+  }
   return deep;
 }
 // How far from a groove its deepest point can be in y (mm): the vertex is `tV·sinψ` uphill, under

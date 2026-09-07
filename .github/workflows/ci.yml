@@ -2,8 +2,9 @@
 # manifold" and "the printed page is 1:1". Those gates already existed as npm scripts; CI is what
 # makes them binding rather than a request in CONTRIBUTING.md.
 #
-# Two jobs, not one, so the 2-minute geometry sweep runs in parallel with the ~1-minute checks
-# instead of after them: a red build shows up in about the time the slowest gate takes either way.
+# Two jobs, not one, so the geometry sweep runs in parallel with the ~1-minute checks instead of
+# after them: a red build shows up in about the time the slowest gate takes either way. The sweep
+# takes every core the runner has (scripts/manifold.mts shards itself across worker threads).
 name: CI
 
 on:
@@ -67,4 +68,8 @@ jobs:
       - run: npm ci
       # Sweeps 3 presets x height/higo/pitch/thickness/tolerance/rib-count and inspects every part.
       # The script exits non-zero on the first failure count, so "0 FAIL" is enforced, not just printed.
+      # It once took half an hour here: outerR asked komaR — a scan of the whole body — for every
+      # sample, and the hosted runner has a fraction of a laptop's single-thread speed. If this
+      # step drifts past a few minutes again, profile it (MANIFOLD_WORKERS=1 node --cpu-prof)
+      # before adding runners.
       - run: npm run check:manifold
