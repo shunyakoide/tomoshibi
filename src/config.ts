@@ -36,11 +36,13 @@ export const DEFAULTS: Design = {
 
 // The one table every clamp reads — the section editor's drag, the typed fields, the scrub row and
 // persist's sanitize. The floors are geometry and the ceilings are not; know which is which
-// before moving either.
+// before moving either. `r`'s floor moves with the groove's depth (`check:manifold`'s cylinder
+// family asserts it in both directions): 10 while the cleft ran to a point, 8 with its bottom
+// rounded, the wall itself at 7.
 // `pts` is a COUNT, not a millimetre range like the other two: the fewest control points `outerR`
 // can interpolate between (`fukuroSpline`'s div-0 guard exists because two is reachable) and the
 // most the section view will add.
-export const LIMITS = { height: [60, 2000], r: [10, 600], pts: [2, 8] } as const satisfies Record<string, readonly [number, number]>;
+export const LIMITS = { height: [60, 2000], r: [8, 600], pts: [2, 8] } as const satisfies Record<string, readonly [number, number]>;
 
 // How close two control points may get, in `t`. Big enough that the spline between them stays
 // well-conditioned; small enough that it is never what you notice while dragging.
