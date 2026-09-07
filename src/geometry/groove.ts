@@ -15,8 +15,8 @@ import { outerR, fukuroRange, effBoardWidth, innerRi, RIB_MIN_BAND } from "./pro
  *        ╱ ← the lamp-body curve, downhill (the way the radius shrinks)
  *       ╱
  *      ◤ tip        ON the curve. The underside runs in from it, over the bamboo.
- *     ○  ╲          the bamboo, in the cleft under the tip
- *      ╲__╲ floor   from the vertex back out to the curve, uphill
+ *     ○  ╲          the bamboo, in the cleft under the tip; the cleft's bottom is rounded
+ *      ╲__╲ floor   from the seat back out to the curve, uphill
  *          ╲ ← the curve, uphill
  *
  * **Why the original notch let go.** The winding tension is a line load toward the AXIS. On a
@@ -32,10 +32,11 @@ import { outerR, fukuroRange, effBoardWidth, innerRi, RIB_MIN_BAND } from "./pro
  * `t` in along the underside, and `t` is the least that lets the rod THROUGH: the rod arrives
  * rolling along the floor, and the gap between the tip and the floor is `r(1+cosγ) + t·sinγ` for
  * a cleft of angle γ, so `t ≥ r·tan(γ/2)` (plus `ENTRY_CLEAR`). The hold is `r` plus however
- * far the tip stands outside the rod's centre in radius; the cut goes `r/tan(γ/2)` past the
- * contact to the vertex. The underside's tilt (`UNDER_A`) trades those: square to the axis it holds
- * hardest and cuts deepest (a 15° cleft on a 68° face is 7mm of crevice), along the surface normal
- * it cuts least and barely holds. The floor's angle (`FLOOR_K`) is bounded above by the face's own:
+ * far the tip stands outside the rod's centre in radius. The walls would meet `r/tan(γ/2)` past
+ * the contact, but the cut stops short of that on an arc of half the rod's radius (`SEAT_R`)
+ * tangent to both walls: run on to the point it was an empty slit half again as deep as the rod
+ * and read as too deep, ended at the rod it read as too shallow. The underside's tilt (`UNDER_A`) trades hold against depth: square to the axis it holds
+ * hardest and cuts deepest, along the surface normal it cuts least and barely holds. The floor's angle (`FLOOR_K`) is bounded above by the face's own:
  * it has to climb back out to the curve, and on a steep face the curve is running away from it.
  *
  * **Burial is the price, and only on steep faces.** With the tip on the curve and the rod under it,
@@ -86,15 +87,33 @@ function tooth(p: Design, g: number, k: number, baseR: (y: number) => number, st
     const S = Math.hypot(1, sl), theta = angle([sl * d / S, d / S], eIn);
     const tip = fillet(T, [sl * d / S, d / S], eIn, Math.min(TIP_R * r, 0.8 * t * Math.tan(theta / 2)), baseR);
     const top = fillet(rim, [-sl * d / S, -d / S], [-f[0], -f[1]], TIP_R * r, baseR);
-    // The floor, from the vertex to where the rim's fillet leaves it.
+    // The seat: the cleft's bottom is rounded, an arc of `SEAT_R` rod radii tangent to both walls
+    // — its floor halfway between the rod and the point the walls would meet at. Cut to that
+    // point the notch ran on past the rod as an empty slit, half again as deep as the rod on a
+    // slope, and read as too deep; ended at the rod itself it read as too shallow.
+    const gamma = psi + alpha, rho = SEAT_R * rk, wS = rho / Math.tan(gamma / 2);
+    const Pu: Pt2 = [V[0] - wS * eIn[0], V[1] - wS * eIn[1]], Pf: Pt2 = [V[0] + wS * f[0], V[1] + wS * f[1]];
+    const bx = f[0] - eIn[0], by = f[1] - eIn[1], bl = Math.hypot(bx, by), oS = rho / Math.sin(gamma / 2);
+    const O: Pt2 = [V[0] + (bx / bl) * oS, V[1] + (by / bl) * oS];
+    // Drawn circumscribed — the chords tangent to the arc, their corners a hair outside it — so
+    // the rod, which the arc is scaled from, never sits on a chord.
+    const seat: Pt2[] = [];
+    let a0 = Math.atan2(Pf[1] - O[1], Pf[0] - O[0]), a1 = Math.atan2(Pu[1] - O[1], Pu[0] - O[0]);
+    if (a1 - a0 > Math.PI) a1 -= 2 * Math.PI; else if (a0 - a1 > Math.PI) a1 += 2 * Math.PI;
+    const dA = (a1 - a0) / SEAT_N, rS = rho / Math.cos(dA / 2);
+    for (let i = 0; i < SEAT_N; i++) {
+      const th = a0 + dA * (i + 0.5), y = O[1] + rS * Math.sin(th);
+      seat.push([Math.min(O[0] + rS * Math.cos(th), baseR(y)), y]);
+    }
+    // The floor, from the seat to where the rim's fillet leaves it.
     const floor: Pt2[] = [];
-    const uF = Math.hypot(top.wall[0] - V[0], top.wall[1] - V[1]), m = Math.max(2, Math.round(uF / 0.5));
+    const uF = Math.hypot(top.wall[0] - Pf[0], top.wall[1] - Pf[1]), m = Math.max(2, Math.round(uF / 0.5));
     for (let i = 1; i < m; i++) {
-      const y = V[1] + (top.wall[1] - V[1]) * (i / m), x = V[0] + (top.wall[0] - V[0]) * (i / m);
+      const y = Pf[1] + (top.wall[1] - Pf[1]) * (i / m), x = Pf[0] + (top.wall[0] - Pf[0]) * (i / m);
       floor.push([Math.min(x, baseR(y)), y]);                 // never outside the plate
     }
-    // Uphill to downhill: the rim, the floor, the vertex, the underside, the tip. Then in ascending y.
-    const pts: Pt2[] = [top.curve, ...top.arc.reverse(), top.wall, ...floor.reverse(), V, tip.wall, ...tip.arc, tip.curve];
+    // Uphill to downhill: the rim, the floor, the seat, the underside, the tip. Then in ascending y.
+    const pts: Pt2[] = [top.curve, ...top.arc.reverse(), top.wall, ...floor.reverse(), Pf, ...seat, Pu, tip.wall, ...tip.arc, tip.curve];
     const ordered = d > 0 ? pts : pts.reverse();
     return { pts: ordered, span: [ordered[0][1], ordered[ordered.length - 1][1]], rod: C };
   }
@@ -127,15 +146,16 @@ function fillet(P: Pt2, legC: Pt2, legW: Pt2, rho: number, baseR: (y: number) =>
  * The cleft's angles and lengths for a face of slope `sl`, rod scale `k`, floor flattened by `flat`:
  * `psi` the underside's tilt below square-to-the-axis, `alpha` the floor's angle above it, `t` the
  * tip to the rod's contact along the underside, `tV` the tip to the vertex, `yT` how far downhill of
- * the groove the tip sits, and `depth` how far in from the curve the vertex is, in x — which on a
- * straight face is the deepest the notch goes. In one place so `grooveReach` can answer for the
- * lightening window without building the tooth.
+ * the groove the tip sits, and `depth` how far in from the curve the seat's bottom is, in x — which
+ * on a straight face is the deepest the notch goes. In one place so `grooveReach` can answer for
+ * the lightening window without building the tooth.
  *
- * Near vertical (`hookIn` = 0) it is a plain symmetric V: both walls at 45°, `r√2` deep, the rod's
- * centre on the surface and on the groove — no wall favoured, which is what the maker asked for
- * there and what makes the washi easiest to paste. That V is the same polyline as the sawtooth
- * with the underside and floor both at 45° and the tip half a mouth downhill, so the tooth comes in
- * by sliding those three numbers, and no groove on a body sits either side of a step.
+ * Near vertical (`hookIn` = 0) it is a plain symmetric V of the original notch's mouth and
+ * `vDepth`, the rod centred on the groove, a little under the surface — no wall favoured, which is
+ * what the maker asked for there and what makes the washi easiest to paste. That V is the same
+ * polyline as the sawtooth with the underside and floor at the V's own angle and the tip half a
+ * mouth downhill, so the tooth comes in by sliding those three numbers, and no groove on a body
+ * sits either side of a step.
  */
 function cleft(p: Design, sl: number, k: number, flat: number) {
   const rk = (p.higoD / 2) * k, a = Math.abs(sl), phi = Math.atan(a), w = hookIn(sl);
@@ -152,15 +172,23 @@ function cleft(p: Design, sl: number, k: number, flat: number) {
   const t = tVee + (tTooth - tVee) * w;
   const tV = t + rk / Math.tan(gamma / 2);
   const yT = hV * (1 - w);
-  return { psi, alpha, t, tV, yT, depth: tV * (Math.cos(psi) + a * Math.sin(psi)) };
+  // The deepest point is on the seat's arc, a radius past its centre along the face's normal; the
+  // centre is `ρ/sin(γ/2)` back from the vertex along the cleft's bisector. All in x against the
+  // face's tangent at the tip, which scales the normal by `√(1+a²)`.
+  const rho = SEAT_R * rk, bis = ((Math.cos(psi) + Math.cos(alpha)) + a * (Math.sin(psi) - Math.sin(alpha))) / (2 * Math.cos(gamma / 2));
+  const depth = tV * (Math.cos(psi) + a * Math.sin(psi)) - (rho / Math.sin(gamma / 2)) * bis + rho * Math.hypot(1, a);
+  return { psi, alpha, t, tV, yT, depth };
 }
-// The plain V's depth (mm), the original notch's: a rod and a half, or the mouth's half-width times
-// 2.1, whichever is less — 2.6 at ⌀2, with the rod 0.7 proud. The maker had the shallower `r√2`
-// V (1.0 proud) put back to this.
-const V_DEEP = 2.1;
+// The plain V's depth (mm): a rod and a half, or the mouth's half-width times 1.9, whichever is
+// less — 2.4 at ⌀2, with the rod 0.8 proud. The original notch was 2.1 (2.6mm); the maker had a
+// shallower `r√2` V (1.4mm) put back to that, then took a tenth off again.
+const V_DEEP = 1.9;
 function vDepth(p: Design): number { return Math.min(p.higoD * 1.5, grooveR(p) * V_DEEP); }
 // The tip's rounding, in rod radii, and how many segments draw it.
 const TIP_R = 0.4, FILLET_N = 4;
+// The seat's rounding, in rod radii, and how many segments draw it. 1 ends the cut at the rod, 0
+// runs the walls to a point; halfway, by the maker's eye.
+const SEAT_R = 0.5, SEAT_N = 6;
 // What the floor flattens to, in turn, when it cannot reach the curve at the angle the slope gave.
 const FLOOR_RETRY = [1, 0.7, 0.49];
 // The deepest the notch may cut, in x (mm), at a place where the outer edge is at `R`: the band the
@@ -197,7 +225,7 @@ const TOOTH_SCALES = [1, 0.8, 0.62, 0.48, 0.36, 0.26, 0.18];
 export function grooveOuterPts(p: Design, grooves: number[]): Pt2[] {
   const h = p.height, STEP = 0.5, step = grooveLattice(p).step || p.pitch;
   const baseR = (y: number) => outerR(p, Math.min(Math.max(y, 0), h) / h);
-  const sample = (k0: number): Pt2[] => {
+  const sample = (k0: number): { pts: Pt2[]; win: number } => {
     const teeth: Tooth[] = [];
     for (const g of grooves) for (const k of TOOTH_SCALES) { const t = tooth(p, g, k0 * k, baseR, step); if (t) { teeth.push(t); break; } }
     const order = teeth.map((_, i) => i).sort((a, b) => teeth[a].span[0] - teeth[b].span[0]);
@@ -213,12 +241,14 @@ export function grooveOuterPts(p: Design, grooves: number[]): Pt2[] {
       if (y >= h) break;
     }
     while (ti < order.length) { pts.push(...teeth[order[ti]].pts); ti++; }
-    return pts;
+    // The fold scan has to see across two whole teeth: on a shelf, where the pitch is all in x,
+    // neighbouring teeth overlap in y and it is THEIR floors that cross.
+    return { pts, win: Math.max(FOLD_SCAN, 2 * Math.max(0, ...teeth.map((t) => t.pts.length))) };
   };
   // Full size first, and returned untouched unless it folds.
-  let pts = sample(1);
-  for (const s of DEPTH_BACKOFF) { if (!foldsOver(pts)) break; pts = sample(s); }
-  return pts;
+  let s = sample(1);
+  for (const k of DEPTH_BACKOFF) { if (!foldsOver(s.pts, s.win)) break; s = sample(k); }
+  return s.pts;
 }
 // Where the bamboo's centre lies at groove `g` (mm): on the flank of its seat near vertical, on the
 // surface itself on a slope — and in either case `r` uphill of the tooth's underside. The preview
@@ -233,10 +263,11 @@ export function higoSeat(p: Design, g: number): Pt2 {
 // shallower V keeps the same footprint on the surface and still catches the bamboo, where a
 // narrower one would stop being the undercut it exists to be.
 const DEPTH_BACKOFF = [0.7, 0.45, 0.25, 0.1];
-// Samples scanned ahead for a crossing. Every fold observed sits inside ONE groove's own tooth, so
-// this is a short window rather than the whole O(n²) outline — which matters because check:manifold
-// calls this tens of thousands of times. It has to be longer than a tooth, though: a tooth is about
-// twenty points now, and a window that cannot span one cannot see a fold inside one.
+// Samples scanned ahead for a crossing, at least. A short window rather than the whole O(n²)
+// outline — which matters because check:manifold calls this tens of thousands of times — but it
+// has to span two teeth: a fold is inside one groove's own tooth, or between the floors of two
+// neighbours on a shelf, and a window that cannot span them cannot see it (one that could not
+// passed a rib with open edges as 0 FAIL).
 const FOLD_SCAN = 48;
 // Two outline points closer together than this are the same point as far as the extrusion is
 // concerned, and a pair of them is a zero-area triangle = an open edge.
@@ -253,10 +284,10 @@ const EPS = 1e-6;
  * normal state here — the undercut is the whole point of the notch, and all three presets are
  * non-monotone. A proper crossing is not normal, and separates the two.
  */
-function foldsOver(pts: Pt2[]): boolean {
+function foldsOver(pts: Pt2[], win: number): boolean {
   const n = pts.length;
   for (let i = 0; i + 1 < n; i++) {
-    const end = Math.min(n - 1, i + FOLD_SCAN);
+    const end = Math.min(n - 1, i + win);
     for (let j = i + 2; j < end; j++) if (segCross(pts[i], pts[i + 1], pts[j], pts[j + 1])) return true;
   }
   return false;
@@ -279,7 +310,7 @@ const GROOVE_CLEAR = 0.25;
 export function grooveR(p: Design): number { return p.higoD / 2 + GROOVE_CLEAR; }
 /**
  * The deepest any groove could cut at height y (mm) — what `lightenHoles2D` has to stay behind.
- * The notch is deepest at its vertex, a little uphill of its own groove, and the spiral can put a
+ * The notch is deepest at its seat, a little uphill of its own groove, and the spiral can put a
  * groove at any height at all, so this asks every slope within a notch's reach of y rather than
  * the one at y. Answered here rather than sampled in rib.ts because how far a notch spans is this
  * file's business.
@@ -287,8 +318,10 @@ export function grooveR(p: Design): number { return p.higoD / 2 + GROOVE_CLEAR; 
 export function grooveReach(p: Design, y: number): number {
   const h = p.height, cap = notchCap(p, outerR(p, Math.min(Math.max(y, 0), h) / h));
   let deep = 0;
+  // Over every floor the retry can settle on: a flatter floor narrows the cleft, which sets the
+  // seat back but also draws its arc away from the face, and neither wins everywhere.
   for (let t = -REACH_W; t <= REACH_W + 1e-9; t += 0.5)
-    deep = Math.max(deep, Math.min(cap, cleft(p, profileSlope(p, y + t), 1, FLOOR_RETRY[FLOOR_RETRY.length - 1]).depth));
+    for (const flat of FLOOR_RETRY) deep = Math.max(deep, Math.min(cap, cleft(p, profileSlope(p, y + t), 1, flat).depth));
   return deep;
 }
 // How far from a groove its deepest point can be in y (mm): the vertex is `tV·sinψ` uphill, under
