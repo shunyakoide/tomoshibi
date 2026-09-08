@@ -38,7 +38,7 @@ export default function PointBar({ p, setP, sel, setSel, editMode, setEditMode }
   setEditMode: (m: EditMode) => void;
 }) {
   const t = useT();
-  const { pt, isEnd, canDelete, patch, setHeightMm, del } = pointOps(p, setP, sel, setSel);
+  const { pt, isEnd, canDelete, hRange, patch, setHeightMm, del } = pointOps(p, setP, sel, setSel);
   const setMode = makeSetMode(setP, setEditMode);
   if (!pt) return null;
 
@@ -48,7 +48,7 @@ export default function PointBar({ p, setP, sel, setSel, editMode, setEditMode }
       {/* A label, not a button: `PointCard` renders nothing on a phone, so there is nothing to open. */}
       <span className="flex-none flex items-center px-4 text-accent font-mono text-base font-bold max-[360px]:hidden">{isEnd ? t("開口/首") : `#${sel! + 1}`}</span>
       <Num tag="H" title={t("高さ位置")} value={Math.round(pt.t * p.height)}
-        min={1} max={p.height} onChange={setHeightMm} />
+        min={hRange[0]} max={hRange[1]} onChange={setHeightMm} />
       {/* The glyphs are the marks the section view draws for these two states, and are aria-hidden
           so the accessible name is the word alone. */}
       <div className="flex-none flex gap-4">

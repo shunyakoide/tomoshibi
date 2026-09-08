@@ -20,6 +20,7 @@ import { Worker, isMainThread, parentPort, workerData } from "node:worker_thread
 import os from "node:os";
 import * as G from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS, T_GAP } from "../src/config.ts";
+import { neckFloor } from "../src/ui/pointEdit.ts";
 import type { Design, Pt } from "../src/types.ts";
 
 /** One part's verdict. `reason` is what gets printed when it fails. */
@@ -214,7 +215,9 @@ for (const preset of PRESETS)
 // any wide, low body. This is the only section that scales the control points, which is why nothing
 // else saw it: each preset is stretched to the edges of LIMITS in both axes, the radius target
 // applied by scaling every point until the widest lands on it, so the shape is kept and the slope
-// scales with it. higoD 3 is included because the notch reach is largest there.
+// scales with it. higoD 3 is included because the notch reach is largest there. The points then go
+// through `neckFloor` as the editor's would: at the 60mm floor NECK_MIN is a quarter of the body at
+// each end, and the ends pushed out carry the presets' first and last interior points with them.
 let exFail = 0, exTotal = 0;
 for (const preset of PRESETS)
   for (const height of [hLo, 205, hHi])
@@ -222,7 +225,7 @@ for (const preset of PRESETS)
       for (const higoD of [2, 3]) {
         if (!mine()) continue;
         const widest = Math.max(...preset.pts.map((q) => q.r));
-        const pts = preset.pts.map((q) => ({ ...q, r: Math.min(rHi, Math.max(rLo, (q.r * rMax) / widest)) }));
+        const pts = neckFloor(preset.pts.map((q) => ({ ...q, r: Math.min(rHi, Math.max(rLo, (q.r * rMax) / widest)) })), height);
         const base = { ...DEFAULTS, ...preset, pts, height, higoD };
         const p = { ...base, boards: Math.min(8, G.maxBoards(base)) };
         for (const r of checkParts(p)) {
@@ -234,7 +237,7 @@ for (const preset of PRESETS)
 // small may r be" has a single answer, and that answer (LIMITS.r[0]) is what the editor, the typed
 // field and persist all clamp to.
 const cyl = (height: number, r: number) => {
-  const base = { ...DEFAULTS, pts: [{ t: 0.05, r }, { t: 0.5, r }, { t: 0.95, r }], height };
+  const base = { ...DEFAULTS, pts: neckFloor([{ t: 0.075, r }, { t: 0.5, r }, { t: 0.925, r }], height), height };
   return checkParts({ ...base, boards: Math.min(8, G.maxBoards(base)) });
 };
 for (const height of [hLo, 205, hHi]) {

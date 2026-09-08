@@ -16,7 +16,7 @@ globalThis.localStorage = {
 
 const P = await import("../src/studio/persist.ts");
 const G = await import("../src/geometry.ts");
-const { DEFAULTS, LIMITS, T_GAP } = await import("../src/config.ts");
+const { DEFAULTS, LIMITS, T_GAP, NECK_MIN } = await import("../src/config.ts");
 type SavedState = import("../src/studio/persist.ts").SavedState;
 
 // Most of what goes in below is deliberately NOT a valid SavedState. The casts live here rather
@@ -171,6 +171,40 @@ save({ p: { ...DEFAULTS, pts: [{ t: 0.30, r: 80 }, { t: 0.30 + 1e-9, r: 120 }, {
 r = load();
 t("1e-9 gap → spacing at or above T_GAP", r.p.pts.every((q, i) => i === 0 || q.t - r.p.pts[i - 1].t >= T_GAP - 1e-9));
 t("1e-9 gap → watertight", manifoldOK(r.p) === true);
+
+// ---- the tab length is pinned ----
+// Its row left the panel (2026-09-08): a saved 25 would otherwise set the rib's length and the
+// stand's slot spacing from a number nothing on screen can show.
+save({ p: { ...DEFAULTS, tabLen: 25 }, bedW: 256, bedD: 256, printRibs: 1 });
+t("tabLen 25 → DEFAULTS.tabLen", load().p.tabLen === DEFAULTS.tabLen);
+
+// ---- the neck floor ----
+// `NECK_MIN` is millimetres of a body whose control points are fractions, so a file can sit under
+// it three ways: necks the editor never allowed (t = 0.01), a height the file lowered past the
+// necks it saved, or a legal design at LIMITS' 60mm floor, where 15mm is a quarter of the body and
+// the ends pushed out land on interior points. In every case the ends reach the floor, the spacing
+// `legalizePts` enforced survives the push, and the result is watertight.
+const neckMm = (p: import("../src/types.ts").Design) => [p.pts[0].t * p.height, (1 - p.pts[p.pts.length - 1].t) * p.height];
+for (const [name, p] of [
+  ["t=0.01 necks", { ...DEFAULTS, pts: [{ t: 0.01, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.99, r: 19 }] }],
+  ["height 80 under 0.075 necks", { ...DEFAULTS, height: 80 }],
+  ["height 60 with the default points", { ...DEFAULTS, height: LIMITS.height[0] }],
+  ["height 60, eight points packed at T_GAP", { ...DEFAULTS, height: LIMITS.height[0],
+    pts: Array.from({ length: LIMITS.pts[1] }, (_, i) => ({ t: 0.05 + i * T_GAP * 1.01, r: 40 + (i % 2) * 30 })) }],
+] as const) {
+  save({ p, bedW: 256, bedD: 256, printRibs: 1 });
+  r = load();
+  const [nb, nt] = neckMm(r.p);
+  t(`${name} → both necks at or above ${NECK_MIN}mm`, nb >= NECK_MIN - 1e-6 && nt >= NECK_MIN - 1e-6);
+  t(`${name} → spacing at or above T_GAP`, r.p.pts.every((q, i) => i === 0 || q.t - r.p.pts[i - 1].t >= T_GAP - 1e-9));
+  t(`${name} → point count kept`, r.p.pts.length === p.pts.length);
+  t(`${name} → watertight`, manifoldOK(r.p) === true);
+}
+// A design already above the floor is not touched — not even re-allocated, which is what keeps
+// `bodyMinR`'s memo and React's identity checks honest.
+save({ p: { ...DEFAULTS, height: 400 }, bedW: 256, bedD: 256, printRibs: 1 });
+r = load();
+t("necks above the floor keep their t", r.p.pts.every((q, i) => q.t === DEFAULTS.pts[i].t));
 
 // ---- boolean fields ----
 // Every numeric field is coerced and none of the booleans were, so a hand-edited or foreign file
