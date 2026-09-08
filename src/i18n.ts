@@ -67,7 +67,6 @@ const EN: Record<string, string> = {
   "羽根板の枚数": "Rib count",
   "クリックで数値を入力": "Click to type a value",
   "板厚": "Board thickness",
-  "爪の長さ": "Tab length",
   "竹ひご径": "Bamboo dia.",
   "ひごピッチ": "Bamboo pitch",
   "幅": "Width",
