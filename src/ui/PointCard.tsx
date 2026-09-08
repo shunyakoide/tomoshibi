@@ -16,7 +16,7 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode 
   setEditMode: (m: EditMode) => void;
 }) {
   const t = useT();
-  const { pt, isEnd, canDelete, patch, setHeightMm, del } = pointOps(p, setP, sel, setSel);
+  const { pt, isEnd, canDelete, hRange, patch, setHeightMm, del } = pointOps(p, setP, sel, setSel);
   const setMode = makeSetMode(setP, setEditMode);
 
   return (
@@ -30,7 +30,7 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode 
           </div>
           <NumInput label="半径" value={Math.round(pt.r)} min={LIMITS.r[0]} max={LIMITS.r[1]}
             onChange={(v) => patch({ r: clampR(v) })} />
-          <NumInput label="高さ位置" value={Math.round(pt.t * p.height)} min={1} max={p.height}
+          <NumInput label="高さ位置" value={Math.round(pt.t * p.height)} min={hRange[0]} max={hRange[1]}
             onChange={setHeightMm} />
           <div className="flex gap-6 mt-4 mb-10">
             <SegButton label="◇ なめらか" active={!pt.sharp} onClick={() => patch({ sharp: false })} />

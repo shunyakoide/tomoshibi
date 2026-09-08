@@ -8,22 +8,25 @@ import type { Design, NumericDesignKey, Pt } from "./types.ts";
  */
 export type Preset = { key: string; name: string; rTop: number; rBot: number; pts: Pt[]; height?: number };
 
+// Every preset's necks sit at NECK_MIN for the height it is picked at (0.075 × 205, 0.10 × 150), so
+// the chip's shape is the design it yields there rather than one the floor then pushes about.
 export const PRESETS: Preset[] = [
-  { key: "egg", name: "たまご", rTop: 19, rBot: 74, pts: [{ t: 0.05, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.95, r: 19 }] },
-  { key: "barrel", name: "たる", rTop: 52, rBot: 56, pts: [{ t: 0.05, r: 56 }, { t: 0.14, r: 82, sharp: true }, { t: 0.86, r: 78, sharp: true }, { t: 0.95, r: 52 }] },
+  { key: "egg", name: "たまご", rTop: 19, rBot: 74, pts: [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.925, r: 19 }] },
+  { key: "barrel", name: "たる", rTop: 52, rBot: 56, pts: [{ t: 0.075, r: 56 }, { t: 0.14, r: 82, sharp: true }, { t: 0.86, r: 78, sharp: true }, { t: 0.925, r: 52 }] },
   // The two mouths are deliberately NOT alike: at the reference photo's ⌀46 / ⌀50 the ribs cannot
   // come out at all (`ribPullFit`), so the BOTTOM — the one the mold leaves by and the stand hides —
   // is opened until they clear, while `komaR` follows the SMALLER mouth so the end you look at is
   // untouched. It names a `height` because this shape is a RATIO (widest ≈ 0.68 × height).
   { key: "hiramaru", name: "平丸", rTop: 23, rBot: 42, height: 150,
-    pts: [{ t: 0.04, r: 42 }, { t: 0.30, r: 95 }, { t: 0.52, r: 102 }, { t: 0.78, r: 84 }, { t: 0.96, r: 23 }] },
+    pts: [{ t: 0.10, r: 42 }, { t: 0.30, r: 95 }, { t: 0.52, r: 102 }, { t: 0.78, r: 84 }, { t: 0.90, r: 23 }] },
 ];
 
 // Initial state. The tab (tabR/tabLen), lightening (lighten) and fit tolerance (fit) are internal —
-// no control in the UI reaches them.
+// no control in the UI reaches them. `tabLen` had a row until 2026-09-08 and the maker saw no need
+// for it; persist pins it to this value, so a file cannot carry a length nothing can show or edit.
 export const DEFAULTS: Design = {
   height: 205, rTop: 19, rBot: 74,
-  pts: [{ t: 0.05, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.95, r: 19 }],
+  pts: [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.925, r: 19 }],
   neckBot: true, neckTop: true,
   boards: 8, boardWidth: 35, boardT: 2, higoD: 2, pitch: 9,
   fit: 0.3, tabLen: 10, tabW: 10, komaT: 8,
@@ -51,6 +54,15 @@ export const LIMITS = { height: [60, 2000], r: [8, 600], pts: [2, 8] } as const 
 // down to it. While it lived module-private in the UI the gates could not read the floor they had to
 // corner, and a silhouette packed to it opened the rib's edges with every gate reporting 0 FAIL.
 export const T_GAP = 0.04;
+
+// The least neck either end may have, in mm. The washi's end runs onto the neck (`WASHI_END`
+// lands on it, to be folded over the hoop), and with the body's curve — and the first bamboo —
+// right at the opening the maker found the paper hard to paste: 15 is their number (2026-09-08).
+// A LIMIT like the two above, in millimetres because the neck is a length you handle, not a
+// fraction of the body: the editor stops the ◇ there (`tBounds`), a shorter height or a picked
+// preset pushes the ◇ back out to it (`neckFloor`), and persist re-applies it to a file the editor
+// did not write. The ends without a neck are not touched — there the tab IS the neck.
+export const NECK_MIN = 15;
 
 /**
  * A scrub row edits ONE numeric field, so its `key` is constrained to the numeric keys rather than

@@ -128,7 +128,7 @@ export function sectionDrag(ctx: {
       setP((o) => {
         const pts = o.pts.map((q) => ({ ...q }));
         pts[i].r = clampR(start.r + (c.x - s0.x) / f.s);
-        pts[i].t = clamp(...tBounds(pts, i), start.t + (s0.y - c.y) / (H * f.s));
+        pts[i].t = clamp(...tBounds(pts, i, o.height), start.t + (s0.y - c.y) / (H * f.s));
         return { ...o, pts };
       });
     });

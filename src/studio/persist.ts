@@ -1,6 +1,6 @@
 /**
  * Auto-saves the working state to localStorage and restores it on startup. The point is the SEAM
- * values — boardT / tabLen / komaT / boards / fit —
+ * values — boardT / komaT / boards / fit —
  * that a reload back to DEFAULTS would lose, taking the reuse of an already-printed stand with it.
  *
  * **Restore always goes through `sanitizeP`**: a hand-written, old-version or round-tripped file
@@ -10,6 +10,7 @@
 import { DEFAULTS, LIMITS, T_GAP } from "../config.ts";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
 import { clamp } from "../util.ts";
+import { neckFloor } from "../ui/pointEdit.ts";
 import type { Design, NumericDesignKey, Pt, Route } from "../types.ts";
 
 /**
@@ -63,7 +64,10 @@ export function saveWelcomeSeen() {
 const BOUNDS: Record<NumericDesignKey, readonly [number, number]> = {
   height: LIMITS.height, rTop: LIMITS.r, rBot: LIMITS.r, boards: [4, 16],
   boardWidth: [10, 120], boardT: [1, 4], higoD: [1, 4], pitch: [8, 30],
-  fit: [0, 1], tabLen: [5, 40], tabW: [4, 40], komaT: [3, 20], tabR: [6, 40],
+  fit: [0, 1], tabW: [4, 40], komaT: [3, 20], tabR: [6, 40],
+  // No control reaches the tab length any more (2026-09-08), so a saved one is not kept: a value
+  // nothing can show or edit would otherwise decide the rib's length and the stand's slot spacing.
+  tabLen: [DEFAULTS.tabLen, DEFAULTS.tabLen],
 };
 const NUM_KEYS = Object.keys(BOUNDS) as NumericDesignKey[];
 
@@ -156,6 +160,9 @@ function sanitizeP(rawP: unknown): Design {
   const p: Design = { ...DEFAULTS, ...raw };   // missing fields are filled from the single source of truth, DEFAULTS
   p.pts = validatePts(raw && raw.pts);
   coerceNums(p);
+  // After the height is clamped, since the floor is millimetres of it. Pushing the ends out keeps
+  // the spacing `legalizePts` just enforced (each carried point lands exactly T_GAP on).
+  p.pts = neckFloor(p.pts, p.height);
   coerceBools(p);
   p.boards = Math.min(p.boards, maxBoards(p));
   return p;

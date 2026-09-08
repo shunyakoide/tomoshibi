@@ -6,6 +6,7 @@
 import { outerR } from "../geometry.ts";
 import { DEFAULTS, PRESETS } from "../config.ts";
 import { useT } from "./theme.ts";
+import { neckFloor } from "./pointEdit.ts";
 import { SectionLabel } from "./controls.tsx";
 import type { Preset } from "../config.ts";
 import type { Design, Pt } from "../types.ts";
@@ -33,9 +34,11 @@ const ptKey = (q: Pt) =>
 const ptsKey = (pts: Pt[]) => (pts || []).map(ptKey).join("|");
 
 // Key of the preset whose control points the design still matches exactly, or null once edited.
+// "Exactly" means what picking the chip yields at THIS height: a short body pushes a preset's necks
+// out to NECK_MIN on pick, and the chip must stay lit on the design it just made.
 export function matchPreset(p: Design): string | null {
   const key = ptsKey(p.pts);
-  return PRESETS.find((pr) => ptsKey(pr.pts) === key)?.key ?? null;
+  return PRESETS.find((pr) => ptsKey(neckFloor(pr.pts, p.height)) === key)?.key ?? null;
 }
 
 export default function PresetChips({ p, onPick }: { p: Design; onPick: (pr: Preset) => void }) {
