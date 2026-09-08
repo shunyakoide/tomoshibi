@@ -5,7 +5,7 @@
  */
 import type { Design, Pt2 } from "../types.ts";
 import * as THREE from "three";
-import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, RIB_MIN_BAND, tabDepth, tabDented, TAB_DENT_W, TAB_DENT_H } from "./profile.ts";
+import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, RIB_MIN_BAND, tabDepth, tabDented, tabDentH, TAB_DENT_W } from "./profile.ts";
 import { grooveList, grooveOuterPts, grooveReach } from "./groove.ts";
 import { shapeFromPts } from "./shape.ts";
 
@@ -77,17 +77,17 @@ export function ribOutline2D(p: Design, k = 0, opts: { smooth?: boolean } = {}):
   const outerEdge = grooveOuterPts(p, opts.smooth ? [] : grooves);
   const Ri = innerRi(p), STEP = 0.5, pts: Pt2[] = [];
   // Tab = a straight tongue, its outer edge exactly the koma outer radius kR (no overhang).
-  const kR = komaR(p), dent = tabDented(p); // both tips get the inner-corner dent (matched by the koma notch)
+  const kR = komaR(p), dent = tabDented(p), dh = tabDentH(p); // both tips get the inner-corner dent (matched by the koma notch)
   // Bottom tab.
   pts.push([Ri, 0]);
-  if (dent) pts.push([Ri, -(tl - TAB_DENT_H)], [Ri + TAB_DENT_W, -(tl - TAB_DENT_H)], [Ri + TAB_DENT_W, -tl]);
+  if (dent) pts.push([Ri, -(tl - dh)], [Ri + TAB_DENT_W, -(tl - dh)], [Ri + TAB_DENT_W, -tl]);
   else pts.push([Ri, -tl]);
   pts.push([kR, -tl], [kR, 0]);
   // Outer edge from y=0 (= [outerR(p,0),0]) up to y=h (= [outerR(p,1),h]); endpoints are exact.
   for (const q of outerEdge) pts.push(q);
   // Top tab: the same, no stopper tooth on the outer edge (full kR).
   pts.push([kR, h], [kR, h + tl]);
-  if (dent) pts.push([Ri + TAB_DENT_W, h + tl], [Ri + TAB_DENT_W, h + tl - TAB_DENT_H], [Ri, h + tl - TAB_DENT_H]);
+  if (dent) pts.push([Ri + TAB_DENT_W, h + tl], [Ri + TAB_DENT_W, h + tl - dh], [Ri, h + tl - dh]);
   else pts.push([Ri, h + tl]);
   // Inner edge: the crescent curve, top to bottom. Both ends return to Ri, so it meets the tabs.
   const innerX = ribInnerX(p);
