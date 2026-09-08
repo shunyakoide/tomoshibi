@@ -13,7 +13,7 @@ export {
   komaR, maxBoards, innerRi,
   tabDented, notchR,
 } from "./geometry/profile.ts";
-// (TAB_DENT_W/H stay internal: rib.ts imports them from profile.ts directly. The surface here was
+// (TAB_DENT_W / tabDentH stay internal: rib.ts imports them from profile.ts directly. The surface here was
 //  left exactly as it was before the split, so no caller could tell it happened — and then trimmed
 //  once, of the names that split had carried out of `profile.ts` for nobody: a re-export with no
 //  importer is not a stable surface, it is a claim that something out there depends on it.)
