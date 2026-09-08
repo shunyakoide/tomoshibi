@@ -256,16 +256,21 @@ export function innerRi(p: Design): number {
   const nom = nominalRi(p);
   return Math.min(nom, Math.max(ribCoreFloor(p), nom - TAB_DEEPEN));
 }
-// Both tab tips are dented at the inner corner (an L-notch, TAB_DENT_W wide × TAB_DENT_H deep): the
+// Both tab tips are dented at the inner corner (an L-notch, TAB_DENT_W wide × tabDentH deep): the
 // tip's inner edge narrows to innerRi + TAB_DENT_W while the tab base stays at innerRi, and the koma
 // notch bottom is set to the dented tip radius, so the wider base catches the koma's solid hub = the
 // inward stop. Exported because rib.ts cuts the dent while notchR() below sizes the notch to match:
 // one pair of numbers, two parts, no chance of them disagreeing.
 export const TAB_DENT_W = 6;      // tab-tip inner-corner dent: width (mm, radial)
-export const TAB_DENT_H = 6;      // tab-tip inner-corner dent: depth (mm, along the tab)
+// The dent's depth along the tab IS the koma's thickness: the koma slides on from the tip until its
+// inner face meets the step, so this is where it seats — flush with the tip, which is where the 3D
+// preview draws it and where `standSlotSep` puts its centre. It was a constant 6 against a koma of
+// 8, and a printed koma stopped 2mm proud of the tip: the preview showed it sunk into the base, and
+// the stand's posts were 4mm too close (2026-09-08).
+export function tabDentH(p: Design): number { return p.komaT; }
 // Whether the dent is used. p.noTabDent forces a plain tab + full-depth notch (set by the papercraft:
 // cardboard favors tab strength over the koma stop); short tabs / crowded centers also fall back.
-export function tabDented(p: Design): boolean { return !p.noTabDent && p.tabLen > TAB_DENT_H + 1 && komaR(p) - innerRi(p) > TAB_DENT_W + 2; }
+export function tabDented(p: Design): boolean { return !p.noTabDent && p.tabLen > tabDentH(p) + 1 && komaR(p) - innerRi(p) > TAB_DENT_W + 2; }
 // The tab tip's inner radius (where the koma notch bottom mates). Dented tabs pull the tip in by TAB_DENT_W.
 function tabTipRi(p: Design): number { return innerRi(p) + (tabDented(p) ? TAB_DENT_W : 0); }
 // The koma notch bottom radius (inside it is the koma's solid part) = tabTipRi relieved by 0.5.
