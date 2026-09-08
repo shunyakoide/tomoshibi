@@ -33,6 +33,7 @@ import Welcome from "../ui/Welcome.tsx";
 import { accent, chipStyle, TContext } from "../ui/theme.ts";
 import PresetChips from "../ui/PresetChips.tsx";
 import PointCard from "../ui/PointCard.tsx";
+import { neckFloor } from "../ui/pointEdit.ts";
 import PointBar from "../ui/PointBar.tsx";
 import Toolbar from "../ui/Toolbar.tsx";
 import OverflowMenu, { type MenuItem } from "../ui/Menu.tsx";
@@ -259,7 +260,12 @@ export default function TomoshibiStudio() {
             along because geometry.ts falls back to them when pts is empty. */}
         <PresetChips p={p} onPick={(pr) => {
           setSel(null);
-          setP((o) => ({ ...o, rTop: pr.rTop, rBot: pr.rBot, pts: pr.pts.map((q) => ({ ...q })), ...(pr.height ? { height: pr.height } : {}) }));
+          setP((o) => {
+            // A preset without a height keeps the maker's, and its necks then have to reach
+            // NECK_MIN at that height — `matchPreset` lights the chip on the same floored points.
+            const n = { ...o, rTop: pr.rTop, rBot: pr.rBot, ...(pr.height ? { height: pr.height } : {}) };
+            return { ...n, pts: neckFloor(pr.pts.map((q) => ({ ...q })), n.height) };
+          });
         }} />
 
         {/* Narrow: `ui/PointBar.tsx` carries this instead. Gated HERE rather than by a `compact`
