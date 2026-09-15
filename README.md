@@ -101,8 +101,9 @@ cut**. There is no stand: the mold stands on its own bottom koma, which is how t
 assembly view shows it (the printed one lies in the stand this route does not make). The bamboo
 seats are **not** cut — a 2mm notch in corrugated board tears rather than cuts, and the bamboo is
 held by the washi and the string, not by the rib's edge — so the outer edge is a smooth curve with a
-**5mm tick** marking where each bamboo rib goes. The section and assembly views draw the same ticks,
-dashed, so what you see is where you will pencil the bamboo in. Print at **100%**, never "fit to page"; one sheet carries a check
+**5mm tick** marking where each bamboo rib goes. The section and assembly views draw the same ticks —
+the section on **both** sides of the silhouette, the bamboo running right round it — so what you see
+is where you will pencil the bamboo in. Print at **100%**, never "fit to page"; one sheet carries a check
 square to measure with a ruler. A part too tall for a page continues on the next (cut both on the
 blue frame, butt the edges so the coded half-diamonds close into ◇, tape from behind), but pages only
 split downward, so a part wider than A4 does not fit at all — the app says so before you print.

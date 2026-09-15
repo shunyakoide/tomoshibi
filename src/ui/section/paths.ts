@@ -88,11 +88,20 @@ export function sectionPaths(p: Design, f: SectionFrame, sample: SectionSample, 
   for (const hole of lightenHoles2D(mold).holes) ribD += " " + poly2d(hole); // punch out via evenodd
 
   // Cardboard's rib has no notch to see, so the seats are marked on it exactly as the A4 sheet marks
-  // them — the same `seatTicks2D`, dashed, so the overlay reads as "pencil here", not "cut here".
+  // them — the same `seatTicks2D`, so the drawing says where the bamboo lies and nothing else.
   // The printed rib needs none: its notches are in `ribD` already.
+  //
+  // BOTH sides. The rib overlay is on the right, but the seat is a fact about the SURFACE, and the
+  // surface is the whole silhouette — the bamboo runs right round it. Marked on one side only it
+  // read as a feature of the overlay rather than as where the bamboo lies, which is the one thing
+  // this drawing has to say on a route that cuts no notch. `Ymm(y) === Y(y / H)`, so the mirrored
+  // pair sits at exactly the height the bamboo line already crosses.
   const ribTicks = mold.joint
-    ? seatTicks2D(mold).map(([x0, y0, x1, y1]) =>
-      `M ${X(x0).toFixed(1)} ${Ymm(y0).toFixed(1)} L ${X(x1).toFixed(1)} ${Ymm(y1).toFixed(1)}`).join(" ")
+    ? seatTicks2D(mold).map(([x0, y0, x1]) => {   // horizontal, so the mark's own y1 is y0
+      const y = Ymm(y0).toFixed(1);
+      return `M ${X(x0).toFixed(1)} ${y} L ${X(x1).toFixed(1)} ${y}`
+        + ` M ${Xm(x0).toFixed(1)} ${y} L ${Xm(x1).toFixed(1)} ${y}`;
+    }).join(" ")
     : "";
 
   return { d, higo, ribD, ribTicks, bands };

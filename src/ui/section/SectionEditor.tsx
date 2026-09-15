@@ -148,9 +148,15 @@ export default function SectionEditor({
         {/* Rib (right side = the actual printed cross-section) */}
         <path d={ribD} fillRule="evenodd" fill={C.board} fillOpacity="0.42" stroke={C.boardLine}
           strokeWidth="1.2" strokeLinejoin="round" style={{ pointerEvents: "none" }} />
-        {/* Cardboard only: the bamboo seats as the sheet marks them — a pencil line, not a cut. */}
-        {ribTicks && <path d={ribTicks} stroke={C.boardLine} strokeWidth="2" strokeDasharray="3.5 2.5"
-          strokeLinecap="round" fill="none" style={{ pointerEvents: "none" }} />}
+        {/* Cardboard only: the bamboo seats as the sheet marks them — a pencil line, not a cut. Both
+            sides, and SOLID: the sheet dashes its ticks because it neighbours cut lines a blade
+            follows, and nothing here is cut, so the dash bought nothing and cost the mark — at this
+            scale a 5mm tick is ~10 units, and a dash pattern turned it into three specks. It is the
+            BAMBOO's colour, not the rib's cut line: this mark is the near end of the `higo` line
+            already crossing there, and in the rib's dark line colour it sat on top of the drawing
+            instead of in it. */}
+        {ribTicks && <path d={ribTicks} stroke={C.higoMark} strokeWidth="2.5" strokeLinecap="round"
+          fill="none" style={{ pointerEvents: "none" }} />}
         {showLabels && <text x={(X(kR) + 9).toFixed(1)} y={(Ymm(H + p.tabLen) + 3).toFixed(1)}
           fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.sm} fontWeight="600"
           fill={C.boardLine} style={{ pointerEvents: "none" }}>{t("羽根板")}</text>}
