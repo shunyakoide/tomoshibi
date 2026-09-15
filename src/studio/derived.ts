@@ -13,7 +13,7 @@ import { useMemo } from "react";
 import type * as THREE from "three";
 import {
   maxRadius, outerR, standBoardLength,
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit, midKomaList, ribMouthBand,
+  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit, ribMouthBand,
   washiGore,
 } from "../geometry.ts";
 import { paperFit, paperP, templateOverflow } from "../papercraft.ts";
@@ -27,16 +27,16 @@ export type Figures = ReturnType<typeof useFigures>;
 export type AlertItem = { key: string; head: string; hint?: string };
 
 export function useFigures(p: Design, m: {
-  bedW: number; bedD: number; matT: number; midKoma: boolean; route: Route;
+  bedW: number; bedD: number; matT: number; route: Route;
   washiSide: number; washiEnd: number; t: T;
 }) {
-  const { bedW, bedD, matT, midKoma, route, washiSide, washiEnd, t } = m;
+  const { bedW, bedD, matT, route, washiSide, washiEnd, t } = m;
 
   const maxDia = Math.round(maxRadius(p) * 2);
   // The mold this route actually makes: on cardboard `paperP`, not the design on screen, since thick
   // material sets the board thickness and can clamp the rib count. The washi panel is one rib-to-rib
   // bay wide, so it must be cut for that mold — as must the pull-out check further down.
-  const moldSrc = useMemo(() => (route === "paper" ? paperP(p, matT, midKoma) : p), [route, p, matT, midKoma]);
+  const moldSrc = useMemo(() => (route === "paper" ? paperP(p, matT) : p), [route, p, matT]);
   // Washi panel figures for the readout. A 0.5mm meridian sweep, so memoized (dragging re-renders
   // constantly).
   // `moldSrc`, NOT `p`: the panel the readout describes has to be the panel the PDF cuts, and
@@ -48,12 +48,6 @@ export function useFigures(p: Design, m: {
   // panel can say "they will not fit here" without saying it to someone who turned them off. The
   // function the geometry reads, so the two cannot disagree.
   const legsFit = useMemo(() => ringLegsFit(p), [p]);
-  // The mid koma is the CARDBOARD route's, so both of these read `moldSrc` — the mold that route
-  // actually makes, thickness and clamped rib count included. `midFit` asks with the flag forced ON,
-  // so the panel can say "not on this shape" to someone who has it off; `midN` is how many the mold
-  // actually takes. `midKomaList` answers `null` for both reasons at once, which is why they differ.
-  const midFit = useMemo(() => midKomaList({ ...moldSrc, midKoma: true }) !== null, [moldSrc]);
-  const midN = useMemo(() => midKomaList(moldSrc)?.length ?? 0, [moldSrc]);
   // Opening radii, informational only: ribs come out by removing a koma and tilting them, so
   // "opening ≥ rib width" would not decide whether they clear. `ribPullFit` does, with its own alert.
   const topOpen = Math.round(outerR(p, 1));
@@ -97,7 +91,7 @@ export function useFigures(p: Design, m: {
   // The cardboard counterpart to the bed-overflow check. Cheap enough to run every render, and
   // deliberately NOT limited to the print view: every way out of it (fewer ribs, thinner material, a
   // wider opening) is a control you reach for while designing.
-  const fit = useMemo(() => (route === "paper" ? paperFit(p, matT, midKoma) : null), [route, p, matT, midKoma]);
+  const fit = useMemo(() => (route === "paper" ? paperFit(p, matT) : null), [route, p, matT]);
   const thinWall = fit !== null && fit.wall < fit.thin;
   // Stable identity, so the preview's memo isn't invalidated by every unrelated render.
   const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
@@ -105,7 +99,7 @@ export function useFigures(p: Design, m: {
   // clips them away rather than continuing them sideways, so without this nobody finds out until
   // they hold the sheet: a clip is the one fault a preview does not announce, the sheet looking
   // complete and the cut line simply stopping at the trim box.
-  const overSheet = useMemo(() => templateOverflow(p, matT, washiOpts, route, t, midKoma), [p, matT, washiOpts, route, t, midKoma]);
+  const overSheet = useMemo(() => templateOverflow(p, matT, washiOpts, route, t), [p, matT, washiOpts, route, t]);
   // Can the ribs still come out once the paste has dried? A deep body on a small mouth traps them in
   // the shade, and nothing else notices: every part prints, fits the bed and is watertight. Not a
   // route question — a cardboard mold leaves by the same hole.
@@ -115,7 +109,7 @@ export function useFigures(p: Design, m: {
   const mouthBand = route === "paper" ? ribMouthBand(moldSrc) : null;
 
   return {
-    maxDia, washiG, legsFit, midFit, midN, topOpen, botOpen, overParts,
+    maxDia, washiG, legsFit, topOpen, botOpen, overParts,
     ribFits, ribLen, ribBaseOver, heightLimit, fit, thinWall, washiOpts, moldSrc, pull, overSheet, mouthBand,
   };
 }

@@ -74,7 +74,7 @@ export default function GuidePage({ route, onClose, onGoPrint, onGoNote }: {
   const t = useT();
   const stl = route !== "paper";
   const steps = STEPS.filter((s) => stl || !s.stl);
-  const parts = PARTS.filter((s) => (stl ? !s.paper : !s.stl));
+  const parts = PARTS.filter((s) => stl || !s.stl);
   const p = stl ? GUIDE_P.stl : GUIDE_P.paper;
 
   // The options a step actually offers HERE. `needs` gates on the DESIGN, not the route: sockets off

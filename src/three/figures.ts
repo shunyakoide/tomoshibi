@@ -26,9 +26,6 @@ const SCENES: Record<string, Scene> = {
   // Parts, one at a time, for the parts list.
   rib: (p, sm) => part(ribGeo(p, 0, sm), false),
   koma: (p) => part(komaGeometry(p), false),
-  // The cardboard route's mid koma is the SAME outline as its end koma — an undented tab already
-  // runs that route's notch full depth — so this really is the same figure, and the parts row says so.
-  komaMid: (p) => part(komaGeometry(p), false),
   column: (p) => part(standGeometry(p), false),
   base: (p) => part(boardGeometry(p), false),
   // `sm` is the route, and here it decides what the part IS: cardboard bends its hoops from wire

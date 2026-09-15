@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import {
   maxRadius, standBoardLength,
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, midKomaList,
+  ribGeometry, komaGeometry, standGeometry, boardGeometry,
   standCollarTop, standSaddleH, standSlotSep, ringGeometry, washiSurface, seatTicks2D,
 } from "../geometry.ts";
 import { fitOnBed } from "../bed.ts";
@@ -89,13 +89,6 @@ function moldGroup(p: Design, s: ViewportState, smooth: boolean): THREE.Group {
   const kt = new THREE.Mesh(komaGeometry(p), s.komaMat);
   kt.rotation.x = Math.PI / 2; kt.position.y = p.height + p.tabLen;
   mold.add(kb, kt);
-  // A cardboard mold long enough takes a koma partway up. It is the same part as the end koma on
-  // that route, threaded on the ribs rather than plugged into their tabs.
-  for (const y of midKomaList(p) || []) {
-    const km = new THREE.Mesh(komaGeometry(p), s.komaMat);
-    km.rotation.x = -Math.PI / 2; km.position.y = y;
-    mold.add(km);
-  }
   return mold;
 }
 

@@ -21,8 +21,8 @@ import { useT } from "./theme.ts";
 import type { Design } from "../types.ts";
 import type { WashiOpts } from "../geometry.ts";
 
-export default function PagePreview({ p, matT, midKoma, mold, washiOpts }: {
-  p: Design; matT: number; midKoma: boolean;
+export default function PagePreview({ p, matT, mold, washiOpts }: {
+  p: Design; matT: number;
   /** The mold this route MAKES (`paperP`'s). The washi panel is one rib-to-rib bay wide, so it must
    *  be cut for the possibly-clamped rib count — the same design `downloadPaperKit` hands `washiPDF`. */
   mold: Design;
@@ -35,7 +35,7 @@ export default function PagePreview({ p, matT, midKoma, mold, washiOpts }: {
   const dp = useDeferredValue(p);
   const dm = useDeferredValue(mold);
   // `t` is memoized on `lang` in useLang, so it is a stable dep rather than a fresh closure.
-  const { svg, css, pages } = useMemo(() => paperPagesSVG(dp, matT, t, undefined, midKoma), [dp, matT, t, midKoma]);
+  const { svg, css, pages } = useMemo(() => paperPagesSVG(dp, matT, t), [dp, matT, t]);
   const washi = useMemo(() => washiPagesSVG(dm, washiOpts, t), [dm, washiOpts, t]);
 
   return (
