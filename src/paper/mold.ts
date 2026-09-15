@@ -1,13 +1,10 @@
-import { ribOutline2D, grooveList, outerR, komaShape, maxBoards, midKomaList, notchR, wireRing2D } from "../geometry.ts";
+import { ribOutline2D, seatTicks2D, komaShape, maxBoards, midKomaList, notchR, wireRing2D } from "../geometry.ts";
 import { A4, layout } from "./layout.ts";
 import { pagesPDF, pagesSVG, tid } from "./render.ts";
 import type { RawPart } from "./layout.ts";
-import type { Mark } from "../geometry.ts";
 import type { Page } from "../io/pdf.ts";
 import type { Design, Pt2 } from "../types.ts";
 import type { T } from "../i18n.ts";
-
-const TICK = 5;      // Length of the bamboo-rib tick line (mm). Drawn inward from the outer edge.
 
 // Cardboard does NOT get the 3D route's tab-tip dent (`paperP` sets `noTabDent`): the dent's 6x6mm
 // comes out of the tip's inner corner, exactly where a cardboard tab tears along its flutes.
@@ -16,15 +13,9 @@ const TICK = 5;      // Length of the bamboo-rib tick line (mm). Drawn inward fr
 // Rib: a smooth outer edge with no grooves carved + ticks at the bamboo-rib winding positions. No
 // lightening windows — cardboard is light, and windows only weaken it and add cutting effort.
 function ribPart(pk: Design, k: number, name: string): RawPart {
-  const h = pk.height;
-  const outline = ribOutline2D(pk, k, { smooth: true });
-  // Ticks come from the same `grooveList()` as the STL grooves: horizontal lines TICK mm inward from
-  // the outer edge. Pass k, so spiral winding's per-rib shift is marked where 3D cuts it.
-  const marks = grooveList(pk, k).map((y): Mark => {
-    const x = outerR(pk, Math.min(Math.max(y, 0), h) / h);
-    return [x, y, x - TICK, y];
-  });
-  return { name, outline, marks };
+  // `seatTicks2D` is the one source for where the bamboo goes on this route — the section overlay
+  // and the assembly preview draw the same lines (geometry/rib.ts).
+  return { name, outline: ribOutline2D(pk, k, { smooth: true }), marks: seatTicks2D(pk, k) };
 }
 
 // Koma: the same `komaShape` as 3D, but from `paperP()` — three inputs differ, not just the

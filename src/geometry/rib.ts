@@ -4,6 +4,7 @@
  * printed rib, the section drawing and the cardboard template, so all three are the same plate.
  */
 import type { Design, Pt2 } from "../types.ts";
+import type { Mark } from "./washi.ts";
 import * as THREE from "three";
 import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, RIB_MIN_BAND, tabDepth, tabDented, tabDentH, TAB_DENT_W } from "./profile.ts";
 import { grooveList, grooveOuterPts, grooveReach } from "./groove.ts";
@@ -254,6 +255,26 @@ export function ribNumberHoles2D(p: Design, k: number): Pt2[][] {
   }
   return holes;
 }
+// Length of the bamboo-rib tick (mm), drawn inward from the outer edge. A MARK, not a cut: cutting
+// the seat into board was tried and taken back out (a 2mm notch in corrugate is torn rather than
+// cut, and the bamboo is held by the washi and the string, not by the rib's edge). Long enough to
+// find with a pencil against the bamboo, short enough not to read as a cut line.
+export const SEAT_TICK = 5;
+
+// The bamboo seats as MARKS: one horizontal line per groove, `SEAT_TICK` mm inward from the rib's
+// smooth outer edge, at the same `grooveList` heights the printed rib cuts its notches at (`k` so
+// spiral winding is marked per rib). Lives here rather than in the paper route because all three
+// cardboard drawings — the A4 sheet, the section overlay and the assembly preview — must mark the
+// same places; a view that puts the bamboo somewhere the sheet does not is the same lie as drawing
+// a groove nobody cut.
+export function seatTicks2D(p: Design, k = 0): Mark[] {
+  const h = p.height || 1;
+  return grooveList(p, k).map((y): Mark => {
+    const x = outerR(p, Math.min(Math.max(y, 0), h) / h);
+    return [x, y, x - SEAT_TICK, y];
+  });
+}
+
 // 3D rib = the 2D final shape extruded. `opts` reaches ribOutline2D untouched — today that is
 // `{ smooth: true }`, the grooveless outer edge the cardboard template cuts (papercraft.ts) and the
 // guide's cardboard figures draw. Omitted, the rib is the printed one, vertex for vertex.
