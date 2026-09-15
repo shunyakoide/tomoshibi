@@ -64,7 +64,7 @@ export default function TomoshibiStudio() {
    * saved, and folding it in here would put a camera angle in the backup file.
    */
   const [s, setS] = useState<SavedState>(SAVED ?? FRESH);
-  const { p, route, printRibs, bedW, bedD, matT, washiSide, washiEnd } = s;
+  const { p, route, printRibs, bedW, bedD, matT, midKoma, washiSide, washiEnd } = s;
   /** Write one field of it. The controls take a plain `(v) => void`, so they never see the record. */
   const set = useCallback(<K extends keyof SavedState>(k: K, v: SavedState[K]) =>
     setS((o) => ({ ...o, [k]: v })), []);
@@ -137,7 +137,7 @@ export default function TomoshibiStudio() {
   // Each is an arrow so `moldSrc` and `washiOpts`, declared below, are read at click time rather
   // than at definition time.
   const downloadKit = () => kit.downloadKit({ p, nRibs, bedW, bedD, washiSide, washiEnd, t });
-  const downloadPaperKit = () => kit.downloadPaperKit({ p, matT, moldSrc, washiOpts, t });
+  const downloadPaperKit = () => kit.downloadPaperKit({ p, matT, midKoma, moldSrc, washiOpts, t });
   // Both hand the WHOLE record over, so `setS` IS the apply callback: a restore or a reset that
   // reinstates only the fields someone remembered to list is the bug this collapse exists for.
   const exportDesign = () => kit.exportDesign(s);
@@ -148,11 +148,11 @@ export default function TomoshibiStudio() {
   // Everything the design implies, in one memoized pass (src/studio/derived.ts). Called HERE rather than in
   // the sections that read it: the inspector unmounts in lit view, and `heightLimit` alone would
   // then re-walk up to 1,941 heights on every round trip.
-  const fig = useFigures(p, { bedW, bedD, matT, route, washiSide, washiEnd, t });
+  const fig = useFigures(p, { bedW, bedD, matT, midKoma, route, washiSide, washiEnd, t });
   // Only what this file itself renders. The rest of `fig` reaches `buildAlerts` as `fig`, so
   // destructuring it here just made a second, silently drifting list of the same fields.
   const {
-    maxDia, washiG, legsFit, topOpen, botOpen,
+    maxDia, washiG, legsFit, midFit, midN, topOpen, botOpen,
     ribFits, ribLen, washiOpts, moldSrc,
   } = fig;
 
@@ -225,7 +225,7 @@ export default function TomoshibiStudio() {
           )}
           {/* The output is a document, so the preview is one — the template's own pages, over the
               same (empty) canvas the section editor uses. */}
-          {paperPreview && <PagePreview p={p} matT={matT} />}
+          {paperPreview && <PagePreview p={p} matT={matT} midKoma={midKoma} />}
         </>
       } />
   );
@@ -284,7 +284,8 @@ export default function TomoshibiStudio() {
         {view === "print" && (
           <ExportSection route={route} p={p} nRibs={nRibs}
             bedW={bedW} bedD={bedD} setBedW={(v) => set("bedW", v)} setBedD={(v) => set("bedD", v)}
-            setPrintRibs={(v) => set("printRibs", v)} matT={matT} setMatT={(v) => set("matT", v)} />
+            setPrintRibs={(v) => set("printRibs", v)} matT={matT} setMatT={(v) => set("matT", v)}
+            midKoma={midKoma} setMidKoma={(v) => set("midKoma", v)} midFit={midFit} midN={midN} />
         )}
         {/* The wordmark, phone only, at the END of the scroll: the panel header it sat in is gone
             here, and at the top it would spend the first 40px of every pull on identity. */}

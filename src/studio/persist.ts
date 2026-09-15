@@ -21,7 +21,7 @@ import type { Design, NumericDesignKey, Pt, Route } from "../types.ts";
 export type SavedState = {
   p: Design;
   bedW: number; bedD: number; printRibs: number;
-  matT: number; washiSide: number; washiEnd: number;
+  matT: number; midKoma: boolean; washiSide: number; washiEnd: number;
   route: Route;
 };
 
@@ -40,6 +40,7 @@ export const FRESH: SavedState = {
                                // table — thin B / E flute comes out at 2, where A-flute board is 5.
                                // A starting point only: the route asks for a measurement, and the rib
                                // count it can cut follows it (`maxBoards`).
+  midKoma: false,              // a koma partway up the cardboard mold. Off: a short mold has no reason to pay for it
   washiSide: WASHI_SIDE, washiEnd: WASHI_END,
   route: "stl",
 };
@@ -196,6 +197,10 @@ export function sanitizeSaved(saved: unknown): SavedState | null {
   const bedD = clampNum(raw.bedD, 100, 420, FRESH.bedD);
   const printRibs = Math.round(clampNum(raw.printRibs, 1, 16, FRESH.printRibs)); // 1..boards; upper bound further clamped on the boards side
   const matT = clampNum(raw.matT, 1, 10, FRESH.matT);    // paper-template material thickness (mm). UI stepper allowed range
+  // A koma partway up the cardboard mold. A route setting like the thickness beside it, NOT a field
+  // of the design: the 3D-printed mold does not take one, so a design carrying the flag would
+  // straighten a printed rib for a koma that is never printed.
+  const midKoma = typeof raw.midKoma === "boolean" ? raw.midKoma : FRESH.midKoma;
   // How this person builds the mold: "stl" (3D print) or "paper" (cardboard). A fact about the
   // maker, not the design, but it decides whether the print bed constrains anything at all, so it is
   // restored alongside the bed. Anything else falls back to "stl".
@@ -204,7 +209,7 @@ export function sanitizeSaved(saved: unknown): SavedState | null {
   // so any out-of-range value just clamps back into the UI stepper's range.
   const washiSide = clampNum(raw.washiSide, 0, 15, FRESH.washiSide);
   const washiEnd = clampNum(raw.washiEnd, 0, 15, FRESH.washiEnd);
-  return { p: sanitizeP(raw.p), bedW, bedD, printRibs, matT, washiSide, washiEnd, route };
+  return { p: sanitizeP(raw.p), bedW, bedD, printRibs, matT, midKoma, washiSide, washiEnd, route };
 }
 
 export function loadSaved(): SavedState | null {

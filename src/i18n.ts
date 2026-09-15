@@ -133,6 +133,9 @@ const EN: Record<string, string> = {
   // ---- Opening ring (kuchiwa) ----
   "完成品に残る輪": "stays in the finished lantern",
   "脚ソケット(下)": "Leg sockets (bottom)",
+  "この高さでは {n} 枚。端のコマを外し、羽根板に沿って滑らせて抜きます": "{n} of them at this height. Take an end koma off and slide each one along the ribs to remove it",
+  "胴が長いと、両端のコマだけでは中ほどが支えられません": "On a long body the two end koma leave the middle to hold its own shape",
+  "この形では中間コマを入れると羽根板が開口から抜けません。開口を広げるか胴を細くすると入ります": "With a mid koma this shape's ribs would not come back out through the opening. A wider opening or a slimmer body makes room",
   "この開口には脚ソケットが入りません(下の輪のみになります)。開口を広げると入ります":
     "No room for leg sockets at this opening (the bottom ring stays a plain hoop). A wider opening will fit them.",
   "{parts} がベッド {w}×{d}mm を超過": "{parts} exceeds the {w}×{d}mm bed",
@@ -211,6 +214,8 @@ const EN: Record<string, string> = {
   "枚(各1枚)": " (one file each)",
   // ---- Papercraft (cardboard) ----
   "コマ": "Koma",
+  "中間コマ": "Mid koma",
+  "上下のコマと同じ形 · 胴が長いときだけ": "same shape as the end koma · only on a long body",
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
   "羽根板の間 1面分": "one rib-to-rib panel",
@@ -272,6 +277,8 @@ const EN: Record<string, string> = {
   "もう1枚のコマをかぶせる": "Cap it with the second koma",
   "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1か所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。":
     "Line every tab up with a notch first, then press the koma down flat. Seating one tab at a time is what cracks them — work around the whole circle a little at a time. The two koma are the same part.",
+  "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1か所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。中間コマを切ってあるときは、この前に羽根板へ通して中ほどまで下ろしておいてください。":
+    "Line every tab up with a notch first, then press the koma down flat. Seating one tab at a time is what cracks them — work around the whole circle a little at a time. The two end koma are the same part. If you cut a mid koma, thread it onto the ribs and slide it down to the middle before you cap them.",
   "土台に載せる": "Set it in the stand",
   "型を横向きにして、両端のコマを支柱のくぼみに載せます。こうすると型が回るので、1面貼っては回し、を繰り返せます。まず手で1回転させて、振れや引っかかりがないか確認してください。":
     "Turn the mold on its side and rest a koma in each post's saddle. Now it turns: paste one panel, roll it round, paste the next. Spin it once by hand first and check that it runs true and catches on nothing.",
@@ -287,6 +294,8 @@ const EN: Record<string, string> = {
   "型を抜く": "Pull the mold",
   "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。":
     "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are. The rings stay behind with the lantern; trim the overhanging washi at the rim.",
+  "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。中間コマを入れた型では、端のコマを外してから羽根板に沿って開口まで滑らせて抜きます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。":
+    "Draw each end koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. On a mold with a mid koma, that one comes out after them: slide it along the ribs to an opening. The rings stay behind with the lantern; trim the overhanging washi at the rim.",
   "口輪をはめる": "Fit the opening rings",
   "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてあるので、曲げた輪は羽根板の外側にすっと入ります。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。":
     "Bend wire along the blue lines on the template to make the two opening hoops. Each line follows its own opening, so the hoop you bend drops onto the ribs' outer edge. Overlap the two ends a little and twist them together. Nothing holds either the hoops or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the hoops when you paste, which is why they stay in the lantern after the mold comes out. The two hoops are bent on separate lines, so mark which is which once they are off the paper.",

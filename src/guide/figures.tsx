@@ -21,7 +21,11 @@ import type { T } from "../i18n.ts";
  */
 const GUIDE_MAT_T = 3;                                    // mm, ordinary single-wall cardboard
 const GUIDE_BASE = { ...DEFAULTS, legSockets: true };
-export const GUIDE_P = { stl: GUIDE_BASE, paper: paperP(GUIDE_BASE, GUIDE_MAT_T) };
+// The cardboard half is built WITH a mid koma, for the reason `legSockets` is pinned on above: the
+// page has a row for the part, and a row drawn from a mold that has none shows an empty well. It is
+// a route setting rather than a design field, so it is passed to `paperP` rather than spread here —
+// and the 3D half is untouched, which is the whole point of it being one.
+export const GUIDE_P = { stl: GUIDE_BASE, paper: paperP(GUIDE_BASE, GUIDE_MAT_T, true) };
 
 const WELL = "flex items-center justify-center overflow-hidden rounded-lg ";
 /* A part or kit thumbnail sits on the card's own ground, so it draws no box of its own; a step's

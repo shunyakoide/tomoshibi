@@ -1,4 +1,4 @@
-import { ribOutline2D, grooveList, outerR, komaShape, maxBoards, notchR, wireRing2D } from "../geometry.ts";
+import { ribOutline2D, grooveList, outerR, komaShape, maxBoards, midKomaList, notchR, wireRing2D } from "../geometry.ts";
 import { A4, layout } from "./layout.ts";
 import { pagesPDF, pagesSVG, tid } from "./render.ts";
 import type { RawPart } from "./layout.ts";
@@ -74,8 +74,8 @@ function wirePart(pk: Design, top: boolean, t: T): RawPart {
 //     What it must never do is decide the tab may stand outside the opening — that is `komaR`'s
 //     call, and the maker's answer there was no.
 const JOINT_GRIP = 20;
-export function paperP(p: Design, matT: number): Design {
-  const pk = { ...p, boardT: matT, komaT: matT, fit: 0, noTabDent: true, noCrescent: true,
+export function paperP(p: Design, matT: number, midKoma = false): Design {
+  const pk = { ...p, boardT: matT, komaT: matT, fit: 0, noTabDent: true, noCrescent: true, midKoma,
     joint: { wall: matT, grip: JOINT_GRIP } };
   pk.boards = Math.min(pk.boards, maxBoards(pk));
   return pk;
@@ -90,8 +90,8 @@ export function paperP(p: Design, matT: number): Design {
  * other at the deepest the hub may go (`maxBoards`). A thin strip of board where a rib passes the
  * mouth does NOT clamp the count — that is reported and left to the maker (`ribMouthBand`).
  */
-export function paperFit(p: Design, matT: number) {
-  const pk = paperP(p, matT);
+export function paperFit(p: Design, matT: number, midKoma = false) {
+  const pk = paperP(p, matT, midKoma);
   const nMax = maxBoards(pk);
   return {
     wall: (2 * Math.PI * notchR(pk)) / pk.boards - matT,
@@ -106,9 +106,9 @@ export function paperFit(p: Design, matT: number) {
  * washi panel being a separate document. The returned p is `paperP()`'s, so `boards` is already
  * clamped to maxBoards; `clamped` reports it so the UI/page can warn.
  */
-export function paperParts(p: Design, matT: number, t: T = tid) {
-  const pk = paperP(p, matT);   // = the mold this template actually cuts (thickness applied, count clamped)
-  const { wall, clamped, nMax } = paperFit(p, matT);   // one source for the fit warnings, shared with the app's alert
+export function paperParts(p: Design, matT: number, t: T = tid, midKoma = false) {
+  const pk = paperP(p, matT, midKoma);   // = the mold this template actually cuts (thickness applied, count clamped)
+  const { wall, clamped, nMax } = paperFit(p, matT, midKoma);   // one source for the fit warnings, shared with the app's alert
 
   // All ribs are identical unless spiral winding shifts the tick positions per rib; identical ones
   // are emitted as a single sheet labelled "×N" rather than N duplicates.
@@ -118,10 +118,15 @@ export function paperParts(p: Design, matT: number, t: T = tid) {
   } else {
     ribParts.push(ribPart(pk, 0, `${t("羽根板")} ×${pk.boards}`)); // Number stays outside t() so the default name still contains the plain word for the tests.
   }
-  // Koma: two identical sheets (top & bottom) normally, or a single "×2" sheet when two would spill
-  // onto an extra koma-only page. Decided by comparing the page count on A4 (the print page).
-  const eachKoma = [komaPart(pk, `${t("コマ")} 1/2`), komaPart(pk, `${t("コマ")} 2/2`)];
-  const oneSheet = [komaPart(pk, `${t("コマ")} ×2`)];
+  // Koma: the two on the ends, plus a mid koma for each one a long mold takes. On CARDBOARD they are
+  // one outline — the tab is undented here, so the end koma's notch already runs full depth to the
+  // rib's inner edge, which is exactly where the mid koma's goes (`check:paper` pins the two radii
+  // equal). So this is a count, not a second part; only the 3D route cuts a separate shape.
+  const nKoma = 2 + (midKomaList(pk)?.length ?? 0);
+  // Laid out as one sheet per koma normally, or a single "×N" sheet when the copies would spill onto
+  // an extra koma-only page. Decided by comparing the page count on A4 (the print page).
+  const eachKoma = Array.from({ length: nKoma }, (_, i) => komaPart(pk, `${t("コマ")} ${i + 1}/${nKoma}`));
+  const oneSheet = [komaPart(pk, `${t("コマ")} ×${nKoma}`)];
   // The hoops go LAST — they are the one thing here nobody cuts, and the given order is the order
   // the parts are cut in. They ride in the page-count comparison below because that comparison has
   // to be made on the document that actually prints, not on the mold half of it.
@@ -139,8 +144,8 @@ export function paperParts(p: Design, matT: number, t: T = tid) {
  * The preview never lays parts out itself — a second opinion about the layout is how a preview starts
  * lying about how many pages there are.
  */
-export function paperPagesSVG(p: Design, matT: number, t: T = tid, page: Page & { name?: string } = A4) {
-  const { parts, pk, clamped, nMax } = paperParts(p, matT, t);
+export function paperPagesSVG(p: Design, matT: number, t: T = tid, page: Page & { name?: string } = A4, midKoma = false) {
+  const { parts, pk, clamped, nMax } = paperParts(p, matT, t, midKoma);
   // The fit facts ride along with the sheets because the print view shows both at once; the sheets
   // themselves are `pagesSVG`'s, the same ones the washi template gets.
   return { ...pagesSVG(parts, page, t), pk, clamped, nMax };
@@ -153,7 +158,7 @@ export function paperPagesSVG(p: Design, matT: number, t: T = tid, page: Page & 
  * tools/pdffont), so the sheet prints in the language the app was showing rather than dropping the
  * labels it cannot encode (`" ×8"`, the word gone).
  */
-export function paperPDF(p: Design, matT: number, page = A4, t: T = tid): Uint8Array {
-  const { parts } = paperParts(p, matT, t);
+export function paperPDF(p: Design, matT: number, page = A4, t: T = tid, midKoma = false): Uint8Array {
+  const { parts } = paperParts(p, matT, t, midKoma);
   return pagesPDF(parts, page, t, t("TOMOSHIBI 段ボール型紙 {name} 原寸", { name: page.name }));
 }

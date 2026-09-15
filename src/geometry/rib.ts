@@ -58,14 +58,49 @@ export function ribInnerX(p: Design): (y: number) => number {
 // gets the chord at its own half-thickness, 2√(R²−(t/2)²); `PULL_CLEAR` is slack for it to turn in,
 // the band being curved, since a rib exactly as wide as the chord binds.
 const PULL_CLEAR = 2;   // mm of slack left for the plate to turn as it comes out
-export function ribPullFit(p: Design): { band: number; openR: number; ok: boolean } {
-  const h = p.height, innerX = ribInnerX(p);
+// Out of the WIDER of the two mouths — nothing makes a rib leave by one end rather than the other.
+function pullOpenR(p: Design): number { return Math.max(outerR(p, 0), outerR(p, 1)); }
+// The widest band the plate presents, for a given inner edge. Taken as a function so the mid-koma
+// gate can ask the same question of the STRAIGHT edge it would impose, without calling `ribInnerX`
+// (which asks the gate back).
+function ribBand(p: Design, innerX: (y: number) => number): number {
+  const h = p.height;
   let band = 0;
   for (let y = 0; y <= h; y += 0.5) band = Math.max(band, outerR(p, y / h) - innerX(y));
-  // Out of the WIDER of the two mouths — nothing makes a rib leave by one end rather than the other.
-  const R = Math.max(outerR(p, 0), outerR(p, 1));
-  const chord = 2 * Math.sqrt(Math.max(0, R * R - (p.boardT / 2) ** 2));
-  return { band, openR: R, ok: band + PULL_CLEAR <= chord };
+  return band;
+}
+function pullOk(p: Design, band: number): boolean {
+  const R = pullOpenR(p);
+  return band + PULL_CLEAR <= 2 * Math.sqrt(Math.max(0, R * R - (p.boardT / 2) ** 2));
+}
+export function ribPullFit(p: Design): { band: number; openR: number; ok: boolean } {
+  const band = ribBand(p, ribInnerX(p));
+  return { band, openR: pullOpenR(p), ok: pullOk(p, band) };
+}
+
+// ============ The mid koma ============
+// A koma partway up, for a mold long enough that the two on the ends leave the middle to hold its
+// own shape. It is the same outline as the end koma here, and it comes out by sliding along the ribs
+// and off the end, which needs the straight inner edge the cardboard route already cuts. It still
+// has to clear the mouth once it is off, so the gate below asks that of the straight edge directly
+// rather than of `ribInnerX` — a design whose ribs cannot come out at all gets no mid koma, the way
+// a design without room for leg pads gets no legs.
+//
+// The span is PROVISIONAL. It is the sort of number this project takes from a build rather than an
+// argument (NECK_MIN and the washi allowances both are), and nothing has been built with one yet.
+const MID_SPAN = 250;   // mm of rib between two koma before another one is called for
+/**
+ * Where the mid koma sit, bottom-up in mm, or `null` for a mold that has none — switched off, or a
+ * design whose ribs would no longer come out through the mouth with a straight inner edge. Callers
+ * must treat `null` as "no mid koma" and not as an error. It asks about the straight inner edge
+ * directly rather than through `ribInnerX`, so the two never call each other.
+ */
+export function midKomaList(p: Design): number[] | null {
+  if (!p.midKoma) return null;
+  const Ri = innerRi(p);
+  if (!pullOk(p, ribBand(p, () => Ri))) return null;
+  const n = Math.max(1, Math.ceil((p.height || 1) / MID_SPAN) - 1);
+  return Array.from({ length: n }, (_, i) => ((p.height || 1) * (i + 1)) / (n + 1));
 }
 
 // The rib's outline point list, shared by the 2D section drawing and the 3D geometry, so the two

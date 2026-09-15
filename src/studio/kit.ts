@@ -65,11 +65,11 @@ export function downloadKit(a: {
  * Both follow the UI's language.
  */
 export function downloadPaperKit(a: {
-  p: Design; matT: number; moldSrc: Design; washiOpts: { side: number; end: number }; t: T;
+  p: Design; matT: number; midKoma: boolean; moldSrc: Design; washiOpts: { side: number; end: number }; t: T;
 }): void {
-  const { p, matT, moldSrc, washiOpts, t } = a;
+  const { p, matT, midKoma, moldSrc, washiOpts, t } = a;
   zipBundle({
-    "tomoshibi_katagami_a4.pdf": paperPDF(p, matT, undefined, t),
+    "tomoshibi_katagami_a4.pdf": paperPDF(p, matT, undefined, t, midKoma),
     // moldSrc, not p: on this route the panel follows the possibly-clamped rib count.
     [WASHI_PDF]: washiPDF(moldSrc, washiOpts, undefined, t),
   }, "tomoshibi_katagami.zip");
