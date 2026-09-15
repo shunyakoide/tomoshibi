@@ -7,10 +7,10 @@
  * must not make `outerR` NaN (a non-manifold STL) or hand the first render an oversized `boards`
  * (a koma whose notches overlap). Verified by `npm run check:persist`.
  */
-import { DEFAULTS, LIMITS, T_GAP } from "../config.ts";
+import { DEFAULTS, LIMITS, OPENING_MIN, T_GAP } from "../config.ts";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
 import { clamp } from "../util.ts";
-import { neckFloor } from "../ui/pointEdit.ts";
+import { silhouetteFloors } from "../ui/pointEdit.ts";
 import type { Design, NumericDesignKey, Pt, Route } from "../types.ts";
 
 /**
@@ -36,7 +36,10 @@ export const FRESH: SavedState = {
   p: DEFAULTS,
   bedW: 256, bedD: 256,        // print bed (mm) — a common 256mm machine until the maker says otherwise
   printRibs: 1,
-  matT: 5,                     // cardboard thickness (mm). A starting point; the route asks for a measurement
+  matT: 2,                     // cardboard thickness (mm). MEASURED on a grocery box, not read off a flute
+                               // table — thin B / E flute comes out at 2, where A-flute board is 5.
+                               // A starting point only: the route asks for a measurement, and the rib
+                               // count it can cut follows it (`maxBoards`).
   washiSide: WASHI_SIDE, washiEnd: WASHI_END,
   route: "stl",
 };
@@ -60,9 +63,10 @@ export function saveWelcomeSeen() {
 // `grooveList`'s `n = Math.round(span/pitch)` Infinity and loops forever. Ranges match the UI's own
 // domains; unknown fields get a safely wide one. The two silhouette ranges come from `LIMITS`
 // rather than being restated: a saved design is only safe if the editor could have produced it, and
-// r's floor is a geometric wall (below it the rib cannot close), not a UI preference.
+// r's floor is a geometric wall (below it the rib cannot close), not a UI preference — the opening's
+// own floor (`OPENING_MIN`) is applied separately, to the two END points, by `openingFloor`.
 const BOUNDS: Record<NumericDesignKey, readonly [number, number]> = {
-  height: LIMITS.height, rTop: LIMITS.r, rBot: LIMITS.r, boards: [4, 16],
+  height: LIMITS.height, rTop: [OPENING_MIN, LIMITS.r[1]], rBot: [OPENING_MIN, LIMITS.r[1]], boards: [4, 16],
   boardWidth: [10, 120], boardT: [1, 4], higoD: [1, 4], pitch: [8, 30],
   fit: [0, 1], tabW: [4, 40], komaT: [3, 20], tabR: [6, 40],
   // No control reaches the tab length any more (2026-09-08), so a saved one is not kept: a value
@@ -162,7 +166,7 @@ function sanitizeP(rawP: unknown): Design {
   coerceNums(p);
   // After the height is clamped, since the floor is millimetres of it. Pushing the ends out keeps
   // the spacing `legalizePts` just enforced (each carried point lands exactly T_GAP on).
-  p.pts = neckFloor(p.pts, p.height);
+  p.pts = silhouetteFloors(p.pts, p.height);
   coerceBools(p);
   p.boards = Math.min(p.boards, maxBoards(p));
   return p;

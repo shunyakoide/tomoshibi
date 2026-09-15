@@ -1,6 +1,6 @@
 // The drawing's gestures as explicit, typed, keyboard-reachable UI. Edits `pts` and nothing else.
 import React from "react";
-import { LIMITS } from "../config.ts";
+import { LIMITS, OPENING_MIN } from "../config.ts";
 import { useT } from "./theme.ts";
 import { SectionLabel, NumInput, SegButton } from "./controls.tsx";
 import { pointOps, makeSetMode, clampR } from "./pointEdit.ts";
@@ -28,8 +28,8 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode 
             <SegButton label="✥ 点を動かす" active={editMode === "move"} onClick={() => setMode("move")} />
             <SegButton label="◠ カーブ調整" active={editMode === "curve"} onClick={() => setMode("curve")} />
           </div>
-          <NumInput label="半径" value={Math.round(pt.r)} min={LIMITS.r[0]} max={LIMITS.r[1]}
-            onChange={(v) => patch({ r: clampR(v) })} />
+          <NumInput label="半径" value={Math.round(pt.r)} min={isEnd ? OPENING_MIN : LIMITS.r[0]} max={LIMITS.r[1]}
+            onChange={(v) => patch({ r: clampR(v, isEnd) })} />
           <NumInput label="高さ位置" value={Math.round(pt.t * p.height)} min={hRange[0]} max={hRange[1]}
             onChange={setHeightMm} />
           <div className="flex gap-6 mt-4 mb-10">

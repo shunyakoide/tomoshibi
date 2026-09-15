@@ -6,7 +6,7 @@
  */
 import type React from "react";
 import { bakeBezierHandles } from "../geometry.ts";
-import { LIMITS, T_GAP, NECK_MIN } from "../config.ts";
+import { LIMITS, T_GAP, NECK_MIN, OPENING_MIN } from "../config.ts";
 import { clamp } from "../util.ts";
 import type { Design, Pt } from "../types.ts";
 
@@ -43,8 +43,30 @@ export function neckFloor(pts: Pt[], height: number): Pt[] {
   return out;
 }
 
-/** A control point's radius, inside the range the app will build. */
-export const clampR = (r: number) => clamp(...LIMITS.r, r);
+/**
+ * A control point's radius, inside the range the app will build — and for an END point (which IS an
+ * opening) no smaller than `OPENING_MIN`, the mouth being what the rib has left to be there.
+ */
+export const clampR = (r: number, isEnd = false) => clamp(isEnd ? OPENING_MIN : LIMITS.r[0], LIMITS.r[1], r);
+
+/** The opening floor applied to a whole list: the two ends only. Returns `pts` itself if nothing moved. */
+export function openingFloor(pts: Pt[]): Pt[] {
+  const n = pts.length;
+  if (n === 0 || (pts[0].r >= OPENING_MIN && pts[n - 1].r >= OPENING_MIN)) return pts;
+  const out = pts.map((q) => ({ ...q }));
+  out[0].r = Math.max(out[0].r, OPENING_MIN);
+  out[n - 1].r = Math.max(out[n - 1].r, OPENING_MIN);
+  return out;
+}
+
+/**
+ * BOTH silhouette floors, in the one order that composes: `neckFloor` moves `t`, `openingFloor`
+ * moves `r`, so neither undoes the other. Every surface that re-legalizes a point list calls THIS —
+ * the editor's height change, a picked preset, `matchPreset`'s comparison and persist — because a
+ * surface that applies one and not the other makes a design the others consider illegal, and the
+ * preset chip goes dark on the shape it just drew.
+ */
+export const silhouetteFloors = (pts: Pt[], height: number): Pt[] => openingFloor(neckFloor(pts, height));
 
 /** Which gesture the ◇ handles perform: move the point, or pull its Bézier tangents. */
 export type EditMode = "move" | "curve";
