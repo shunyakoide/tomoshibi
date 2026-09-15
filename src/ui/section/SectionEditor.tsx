@@ -67,7 +67,7 @@ export default function SectionEditor({
   const { fr, maxR, komaR: kR, tnB, tnT } = sample;
   const frame = sectionFrame(p, pane, compact, sample);
   const { s, topY, X, Xm, Y, Ymm, viewBox, hitPt, hitAdd, rPt, rRing, rH, rAdd, rTan, markStroke, showLabels, showLegend } = frame;
-  const { d, higo, ribD, bands } = sectionPaths(p, frame, sample, accent, mold);
+  const { d, higo, ribD, ribTicks, bands } = sectionPaths(p, frame, sample, accent, mold);
 
   // The four pointer gestures (ui/section/drag.ts). Rebuilt every render on purpose: each closes
   // over this render's design, and the mapping each one freezes is captured at pointerdown.
@@ -148,6 +148,9 @@ export default function SectionEditor({
         {/* Rib (right side = the actual printed cross-section) */}
         <path d={ribD} fillRule="evenodd" fill={C.board} fillOpacity="0.42" stroke={C.boardLine}
           strokeWidth="1.2" strokeLinejoin="round" style={{ pointerEvents: "none" }} />
+        {/* Cardboard only: the bamboo seats as the sheet marks them — a pencil line, not a cut. */}
+        {ribTicks && <path d={ribTicks} stroke={C.boardLine} strokeWidth="2" strokeDasharray="3.5 2.5"
+          strokeLinecap="round" fill="none" style={{ pointerEvents: "none" }} />}
         {showLabels && <text x={(X(kR) + 9).toFixed(1)} y={(Ymm(H + p.tabLen) + 3).toFixed(1)}
           fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.sm} fontWeight="600"
           fill={C.boardLine} style={{ pointerEvents: "none" }}>{t("羽根板")}</text>}

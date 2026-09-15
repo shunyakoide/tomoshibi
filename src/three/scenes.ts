@@ -2,7 +2,7 @@ import * as THREE from "three";
 import {
   maxRadius, standBoardLength,
   ribGeometry, komaGeometry, standGeometry, boardGeometry, midKomaList,
-  standCollarTop, standSaddleH, standSlotSep, ringGeometry, washiSurface,
+  standCollarTop, standSaddleH, standSlotSep, ringGeometry, washiSurface, seatTicks2D,
 } from "../geometry.ts";
 import { fitOnBed } from "../bed.ts";
 import { ribGeo } from "./figures/mold.ts";
@@ -47,6 +47,23 @@ function frame(s: ViewportState, contentH: number, contentR: number, centerY: nu
   s.setOrbit({ dist: s.baseDist, lookY: centerY });
 }
 
+// The bamboo seats on a CARDBOARD rib, as the dashed marks the A4 sheet prints (`seatTicks2D`) and
+// not as a notch: that route cuts none, and drawing one here would show a mold nobody will hold —
+// the same reason the lightening windows are left out below. One copy just clear of each face, so
+// the mark is there whichever side of a rib is turned toward you. The material is module-level and
+// shared: `buildScene` disposes geometries on rebuild, never materials.
+const TICK_MAT = new THREE.LineDashedMaterial({ color: 0x6b6156, dashSize: 2.2, gapSize: 1.6, opacity: 0.9, transparent: true });
+function seatTickLines(p: Design, k: number): THREE.LineSegments {
+  const v: number[] = [];
+  for (const z of [p.boardT / 2 + 0.05, -(p.boardT / 2 + 0.05)])
+    for (const [x0, y0, x1, y1] of seatTicks2D(p, k)) v.push(x0, y0, z, x1, y1, z);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
+  const ls = new THREE.LineSegments(g, TICK_MAT);
+  ls.computeLineDistances();           // LineDashedMaterial draws nothing without this
+  return ls;
+}
+
 /** The assembled mold. `smooth` is the CARDBOARD route: that template cuts no grooves and opens no
  *  lightening windows, so drawing them here would show a mold nobody on that route will hold. The
  *  same flag the guide's figures use (`ribGeo`), for the same reason. */
@@ -56,6 +73,7 @@ function moldGroup(p: Design, s: ViewportState, smooth: boolean): THREE.Group {
     const mesh = new THREE.Mesh(smooth ? ribGeo(p, k, true) : ribGeometry(p, k), s.ribMat);
     mesh.rotation.y = (k / p.boards) * Math.PI * 2;
     mold.add(mesh);
+    if (smooth) { const ticks = seatTickLines(p, k); ticks.rotation.y = mesh.rotation.y; mold.add(ticks); }
   }
   const kb = new THREE.Mesh(komaGeometry(p), s.komaMat);
   kb.rotation.x = -Math.PI / 2; kb.position.y = -p.tabLen;

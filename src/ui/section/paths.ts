@@ -7,7 +7,7 @@
  *
  * Every dimension comes from the `geometry.ts` barrel, so what is drawn here is what gets printed.
  */
-import { outerR, cutYbot, cutYtop, fukuroRange, grooveList, grooveOuterPts, komaR, ribOutline2D, lightenHoles2D } from "../../geometry.ts";
+import { outerR, cutYbot, cutYtop, fukuroRange, grooveList, grooveOuterPts, komaR, ribOutline2D, lightenHoles2D, seatTicks2D } from "../../geometry.ts";
 import { C } from "./palette.ts";
 import type { SectionFrame } from "./frame.ts";
 import type { Design, Pt2 } from "../../types.ts";
@@ -32,7 +32,8 @@ export type SectionSample = {
  * `mold` is the design this route actually MAKES — `paperP`'s on cardboard, `p` itself on the 3D
  * route — and it is what the rib overlay and the koma radius are drawn from, so the section shows
  * the part that comes out rather than one this route never cuts. The cardboard rib is a smooth edge
- * (`paper/mold.ts`), so its surface here carries no notch either; the bamboo still sits at `gs`.
+ * with the seats only ticked (`paper/mold.ts`), so its surface here carries no notch either; the
+ * bamboo circles still sit at `gs`, which is what the ticks mark.
  */
 export function sampleSection(p: Design, mold: Design = p): SectionSample {
   const H = p.height;
@@ -54,7 +55,7 @@ export type Band = { t0: number; t1: number; fill: string; op?: number };
 
 export function sectionPaths(p: Design, f: SectionFrame, sample: SectionSample, accent: string,
   mold: Design = p): {
-  d: string; higo: string; ribD: string; bands: Band[];
+  d: string; higo: string; ribD: string; ribTicks: string; bands: Band[];
 } {
   const H = p.height;
   const { X, Xm, Y, Ymm } = f;
@@ -86,5 +87,13 @@ export function sectionPaths(p: Design, f: SectionFrame, sample: SectionSample, 
   // `lightenHoles2D` returns none for a cardboard mold, so this draws the windows on one route only.
   for (const hole of lightenHoles2D(mold).holes) ribD += " " + poly2d(hole); // punch out via evenodd
 
-  return { d, higo, ribD, bands };
+  // Cardboard's rib has no notch to see, so the seats are marked on it exactly as the A4 sheet marks
+  // them — the same `seatTicks2D`, dashed, so the overlay reads as "pencil here", not "cut here".
+  // The printed rib needs none: its notches are in `ribD` already.
+  const ribTicks = mold.joint
+    ? seatTicks2D(mold).map(([x0, y0, x1, y1]) =>
+      `M ${X(x0).toFixed(1)} ${Ymm(y0).toFixed(1)} L ${X(x1).toFixed(1)} ${Ymm(y1).toFixed(1)}`).join(" ")
+    : "";
+
+  return { d, higo, ribD, ribTicks, bands };
 }
