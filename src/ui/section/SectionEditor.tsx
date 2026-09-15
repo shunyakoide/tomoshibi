@@ -22,7 +22,7 @@ import type { T } from "../../i18n.ts";
 import type { Design } from "../../types.ts";
 
 export default function SectionEditor({
-  p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", compact = false, t = (s) => s,
+  p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", compact = false, mold = p, t = (s) => s,
 }: {
   p: Design;
   setP: React.Dispatch<React.SetStateAction<Design>>;
@@ -34,6 +34,9 @@ export default function SectionEditor({
   editMode?: EditMode;
   /** Phone-sized frame: fit the viewBox to the drawing and size the hit targets for a finger. */
   compact?: boolean;
+  /** The mold this route MAKES — `paperP`'s design on cardboard. The ◇ still edit `p`; only what is
+   *  DRAWN as the rib and the koma follows this, so the section shows the part that comes out. */
+  mold?: Design;
   t?: T;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -60,11 +63,11 @@ export default function SectionEditor({
   const H = p.height;
   // The drawing, in three steps: sample it in millimetres, fit a frame to that sample, then put the
   // sample through the frame. The frame is FITTED TO THE CONTENT, so the sample has to come first.
-  const sample = sampleSection(p);
+  const sample = sampleSection(p, mold);
   const { fr, maxR, komaR: kR, tnB, tnT } = sample;
   const frame = sectionFrame(p, pane, compact, sample);
   const { s, topY, X, Xm, Y, Ymm, viewBox, hitPt, hitAdd, rPt, rRing, rH, rAdd, rTan, markStroke, showLabels, showLegend } = frame;
-  const { d, higo, ribD, bands } = sectionPaths(p, frame, sample, accent);
+  const { d, higo, ribD, bands } = sectionPaths(p, frame, sample, accent, mold);
 
   // The four pointer gestures (ui/section/drag.ts). Rebuilt every render on purpose: each closes
   // over this render's design, and the mapping each one freezes is captured at pointerdown.
