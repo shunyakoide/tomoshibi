@@ -23,7 +23,6 @@ export type Pt2 = [number, number];
  * one of them, and nothing else may.
  *   `noTabDent` — trades the koma stop for tab strength on cardboard.
  *   `noCrescent`— leaves the rib's inner edge straight, because board is cut by hand.
- *   `midKoma`   — a koma partway up a long cardboard mold, which needs that straight edge.
  *   `joint`     — sizes the koma/tab joint for board rather than for plastic.
  *
  * There was a second, `neckOn` — the single neck flag that neckBot/neckTop replaced, read as
@@ -86,13 +85,6 @@ export type Design = {
    *  at the opening, so on a mouth too narrow for it the tab takes the whole band instead. Its
    *  presence is also what marks a design as the cardboard route's inside `geometry/`. */
   joint?: { wall: number; grip: number };
-  /** Papercraft only: a koma partway up as well as the two on the ends, for a cardboard mold long
-   *  enough to sag between them. Set by `paperP` from the cardboard route's own setting, never by
-   *  the editor — the 3D-printed mold is a different, stiffer thing and does not take one. How many
-   *  follows from the height, and a design whose ribs would then not come out through the mouth
-   *  gets none (`midKomaList`). It needs the straight inner edge (`noCrescent`) to slide back out
-   *  along the ribs, which on this route it always has. */
-  midKoma?: boolean;
 };
 
 /** Which way this maker builds: 3D-printed STL parts, or a full-scale paper template. */

@@ -19,7 +19,7 @@
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
 import { winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
-import { komaR, tabDented, innerRi, notchR, midKomaList, ribInnerX, ribMouthBand, ribPullFit, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
+import { komaR, tabDented, innerRi, notchR, ribInnerX, ribMouthBand, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
 import type { Design } from "../src/types.ts";
 
@@ -52,14 +52,10 @@ for (const preset of PRESETS)
       // Cardboard skips the tab-tip dent (strength over the koma stop): a plain straight tab in a
       // full-depth notch.
       if (tabDented(pk)) bad(`${tag} papercraft should have no tab dent (noTabDent)`);
-      // …which is also exactly where a MID koma's notch bottom has to go, since it takes the rib's
-      // plain inner edge and there is no tab where it sits. The two being ONE number is why this
-      // route prints extra copies of one outline instead of cutting a second part, so this single
-      // assertion is what stands behind both.
-      eq(notchR(pk), innerRi(pk) - 0.5, `${tag} koma notch full-depth (= the mid koma's, same outline)`);
+      eq(notchR(pk), innerRi(pk) - 0.5, `${tag} koma notch should be full-depth for the plain tab`);
       // Cardboard's inner edge is STRAIGHT (`noCrescent`): the crescent is a knife cut hundreds of
       // millimetres long, and drawn from this route's much smaller core radius it takes a bite the
-      // maker rejected on the sheet. A mid koma also cannot pass a bore that narrows toward the ends.
+      // maker rejected on the sheet.
       {
         const inner = ribInnerX(pk), Ri = innerRi(pk);
         for (let y = 0; y <= pk.height; y += pk.height / 40)
@@ -114,33 +110,17 @@ for (const preset of PRESETS)
   for (const height of [140, 205, 300, 400])
     for (const boards of [4, 6, 8, 12, 16])
       for (const matT of [1, 2, 3, 5, 8, 10])
-        for (const pitch of [8, 15, 30])
-          for (const midKoma of [false, true]) {
+        for (const pitch of [8, 15, 30]) {
           n++;
-          // `midKoma` is the cardboard ROUTE's setting, not a field of the design: it reaches the
-          // mold through `paperP`, which is why it is an argument here and not a spread.
           const p = { ...DEFAULTS, ...preset, height, boards, pitch };
-          const tag = `${preset.key} h${height} b${boards} t${matT} pi${pitch} mid${midKoma ? 1 : 0}`;
-          const { parts, pk, clamped, nMax } = paperParts(p, matT, undefined, midKoma);
+          const tag = `${preset.key} h${height} b${boards} t${matT} pi${pitch}`;
+          const { parts, pk, clamped, nMax } = paperParts(p, matT);
           const nRibParts = pk.spiral ? pk.boards : 1; // identical ribs → a single "×N" sheet; spiral → one per rib
-          // The mold and nothing else: one sheet per koma, or a single "×N" when the copies would
-          // spill onto an extra page. The washi panel is its own PDF beside this one in the ZIP, so a
-          // sheet of it appearing here would mean it is printed twice.
+          // The mold and nothing else: koma is 2 sheets, or 1 ("×2") when 2 would spill onto an extra
+          // page. The washi panel is its own PDF beside this one in the ZIP, so a sheet of it
+          // appearing here would mean it is printed twice.
           // + 2 opening hoops, which are on this document on every design (section 8).
-          // The koma count is READ, not assumed to be two: a long mold takes a mid koma as well, and
-          // on cardboard that is another copy of the same outline rather than a second part.
-          const mid = midKomaList(pk);
-          const nKoma = 2 + (mid?.length ?? 0);
-          if (parts.length !== nRibParts + 3 && parts.length !== nRibParts + 2 + nKoma) bad(`${tag}: part count ${parts.length} (koma ${nKoma})`);
-          // The flag alone may not produce one: `midKomaList` refuses a design whose ribs do not
-          // clear the mouth on this route's straight inner edge. Both directions, and the promise
-          // the option makes — every mold that DOES get one still comes apart.
-          if (!midKoma && mid) bad(`${tag}: mid koma off, one placed anyway`);
-          if (mid && !ribPullFit(pk).ok) bad(`${tag}: mid koma placed but the ribs no longer clear the mouth`);
-          if (mid && mid.some((y, i) => y <= 0 || y >= pk.height || (i > 0 && y - mid[i - 1] < 1)))
-            bad(`${tag}: mid koma at ${mid.map((y) => y.toFixed(1)).join(",")} of h${pk.height}`);
-          // And the 3D side is untouched by it: the flag reaches geometry only through `paperP`.
-          if (midKomaList({ ...DEFAULTS, ...preset, height, boards, pitch })) bad(`${tag}: the edited design carries a mid koma`);
+          if (parts.length !== nRibParts + 3 && parts.length !== nRibParts + 4) bad(`${tag}: part count ${parts.length}`);
           if (parts.some((q) => q.name.startsWith("和紙"))) bad(`${tag}: washi panel laid out among the cardboard pages`);
           if (clamped && pk.boards !== nMax) bad(`${tag}: clamp mismatch`);
           for (const q of parts) {
@@ -151,7 +131,7 @@ for (const preset of PRESETS)
           }
           // The template ships as a PDF, but its pages come from the same pageOps; these assertions
           // read paperPagesSVG's markup instead. (The PDF's own structural checks are section 5.)
-          const { svg, pages } = paperPagesSVG(p, matT, undefined, A4, midKoma);
+          const { svg, pages } = paperPagesSVG(p, matT, undefined, A4);
           if (/NaN|Infinity|undefined/.test(svg)) bad(`${tag}: NaN/undefined in the pages`);
           if (pages < 1 || pages > 60) bad(`${tag}: page count ${pages}`);
           if ((svg.match(/class="pg"/g) || []).length !== pages) bad(`${tag}: page count disagrees with the markup`);

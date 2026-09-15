@@ -28,10 +28,10 @@ import type { Design, Route } from "./types.ts";
  * now, but a clip is exactly the thing a preview does not announce: the sheet looks complete and
  * the cut line simply stops at the trim box. This names the part and the overhang.
  */
-export function templateOverflow(p: Design, matT: number, opts: WashiOpts, route: Route, t: T = tid, midKoma = false): Overflow[] {
+export function templateOverflow(p: Design, matT: number, opts: WashiOpts, route: Route, t: T = tid): Overflow[] {
   const out: Overflow[] = [];
-  if (route === "paper") out.push(...layout(paperParts(p, matT, t, midKoma).parts, A4).over);
+  if (route === "paper") out.push(...layout(paperParts(p, matT, t).parts, A4).over);
   // The washi template rides along on BOTH routes, cut for the mold that route actually makes.
-  out.push(...layout(washiParts(route === "paper" ? paperP(p, matT, midKoma) : p, opts, t).parts, A4).over);
+  out.push(...layout(washiParts(route === "paper" ? paperP(p, matT) : p, opts, t).parts, A4).over);
   return out;
 }

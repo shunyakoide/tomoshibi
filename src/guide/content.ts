@@ -12,8 +12,8 @@ import type { NoteSlug } from "../notes/slugs.ts";
 import type { Design } from "../types.ts";
 
 /** One entry in the parts list. `n` is printed only where it is a CONSTANT (see the note below);
- *  `stl` marks a part the cardboard route never makes, `paper` one the 3D route never makes. */
-export type PartRow = { id: string; name: string; n?: number; note?: string; stl?: boolean; paper?: boolean };
+ *  `stl` marks a part the cardboard route never makes. */
+export type PartRow = { id: string; name: string; n?: number; note?: string; stl?: boolean };
 /** One numbered sub-step inside a way of lighting it — sequential, unlike the ways around it. */
 export type SubStep = { id: string; fig: string; title: string; body: string };
 /** One WAY of doing a step: alternatives, not sub-steps. `needs` drops a way this design cannot
@@ -41,11 +41,6 @@ export type KitGroup = { id: string; title: string; items: KitItem[] };
 export const PARTS: PartRow[] = [
   { id: "rib", name: "羽根板", note: "設計した枚数" },
   { id: "koma", name: "コマ", n: 2 },
-  // Cardboard only: the printed mold is stiff enough without one. No `n` either — how many a mold
-  // takes follows from its height, and whether it takes any at all follows from whether its ribs
-  // would still come out, both the design's answers rather than this page's. The note says outright
-  // that it is the same shape, because the figure beside it is the same figure.
-  { id: "komaMid", name: "中間コマ", note: "上下のコマと同じ形 · 胴が長いときだけ", paper: true },
   { id: "column", name: "支柱", n: 2, stl: true },
   { id: "base", name: "土台", n: 1, stl: true },
   { id: "ringBottom", name: "口輪(下)", n: 1 },
@@ -68,9 +63,6 @@ export const STEPS: Step[] = [
   {
     id: "komaOn", title: "もう1枚のコマをかぶせる", fig: "komaOn",
     body: "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1か所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。",
-    // Cardboard only, because only that route makes a mid koma — and it has to go on BEFORE the
-    // second end koma, which is the one thing about it you cannot fix later.
-    paperBody: "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1か所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。中間コマを切ってあるときは、この前に羽根板へ通して中ほどまで下ろしておいてください。",
   },
   {
     // Both routes, since both end up with a hoop at each opening — one printed, one bent from wire on
@@ -103,9 +95,6 @@ export const STEPS: Step[] = [
   {
     id: "pull", title: "型を抜く", fig: "pull",
     body: "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。",
-    // The cardboard half cannot claim the crescent: that route cuts a straight inner edge
-    // (`noCrescent`), which is also what lets a mid koma slide off.
-    paperBody: "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。中間コマを入れた型では、端のコマを外してから羽根板に沿って開口まで滑らせて抜きます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。",
   },
   {
     // Three ways, three SECTIONS — not three steps: they are alternatives, and numbering them
