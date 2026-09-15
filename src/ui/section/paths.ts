@@ -28,16 +28,23 @@ export type SectionSample = {
   tnB: number; tnT: number;
 };
 
-export function sampleSection(p: Design): SectionSample {
+/**
+ * `mold` is the design this route actually MAKES — `paperP`'s on cardboard, `p` itself on the 3D
+ * route — and it is what the rib overlay and the koma radius are drawn from, so the section shows
+ * the part that comes out rather than one this route never cuts. The cardboard rib is a smooth edge
+ * (`paper/mold.ts`), so its surface here carries no notch either; the bamboo still sits at `gs`.
+ */
+export function sampleSection(p: Design, mold: Design = p): SectionSample {
   const H = p.height;
   const gs = grooveList(p);
-  const op = grooveOuterPts(p, gs);
+  // `joint` marks the cardboard mold (types.ts), whose edge is smooth: no grooves asked for.
+  const op = grooveOuterPts(mold, mold.joint ? [] : gs);
   return {
     fr: fukuroRange(p),
     gs,
     op,
     maxR: Math.max(...op.map((q) => q[0])) + 4,
-    komaR: komaR(p),
+    komaR: komaR(mold),
     tnB: cutYbot(p) / H, tnT: cutYtop(p) / H,
   };
 }
@@ -45,7 +52,8 @@ export function sampleSection(p: Design): SectionSample {
 /** One band of the region colour-coding (neck / lamp body), clipped to the silhouette. */
 export type Band = { t0: number; t1: number; fill: string; op?: number };
 
-export function sectionPaths(p: Design, f: SectionFrame, sample: SectionSample, accent: string): {
+export function sectionPaths(p: Design, f: SectionFrame, sample: SectionSample, accent: string,
+  mold: Design = p): {
   d: string; higo: string; ribD: string; bands: Band[];
 } {
   const H = p.height;
@@ -74,8 +82,9 @@ export function sectionPaths(p: Design, f: SectionFrame, sample: SectionSample, 
   // The rib's own cross-section, overlaid on the right side: the exact printed part, in millimetres
   // on both axes (x = radius, y = height).
   const poly2d = (pl: Pt2[]) => "M " + pl.map(([px, py], i) => `${i ? "L " : ""}${X(px).toFixed(1)} ${Ymm(py).toFixed(1)}`).join(" ") + " Z";
-  let ribD = poly2d(ribOutline2D(p));
-  for (const hole of lightenHoles2D(p).holes) ribD += " " + poly2d(hole); // punch out the windows via evenodd
+  let ribD = poly2d(ribOutline2D(mold, 0, { smooth: !!mold.joint }));
+  // `lightenHoles2D` returns none for a cardboard mold, so this draws the windows on one route only.
+  for (const hole of lightenHoles2D(mold).holes) ribD += " " + poly2d(hole); // punch out via evenodd
 
   return { d, higo, ribD, bands };
 }

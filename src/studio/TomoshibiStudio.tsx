@@ -124,12 +124,6 @@ export default function TomoshibiStudio() {
   // cardboard PDF. Clearing on the route, not on the export, because ☰ →はじめかた can switch it too.
   useEffect(() => { setKitNote(null); }, [route]);
 
-  useEffect(() => {
-    const viewChanged = prevView.current !== view;
-    prevView.current = view;
-    buildScene(three.current, { p, view, viewChanged, printRibs, bedW, bedD, route });
-  }, [p, view, printRibs, bedW, bedD, route, three]);
-
   // Ribs to print (1..boards). With spiral winding every rib differs, so all are exported.
   const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
 
@@ -155,6 +149,18 @@ export default function TomoshibiStudio() {
     maxDia, washiG, legsFit, midFit, midN, topOpen, botOpen,
     ribFits, ribLen, washiOpts, moldSrc,
   } = fig;
+
+  // Below the derived figures on purpose: it reads `moldSrc`, so the dependency list has to be able
+  // to name it. Declared any earlier and that list would touch it before it exists.
+  useEffect(() => {
+    const viewChanged = prevView.current !== view;
+    prevView.current = view;
+    // `moldSrc` on the cardboard route, not `p`: the assembly view has to show the mold that route
+    // MAKES — the measured material as the board thickness, the rib count `maxBoards` may have
+    // clamped, the joint sized for board, and a mid koma if the mold takes one. Same reason the
+    // washi readout and the pull-out check read it. On the STL route `moldSrc` IS `p`.
+    buildScene(three.current, { p: moldSrc, view, viewChanged, printRibs, bedW, bedD, route });
+  }, [moldSrc, view, printRibs, bedW, bedD, route, three]);
 
   const isLit = view === "lit";   // lit = a viewing mode: panel hidden, dark background
   const bedRules = route === "stl";   // does a print bed constrain this design at all? (cardboard: never)
@@ -221,7 +227,7 @@ export default function TomoshibiStudio() {
           {/* The section editor, overlaid on the WebGL canvas */}
           {view === "2d" && (
             <SectionEditor p={p} setP={setP} accent={accent} drag={drag} setDrag={setDrag}
-              sel={sel} setSel={setSel} editMode={editMode} compact={narrow} t={t} />
+              sel={sel} setSel={setSel} editMode={editMode} compact={narrow} mold={moldSrc} t={t} />
           )}
           {/* The output is a document, so the preview is one — the template's own pages, over the
               same (empty) canvas the section editor uses. */}
