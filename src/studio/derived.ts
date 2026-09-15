@@ -13,7 +13,7 @@ import { useMemo } from "react";
 import type * as THREE from "three";
 import {
   maxRadius, outerR, standBoardLength,
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit,
+  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit, ribMouthBand,
   washiGore,
 } from "../geometry.ts";
 import { paperFit, paperP, templateOverflow } from "../papercraft.ts";
@@ -103,13 +103,21 @@ export function useFigures(p: Design, m: {
   // the shade, and nothing else notices: every part prints, fits the bed and is watertight. Not a
   // route question — a cardboard mold leaves by the same hole.
   const pull = useMemo(() => ribPullFit(moldSrc), [moldSrc]);
+  // Board left where a rib passes the narrower mouth — cardboard only: on the 3D route the hub is not
+  // sized from the material and this never binds.
+  const mouthBand = route === "paper" ? ribMouthBand(moldSrc) : null;
 
   return {
     maxDia, washiG, legsFit, topOpen, botOpen, overParts,
-    ribFits, ribLen, ribBaseOver, heightLimit, fit, thinWall, washiOpts, moldSrc, pull, overSheet,
+    ribFits, ribLen, ribBaseOver, heightLimit, fit, thinWall, washiOpts, moldSrc, pull, overSheet, mouthBand,
   };
 }
 
+// The flute pitch of ordinary box board (6-8.5mm): under it the strip at the mouth may not hold one
+// whole flute across, which is the point at which "thin" stops being a proportion and becomes a
+// material fact. Under it the rim is at the opening rather than at `innerRi + grip`, so it is the
+// tab's width too and one line covers both.
+const MOUTH_BAND_WARN = 10;
 /**
  * One COLUMN: bed (3D print) and koma wall (cardboard) are gated on opposite routes, but the
  * pull-out warning belongs to both, so stacking is the only arrangement that cannot overprint.
@@ -140,6 +148,24 @@ export function buildAlerts(f: Figures, a: {
     key: "wall",
     head: t("コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです", { wall: f.fit.wall.toFixed(1) }),
     hint: t("→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる"),
+  });
+  // Cardboard: the rib count the template actually cuts, when it is not the one the editor shows.
+  // `maxBoards` still clamps for one reason — the notches meeting at the koma's centre, which is not
+  // buildable at any thickness. Said out loud because the stepper reads the count you asked for.
+  if (f.fit?.clamped) alerts.push({
+    key: "ribs",
+    head: t("羽根板を {n} 枚に減らして型紙にしています", { n: f.fit.nMax }),
+    hint: t("→ 薄い材料にする / 断面図で開口を広げる"),
+  });
+  // Cardboard: how much board a rib still has where it passes the narrower mouth. Thick board fattens
+  // the koma hub, the hub is the rib's inner edge, so the strip at the mouth thins — and it is the
+  // strip that carries the koma. Under one flute pitch it may hold no whole flute across. Reported,
+  // never designed around: the count is the maker's. Below the threshold it IS the tab's width too,
+  // the rim stopping at the opening, so this one line covers both.
+  if (f.mouthBand !== null && f.mouthBand < MOUTH_BAND_WARN) alerts.push({
+    key: "mouth",
+    head: t("開口ぎわの羽根板が {b}mm — 段の間隔より細く、爪もこの幅になります", { b: f.mouthBand.toFixed(1) }),
+    hint: t("→ 薄い材料にする / 羽根板を減らす / 断面図で開口を広げる"),
   });
   // A part wider than the sheet is CLIPPED, not continued: pages split downward only. Loud, because
   // the sheet looks complete — the cut line simply stops at the trim box, and the piece you fold is

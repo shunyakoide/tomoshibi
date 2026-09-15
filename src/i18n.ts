@@ -137,6 +137,10 @@ const EN: Record<string, string> = {
     "No room for leg sockets at this opening (the bottom ring stays a plain hoop). A wider opening will fit them.",
   "{parts} がベッド {w}×{d}mm を超過": "{parts} exceeds the {w}×{d}mm bed",
   "→ 火袋の高さを {h}mm 以下に": "→ Reduce body height to {h}mm or less",
+  "開口ぎわの羽根板が {b}mm — 段の間隔より細く、爪もこの幅になります": "Only {b}mm of board where a rib passes the opening — narrower than one flute, and that is the tab's width too",
+  "→ 薄い材料にする / 羽根板を減らす / 断面図で開口を広げる": "→ use thinner material / fewer ribs / widen the opening in the section view",
+  "羽根板を {n} 枚に減らして型紙にしています": "The template is cut for {n} ribs, not the count in the editor",
+  "→ 薄い材料にする / 断面図で開口を広げる": "→ use thinner material / widen the opening in the section view",
   "コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです": "Only {wall}mm of koma left between notches — thin enough to tear when hand-cut",
   "→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる": "→ Fewer ribs / thinner material / widen the opening in the section view",
   // The rib has to come back out of the shade it shaped, through one of the two openings. This is

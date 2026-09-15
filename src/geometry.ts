@@ -10,7 +10,7 @@
 export {
   bakeBezierHandles, fukuroRange, outerR, maxRadius,
   cutYbot, cutYtop,
-  komaR, maxBoards, innerRi,
+  komaR, maxBoards, innerRi, ribMouthBand,
   tabDented, notchR,
 } from "./geometry/profile.ts";
 // (TAB_DENT_W / tabDentH stay internal: rib.ts imports them from profile.ts directly. The surface here was
@@ -22,7 +22,7 @@ export {
 export { grooveOuterPts, grooveR, grooveList, higoSpiralPath, higoSeat } from "./geometry/groove.ts";
 
 // ---- Parts ----
-export { ribOutline2D, ribPullFit, lightenHoles2D, ribGeometry } from "./geometry/rib.ts";
+export { ribOutline2D, ribInnerX, ribPullFit, lightenHoles2D, ribGeometry } from "./geometry/rib.ts";
 export { komaShape, komaGeometry } from "./geometry/koma.ts";
 export { openingR, ringGeometry, ringLegs, ringLegsFit, wireRing2D, wireRingGeometry } from "./geometry/ring.ts";
 export {
