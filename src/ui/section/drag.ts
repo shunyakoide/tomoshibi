@@ -127,7 +127,7 @@ export function sectionDrag(ctx: {
       const c = f.toSvg(ev.clientX, ev.clientY);
       setP((o) => {
         const pts = o.pts.map((q) => ({ ...q }));
-        pts[i].r = clampR(start.r + (c.x - s0.x) / f.s);
+        pts[i].r = clampR(start.r + (c.x - s0.x) / f.s, i === 0 || i === pts.length - 1);
         pts[i].t = clamp(...tBounds(pts, i, o.height), start.t + (s0.y - c.y) / (H * f.s));
         return { ...o, pts };
       });

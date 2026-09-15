@@ -16,7 +16,8 @@ globalThis.localStorage = {
 
 const P = await import("../src/studio/persist.ts");
 const G = await import("../src/geometry.ts");
-const { DEFAULTS, LIMITS, T_GAP, NECK_MIN } = await import("../src/config.ts");
+const { DEFAULTS, LIMITS, T_GAP, NECK_MIN, OPENING_MIN } = await import("../src/config.ts");
+const { FRESH } = P;
 type SavedState = import("../src/studio/persist.ts").SavedState;
 
 // Most of what goes in below is deliberately NOT a valid SavedState. The casts live here rather
@@ -114,11 +115,17 @@ t("pre-flag save → sockets off", r.p.legSockets === false && G.ringLegs(r.p) =
 t("pre-flag save → watertight", manifoldOK(r.p) === true);
 
 // A tiny opening has no room for pads; the ring must fall back to a hoop rather than fold up, and
-// say so through ringLegsFit rather than by silently producing a different part.
-save({ p: { ...DEFAULTS, pts: [{ t: 0.05, r: 10 }, { t: 0.5, r: 40 }, { t: 0.95, r: 10 }] },
-  bedW: 256, bedD: 256, printRibs: 1 });
+// say so through ringLegsFit rather than by silently producing a different part. Asked of the
+// GEOMETRY directly: since `OPENING_MIN` a saved file's openings are floored to 26mm, where the pads
+// do fit, so a round trip can no longer deliver a design this small — the guard still has to hold
+// for the geometry, which `check:manifold` also sweeps below the editor's floor.
+const tiny = { ...DEFAULTS, legSockets: true, pts: [{ t: 0.05, r: 10 }, { t: 0.5, r: 40 }, { t: 0.95, r: 10 }] };
+t("opening too small → no sockets", G.ringLegs(tiny) === null && G.ringLegsFit(tiny) === false);
+// And through persist, which is where the floor now acts: the same file comes back with openings it
+// CAN hang pads on, and the ring says so — the flag having asked for them.
+save({ p: tiny, bedW: 256, bedD: 256, printRibs: 1 });
 r = load();
-t("opening too small → no sockets", G.ringLegs(r.p) === null && G.ringLegsFit(r.p) === false);
+t("saved tiny opening → floored, and the pads then fit", G.ringLegsFit(r.p) === true && G.ringLegs(r.p) !== null);
 t("opening too small → still watertight", manifoldOK(r.p) === true);
 
 save({ p: { ...DEFAULTS, height: 333 }, bedW: 256, bedD: 256, printRibs: 3 });
@@ -177,6 +184,24 @@ t("1e-9 gap → watertight", manifoldOK(r.p) === true);
 // stand's slot spacing from a number nothing on screen can show.
 save({ p: { ...DEFAULTS, tabLen: 25 }, bedW: 256, bedD: 256, printRibs: 1 });
 t("tabLen 25 → DEFAULTS.tabLen", load().p.tabLen === DEFAULTS.tabLen);
+
+// ---- the opening floor ----
+// `OPENING_MIN` applies to the two ENDS only: they ARE the openings, and the mouth is what the rib
+// has left to be there. An interior point may still pinch to `LIMITS.r[0]`, which is a geometric
+// wall rather than a taste, and a waisted body needs it.
+save({ p: { ...DEFAULTS, pts: [{ t: 0.075, r: 9 }, { t: 0.5, r: 9 }, { t: 0.925, r: 9 }] }, bedW: 256, bedD: 256, printRibs: 1 });
+r = load();
+t(`opening floor → both ends at or above ${OPENING_MIN}mm`,
+  r.p.pts[0].r >= OPENING_MIN - 1e-6 && r.p.pts[r.p.pts.length - 1].r >= OPENING_MIN - 1e-6);
+t("opening floor → an interior point is left alone", Math.abs(r.p.pts[1].r - 9) < 1e-6);
+t("opening floor → watertight", manifoldOK(r.p) === true);
+// A design already above it is not touched. Spelled out rather than reusing DEFAULTS, whose own top
+// opening sits under the floor and is raised by it.
+const wideMouth = { ...DEFAULTS, pts: DEFAULTS.pts.map((q, i) => ({ ...q, r: i === DEFAULTS.pts.length - 1 ? 30 : q.r })) };
+save({ p: wideMouth, bedW: 256, bedD: 256, printRibs: 1 });
+r = load();
+t("opening floor → a design above it keeps its radii",
+  r.p.pts.every((q, i) => Math.abs(q.r - wideMouth.pts[i].r) < 1e-6));
 
 // ---- the neck floor ----
 // `NECK_MIN` is millimetres of a body whose control points are fractions, so a file can sit under
@@ -262,7 +287,7 @@ t("JSON round-trip: watertight", manifoldOK(roundTrip.p) === true);
 
 // Even a ZIP config.json equivalent (only {schemaVersion, p, bedW, bedD}) has missing fields filled by DEFAULTS.
 const fromZipCfg = parse(JSON.stringify({ schemaVersion: 1, p: { ...DEFAULTS }, bedW: 256, bedD: 256 }));
-t("ZIP config load: missing printRibs/matT filled with defaults", fromZipCfg && fromZipCfg.printRibs === 1 && fromZipCfg.matT === 5);
+t("ZIP config load: missing printRibs/matT filled with defaults", fromZipCfg && fromZipCfg.printRibs === 1 && fromZipCfg.matT === FRESH.matT);
 t("ZIP config load: watertight", manifoldOK(fromZipCfg.p) === true);
 
 // ---- build route (3D print / cardboard) ----
