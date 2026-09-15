@@ -19,7 +19,7 @@
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
 import { winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
-import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
+import { komaR, tabDented, innerRi, notchR, ribInnerX, ribMouthBand, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
 import type { Design } from "../src/types.ts";
 
@@ -53,11 +53,41 @@ for (const preset of PRESETS)
       // full-depth notch.
       if (tabDented(pk)) bad(`${tag} papercraft should have no tab dent (noTabDent)`);
       eq(notchR(pk), innerRi(pk) - 0.5, `${tag} koma notch should be full-depth for the plain tab`);
+      // Cardboard's inner edge is STRAIGHT (`noCrescent`): the crescent is a knife cut hundreds of
+      // millimetres long, and drawn from this route's much smaller core radius it takes a bite the
+      // maker rejected on the sheet.
+      {
+        const inner = ribInnerX(pk), Ri = innerRi(pk);
+        for (let y = 0; y <= pk.height; y += pk.height / 40)
+          eq(inner(y), Ri, `${tag} rib inner edge should be straight at y=${y.toFixed(0)}`);
+      }
       // The wall left between the koma's notches; under half the material thickness it tears when
       // hand-cut. It is a viewport alert rather than a note on the printed page, so what has to hold
       // is that the number the alert quotes is real: paperFit against the formula, and against the
       // copy paperParts hands the template.
       const wall = (2 * Math.PI * notchR(pk)) / pk.boards - matT;
+      // The joint is sized for BOARD (see `Design.joint`): the wall between two notches is the
+      // material's own thickness, and the tab still sits `grip` deep in the notch. The two stopped
+      // trading when the koma's rim was let outside the opening, so BOTH have to hold — a wall that
+      // came back at the old 1.6mm would mean the rim got pinned to the opening again. The one
+      // exception is the cap: past it there is no plate left at the opening to hang a tab on, and
+      // then the wall gives rather than the rib.
+      // The narrower of the two MOUTHS — the ends, which is what `openMin` reads and therefore what
+      // the joint is measured against. Not the smallest control point: a waisted body pinches in the
+      // middle, and the middle is not a hole anything leaves by.
+      const mouth = Math.min(outerR(pk, 0), outerR(pk, 1));
+      const capped = innerRi(pk) >= Math.max(6, mouth - 2) - 0.01;
+      if (!capped && wall < matT - 0.01) bad(`${tag} koma wall ${wall.toFixed(2)} thinner than the ${matT}mm board`);
+      // The board a rib still has where it passes the narrower mouth. It is REPORTED, never clamped —
+      // the count is the maker's — so what is pinned here is that the number the alert quotes is the
+      // real one. Getting that identity wrong is how the alert would start describing a different
+      // mold than the sheet.
+      eq(ribMouthBand(pk), mouth - innerRi(pk), `${tag} ribMouthBand`);
+      // The rim never passes the opening — the maker kept the mouth over the tab's width — so the tab
+      // is `min(grip, band)` and its edge runs straight on into the neck with no step to snap off.
+      if (komaR(pk) - mouth > 0.01) bad(`${tag} koma stands ${(komaR(pk) - mouth).toFixed(2)}mm proud of the mouth`);
+      const tabW = komaR(pk) - innerRi(pk);
+      if (tabW < Math.min(20, ribMouthBand(pk)) - 0.01) bad(`${tag} tab ${tabW.toFixed(2)}mm under min(20, band)`);
       const fit = paperFit(p, matT);
       eq(fit.wall, wall, `${tag} paperFit wall`);
       eq(fit.thin, matT / 2, `${tag} paperFit thin threshold`);

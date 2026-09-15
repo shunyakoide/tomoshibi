@@ -21,6 +21,12 @@ const RIB_CURVE_HW = 0.3; // curve half-width (t). Applies only to the middle 60
 const RIB_CURVE_D = 0.3;  // scoop amount = the center rib depth × this (the real mold is about 20%; slightly deeper, prioritizing ease of removal)
 export function ribInnerX(p: Design): (y: number) => number {
   const h = p.height, Ri = innerRi(p);
+  // Cardboard has no crescent (`noCrescent`): the curve is cut by hand, and it is drawn from a core
+  // radius the board joint puts much closer to the axis, so the same ratio bites far deeper here.
+  // A mid koma needs this edge as well — it is taken back out by sliding along the ribs and off the
+  // end, which a bore that narrows toward the ends blocks. The rib pays for it at the mouth, and
+  // `ribPullFit` is what reports that, for this straight edge, in the app's own alert.
+  if (p.noCrescent) return () => Ri;
   const W = Math.max(RIB_MIN_BAND, effBoardWidth(p)); // band width to keep
   const bump = (t: number) => {
     const u = (t - RIB_CURVE_C) / RIB_CURVE_HW;
@@ -89,7 +95,8 @@ export function ribOutline2D(p: Design, k = 0, opts: { smooth?: boolean } = {}):
   pts.push([kR, h], [kR, h + tl]);
   if (dent) pts.push([Ri + TAB_DENT_W, h + tl], [Ri + TAB_DENT_W, h + tl - dh], [Ri, h + tl - dh]);
   else pts.push([Ri, h + tl]);
-  // Inner edge: the crescent curve, top to bottom. Both ends return to Ri, so it meets the tabs.
+  // Inner edge, top to bottom: the crescent, or a straight run at Ri on cardboard. Both ends return
+  // to Ri either way, so it meets the tabs.
   const innerX = ribInnerX(p);
   pts.push([Ri, h]);
   for (let y = h - STEP; y > 0; y -= STEP) pts.push([innerX(y), y]);
@@ -105,6 +112,10 @@ const Y_STAGGER = 0.13; // amount (mm) to offset the window's y-ends off the out
 // the old constant band left 0.2mm on the steepest shape the app allowed.
 const BAND_SOLID = 3;
 export function lightenHoles2D(p: Design): { holes: Pt2[][] } {
+  // [Cardboard] No windows: a lightened rib in board is a row of bridges to cut by hand for stiffness
+  // the board does not have to spare. Said HERE rather than at each caller, so the template, the
+  // section drawing and the 3D preview cannot disagree about it.
+  if (p.joint) return { holes: [] };
   const h = p.height, td = tabDepth(p);
   const spineW = Math.max(9, td + 3), bandW = 11, strut = 8, MIN_MAT = 12;
   const oS = (y: number) => outerR(p, Math.min(Math.max(y, 0), h) / h); // smooth outer edge

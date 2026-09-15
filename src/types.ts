@@ -18,10 +18,12 @@ export type Pt = { t: number; r: number; sharp?: boolean; ho?: Handle; hi?: Hand
 export type Pt2 = [number, number];
 
 /**
- * The design — the object called `p` everywhere here. The one optional field is not a setting: it is
- * the way a design reaches geometry without coming from the editor.
- *   `noTabDent`— set by the papercraft, which trades the koma stop for tab strength on cardboard.
- *                Never set by the app's own state.
+ * The design — the object called `p` everywhere here. The optional fields are not settings: they are
+ * the way the CARDBOARD route reaches geometry without coming from the editor. `paperP` sets every
+ * one of them, and nothing else may.
+ *   `noTabDent` — trades the koma stop for tab strength on cardboard.
+ *   `noCrescent`— leaves the rib's inner edge straight, because board is cut by hand.
+ *   `joint`     — sizes the koma/tab joint for board rather than for plastic.
  *
  * There was a second, `neckOn` — the single neck flag that neckBot/neckTop replaced, read as
  * `p.neckBot ?? p.neckOn ?? true`. That fallback could not fire: `sanitizeP` spreads `DEFAULTS`
@@ -67,6 +69,22 @@ export type Design = {
   legSockets: boolean;
   /** Papercraft only: force a plain tab + full-depth notch (cardboard tears at the dent). */
   noTabDent?: boolean;
+  /** Papercraft only: leave the rib's inner edge straight at `innerRi` instead of hollowing the
+   *  crescent. Set by `paperP`. The crescent is a shallow curve several hundred millimetres long,
+   *  which a printer traces exactly and a hand with a knife does not; and it is drawn from the core
+   *  radius, which the cardboard joint puts far closer to the axis, so the same 30% ratio scoops out
+   *  a far deeper bite here than on the printed rib. It buys clearance at the mouth, and the app
+   *  already alerts on the mouth (`ribPullFit`) for the straight edge it now gets. */
+  noCrescent?: boolean;
+  /** Papercraft only: size the koma joint from the WALL the material needs rather than from the
+   *  opening — `wall` is the least material left between two notches, `grip` how far the tab sits
+   *  inside one. Set by `paperP`. On a 3D print 1.6mm of PLA between two notches holds; the same
+   *  1.6mm of board, cut across the flutes, is two liners and the air between them, and the joint
+   *  is the first thing in a cardboard mold to fail. The wall is bought with the notch bottom
+   *  (`innerRi`), which is why it costs the rim nothing; `grip` is a REQUEST — `komaR` stops the rim
+   *  at the opening, so on a mouth too narrow for it the tab takes the whole band instead. Its
+   *  presence is also what marks a design as the cardboard route's inside `geometry/`. */
+  joint?: { wall: number; grip: number };
 };
 
 /** Which way this maker builds: 3D-printed STL parts, or a full-scale paper template. */

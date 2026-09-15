@@ -192,7 +192,18 @@ export function komaR(p: Design): number {
   // Measured from the smaller control-point radius (openMin), independent of the neck; with no neck
   // this kR IS the opening. Its basis is the legacy inner end `nominalRi`, so deepening the tab tip
   // toward the center (lowering innerRi) does not move komaR = the stand dimensions.
-  return Math.min(nominalRi(p) + tabDepth(p) + 3, openMin(p));
+  const kR = Math.min(nominalRi(p) + tabDepth(p) + 3, openMin(p));
+  // [Cardboard] The rim takes `grip` of tab but NEVER passes the opening. Three things cannot hold at
+  // once — a wide tab, no step at the neck, and the mouth the maker drew — because the mouth's radius
+  // minus the hub (`innerRi`) is all the board there is for a tab to be: 26 − 6 = 20mm on the default
+  // egg in 2mm board, and 12.8mm of it in 5mm board, the hub fattening as the material does. Put to
+  // the maker as those three, they kept the mouth and gave up the width. So the tab is
+  // `min(grip, band)` and its outer edge runs straight on into the neck. Letting the rim past the
+  // opening does work — the koma leaves by the END of the mold and never passes a mouth — and it was
+  // shipped for exactly one round; it is the LOOK of the step that is refused, not the mechanics.
+  // None of this touches the wall between two notches: that is bought with the notch bottom
+  // (`innerRi`), never with the rim.
+  return p.joint ? Math.min(openMin(p), Math.max(kR, innerRi(p) + p.joint.grip)) : kR;
 }
 // The radial depth of the tab (the rib's insertion part) = the koma's notch depth, measured from the
 // control point (openMin).
@@ -234,10 +245,17 @@ const MIN_WALL = 1.6;
 function notchWidth(p: Design): number { return p.boardT + Math.max(0, p.fit ?? 0); }
 // Center-side limit when deepening. Evaluated at notch bottom radius notchR=Ri-0.5:
 //   notchR*(2π/boards) - notchW ≥ MIN_WALL  →  notchR ≥ (MIN_WALL+notchW)*boards/2π.
+// The wall this design asks the koma to keep between two notches (mm). `MIN_WALL` is the floor for
+// everything; the cardboard route asks for more through `p.joint` (see types.ts).
+function jointWall(p: Design): number { return Math.max(MIN_WALL, p.joint?.wall ?? 0); }
 function ribCoreFloor(p: Design): number {
-  const rNotchMin = (MIN_WALL + notchWidth(p)) * p.boards / (2 * Math.PI);
+  const rNotchMin = (jointWall(p) + notchWidth(p)) * p.boards / (2 * Math.PI);
   return Math.max(6, rNotchMin + 0.5);
 }
+// How far in the tab's inner end may go before the plate has nothing left at the opening: the rib's
+// band there runs `Ri..outerR`, so a tab tip past the opening leaves no plate to hang it on. This is
+// what caps the joint — growth has to go OUTWARD, into a bigger rim, not further toward the axis.
+function jointCap(p: Design): number { return Math.max(6, openMin(p) - 2); }
 // The rib-count ceiling: the most boards whose koma notch walls still clear `MIN_WALL` at this
 // opening / board thickness / tolerance (wall = 2π·r/boards − notchW). Without it a small opening
 // plus a thick board plus many boards overlaps the notches near the centre and the koma comes out
@@ -245,14 +263,29 @@ function ribCoreFloor(p: Design): number {
 // notch bottom (`notchR()` = `innerRi + TAB_DENT_W - 0.5` when the tab is dented) because the bound
 // must not depend on `boards`; `nominalRi` does not, so this is a monotone upper bound.
 export function maxBoards(p: Design): number {
-  const notchR = nominalRi(p) - 0.5;
-  return Math.max(4, Math.floor((2 * Math.PI * notchR) / (MIN_WALL + notchWidth(p))));
+  // With a `joint` the wall is kept by growing the koma rather than by capping the count, so what
+  // bounds the count is `jointCap` — the point past which the plate at the opening runs out.
+  const notchR = (p.joint ? jointCap(p) : nominalRi(p)) - 0.5;
+  return Math.max(4, Math.floor((2 * Math.PI * notchR) / (jointWall(p) + notchWidth(p))));
 }
+// [Cardboard] The rib count is NOT reduced for a thin band at the mouth. Thick board fattens the
+// koma hub, the hub IS the rib's inner edge, and so the board left where a rib passes the narrower
+// mouth (`ribMouthBand`) is what the count spends: at 5mm and 8 ribs it is 5.8mm, under one flute
+// pitch. That was briefly a second bound here, and it silently cut a design from 8 ribs to 6 — the
+// count is the maker's, and this is a thing to REPORT, not to decide for them (`derived.ts` raises
+// it, the way the pull-out is raised). Only the notches meeting at the hub's centre, above, is a
+// clamp: that one is not buildable at any count.
+export function ribMouthBand(p: Design): number { return openMin(p) - innerRi(p); }
 // The actual tab tip / notch bottom: deeper toward the center than nominalRi by TAB_DEEPEN, floored
 // at ribCoreFloor and capped at nominalRi (never shallower; with many teeth, floor > nominalRi, so
 // it is simply not deepened). ribOutline2D (tab) and komaShape (notch bottom) call this same value,
 // so the meshing always matches — this is the aggregation point of that invariant.
 export function innerRi(p: Design): number {
+  // With a `joint` the tab tip is the wall's own answer — the least radius whose notches still leave
+  // `wall` between them — held back only by the plate needing to exist at the opening. `nominalRi`
+  // does not cap it: that number is the opening's, and the whole point here is to stop the opening
+  // deciding the joint.
+  if (p.joint) return Math.min(ribCoreFloor(p), jointCap(p));
   const nom = nominalRi(p);
   return Math.min(nom, Math.max(ribCoreFloor(p), nom - TAB_DEEPEN));
 }
