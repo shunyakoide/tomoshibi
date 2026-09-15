@@ -24,8 +24,9 @@ import type { Design, Route } from "./types.ts";
  * A function rather than a re-export because it spans both documents, and `mold` and `skin` are
  * siblings that must not import each other. It exists at all because the overhang is otherwise
  * invisible: `layout` splits pages downward only, so a part wider than the content column is
- * clipped away with no seam, no extra sheet and nothing on screen — and the washi template has no
- * preview, so its panel can come out short with nothing to look at first.
+ * clipped away with no seam, no extra sheet and nothing on screen. Both documents are previewed
+ * now, but a clip is exactly the thing a preview does not announce: the sheet looks complete and
+ * the cut line simply stops at the trim box. This names the part and the overhang.
  */
 export function templateOverflow(p: Design, matT: number, opts: WashiOpts, route: Route, t: T = tid, midKoma = false): Overflow[] {
   const out: Overflow[] = [];
