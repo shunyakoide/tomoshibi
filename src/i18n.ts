@@ -79,7 +79,9 @@ const EN: Record<string, string> = {
   "この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます":
     "Up to {n} ribs at this opening/thickness (koma notches would overlap). Thinner boards allow more.",
   // ---- Paper template (cardboard) ----
-  "型紙プレビュー · 全 {n} ページ": "Template preview · {n} pages",
+  "型紙プレビュー · 段ボール {n} ページ + 和紙 {w} ページ": "Template preview · {n} cardboard pages + {w} washi pages",
+  "和紙の型紙": "Washi template",
+  "羽根板・コマ・口輪": "ribs, koma, opening hoops",
   "画面上は原寸ではありません。PDF をダウンロードして原寸で印刷してください。":
     "Not to scale on screen — download the PDF and print it at 100%.",
   "型紙(段ボール)": "Paper template",

@@ -103,7 +103,8 @@ export function useFigures(p: Design, m: {
   const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
   // Parts of the templates this route ships that are wider than A4's content column. The layout
   // clips them away rather than continuing them sideways, so without this nobody finds out until
-  // they hold the sheet — and the washi template has no preview to look at first.
+  // they hold the sheet: a clip is the one fault a preview does not announce, the sheet looking
+  // complete and the cut line simply stopping at the trim box.
   const overSheet = useMemo(() => templateOverflow(p, matT, washiOpts, route, t, midKoma), [p, matT, washiOpts, route, t, midKoma]);
   // Can the ribs still come out once the paste has dried? A deep body on a small mouth traps them in
   // the shade, and nothing else notices: every part prints, fits the bed and is watertight. Not a

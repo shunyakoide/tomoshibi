@@ -35,10 +35,11 @@ export function washiPDF(p: Design, opts: WashiOpts = {}, page = A4, t: T = tid)
 }
 
 /**
- * The same sheets `washiPDF` writes, as SVG. **Nothing in the app draws these** — the washi template
- * has no preview; what keeps it here is `check:paper` section 6, comparing the hand-rolled PDF
- * against it path by path, markup being the encoding you can assert on. The very same `pagesSVG` as
- * every other sheet: the moment it is a second drawing, the comparison is worthless.
+ * The same sheets `washiPDF` writes, as SVG. Two callers, and they want the same thing of it:
+ * `check:paper` section 6 compares the hand-rolled PDF against this markup path by path (markup
+ * being the encoding you can assert on), and the print view draws it beside the cardboard template
+ * (`ui/PagePreview.tsx`). The very same `pagesSVG` as every other sheet — the moment it is a second
+ * drawing, both the comparison and the preview are worthless.
  */
 export function washiPagesSVG(p: Design, opts: WashiOpts = {}, t: T = tid, page: Page & { name?: string } = A4) {
   const { parts } = washiParts(p, opts, t);
