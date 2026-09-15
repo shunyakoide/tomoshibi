@@ -3,7 +3,7 @@
  * tabs. Two branches in one file, because the branch IS the section: what each route needs of the
  * maker has nothing in common.
  */
-import { Stepper, NumInput, SectionLabel, Note } from "../controls.tsx";
+import { Checkbox, Stepper, NumInput, SectionLabel, Note } from "../controls.tsx";
 import { useT } from "../theme.ts";
 import type { Design, Route } from "../../types.ts";
 
@@ -52,8 +52,13 @@ function BedGroup({ bedW, bedD, setBedW, setBedD, spiral, boards, nRibs, setPrin
   );
 }
 
-/** Cardboard: the A4 full-scale template. Only the material thickness lives here. */
-function BoardGroup({ matT, setMatT }: { matT: number; setMatT: (v: number) => void }) {
+/** Cardboard: the A4 full-scale template — the material it is cut from, and whether the mold takes a
+ *  koma partway up. Both are facts about THIS route: the 3D-printed mold is a stiffer thing and takes
+ *  neither, which is why they live here and not in 骨組み beside the rib count. */
+function BoardGroup({ matT, setMatT, midKoma, setMidKoma, midFit, midN }: {
+  matT: number; setMatT: (v: number) => void;
+  midKoma: boolean; setMidKoma: (v: boolean) => void; midFit: boolean; midN: number;
+}) {
   const t = useT();
   return (
     <>
@@ -64,6 +69,17 @@ function BoardGroup({ matT, setMatT }: { matT: number; setMatT: (v: number) => v
       <Stepper label="材料の厚み" value={matT} min={1} max={10} step={0.5} onChange={setMatT}>
         {matT} mm
       </Stepper>
+      {/* A checkbox, never dimensions: how many koma follows from the height. */}
+      <Checkbox checked={midKoma} label="中間コマ" onToggle={() => setMidKoma(!midKoma)} />
+      {/* Said HERE rather than on the sheet: a koma that silently is not there is something you find
+          out with the mold in your hand. */}
+      <div className="text-sm leading-[1.5] text-faint pt-2 pb-4">
+        {midKoma
+          ? (midFit
+            ? t("この高さでは {n} 枚。端のコマを外し、羽根板に沿って滑らせて抜きます", { n: midN })
+            : t("この形では中間コマを入れると羽根板が開口から抜けません。開口を広げるか胴を細くすると入ります"))
+          : t("胴が長いと、両端のコマだけでは中ほどが支えられません")}
+      </div>
       {/* Counterpart to the 3D route's bed warning: on paper there is no machine size to exceed, and
           saying nothing would read as a missing check. */}
       <Note>{t("A4 に収まらない部品は次のページに続きます(両方を青い枠で切り、同じ番号の半ダイヤが◇になるよう突き合わせて裏からテープ)。続くのは縦方向だけです。")}</Note>
@@ -71,10 +87,12 @@ function BoardGroup({ matT, setMatT }: { matT: number; setMatT: (v: number) => v
   );
 }
 
-export default function ExportSection({ route, p, nRibs, bedW, bedD, setBedW, setBedD, setPrintRibs, matT, setMatT }: {
+export default function ExportSection({ route, p, nRibs, bedW, bedD, setBedW, setBedD, setPrintRibs,
+  matT, setMatT, midKoma, setMidKoma, midFit, midN }: {
   route: Route; p: Design; nRibs: number;
   bedW: number; bedD: number; setBedW: (v: number) => void; setBedD: (v: number) => void;
   setPrintRibs: (v: number) => void; matT: number; setMatT: (v: number) => void;
+  midKoma: boolean; setMidKoma: (v: boolean) => void; midFit: boolean; midN: number;
 }) {
   return (
     <div className="border-t border-edge pt-16 mt-4">
@@ -84,7 +102,8 @@ export default function ExportSection({ route, p, nRibs, bedW, bedD, setBedW, se
       {route === "stl"
         ? <BedGroup bedW={bedW} bedD={bedD} setBedW={setBedW} setBedD={setBedD}
             spiral={!!p.spiral} boards={p.boards} nRibs={nRibs} setPrintRibs={setPrintRibs} />
-        : <BoardGroup matT={matT} setMatT={setMatT} />}
+        : <BoardGroup matT={matT} setMatT={setMatT} midKoma={midKoma} setMidKoma={setMidKoma}
+            midFit={midFit} midN={midN} />}
     </div>
   );
 }

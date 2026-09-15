@@ -16,6 +16,7 @@ globalThis.localStorage = {
 
 const P = await import("../src/studio/persist.ts");
 const G = await import("../src/geometry.ts");
+const { paperP } = await import("../src/papercraft.ts");
 const { DEFAULTS, LIMITS, T_GAP, NECK_MIN, OPENING_MIN } = await import("../src/config.ts");
 const { FRESH } = P;
 type SavedState = import("../src/studio/persist.ts").SavedState;
@@ -103,6 +104,31 @@ r = load();
 t("legSockets on preserved", r.p.legSockets === true);
 t("legSockets on → sockets cut", G.ringLegs(r.p) !== null);
 t("legSockets on → watertight", manifoldOK(r.p) === true);
+
+// ---- the mid koma (a CARDBOARD ROUTE setting, beside the material thickness) ----
+// Not a field of the design, and that is the whole point: it straightens the rib's inner edge, which
+// the 3D-printed mold must never have done to it. So it round-trips like `matT`, and a design that
+// somehow carries the flag must not keep it — geometry may only ever see it through `paperP`.
+save({ p: DEFAULTS, bedW: 256, bedD: 256, printRibs: 1, midKoma: true, route: "paper" });
+r = load();
+t("midKoma on preserved", r.midKoma === true);
+t("midKoma on → the design itself stays clean", G.midKomaList(r.p) === null);
+t("midKoma on → the cardboard mold takes one", (G.midKomaList(paperP(r.p, 5, true)) || []).length >= 1);
+t("midKoma on → watertight", manifoldOK(r.p) === true);
+
+save({ p: DEFAULTS, bedW: 256, bedD: 256, printRibs: 1, midKoma: false, route: "paper" });
+r = load();
+t("midKoma off preserved", r.midKoma === false);
+t("midKoma off → no koma placed", G.midKomaList(paperP(r.p, 5, false)) === null);
+
+save({ p: DEFAULTS, bedW: 256, bedD: 256, printRibs: 1, midKoma: "yes" });
+r = load();
+t("non-boolean midKoma → the FRESH answer", r.midKoma === FRESH.midKoma);
+
+// A save from before the setting existed carries no key, so it comes back off.
+save({ p: DEFAULTS, bedW: 256, bedD: 256, printRibs: 1 });
+r = load();
+t("pre-setting save → mid koma off", r.midKoma === false);
 
 // A save from before the flag existed carries no key, so it comes back as DEFAULTS says: OFF, the
 // same reading `ringLegs` gives a missing flag. Absent must mean off in the sanitizer and in the
