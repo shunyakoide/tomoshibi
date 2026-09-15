@@ -47,21 +47,30 @@ function frame(s: ViewportState, contentH: number, contentR: number, centerY: nu
   s.setOrbit({ dist: s.baseDist, lookY: centerY });
 }
 
-// The bamboo seats on a CARDBOARD rib, as the dashed marks the A4 sheet prints (`seatTicks2D`) and
-// not as a notch: that route cuts none, and drawing one here would show a mold nobody will hold —
-// the same reason the lightening windows are left out below. One copy just clear of each face, so
-// the mark is there whichever side of a rib is turned toward you. The material is module-level and
-// shared: `buildScene` disposes geometries on rebuild, never materials.
-const TICK_MAT = new THREE.LineDashedMaterial({ color: 0x6b6156, dashSize: 2.2, gapSize: 1.6, opacity: 0.9, transparent: true });
-function seatTickLines(p: Design, k: number): THREE.LineSegments {
+// The bamboo seats on a CARDBOARD rib, as the marks the A4 sheet prints (`seatTicks2D`) and not as a
+// notch: that route cuts none, and drawing one here would show a mold nobody will hold — the same
+// reason the lightening windows are left out below.
+//
+// Drawn as thin QUADS rather than as lines. A `LineSegments` is one device pixel wide whatever the
+// zoom — WebGL ignores `linewidth` almost everywhere — so the marks thinned to invisibility on the
+// very view they exist for. A quad is `TICK_W` of real millimetres and reads at any distance. Solid,
+// for the same reason the section's are: the SHEET dashes its ticks because a blade follows the
+// lines beside them, and nothing here is cut. One copy just clear of each face, so the mark is there
+// whichever side of a rib is turned toward you, and `depthWrite` off so two coplanar marks on a
+// neighbouring rib cannot fight. The material is module-level and shared: `buildScene` disposes
+// geometries on rebuild, never materials.
+const TICK_W = 0.9;                 // mm — the drawn width of a seat mark. Not a dimension: the tick is 5mm LONG (SEAT_TICK) and that is the part the maker measures.
+const TICK_MAT = new THREE.MeshBasicMaterial({ color: 0x7d6c56, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
+function seatTickLines(p: Design, k: number): THREE.Mesh {
   const v: number[] = [];
   for (const z of [p.boardT / 2 + 0.05, -(p.boardT / 2 + 0.05)])
-    for (const [x0, y0, x1, y1] of seatTicks2D(p, k)) v.push(x0, y0, z, x1, y1, z);
+    for (const [x0, y0, x1] of seatTicks2D(p, k)) {   // horizontal, so the mark's own y1 is y0
+      const a = y0 - TICK_W / 2, b = y0 + TICK_W / 2;
+      v.push(x0, a, z, x1, a, z, x1, b, z, x0, a, z, x1, b, z, x0, b, z);
+    }
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
-  const ls = new THREE.LineSegments(g, TICK_MAT);
-  ls.computeLineDistances();           // LineDashedMaterial draws nothing without this
-  return ls;
+  return new THREE.Mesh(g, TICK_MAT);
 }
 
 /** The assembled mold. `smooth` is the CARDBOARD route: that template cuts no grooves and opens no
