@@ -85,7 +85,7 @@ const EN: Record<string, string> = {
   "画面上は原寸ではありません。PDF をダウンロードして原寸で印刷してください。":
     "Not to scale on screen — download the PDF and print it at 100%.",
   "型紙(段ボール)": "Paper template",
-  "A4 原寸 · beta": "A4 1:1 · beta",
+  "A4 原寸": "A4 1:1",
   "この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。":
     "This output is still in development. Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Measure your material's real thickness, and check the printed 50 mm scale bar with a ruler.",
   "材料の厚み": "Material thickness",
@@ -100,9 +100,13 @@ const EN: Record<string, string> = {
   // Printed on every sheet, in both languages, so keep both SHORT: the note shares its band with
   // the right-aligned footer.
   "← 定規で確認": "<- check with a ruler",
-  // The line under an opening hoop's name. Every other line on that sheet is a cut line or a hint
-  // beside one, so the one part nobody cuts has to say so. Short in BOTH languages: it is set inside
-  // a hoop that can be as small as ⌀22 at the LIMITS floor.
+  // The line under an opening hoop's name, and the only `note` left — every other line on that sheet
+  // is a cut line or a hint beside one, so the one part nobody cuts has to say so, and it says it ON
+  // the line it is about. Short in BOTH languages because it is set INSIDE the hoop: `check:paper`
+  // measures it against the chord at its own height and the English has about 5mm to spare on the
+  // smallest mouth the opening floor allows. The hoop carries a line of `advice` as well, which is
+  // the split at its clearest: what the LINE is stays on the line, what to do with the finished hoop
+  // goes to the corner.
   "針金(2mm)を曲げる線": "bend 2mm wire on this line",
   // ---- Summary ----
   "最大径": "Max diameter",
@@ -213,8 +217,21 @@ const EN: Record<string, string> = {
   "枚(各1枚)": " (one file each)",
   // ---- Papercraft (cardboard) ----
   "コマ": "Koma",
+  // The bare word, for the advice line the two hoops SHARE — their own names are 口輪(上)/(下) and
+  // one sentence about both cannot be labelled with either.
+  "口輪": "Rings",
+  // The lines of ADVICE the templates print in their corner, each behind its part's name — two on the
+  // cardboard sheet, one on the washi. Unlike the hoop's note above they are not set inside a part,
+  // so length is free until one of them plus the check square stops fitting the 200mm column, which
+  // is what `check:paper` watches. The reason they are there at all: inside the koma this one printed
+  // past the cut line in both languages on the design the app opens with.
+  "強度が要るなら2枚以上重ねる": "glue 2 or more together if you want it stiffer",
+  "組んだ型に当てて調整": "adjust it against the assembled mold",
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
+  // The washi sheet's advice line, and the one that carries no part name: 「この型」 is the sheet in
+  // the reader's hands, and that document has a single part to be about.
+  "和紙を切る前にこの型を当てて寸法を確認": "Before cutting the washi, offer this template up and check the size",
   "羽根板の間 1面分": "one rib-to-rib panel",
   "のりしろ(左右)": "Overlap (sides)",
   "被せ代(上下)": "Cover (ends)",
@@ -290,8 +307,8 @@ const EN: Record<string, string> = {
   "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。":
     "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are. The rings stay behind with the lantern; trim the overhanging washi at the rim.",
   "口輪をはめる": "Fit the opening rings",
-  "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてあるので、曲げた輪は羽根板の外側にすっと入ります。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。":
-    "Bend wire along the blue lines on the template to make the two opening hoops. Each line follows its own opening, so the hoop you bend drops onto the ribs' outer edge. Overlap the two ends a little and twist them together. Nothing holds either the hoops or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the hoops when you paste, which is why they stay in the lantern after the mold comes out. The two hoops are bent on separate lines, so mark which is which once they are off the paper.",
+  "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてありますが、組んだ型に当てて調整してください。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。":
+    "Bend wire along the blue lines on the template to make the two opening hoops. Each line follows its own opening, but offer the hoop up to the assembled mold and adjust it to what is there. Overlap the two ends a little and twist them together. Nothing holds either the hoops or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the hoops when you paste, which is why they stay in the lantern after the mold comes out. The two hoops are bent on separate lines, so mark which is which once they are off the paper.",
   "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。":
     "Slip a ring over each opening. Their bore follows the opening, so they drop onto the ribs' outer edge. Nothing holds either the rings or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the rings when you paste, which is why they stay in the lantern after the mold comes out. The one with the leg sockets is the bottom.",
   "灯りをつける": "Put a light in it",

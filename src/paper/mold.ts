@@ -1,4 +1,4 @@
-import { ribOutline2D, seatTicks2D, komaShape, maxBoards, notchR, wireRing2D } from "../geometry.ts";
+import { ribOutline2D, seatTicks2D, komaShape, maxBoards, notchR, notchWidth, wireRing2D } from "../geometry.ts";
 import { A4, layout } from "./layout.ts";
 import { pagesPDF, pagesSVG, tid } from "./render.ts";
 import type { RawPart } from "./layout.ts";
@@ -18,12 +18,19 @@ function ribPart(pk: Design, k: number, name: string): RawPart {
   return { name, outline: ribOutline2D(pk, k, { smooth: true }), marks: seatTicks2D(pk, k) };
 }
 
-// Koma: the same `komaShape` as 3D, but from `paperP()` — three inputs differ, not just the
-// thickness, so the notch WIDTH is the material thickness (boardT = matT, fit = 0) and the notch is
-// FULL-DEPTH, the tab being undented. `check:paper` pins notchR(pk) === innerRi(pk) - 0.5.
-function komaPart(pk: Design, name: string): RawPart {
+// Koma: the same `komaShape` as 3D, but from `paperP()` — the inputs differ in more than thickness.
+// The notch is drawn NARROWER than the board it takes (`joint.notch` = 2/3 of it, see `JOINT_NOTCH`)
+// and it is FULL-DEPTH, the tab being undented. `check:paper` pins notchR(pk) === innerRi(pk) - 0.5
+// and holds the width between the two numbers the first build gave.
+function komaPart(pk: Design, name: string, t: T): RawPart {
   const pts = komaShape(pk).extractPoints(1).shape.map((v): Pt2 => [v.x, v.y]);
-  return { name, outline: pts };
+  // The koma is the one part of a cardboard mold you can simply make thicker: cut it twice and glue
+  // the copies face to face. Nothing else on the sheet can be doubled — a rib would no longer fit
+  // its notch, whose width IS the material thickness — so the sheet has to say which part this is
+  // true of, hence the name in front of it. `advice`, not `note`: the sentence is 49mm of English and
+  // the koma is a disc whose line-of-print chord is 33.9mm on the starting design, so set inside the
+  // part it hung 15.4mm past the cut line there (1.3mm in Japanese) and 7.4mm past it on 平丸.
+  return { name, advice: `${t("コマ")}: ${t("強度が要るなら2枚以上重ねる")}`, outline: pts };
 }
 
 /**
@@ -40,6 +47,14 @@ function wirePart(pk: Design, top: boolean, t: T): RawPart {
     outline: [],
     bend: [wireRing2D(pk, top)],
     note: t("針金(2mm)を曲げる線"),
+    // Not because the bent hoop came out wrong — on the first build it was fine («口輪はそこまででも
+    // ないかな») — but because the MOLD's size is the maker's cutting: 「ダンボールをどれだけ上手く
+    // 切れるかによる」. This circle is `openingR()`'s to the millimetre, and what it has to fit is a
+    // board cut by hand, so the fit varies by the person and not by the drawing. Wire is the one part
+    // here that answers to that by hand, which is why the line is on this part and not on the ribs
+    // it also applies to. Both hoops carry the identical line, labelled with the bare 「口輪」, so the
+    // corner shows it ONCE rather than once per mouth (`layout` dedupes by the text).
+    advice: `${t("口輪")}: ${t("組んだ型に当てて調整")}`,
   };
 }
 
@@ -53,8 +68,11 @@ function wirePart(pk: Design, top: boolean, t: T): RawPart {
  * is one rib-to-rib arc wide, so a clamped rib count means wider panels, and a skin cut from the
  * design as edited would not meet itself on the mold this template makes.
  */
-// The joint, sized for board rather than for plastic (see `Design.joint`). Both PROVISIONAL — the
-// kind of number this project takes from a build, and nothing has been cut to them yet.
+// The joint, sized for board rather than for plastic (see `Design.joint`). **A mold has now been cut
+// and assembled to them** (2026-09-16, the first on this route) and nothing was reported wrong, which
+// is the whole of the evidence behind either number — one build, not a series. They stay the kind of
+// number this project takes from a build rather than from an argument, so it is a build that moves
+// them. What that one did NOT test is anything under paste: the washi was not taken to the end.
 //   wall = the material's own thickness. The 3D route's 1.6mm is a printed wall; on board it is a
 //     strip of two liners, and it is what the app's own "too thin" alert has been reporting all
 //     along (that alert calls anything under half the thickness too thin — this is twice it).
@@ -65,9 +83,21 @@ function wirePart(pk: Design, top: boolean, t: T): RawPart {
 //     What it must never do is decide the tab may stand outside the opening — that is `komaR`'s
 //     call, and the maker's answer there was no.
 const JOINT_GRIP = 20;
+// The notch is drawn at this FRACTION of the measured thickness — narrower than the tab that goes
+// into it, which is the opposite of every tolerance on the printed route. From the first cardboard
+// build (2026-09-16): on 3mm board the maker cut the slots at about 1mm and reported 2mm would be
+// about right — 「ダンボールが少し潰れるから」. Board crushes as the tab goes in, and a knife widens
+// what it cuts (two liners and the flutes between them tear rather than part), so a slot drawn at
+// the board's own thickness comes out wider than the board: 「線通り切るとブカブカになりそう」.
+//
+// A fraction and not a fixed undercut, because `matT` runs 1..10mm here and a constant that suits
+// 3mm board is most of a 1mm sheet. It is ONE measurement — 2mm asked of 3mm — so this is the number
+// to move when a second build disagrees, and the direction of the error is the safer one: board
+// gives, so a slot cut slightly narrow still takes the tab, while one cut wide cannot be uncut.
+const JOINT_NOTCH = 2 / 3;
 export function paperP(p: Design, matT: number): Design {
   const pk = { ...p, boardT: matT, komaT: matT, fit: 0, noTabDent: true, noCrescent: true,
-    joint: { wall: matT, grip: JOINT_GRIP } };
+    joint: { wall: matT, grip: JOINT_GRIP, notch: matT * JOINT_NOTCH } };
   pk.boards = Math.min(pk.boards, maxBoards(pk));
   return pk;
 }
@@ -85,7 +115,10 @@ export function paperFit(p: Design, matT: number) {
   const pk = paperP(p, matT);
   const nMax = maxBoards(pk);
   return {
-    wall: (2 * Math.PI * notchR(pk)) / pk.boards - matT,
+    // `notchWidth(pk)` and not `matT`: the notch this route DRAWS is narrower than the board (see
+    // `JOINT_NOTCH`), so the wall left beside it is wider, and the alert has to report the wall the
+    // maker will actually cut.
+    wall: (2 * Math.PI * notchR(pk)) / pk.boards - notchWidth(pk),
     thin: matT / 2,                      // the threshold: thinner than half the material tears when cut by hand
     clamped: p.boards > nMax,
     nMax,
@@ -111,8 +144,8 @@ export function paperParts(p: Design, matT: number, t: T = tid) {
   }
   // Koma: two identical sheets (top & bottom) normally, or a single "×2" sheet when two would spill
   // onto an extra koma-only page. Decided by comparing the page count on A4 (the print page).
-  const eachKoma = [komaPart(pk, `${t("コマ")} 1/2`), komaPart(pk, `${t("コマ")} 2/2`)];
-  const oneSheet = [komaPart(pk, `${t("コマ")} ×2`)];
+  const eachKoma = [komaPart(pk, `${t("コマ")} 1/2`, t), komaPart(pk, `${t("コマ")} 2/2`, t)];
+  const oneSheet = [komaPart(pk, `${t("コマ")} ×2`, t)];
   // The hoops go LAST — they are the one thing here nobody cuts, and the given order is the order
   // the parts are cut in. They ride in the page-count comparison below because that comparison has
   // to be made on the document that actually prints, not on the mold half of it.

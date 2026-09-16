@@ -190,8 +190,8 @@ export function Button({ onClick, disabled, title, className = "", children }: {
 }
 
 /**
- * A status marker on something else — "beta" on a route, an optional badge on a kit item. All
- * `currentColor`, so a host needs nothing of its own, pressed state included.
+ * A status marker on something else — 「任意」 on a kit item, and a route's `beta` while that lasted.
+ * All `currentColor`, so a host needs nothing of its own, pressed state included.
  */
 export function Badge({ children }: { children: React.ReactNode }) {
   return (

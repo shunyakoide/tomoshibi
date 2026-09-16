@@ -42,7 +42,7 @@ generates that mold as split parts you can make yourself.
 - **Direct-manipulation section editor** — drag control points to sculpt the silhouette; the 3D preview and the STL stay in exact agreement.
 - **A mold that comes back out** — a deep body on a small opening makes ribs too wide to pull out of the lantern they shaped. The app measures that while you are still shaping the silhouette, along with whether every part fits your bed.
 - **Bamboo-rib grooves** — evenly spaced sawteeth carved into the curve, as a wooden mold's are: the tip sits on the surface and reaches back over the bamboo, which lies in the cleft under it. Winding tension pulls a ring toward the axis; a plain notch let go as the face lay over, because its crest fell below the rod, and the hooked one does not. Near vertical there is no tooth, only a plain V. Optional **spiral winding (螺旋巻き)** offsets them per rib into one continuous helix; each rib is then unique, so it exports as its own STL engraved with its serial number.
-- **Cardboard route** (beta) — no 3D printer needed: full-scale A4 pages to cut the mold from cardboard.
+- **Cardboard route** — no 3D printer needed: full-scale A4 pages to cut the mold from cardboard.
 - **Washi template (和紙の型紙)** — the paper skin developed flat, one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. It ships with whichever route you pick.
 - **Build guide** — a step-by-step page of its own (`/guide`, under wherever the app is mounted), drawn from the same `geometry.ts` the STLs are, running past the mold to winding, pasting, drying, pulling the mold out and lighting it.
 - **Build notes** — a page of its own (`/notes`, each article at `/note-…`) for what would weigh the build guide down: the material choices, what failed, and why this exists. A guide step that has a note links straight into it.
@@ -87,10 +87,6 @@ what you supply yourself, and ends with three ways to light it: cover a lamp sta
 hang it from a pendant cord, or add legs and fix the lamp in from below.
 
 ### The cardboard route, and the washi template
-
-> **Cardboard is beta.** It is checked automatically against the same geometry as the printed parts,
-> but far fewer people have built anything this way. Expect rough edges, and please open an issue if
-> something doesn't fit.
 
 **Cardboard** needs no printer, only a blade and a ruler. The Print view downloads two full-scale
 A4 PDFs — the mold (`tomoshibi_katagami_a4.pdf`) and the washi one — and you enter the thickness you

@@ -1,9 +1,42 @@
 // Every number in this file is a millimetre of paper.
-import { MARGIN } from "./layout.ts";
-import type { Layout } from "./layout.ts";
+import { ADVICE_LH, MARGIN, SQ } from "./layout.ts";
+import { STYLE } from "./style.ts";
+import { strWidth } from "../io/pdf.ts";
+import type { Layout, PagePart } from "./layout.ts";
 import type { Op, Page, StrokeName, TextName } from "../io/pdf.ts";
 import type { T } from "../i18n.ts";
 import type { Pt2 } from "../types.ts";
+
+// Where a part's own lettering sits in it, as a fraction of its height and a millimetre offset under
+// that. Exported because `check:paper` has to ask the fit question on the very line the note is set.
+export const NAME_Y = 0.62, NOTE_DY = 4;
+
+/**
+ * How far a part's `note` hangs OUTSIDE the part, in mm — ≤ 0 means it fits, and anything above 0 is
+ * small grey print laid across a cut line. Measured on the line the note is actually set (`NAME_Y` +
+ * `NOTE_DY`) against the part's own width THERE, not its bounding box: a koma is a disc, and 12% of
+ * its diameter below centre the chord is already 4mm narrower than the box it is packed in.
+ *
+ * `check:paper` sweeps it in both languages, which is the only place the answer can be known —
+ * English runs about 40% longer than the Japanese it is keyed by, and no translator sees the part.
+ */
+export function noteOverflow(q: PagePart): number {
+  if (!q.note) return -Infinity;
+  const y = q.h * NAME_Y + NOTE_DY;
+  // Every closed line the part has, cut or bend: the hoops carry their note inside a `bend` loop and
+  // have no outline at all, so reading `outline` alone would call that one infinitely roomy.
+  const loops = [q.outline, ...q.holes, ...q.bend].filter((l) => l.length);
+  let lo = Infinity, hi = -Infinity;
+  for (const pts of loops)
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      if (a[1] === b[1] || (a[1] - y) * (b[1] - y) > 0) continue;   // the segment does not cross the line
+      const x = a[0] + ((b[0] - a[0]) * (y - a[1])) / (b[1] - a[1]);
+      if (x < lo) lo = x;
+      if (x > hi) hi = x;
+    }
+  return strWidth(q.note, STYLE.pnote.size) - (hi > lo ? hi - lo : 0);
+}
 
 /** Ops for page i. The [top, top+CH] band of content coordinates lands inside the clip rectangle. */
 export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
@@ -28,10 +61,12 @@ export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
     for (const m of q.marks) path([at([m[0], m[1]]), at([m[2], m[3]])], "tick");
     // The part name goes faintly **inside the part**, for identification after cutting. Slightly
     // below centre (62%) because near the top it would land on a cut-away side like a post's U-saddle.
-    text(ox + q.x + q.w / 2, oy + q.y + q.h * 0.62, q.name, "pname");
-    // One line under it, only where the name does not say what the part is for — a hoop is a line to
-    // bend on, and the sheet's whole vocabulary otherwise says "cut this".
-    if (q.note) text(ox + q.x + q.w / 2, oy + q.y + q.h * 0.62 + 4, q.note, "pnote");
+    text(ox + q.x + q.w / 2, oy + q.y + q.h * NAME_Y, q.name, "pname");
+    // One line under it, only where the name does not say what a LINE on the part is — a hoop is a
+    // line to bend on, and the sheet's whole vocabulary otherwise says "cut this". Anything true away
+    // from the part goes in the corner instead (`RawPart.advice`), because there is no room here:
+    // `noteOverflow` is how much of this one hangs outside the outline, and it must be ≤ 0.
+    if (q.note) text(ox + q.x + q.w / 2, oy + q.y + q.h * NAME_Y + NOTE_DY, q.note, "pnote");
   }
   ops.push({ k: "unclip" });
 
@@ -109,6 +144,13 @@ export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
     down(25.4, "1in");
     down(AY, "3cm");
     text(x0 + 8, ys + 11, t("← 定規で確認"), "note");
+    // The advice block, under the square: one line per part that needs a SENTENCE rather than a line
+    // on the part itself (`RawPart.advice`), each with the part's own name in front of it. Not inside
+    // the part, which is where this started — the koma's line is 49mm of English on a disc with 34mm
+    // of room, so it hung past the cut line on the starting design in BOTH languages. The corner is
+    // the one place on the sheet whose room is the paper's rather than a part's, and it is already
+    // where the document talks about itself: the square above says whether to trust it at all.
+    lay.advice.forEach((a, k) => text(x0, ys + SQ.h + (k + 1) * ADVICE_LH, a, "note"));
   }
   return ops;
 }

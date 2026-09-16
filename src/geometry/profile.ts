@@ -241,8 +241,18 @@ const TAB_DEEPEN = 5;
 // it goes thin and non-manifold. Basis for both the deepening floor (ribCoreFloor) and the maximum
 // board count (maxBoards).
 const MIN_WALL = 1.6;
-// Notch width (= tab thickness + print fit/tolerance).
-function notchWidth(p: Design): number { return p.boardT + Math.max(0, p.fit ?? 0); }
+/**
+ * How wide the koma's notch is (mm) — tab thickness plus the print tolerance, EXCEPT where the joint
+ * asks for a width of its own. The cardboard route does, and asks for less than the tab is thick
+ * (`joint.notch`, see types.ts): board crushes, a knife widens what it cuts, and the slot has to be
+ * drawn narrower than the thing it accepts for the two to grip.
+ *
+ * Exported because `komaShape` draws this width and `maxBoards`/`ribCoreFloor` budget for it, and a
+ * second copy of the formula is how the drawn notch and the counted one drift apart.
+ */
+export function notchWidth(p: Design): number {
+  return p.joint?.notch ?? p.boardT + Math.max(0, p.fit ?? 0);
+}
 // Center-side limit when deepening. Evaluated at notch bottom radius notchR=Ri-0.5:
 //   notchR*(2π/boards) - notchW ≥ MIN_WALL  →  notchR ≥ (MIN_WALL+notchW)*boards/2π.
 // The wall this design asks the koma to keep between two notches (mm). `MIN_WALL` is the floor for
