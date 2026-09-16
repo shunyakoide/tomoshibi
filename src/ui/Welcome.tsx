@@ -7,7 +7,6 @@
  */
 import React, { useEffect, useRef } from "react";
 import { UI as ui, accent, accentA, useT } from "./theme.ts";
-import { Badge } from "./controls.tsx";
 import Logo from "./Logo.tsx";
 import type { Route } from "../types.ts";
 
@@ -63,16 +62,17 @@ const STEPS: [StepKind, string, string][] = [
 ];
 
 // The two ways to make the mold. Sub-line = what you receive, since "3D print / cardboard" names
-// the equipment, not the output. Cardboard keeps its beta badge: this card is where it is chosen,
-// and offering it without the caveat oversells it.
+// the equipment, not the output. Cardboard wore a `beta` badge here — this being where the route is
+// CHOSEN, it was the one place the caveat had to be — and it was lifted with the mark everywhere else
+// (2026-09-16); the badge column went with it rather than staying as an unused slot.
 //
 // Cardboard's sub-line said "no size limit", which was written when the print bed stopped applying
 // to this route and overshot: pages split DOWNWARD only, so a part WIDER than A4's content column
 // is clipped, and `derived.ts` raises an alert saying exactly that. What is actually unbounded is
 // the other axis — sheets butt vertically — so that is what it now claims.
-const ROUTES: [Route, string, string, string | null][] = [
-  ["stl", "3Dプリンタ", "STL 一式をダウンロード", null],
-  ["paper", "段ボール", "A4 原寸の型紙を印刷 · 縦につないで大きく", "beta"],
+const ROUTES: [Route, string, string][] = [
+  ["stl", "3Dプリンタ", "STL 一式をダウンロード"],
+  ["paper", "段ボール", "A4 原寸の型紙を印刷 · 縦につないで大きく"],
 ];
 
 export default function Welcome({ route = null, onPick, onClose }: {
@@ -172,7 +172,7 @@ export default function Welcome({ route = null, onPick, onClose }: {
           {/* Stacked, not side by side: full width reads as a button rather than a tile, and the two
               captions stop wrapping to different heights. */}
           <div className="flex flex-col gap-8">
-            {ROUTES.map(([key, title, caption, badge], i) => (
+            {ROUTES.map(([key, title, caption], i) => (
               <button key={key} ref={i === 0 ? btnRef : null}
                 aria-current={route === key ? "true" : undefined} onClick={() => onPick(key)}
                 className="group min-w-0 flex flex-col gap-3 text-left pt-12 px-13 pb-12
@@ -185,7 +185,6 @@ export default function Welcome({ route = null, onPick, onClose }: {
                 <b className="flex items-center gap-5 text-md font-bold
                   group-aria-[current=true]:text-accent">
                   {t(title)}
-                  {badge && <Badge>{badge}</Badge>}
                   <span aria-hidden="true" className="ml-auto text-accent text-lg leading-none">→</span>
                 </b>
                 <i className="text-xs not-italic leading-[1.45] text-sub">{t(caption)}</i>

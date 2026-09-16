@@ -16,10 +16,10 @@
  * independent integration of `outerR`. It is a document of its own on both routes, so section 4 also
  * pins that its pages are NOT among the cardboard template's.
  */
-import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
+import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, layout, corner, strip, noteOverflow } from "../src/papercraft.ts";
 import { winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
-import { komaR, tabDented, innerRi, notchR, ribInnerX, ribMouthBand, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
+import { komaR, tabDented, innerRi, notchR, notchWidth, ribInnerX, ribMouthBand, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
 import type { Design } from "../src/types.ts";
 
@@ -47,8 +47,19 @@ for (const preset of PRESETS)
       const tag = `${preset.key} h${height} t${matT}`;
       const find = (pre: string) => parts.find((q) => q.name.startsWith(pre))!;
       eq(bb(find("羽根板")).h, p.height + 2 * p.tabLen, `${tag} rib total length`);
-      // Koma notch width = material thickness exactly (fit=0), or the tab won't fit / will wobble.
-      eq(pk.boardT + Math.max(0, pk.fit ?? 0), matT, `${tag} notch width`);
+      // **The koma's notch is drawn NARROWER than the board it accepts**, which is the one tolerance
+      // here that runs the opposite way to the printed route's. It is not an argument, it is the
+      // first cardboard build: on 3mm board the maker cut about 1mm and said 2mm would be about
+      // right, board crushing as the tab goes in and a knife widening what it cuts, so a slot drawn
+      // at the board's own thickness comes out wider than the board. Both bounds carry a measured
+      // number — over `matT` is the wobble that was predicted of the line, and at or under `matT/2`
+      // is the 1mm-in-3mm that was cut and found too tight.
+      const slot = notchWidth(pk);
+      if (slot >= matT - 0.01) bad(`${tag} notch ${slot.toFixed(2)}mm is not narrower than the ${matT}mm board`);
+      if (slot <= matT / 2 + 0.01) bad(`${tag} notch ${slot.toFixed(2)}mm is at or under half the ${matT}mm board`);
+      // `paperP` is the only place allowed to size it, so a design off that route keeps the printed
+      // width — a `joint` leaking onto the STL route would silently narrow every printed koma.
+      eq(notchWidth(p), p.boardT + Math.max(0, p.fit ?? 0), `${tag} notch width off the paper route`);
       // Cardboard skips the tab-tip dent (strength over the koma stop): a plain straight tab in a
       // full-depth notch.
       if (tabDented(pk)) bad(`${tag} papercraft should have no tab dent (noTabDent)`);
@@ -65,7 +76,7 @@ for (const preset of PRESETS)
       // hand-cut. It is a viewport alert rather than a note on the printed page, so what has to hold
       // is that the number the alert quotes is real: paperFit against the formula, and against the
       // copy paperParts hands the template.
-      const wall = (2 * Math.PI * notchR(pk)) / pk.boards - matT;
+      const wall = (2 * Math.PI * notchR(pk)) / pk.boards - slot;
       // The joint is sized for BOARD (see `Design.joint`): the wall between two notches is the
       // material's own thickness, and the tab still sits `grip` deep in the notch. The two stopped
       // trading when the koma's rim was let outside the opening, so BOTH have to hold — a wall that
@@ -155,7 +166,10 @@ for (const preset of PRESETS)
           // constants, never copied: a stale "297 - 2*8 - 14" survived the 14mm band's deletion here
           // and passed only because no swept part landed in the gap between its CH and the real one.
           const CH = 297 - 2 * MARGIN;      // a full sheet
-          const CH0 = CH - TOPBAR;          // sheet 1, which gives up its top strip to the check bar
+          // Sheet 1, which gives up its top strip to the document's corner. `strip()` and not TOPBAR:
+          // the corner is the check square PLUS this document's advice, so the strip is 4mm taller
+          // than the square alone needs and `tallest` can land in exactly that difference.
+          const CH0 = CH - strip(layout(parts, A4).advice);
           const tallest = Math.max(...parts.map((q) => {
             const a = pts2(q);
             const ys = a.map((v) => v[1]), xs = a.map((v) => v[0]);
@@ -303,7 +317,8 @@ for (const preset of PRESETS)
       // pinned to the preview's exact answer, so the sheets shown and the file in the ZIP can never
       // be a different document (same pairing as the cardboard one below).
       const { g } = washiParts(p, { side: 3, end: 3 });
-      const H = g.sTot + 2 * g.end, CH = 297 - 2 * MARGIN, CH0 = CH - TOPBAR;
+      const H = g.sTot + 2 * g.end, CH = 297 - 2 * MARGIN;
+      const CH0 = CH - strip(layout(washiParts(p, { side: 3, end: 3 }).parts, A4).advice);
       const wPages = washiPagesSVG(p, { side: 3, end: 3 }, en, A4).pages;
       if (![Math.max(1, Math.ceil(H / CH)), H <= CH0 ? 1 : 1 + Math.ceil((H - CH0) / CH)].includes(wPages))
         bad(`${tag} washi: preview lays out ${wPages} pages, neither admissible answer`);
@@ -574,9 +589,60 @@ for (const preset of PRESETS)
       if ((washiPagesSVG(p).svg.match(/class="bend"/g) || []).length) bad(`${tag}: a bend line on the washi template`);
     }
 
+
+// ---- 9. The small print (`note` and `advice`) ----
+// Two failures, both of which every gate above reports 0 FAIL for, because a template with grey text
+// across a cut line is still watertight, still 1:1 and still has every part on it:
+//
+//   · a `note` too long for the part it is set inside. It is centred on a line 12% below the part's
+//     middle, so the room it has is the CHORD there, not the bounding box the packer used — on the
+//     default egg the koma's box is 37.9mm wide and that line is 33.9mm. The English runs ~40% longer
+//     than the Japanese it is keyed by and nobody translating sees the part, so BOTH are swept.
+//   · an `advice` block that outgrows the column. It rides beside the check square in whatever gap
+//     the parts leave, and there is no way to shrink a line that does not fit — only to notice.
+//
+// Said once per document however many sheets carry the part: the koma is two identical cuts with the
+// identical sentence, and the same sentence twice in one corner reads as two different rules.
+let nn = 0;
+for (const preset of PRESETS)
+  for (const height of [60, 140, 205, 400])
+    for (const boards of [4, 8, 12, 16])
+      for (const matT of [1, 2, 5, 10])
+        for (const [lang, t] of [["ja", undefined], ["en", en]] as const) {
+          nn++;
+          const p = { ...DEFAULTS, ...preset, height, boards };
+          const docs = [
+            { doc: "cardboard", parts: paperParts(p, matT, t).parts, svg: paperPagesSVG(p, matT, t, A4) },
+            { doc: "washi", parts: washiParts(paperP(p, matT), {}, t).parts, svg: washiPagesSVG(paperP(p, matT), {}, t, A4) },
+          ];
+          for (const { doc, parts, svg } of docs) {
+            const tag = `small print ${preset.key} h${height} b${boards} t${matT} ${lang} ${doc}`;
+            const lay = layout(parts, A4);
+            // (a) every note inside the part it is about
+            for (const q of lay.placed) {
+              const over = noteOverflow(q);
+              if (over > 0) bad(`${tag}: ${q.name}'s note hangs ${over.toFixed(1)}mm outside the part`);
+            }
+            // (b) the corner — check square plus the widest advice line — inside the column
+            const CW = A4.w - 2 * MARGIN;
+            const box = corner(lay.advice);
+            if (box.w > CW) bad(`${tag}: the corner is ${box.w.toFixed(1)}mm wide, column is ${CW}`);
+            // (c) every part that has advice is spoken for, exactly once, on exactly one sheet
+            const want = [...new Set(parts.map((q) => q.advice).filter(Boolean))] as string[];
+            if (lay.advice.length !== want.length) bad(`${tag}: ${lay.advice.length} advice lines, want ${want.length}`);
+            const sheets = svg.svg.split('<svg class="pg"').slice(1);
+            for (const a of want) {
+              const on = sheets.filter((x) => x.includes(a)).length;
+              if (on !== 1) bad(`${tag}: "${a}" on ${on} sheets, want exactly 1`);
+              const times = (svg.svg.match(new RegExp(a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
+              if (times !== 1) bad(`${tag}: "${a}" printed ${times} times, want once`);
+            }
+          }
+        }
+
 // Japanese labels cannot be drawn with base-14 fonts, so they must be dropped, never emitted raw.
 if (winAnsi("和紙 ×8") !== " ×8") bad(`winAnsi should drop Japanese: ${JSON.stringify(winAnsi("和紙 ×8"))}`);
 if (winAnsi("50mm ← 定規で確認") !== "50mm <- ") bad(`winAnsi arrow fold: ${JSON.stringify(winAnsi("50mm ← 定規で確認"))}`);
 
-console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme + ${nh} hoop combos, ${fail} FAIL ===`);
+console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme + ${nh} hoop + ${nn} small-print combos, ${fail} FAIL ===`);
 process.exit(fail ? 1 : 0);

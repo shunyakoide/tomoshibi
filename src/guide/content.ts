@@ -67,9 +67,12 @@ export const STEPS: Step[] = [
   {
     // Both routes, since both end up with a hoop at each opening — one printed, one bent from wire on
     // the line the template draws. The step is the same step; only where the hoop COMES FROM differs,
-    // which is what `paperBody` is for.
+    // which is what `paperBody` is for. It is also the one difference in what the hoop can be TRUSTED
+    // to do: a printed ring is made to the same dimensions as the mold beside it, while a bent one
+    // meets a hand-cut board, so `paperBody` says to adjust it and the printed body still says it
+    // drops on. The template's own corner carries the same line (`RawPart.advice` in src/paper).
     id: "rings", title: "口輪をはめる", fig: "rings",
-    paperBody: "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてあるので、曲げた輪は羽根板の外側にすっと入ります。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。",
+    paperBody: "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてありますが、組んだ型に当てて調整してください。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。",
     body: "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。",
   },
   {

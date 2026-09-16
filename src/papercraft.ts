@@ -6,7 +6,8 @@
  * Dependencies run one way: layout ← draw ← render ← {mold, skin}, with style and svg as leaves.
  * React/DOM-free (stl.ts opens or downloads the bytes).
  */
-export { A4, MARGIN, TOPBAR } from "./paper/layout.ts";
+export { A4, MARGIN, TOPBAR, layout, corner, strip } from "./paper/layout.ts";
+export { noteOverflow } from "./paper/draw.ts";
 export { paperP, paperFit, paperParts, paperPagesSVG, paperPDF } from "./paper/mold.ts";
 export { washiParts, washiPDF, washiPagesSVG } from "./paper/skin.ts";
 

@@ -1,6 +1,5 @@
 // One file because it is the same two choices twice: what you are looking at and how the mold gets
 // made, as chips over the canvas on a wide screen and as a bar above it on a phone.
-import { Badge } from "./controls.tsx";
 import { chipStyle, useT } from "./theme.ts";
 import type { Route } from "../types.ts";
 
@@ -10,8 +9,9 @@ export type View = "2d" | "mold" | "print" | "lit";
 // In build order, and every one is a RENDERING OF YOUR DESIGN — move a ◇ and all four redraw. The
 // build guide is not among them: its figures come from one fixed example, so it is a page.
 const VIEWS: [View, string][] = [["2d", "断面"], ["mold", "組立"], ["print", "印刷"], ["lit", "点灯"]];
-// Cardboard is beta: the same geometry.ts functions as the printed parts, but far less built on it.
-const ROUTES: [Route, string, string | null][] = [["stl", "3Dプリント", null], ["paper", "段ボール", "beta"]];
+// Cardboard carried a `beta` badge here until 2026-09-16; the badge column went with it rather than
+// staying as an unused slot (see "The cardboard route's beta" in the design notes).
+const ROUTES: [Route, string][] = [["stl", "3Dプリント"], ["paper", "段ボール"]];
 
 // PagePreview's `pt-124` clears the LOWER of these two rows (62 plus the row's own height), so a
 // tab's padding or font size moves that number too.
@@ -43,10 +43,8 @@ export function ViewChips({ view, setView, route, setRoute, isLit }: {
           hint and the rib-length warning colour, all of which surface in the SECTION view. */}
       {!isLit && (
         <div className={`${CHIP_BOX} top-62`} style={tone}>
-          {ROUTES.map(([k, l, badge]) => (
-            <button key={k} className={TAB_SKIN} aria-pressed={route === k} onClick={() => setRoute(k)}>
-              {t(l)}{badge && <Badge>{badge}</Badge>}
-            </button>
+          {ROUTES.map(([k, l]) => (
+            <button key={k} className={TAB_SKIN} aria-pressed={route === k} onClick={() => setRoute(k)}>{t(l)}</button>
           ))}
         </div>
       )}
@@ -89,8 +87,8 @@ export function ViewBar({ view, setView, route, setRoute, isLit, menu }: {
         <span className="relative inline-flex">
           <select value={route} aria-label={t("つくりかた")} onChange={(e) => setRoute(e.target.value as Route)}
             className={`${SELECT} ${SELECT_OFF}`}>
-            {ROUTES.map(([k, l, badge]) => (
-              <option key={k} value={k}>{t(l)}{badge ? ` (${badge})` : ""}</option>
+            {ROUTES.map(([k, l]) => (
+              <option key={k} value={k}>{t(l)}</option>
             ))}
           </select>
           <span aria-hidden="true" className={`${CARET} ${CARET_OFF}`}>▾</span>

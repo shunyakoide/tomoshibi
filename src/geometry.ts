@@ -11,7 +11,7 @@ export {
   bakeBezierHandles, fukuroRange, outerR, maxRadius,
   cutYbot, cutYtop,
   komaR, maxBoards, innerRi, ribMouthBand,
-  tabDented, notchR,
+  tabDented, notchR, notchWidth,
 } from "./geometry/profile.ts";
 // (TAB_DENT_W / tabDentH stay internal: rib.ts imports them from profile.ts directly. The surface here was
 //  left exactly as it was before the split, so no caller could tell it happened — and then trimmed

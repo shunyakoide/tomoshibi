@@ -78,13 +78,19 @@ export type Design = {
   noCrescent?: boolean;
   /** Papercraft only: size the koma joint from the WALL the material needs rather than from the
    *  opening — `wall` is the least material left between two notches, `grip` how far the tab sits
-   *  inside one. Set by `paperP`. On a 3D print 1.6mm of PLA between two notches holds; the same
-   *  1.6mm of board, cut across the flutes, is two liners and the air between them, and the joint
-   *  is the first thing in a cardboard mold to fail. The wall is bought with the notch bottom
-   *  (`innerRi`), which is why it costs the rim nothing; `grip` is a REQUEST — `komaR` stops the rim
-   *  at the opening, so on a mouth too narrow for it the tab takes the whole band instead. Its
-   *  presence is also what marks a design as the cardboard route's inside `geometry/`. */
-  joint?: { wall: number; grip: number };
+   *  inside one, `notch` how wide the notch is DRAWN. Set by `paperP`. On a 3D print 1.6mm of PLA
+   *  between two notches holds; the same 1.6mm of board, cut across the flutes, is two liners and
+   *  the air between them, and the joint is the first thing in a cardboard mold to fail. The wall is
+   *  bought with the notch bottom (`innerRi`), which is why it costs the rim nothing; `grip` is a
+   *  REQUEST — `komaR` stops the rim at the opening, so on a mouth too narrow for it the tab takes
+   *  the whole band instead.
+   *
+   *  `notch` is NARROWER than the tab it accepts, which no printed joint would tolerate: a knife
+   *  crushes the flutes either side of the cut, so a slot drawn at the board's own thickness comes
+   *  out wider than the board and the mold wobbles. See `JOINT_NOTCH` in `paper/mold.ts` for the
+   *  fraction and the build it came from. Its presence is also what marks a design as the cardboard
+   *  route's inside `geometry/`. */
+  joint?: { wall: number; grip: number; notch: number };
 };
 
 /** Which way this maker builds: 3D-printed STL parts, or a full-scale paper template. */
