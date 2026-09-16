@@ -16,8 +16,8 @@
  * independent integration of `outerR`. It is a document of its own on both routes, so section 4 also
  * pins that its pages are NOT among the cardboard template's.
  */
-import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, layout, corner, strip, noteOverflow } from "../src/papercraft.ts";
-import { winAnsi } from "../src/io/pdf.ts";
+import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, layout, corner, adviceBox, adviceLines, strip, noteOverflow } from "../src/papercraft.ts";
+import { strWidth, winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
 import { komaR, tabDented, innerRi, notchR, notchWidth, ribInnerX, ribMouthBand, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
@@ -26,6 +26,7 @@ import type { Design } from "../src/types.ts";
 let fail = 0;
 const bad = (msg: string) => { console.log("FAIL:", msg); fail++; };
 const en = makeT("en"); // the PDF is drawn with the English labels (base-14 fonts have no CJK glyphs)
+const ja = makeT("ja"); // = the identity: the dictionary's keys ARE the Japanese, as `tid` is
 const eq = (a: number, b: number, msg: string, tol = 0.01) => { if (Math.abs(a - b) > tol) bad(`${msg}: ${a} != ${b}`); };
 // Every point a part puts on paper. `bend` is in it because the opening hoops are a bend line and
 // NOTHING else — an outline-only reader gets Math.max of an empty list, which is -Infinity, and the
@@ -169,7 +170,7 @@ for (const preset of PRESETS)
           // Sheet 1, which gives up its top strip to the document's corner. `strip()` and not TOPBAR:
           // the corner is the check square PLUS this document's advice, so the strip is 4mm taller
           // than the square alone needs and `tallest` can land in exactly that difference.
-          const CH0 = CH - strip(layout(parts, A4).advice);
+          const CH0 = CH - strip(adviceLines(en));
           const tallest = Math.max(...parts.map((q) => {
             const a = pts2(q);
             const ys = a.map((v) => v[1]), xs = a.map((v) => v[0]);
@@ -256,12 +257,16 @@ for (const preset of PRESETS)
           // that PDF's; here, only that they are drawn at all.
           const ws = washiPagesSVG(p, { side, end }, undefined, A4).svg;
           if (/NaN|Infinity|undefined/.test(ws)) bad(`${tag}: NaN/undefined in the washi sheets`);
-          if (!ws.includes("和紙")) bad(`${tag}: the panel is not on its own sheets`);
+          // The PANEL, by its name — 「和紙 ×N」 — and not by the word: both documents print the word
+          // in their boxed corner now, where 「和紙: 切る前に…」 is a caution about a part that is
+          // somewhere else. What must stay on one document is the part, and its name is what says so.
+          const panel = /和紙 ×\d/;
+          if (!panel.test(ws)) bad(`${tag}: the panel is not on its own sheets`);
           // Guides must be drawn as guides, never as cut lines (cutting them ruins the panel).
           if (!/class="guide"/.test(ws)) bad(`${tag}: guides not drawn on the washi sheets`);
           // …and nowhere else: a panel on both documents would be one printed twice, at two
           // different rib counts.
-          if (paperPagesSVG(p, 3, undefined, A4).svg.includes("和紙"))
+          if (panel.test(paperPagesSVG(p, 3, undefined, A4).svg))
             bad(`${tag}: the washi panel is still on the cardboard pages`);
         }
 
@@ -318,7 +323,7 @@ for (const preset of PRESETS)
       // be a different document (same pairing as the cardboard one below).
       const { g } = washiParts(p, { side: 3, end: 3 });
       const H = g.sTot + 2 * g.end, CH = 297 - 2 * MARGIN;
-      const CH0 = CH - strip(layout(washiParts(p, { side: 3, end: 3 }).parts, A4).advice);
+      const CH0 = CH - strip(adviceLines(en));
       const wPages = washiPagesSVG(p, { side: 3, end: 3 }, en, A4).pages;
       if (![Math.max(1, Math.ceil(H / CH)), H <= CH0 ? 1 : 1 + Math.ceil((H - CH0) / CH)].includes(wPages))
         bad(`${tag} washi: preview lays out ${wPages} pages, neither admissible answer`);
@@ -328,9 +333,11 @@ for (const preset of PRESETS)
       // the user prints and the pages they were shown can never be a different document.
       const cs = Buffer.from(paperPDF(p, 5, A4, en)).toString("latin1");
       pdfStructure(cs, `${tag} cardboard`, paperPagesSVG(p, 5, en, A4).pages);
-      // The split, in the shipped bytes: the mold's PDF carries no washi panel. (Labelled in
-      // English here, so this is what "和紙 ×N" comes out as when winAnsi has had it.)
-      if (cs.includes(en("和紙"))) bad(`${tag} cardboard: the washi panel is in the mold's PDF`);
+      // The split, in the shipped bytes: the mold's PDF carries no washi panel. By NAME — 「和紙 ×N」,
+      // which is `Washi ×N` once winAnsi has had it — and not by the word, the corner's caution about
+      // the washi being printed on this document on purpose (see section 4).
+      if (/Washi \\?[( ]?\xd7\d/.test(cs) || cs.includes(`${en("和紙")} \xd7`))
+        bad(`${tag} cardboard: the washi panel is in the mold's PDF`);
       // Every part must still be LABELLED: winAnsi drops what it cannot draw rather than mangling
       // it, so a Japanese translator would leave the names silently blank with every check above
       // still passing. This is the one that notices.
@@ -608,27 +615,35 @@ for (const preset of PRESETS)
   for (const height of [60, 140, 205, 400])
     for (const boards of [4, 8, 12, 16])
       for (const matT of [1, 2, 5, 10])
-        for (const [lang, t] of [["ja", undefined], ["en", en]] as const) {
+        for (const [lang, t] of [["ja", ja], ["en", en]] as const) {
           nn++;
           const p = { ...DEFAULTS, ...preset, height, boards };
           const docs = [
             { doc: "cardboard", parts: paperParts(p, matT, t).parts, svg: paperPagesSVG(p, matT, t, A4) },
             { doc: "washi", parts: washiParts(paperP(p, matT), {}, t).parts, svg: washiPagesSVG(paperP(p, matT), {}, t, A4) },
           ];
+          const want = adviceLines(t);
           for (const { doc, parts, svg } of docs) {
             const tag = `small print ${preset.key} h${height} b${boards} t${matT} ${lang} ${doc}`;
-            const lay = layout(parts, A4);
+            const lay = layout(parts, A4, want);
             // (a) every note inside the part it is about
             for (const q of lay.placed) {
               const over = noteOverflow(q);
               if (over > 0) bad(`${tag}: ${q.name}'s note hangs ${over.toFixed(1)}mm outside the part`);
             }
-            // (b) the corner — check square plus the widest advice line — inside the column
+            // (b) the corner — check square plus the boxed advice under it — inside the column, and
+            // the box itself no wider than the square, which is what keeps the corner able to find a
+            // gap at all (a 159mm one cost 83 of 1200 documents a whole sheet).
             const CW = A4.w - 2 * MARGIN;
-            const box = corner(lay.advice);
-            if (box.w > CW) bad(`${tag}: the corner is ${box.w.toFixed(1)}mm wide, column is ${CW}`);
-            // (c) every part that has advice is spoken for, exactly once, on exactly one sheet
-            const want = [...new Set(parts.map((q) => q.advice).filter(Boolean))] as string[];
+            if (corner(want).w > CW) bad(`${tag}: the corner is ${corner(want).w.toFixed(1)}mm wide, column is ${CW}`);
+            // The box is a constant width, so what can overflow is a LINE. Held in both languages:
+            // the English runs ~40% longer than the Japanese it is keyed by.
+            for (const a of want) {
+              const w = strWidth(a, 2.6);
+              if (w > adviceBox(want).w - 4) bad(`${tag}: advice line ${w.toFixed(1)}mm wide, box holds ${adviceBox(want).w - 4}`);
+            }
+            // (c) BOTH documents print EVERY line — 「両方のシートに全部載せる」, the person cutting
+            // the mold being the person who will cut the washi — each once, on one sheet.
             if (lay.advice.length !== want.length) bad(`${tag}: ${lay.advice.length} advice lines, want ${want.length}`);
             const sheets = svg.svg.split('<svg class="pg"').slice(1);
             for (const a of want) {
@@ -637,6 +652,12 @@ for (const preset of PRESETS)
               const times = (svg.svg.match(new RegExp(a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
               if (times !== 1) bad(`${tag}: "${a}" printed ${times} times, want once`);
             }
+            // (d) the box is STROKED, and as a `guide` — grey and dashed, because a solid rectangle
+            // on this sheet is the shape of a part and a blade follows solid lines.
+            // A CLOSED guide path, which on these sheets can only be the box: the washi panel's own
+            // guides are open polylines (a closed one would be a shape to cut out).
+            if (!/<path d="M[^"]*Z" class="guide"\/>/.test(svg.svg))
+              bad(`${tag}: no closed guide path — the advice box is not drawn`);
           }
         }
 

@@ -220,18 +220,24 @@ const EN: Record<string, string> = {
   // The bare word, for the advice line the two hoops SHARE — their own names are 口輪(上)/(下) and
   // one sentence about both cannot be labelled with either.
   "口輪": "Rings",
-  // The lines of ADVICE the templates print in their corner, each behind its part's name — two on the
-  // cardboard sheet, one on the washi. Unlike the hoop's note above they are not set inside a part,
-  // so length is free until one of them plus the check square stops fitting the 200mm column, which
-  // is what `check:paper` watches. The reason they are there at all: inside the koma this one printed
-  // past the cut line in both languages on the design the app opens with.
+  // The four lines of ADVICE in the boxed corner, each behind its part's name, and BOTH templates
+  // print all four (`paper/advice.ts`). Unlike the hoop's note above they are not set inside a part,
+  // so what bounds them is the box: 86mm, the check square's own width, because a wider corner stops
+  // finding a gap on the sheet and costs a page. The longest is 69mm and `check:paper` holds it.
+  //
+  // **Keep both languages under that**, and keep them instructions rather than explanations. The
+  // slot line in particular says what the drawn width is WORTH, not to follow it: the fraction it is
+  // drawn at came from one build on one board, so the maker's own board decides —
+  // 「段ボールの厚さに合わせて切って。あくまでも参考にしてって」.
+  "切り込みの幅は目安。段ボールの厚さに合わせて切る": "the slot width is a guide - cut it to your own board",
   "強度が要るなら2枚以上重ねる": "glue 2 or more together if you want it stiffer",
   "組んだ型に当てて調整": "adjust it against the assembled mold",
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
-  // The washi sheet's advice line, and the one that carries no part name: 「この型」 is the sheet in
-  // the reader's hands, and that document has a single part to be about.
-  "和紙を切る前にこの型を当てて寸法を確認": "Before cutting the washi, offer this template up and check the size",
+  // The washi line. It names BOTH objects — the template and the assembled mold — where it once said
+  // 「この型」, the sheet in the reader's hands: that was true while this line printed only on the
+  // washi sheet, and it now prints on the mold's too, where "this" would be the wrong paper.
+  "切る前に型紙を組んだ型に当てて寸法を確認": "offer the template up to the mold before cutting",
   "羽根板の間 1面分": "one rib-to-rib panel",
   "のりしろ(左右)": "Overlap (sides)",
   "被せ代(上下)": "Cover (ends)",

@@ -3,15 +3,18 @@
  * `src/paper/`, and callers import from HERE, never from `./paper/*` — the same rule `geometry.ts`
  * carries, so a function moving between those modules stays a non-event.
  *
- * Dependencies run one way: layout ← draw ← render ← {mold, skin}, with style and svg as leaves.
+ * Dependencies run one way: layout ← draw ← render ← {mold, skin}, with style, svg and advice as
+ * leaves.
  * React/DOM-free (stl.ts opens or downloads the bytes).
  */
-export { A4, MARGIN, TOPBAR, layout, corner, strip } from "./paper/layout.ts";
+export { A4, MARGIN, TOPBAR, layout, corner, adviceBox, strip } from "./paper/layout.ts";
+export { adviceLines } from "./paper/advice.ts";
 export { noteOverflow } from "./paper/draw.ts";
 export { paperP, paperFit, paperParts, paperPagesSVG, paperPDF } from "./paper/mold.ts";
 export { washiParts, washiPDF, washiPagesSVG } from "./paper/skin.ts";
 
 import { A4, layout, type Overflow } from "./paper/layout.ts";
+import { adviceLines } from "./paper/advice.ts";
 import { paperP, paperParts } from "./paper/mold.ts";
 import { washiParts } from "./paper/skin.ts";
 import { tid } from "./paper/render.ts";
@@ -31,8 +34,8 @@ import type { Design, Route } from "./types.ts";
  */
 export function templateOverflow(p: Design, matT: number, opts: WashiOpts, route: Route, t: T = tid): Overflow[] {
   const out: Overflow[] = [];
-  if (route === "paper") out.push(...layout(paperParts(p, matT, t).parts, A4).over);
+  if (route === "paper") out.push(...layout(paperParts(p, matT, t).parts, A4, adviceLines(t)).over);
   // The washi template rides along on BOTH routes, cut for the mold that route actually makes.
-  out.push(...layout(washiParts(route === "paper" ? paperP(p, matT) : p, opts, t).parts, A4).over);
+  out.push(...layout(washiParts(route === "paper" ? paperP(p, matT) : p, opts, t).parts, A4, adviceLines(t)).over);
   return out;
 }

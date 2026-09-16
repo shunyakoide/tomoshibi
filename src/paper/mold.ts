@@ -1,4 +1,5 @@
 import { ribOutline2D, seatTicks2D, komaShape, maxBoards, notchR, notchWidth, wireRing2D } from "../geometry.ts";
+import { adviceLines } from "./advice.ts";
 import { A4, layout } from "./layout.ts";
 import { pagesPDF, pagesSVG, tid } from "./render.ts";
 import type { RawPart } from "./layout.ts";
@@ -22,15 +23,13 @@ function ribPart(pk: Design, k: number, name: string): RawPart {
 // The notch is drawn NARROWER than the board it takes (`joint.notch` = 2/3 of it, see `JOINT_NOTCH`)
 // and it is FULL-DEPTH, the tab being undented. `check:paper` pins notchR(pk) === innerRi(pk) - 0.5
 // and holds the width between the two numbers the first build gave.
-function komaPart(pk: Design, name: string, t: T): RawPart {
+function komaPart(pk: Design, name: string): RawPart {
   const pts = komaShape(pk).extractPoints(1).shape.map((v): Pt2 => [v.x, v.y]);
-  // The koma is the one part of a cardboard mold you can simply make thicker: cut it twice and glue
-  // the copies face to face. Nothing else on the sheet can be doubled — a rib would no longer fit
-  // its notch, whose width IS the material thickness — so the sheet has to say which part this is
-  // true of, hence the name in front of it. `advice`, not `note`: the sentence is 49mm of English and
-  // the koma is a disc whose line-of-print chord is 33.9mm on the starting design, so set inside the
-  // part it hung 15.4mm past the cut line there (1.3mm in Japanese) and 7.4mm past it on 平丸.
-  return { name, advice: `${t("コマ")}: ${t("強度が要るなら2枚以上重ねる")}`, outline: pts };
+  // Nothing is printed on the disc but its name: the two things to SAY about a koma — that the slot
+  // width is a guide, and that it may be doubled — are in the sheet's boxed corner (`advice.ts`),
+  // because there is no room here. Set inside the part, the shorter of the two hung 15.4mm past the
+  // cut line in English on the starting design (1.3mm in Japanese) and 7.4mm past it on 平丸.
+  return { name, outline: pts };
 }
 
 /**
@@ -47,14 +46,6 @@ function wirePart(pk: Design, top: boolean, t: T): RawPart {
     outline: [],
     bend: [wireRing2D(pk, top)],
     note: t("針金(2mm)を曲げる線"),
-    // Not because the bent hoop came out wrong — on the first build it was fine («口輪はそこまででも
-    // ないかな») — but because the MOLD's size is the maker's cutting: 「ダンボールをどれだけ上手く
-    // 切れるかによる」. This circle is `openingR()`'s to the millimetre, and what it has to fit is a
-    // board cut by hand, so the fit varies by the person and not by the drawing. Wire is the one part
-    // here that answers to that by hand, which is why the line is on this part and not on the ribs
-    // it also applies to. Both hoops carry the identical line, labelled with the bare 「口輪」, so the
-    // corner shows it ONCE rather than once per mouth (`layout` dedupes by the text).
-    advice: `${t("口輪")}: ${t("組んだ型に当てて調整")}`,
   };
 }
 
@@ -144,13 +135,15 @@ export function paperParts(p: Design, matT: number, t: T = tid) {
   }
   // Koma: two identical sheets (top & bottom) normally, or a single "×2" sheet when two would spill
   // onto an extra koma-only page. Decided by comparing the page count on A4 (the print page).
-  const eachKoma = [komaPart(pk, `${t("コマ")} 1/2`, t), komaPart(pk, `${t("コマ")} 2/2`, t)];
-  const oneSheet = [komaPart(pk, `${t("コマ")} ×2`, t)];
+  const eachKoma = [komaPart(pk, `${t("コマ")} 1/2`), komaPart(pk, `${t("コマ")} 2/2`)];
+  const oneSheet = [komaPart(pk, `${t("コマ")} ×2`)];
   // The hoops go LAST — they are the one thing here nobody cuts, and the given order is the order
   // the parts are cut in. They ride in the page-count comparison below because that comparison has
   // to be made on the document that actually prints, not on the mold half of it.
   const wires = [wirePart(pk, false, t), wirePart(pk, true, t)];
-  const pageCount = (ks: RawPart[]) => layout([...ribParts, ...ks, ...wires], A4).pages.length;
+  // The same `adviceLines(t)` the renderers pass, because the corner's height is part of what fits
+  // on sheet 1: probe with a different one and this comparison answers for a document nobody prints.
+  const pageCount = (ks: RawPart[]) => layout([...ribParts, ...ks, ...wires], A4, adviceLines(t)).pages.length;
   const komas = pageCount(eachKoma) > pageCount(oneSheet) ? oneSheet : eachKoma;
   // The mold and the hoops it will be pulled out of — the washi panel is its own document.
   const parts = [...ribParts, ...komas, ...wires];
