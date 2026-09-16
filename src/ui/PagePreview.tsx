@@ -59,15 +59,21 @@ export default function PagePreview({ p, matT, mold, washiOpts }: {
               <b className="text-xs font-bold tracking-[0.14em] text-faint">{t(doc.title)}</b>
               <i className="text-xs not-italic text-faintest">{t(doc.note)}</i>
             </div>
-            {/* `auto-fit` collapses the tracks no page landed in and lets the survivors share ALL the
-                width. `grid-auto-rows: max-content` is load-bearing and `auto` is a bug: an auto row
-                in a grid with a definite height is sized against that height rather than its
-                contents (8.5px rows behind 243px pages, drawn through each other). On a phone the
-                sheets go to ONE COLUMN AND TOUCH — the template is one column wide and butt-joined,
-                so the preview is the strip you will tape and a gap would draw a join that is not
-                there. */}
+            {/* **`auto-fill`, not `auto-fit`.** Both documents are laid out on their own grid, and
+                `auto-fit` collapses the tracks no page landed in and hands the survivors ALL the
+                width — so the sheet count decided the sheet SIZE: two cardboard pages came out half
+                width each while the washi document's single page filled the row at twice their size.
+                「３枚だけど、下だけ大きくなっているから」. `auto-fill` keeps the empty tracks, so a page
+                is one track wide whether it has neighbours or not, and every sheet of both documents
+                is the same size on any given viewport. The rows still WRAP on their own, and below
+                the narrow breakpoint they are forced to one column — 「幅が狭くなったら下に並ぶ感じ」.
+                `grid-auto-rows: max-content` is load-bearing and `auto` is a bug: an auto row in a
+                grid with a definite height is sized against that height rather than its contents
+                (8.5px rows behind 243px pages, drawn through each other). On a phone the sheets go to
+                ONE COLUMN AND TOUCH — the template is one column wide and butt-joined, so the preview
+                is the strip you will tape and a gap would draw a join that is not there. */}
             <div dangerouslySetInnerHTML={{ __html: doc.html }}
-              className="pages grid [grid-template-columns:repeat(auto-fit,minmax(380px,1fr))]
+              className="pages grid [grid-template-columns:repeat(auto-fill,minmax(380px,1fr))]
                 [align-content:start] [grid-auto-rows:max-content] gap-14
                 narrow:[grid-template-columns:1fr] narrow:gap-0" />
           </div>
