@@ -19,18 +19,11 @@ export function washiParts(p: Design, opts: WashiOpts = {}, t: T = tid) {
   const g = washiGore(p, opts);
   const sheets = Math.ceil(Math.max(3, p.boards || 8) / g.span);
   // Number stays outside t() so the default name still contains the plain word (same as the ribs).
-  // The advice, on the one sheet where a mistake costs material you cannot re-cut: this panel is
-  // computed from the DESIGN, and the mold in your hands is a print or a hand-cut board, so the two
-  // can differ. Offered up first, the difference is a pencil line; found after the washi is cut, it
-  // is a sheet of washi. It belongs to the document rather than to a line on the panel — one panel is
-  // the whole document — so it is set in the corner (`RawPart.advice`), which on these sheets is the
-  // room beside the panel: a gore is narrow and leaves most of the width.
-  //
-  // The only advice line with NO part name in front of it, and 「この型」 is why: it names the sheet
-  // the reader is holding. A label exists to say which of several parts a sentence is about, and this
-  // document has one part — 「和紙: 和紙を切る前に…」 would only say the word twice.
+  // Nothing is printed on the panel but its name and its guides. What has to be SAID about cutting a
+  // washi panel — offer the template up to the built mold first, since the panel is computed from the
+  // DESIGN and the mold is a hand-cut board — is in the sheet's boxed corner with the mold's own
+  // cautions beside it (`advice.ts`): both documents carry all four.
   const parts = [{ name: `${t("和紙")} ×${sheets}`,
-    advice: t("和紙を切る前にこの型を当てて寸法を確認"),
     outline: g.outline, marks: g.marks, guides: g.guides }];
   return { parts, g, sheets };
 }

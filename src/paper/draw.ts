@@ -1,5 +1,5 @@
 // Every number in this file is a millimetre of paper.
-import { ADVICE_LH, MARGIN, SQ } from "./layout.ts";
+import { ADVICE_LH, ADVICE_PAD, EDGE, MARGIN, SQ, adviceBox } from "./layout.ts";
 import { STYLE } from "./style.ts";
 import { strWidth } from "../io/pdf.ts";
 import type { Layout, PagePart } from "./layout.ts";
@@ -144,13 +144,19 @@ export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
     down(25.4, "1in");
     down(AY, "3cm");
     text(x0 + 8, ys + 11, t("← 定規で確認"), "note");
-    // The advice block, under the square: one line per part that needs a SENTENCE rather than a line
-    // on the part itself (`RawPart.advice`), each with the part's own name in front of it. Not inside
-    // the part, which is where this started — the koma's line is 49mm of English on a disc with 34mm
-    // of room, so it hung past the cut line on the starting design in BOTH languages. The corner is
-    // the one place on the sheet whose room is the paper's rather than a part's, and it is already
-    // where the document talks about itself: the square above says whether to trust it at all.
-    lay.advice.forEach((a, k) => text(x0, ys + SQ.h + (k + 1) * ADVICE_LH, a, "note"));
+    // ---- The advice box ----
+    // Every caution the kit has, on every sheet of both documents (`paper/advice.ts`), boxed:
+    // 「四角とかで囲って書いた方がいいと思う」. Four grey lines loose under the try square read as
+    // captions belonging to it; ruled off, they read as the one place the sheet talks to you.
+    //
+    // The rule is `guide` — grey and DASHED. Not a solid rectangle: on this sheet a solid line is a
+    // line to follow with a blade, and a box is exactly the shape of a part. Grey and broken is
+    // already the sheet's word for "drawn, never cut", which is why this shares the guides' style
+    // rather than introducing a fifth thing to learn.
+    const box = adviceBox(lay.advice), by = ys + SQ.h + EDGE;
+    path([[x0, by], [x0 + box.w, by], [x0 + box.w, by + box.h], [x0, by + box.h]], "guide", true);
+    // Baselines from the box's own top, so the text cannot drift out of the rule that frames it.
+    lay.advice.forEach((a, k) => text(x0 + ADVICE_PAD, by + ADVICE_PAD + STYLE.note.size + k * ADVICE_LH, a, "note"));
   }
   return ops;
 }

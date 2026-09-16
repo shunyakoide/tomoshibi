@@ -1,5 +1,3 @@
-import { strWidth } from "../io/pdf.ts";
-import { STYLE } from "./style.ts";
 import type { Mark } from "../geometry.ts";
 import type { Page } from "../io/pdf.ts";
 import type { Pt2 } from "../types.ts";
@@ -10,16 +8,14 @@ import type { Pt2 } from "../types.ts";
  * `outline` is the CUT line and may be empty — the wire hoops are a `bend` line and nothing else, and
  * an empty cut path is the honest way to say a part has nothing to cut.
  *
- * Two kinds of words, and WHERE they go is the difference:
- *  - `note` is set INSIDE the part, under its name, and so is about a LINE on it — the hoop's "bend
- *    2mm wire on this line", which means nothing away from the line it sits on. It must therefore fit
- *    inside the outline at the height it is set (`noteOverflow`, pinned by `check:paper`) — on a koma
- *    that is thirteen Japanese characters on the starting design and nine at the opening floor.
- *  - `advice` is about what to DO with the part, and is true wherever you read it, so it goes in the
- *    document's own corner under the check square, with the part's name in front of it. Nothing on
- *    the sheet constrains its length except the width of the paper (`corner`).
+ * `note` is one line of small print set INSIDE the part, under its name, and so can only be about a
+ * LINE on it — the hoop's "bend 2mm wire on this line", which means nothing away from the line it
+ * sits on. It must therefore fit inside the outline at the height it is set (`noteOverflow`, pinned
+ * by `check:paper`): on a koma that is thirteen Japanese characters on the starting design and nine
+ * at the opening floor. Anything a part needs SAID rather than marked is not a note — it belongs to
+ * the kit and goes in the document's boxed corner (`paper/advice.ts`).
  */
-export type RawPart = { name: string; outline: Pt2[]; holes?: Pt2[][]; guides?: Pt2[][]; bend?: Pt2[][]; marks?: Mark[]; note?: string; advice?: string };
+export type RawPart = { name: string; outline: Pt2[]; holes?: Pt2[][]; guides?: Pt2[][]; bend?: Pt2[][]; marks?: Mark[]; note?: string };
 /** The same part in page coordinates — y DOWN from its own top-left corner — and its footprint. */
 export type PagePart = { name: string; outline: Pt2[]; holes: Pt2[][]; guides: Pt2[][]; bend: Pt2[][]; marks: Mark[]; note?: string; w: number; h: number };
 /** A part with its place in the single content column (mm, before the page band offsets it). */
@@ -28,8 +24,8 @@ export type Placed = PagePart & { x: number; y: number };
 export type Row = { y: number; h: number };
 /** One sheet: the content band it shows, which row that is, and where the band lands on paper. */
 export type PageBand = { top: number; row: Row | null; y0: number; bot: number };
-/** Where the document's corner goes — a sheet, and the top-left of the check square on it. The
- *  advice lines hang under the square from the same x (see `corner`). */
+/** Where the document's corner goes — a sheet, and the top-left of the check square on it. The boxed
+ *  advice hangs under the square from the same x (see `corner`). */
 export type Spot = { page: number; x: number; y: number };
 /** A part no orientation fits across the sheet: its ORIENTED width and the overhang, both mm. */
 export type Overflow = { name: string; w: number; over: number };
@@ -62,7 +58,7 @@ const GAP = 6;       // Gap between parts (mm). Margin for cutting them apart.
 // begins a row shows that white and a page that CONTINUES one — a seam — shows none. Add it to `y0`
 // instead and a spanning part gets a 3mm break in its cut line at the very join the sheets are
 // butted on. (The `TOPBAR` note below is the same trap from the other side.)
-const EDGE = GAP / 2;
+export const EDGE = GAP / 2;
 
 function bbox(pts: Pt2[]) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -98,7 +94,7 @@ function toPage(part: RawPart, rot: boolean): PagePart {
 // **Never let a row that fits on one page span pages**: if it does not fit, the next page starts at
 // the top of that row, so there is nothing to join. A seam happens only for a row taller than one
 // page, and the sheets then BUTT at the trim line (see "Joining sheets" in `pageOps`).
-export function layout(parts: RawPart[], page: Page): Layout {
+export function layout(parts: RawPart[], page: Page, advice: string[]): Layout {
   const CW = page.w - 2 * MARGIN;              // content width = the trim box, which is what the clip,
                                               // the frame and the join diamonds are all drawn to
   const colW = CW - 2 * EDGE;                  // ...and what is left for PARTS once both edges are kept clear
@@ -177,10 +173,6 @@ export function layout(parts: RawPart[], page: Page): Layout {
     const asGiven = build(oriented, topbar), sorted = build(byHeight, topbar);
     return sorted.pages.length < asGiven.pages.length ? sorted : asGiven;
   };
-  // One line per piece of advice, in the order the parts are given (= the order they are cut in),
-  // and each line ONCE however many sheets of that part there are: the koma is two identical cuts
-  // carrying the identical sentence, and saying it twice in one corner reads as two rules.
-  const advice = [...new Set(parts.map((q) => q.advice).filter((a): a is string => !!a))];
   // The corner is a mark, not a part, so it takes room the layout ALREADY leaves; only when nothing
   // anywhere fits does sheet 1 give up a strip for it. Keep BOTH halves.
   const box = corner(advice);
@@ -193,8 +185,11 @@ export function layout(parts: RawPart[], page: Page): Layout {
 
 // Footprint of the check square including its labels (mm).
 export const SQ = { w: 86, h: 34 };
-/** Line pitch of the advice block (mm) — the `note` style at 2.6mm, led like the seam codes. */
+/** Line pitch of the advice box (mm) — the `note` style at 2.6mm, led like the seam codes. */
 export const ADVICE_LH = 3.4;
+/** White between the advice box's rule and its text (mm). Enough that the rule reads as a box round
+ *  the lines rather than as an underline touching them. */
+export const ADVICE_PAD = 2;
 /**
  * The document's corner: the check square, with the advice UNDER it. Under, not beside, and the
  * difference is measured — beside it the box is 159mm of the 200mm column, and 83 of 1200 swept
@@ -209,8 +204,22 @@ export const ADVICE_LH = 3.4;
  */
 export function corner(advice: string[]) {
   if (!advice.length) return SQ;
-  const w = Math.max(...advice.map((a) => strWidth(a, STYLE.note.size)));
-  return { w: Math.max(SQ.w, w), h: SQ.h + EDGE + advice.length * ADVICE_LH };
+  return { w: SQ.w, h: SQ.h + EDGE + adviceBox(advice).h };
+}
+/**
+ * The advice box (mm). `draw.ts` strokes exactly this rectangle.
+ *
+ * **Its width is the check square's, not its text's**, and that is the whole point: measured off the
+ * lines, the box came out 69mm in Japanese and 80 in English, so the corner's footprint — and with it
+ * which gap on the sheet it fits into, and the page count — moved with the UI LANGUAGE. `check:paper`
+ * §6 pins that the drawing does not, and it was right to. A constant width also means one sheet
+ * count per design rather than one per language.
+ *
+ * What holds the copy to it is therefore the gate, not this function: every line must fit
+ * `SQ.w - 2·ADVICE_PAD` in BOTH languages. The longest is 69mm against 82mm of room.
+ */
+export function adviceBox(advice: string[]) {
+  return { w: SQ.w, h: advice.length * ADVICE_LH + 2 * ADVICE_PAD };
 }
 /**
  * How much of sheet 1's top the document gives up when NOTHING anywhere has room for that corner.
