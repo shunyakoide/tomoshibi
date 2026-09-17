@@ -308,12 +308,14 @@ t("non-object JSON → null", P.parseImport("42") === null);
 // somewhere earlier: a design the app holds should already be legal, or the file it writes and the
 // file it reads back are different shapes and the drawing moves under the user. Two surfaces used to
 // hand it points nothing had floored — deleting a ◇, and picking a preset, which is the first design
-// most makers will ever have — and a third handed it points too CLOSE TOGETHER, adding one. `check:persist` is the only gate that can reach either: they live in
-// `src/ui`, and plain node cannot import a `.tsx`, which is why the chip's miniature is a `.ts` of
-// its own (`presetMini`).
+// most makers will ever have — and a third handed it points too CLOSE TOGETHER, adding one.
+// `check:persist` is the only gate that can reach any of them: they live in `src/ui`, and plain node
+// cannot load a `.tsx`, which is why everything about a chip except its markup is a `.ts` of its own
+// (`ui/presetChip.ts` — the design a pick yields, the picture, and the lit state).
 {
-  const { pointOps, presetPts, presetHeight } = await import("../src/ui/pointEdit.ts");
-  const { presetMini } = await import("../src/ui/presetMini.ts");
+  const { pointOps, presetPts, presetHeight, neckFloor, tBounds } = await import("../src/ui/pointEdit.ts");
+  const { spacedOK } = await import("../src/config.ts");
+  const { presetMini, presetDesign, matchPreset } = await import("../src/ui/presetChip.ts");
   const { PRESETS } = await import("../src/config.ts");
   // 1. Deleting an END ◇ promotes its neighbour to a mouth, and only the ENDS have the opening
   //    floor — an interior ◇ may legally pinch to `LIMITS.r[0]`, 18mm under it. `del` did not
@@ -348,14 +350,24 @@ t("non-object JSON → null", P.parseImport("42") === null);
   //    passes however much it was mutated. It also has to compare `t`: `neckFloor` is the half that
   //    moves t, and it is the half a preset with its own height goes through.
   const frozen = JSON.stringify(PRESETS);
+  // `presetPts` hands back a fresh list, and its own copy is what keeps `neckFloor` off the preset.
+  // Asserted by identity, because the deep snapshot below passes with that copy removed — the floors
+  // are copy-on-write as well, and an assertion that needs two bugs to fire guards neither.
+  t("presetPts returns its own list, not the preset's",
+    PRESETS.every((pr) => { const out = presetPts(pr, 205); return out !== pr.pts && out.every((q, i) => q !== pr.pts[i]); }));
   for (const pr of PRESETS) {
-    // The heights that RESOLVE differently. `平丸` carries its own, so every entry below collapses
-    // to 150 for it — and five identical iterations under one name is a pass count, not a test.
-    const heights = [...new Set([LIMITS.height[0], 150, 205, 400, LIMITS.height[1]].map((h) => presetHeight(pr, h)))];
+    // One RAW height per distinct resolved one, and the raw value is what goes in — the chip passes
+    // the maker's height and `presetDesign` decides whether this preset keeps it. Resolving it here
+    // would hand the assertion the answer: with `平丸`'s own 150 passed in, the height half of the
+    // drawing cannot disagree with the pick, and backing `presetHeight` out of the drawing left this
+    // gate at 0 fail.
+    const seen = new Set<number>();
+    const heights = [LIMITS.height[0], 150, 205, 400, LIMITS.height[1]]
+      .filter((h) => { const H = presetHeight(pr, h); if (seen.has(H)) return false; seen.add(H); return true; });
     for (const height of heights) {
       const H = presetHeight(pr, height);
       const pts = presetPts(pr, height);
-      const tag = `${pr.name} h${H}`;
+      const tag = `${pr.name} h${height}→${H}`;
       t(`${tag}: both openings at or above ${OPENING_MIN}mm`,
         pts[0].r >= OPENING_MIN - 1e-6 && pts[pts.length - 1].r >= OPENING_MIN - 1e-6);
       t(`${tag}: the necks reach NECK_MIN`,
@@ -367,15 +379,23 @@ t("non-object JSON → null", P.parseImport("42") === null);
       const r2 = load();
       t(`${tag}: a picked preset survives a save and reload unchanged`,
         r2.p.pts.length === pts.length && r2.p.pts.every((q: any, i: number) => Math.abs(q.r - pts[i].r) < 1e-6 && Math.abs(q.t - pts[i].t) < 1e-6));
-      // THE chip assertion: the miniature's own design — points AND height — is the one the pick
-      // stores. It lives in a plain `.ts` for exactly this (`presetMini`), because what went wrong
-      // was not `presetPts`, which was always right, but a drawing that did not call it. The height
-      // goes in UNRESOLVED, the way the chip passes the maker's: resolving it here instead would
-      // hide the disagreement this is here to catch.
-      const mini = presetMini(pr, height);
-      t(`${tag}: the chip draws the design the pick yields`,
-        mini.q.height === H && JSON.stringify(mini.q.pts) === JSON.stringify(pts));
-      t(`${tag}: the chip's path is drawn`, /^M [\d.]+ [\d.]+( L [\d.]+ [\d.]+){81} Z$/.test(mini.d));
+      // THE chip assertions, over the fields `outerR` actually reads — the maker's neck flags and rib
+      // count as well as the points and the height. The miniature drew with `DEFAULTS`' flags for a
+      // long time, and with both necks off that is a silhouette out by half the chip's own width.
+      for (const [nb, nt, boards] of [[true, true, 8], [false, false, 16], [false, true, 4]] as const) {
+        const base = { ...DEFAULTS, neckBot: nb, neckTop: nt, boards, height, rTop: 42, rBot: 42 };
+        const want = presetDesign(pr, base);
+        const mini = presetMini(pr, base);
+        const tag2 = `${tag} necks${nb ? 1 : 0}${nt ? 1 : 0} b${boards}`;
+        t(`${tag2}: the chip draws the design the pick yields`, JSON.stringify(mini.q) === JSON.stringify(want));
+        t(`${tag2}: and it keeps the maker's own fields`,
+          mini.q.neckBot === nb && mini.q.neckTop === nt && mini.q.boards === boards && mini.q.height === H);
+        t(`${tag2}: the chip's path is drawn`, /^M [\d.]+ [\d.]+( L [\d.]+ [\d.]+){81} Z$/.test(mini.d));
+        // The lit state is the other half of "the picture is the shape you have", and it is in this
+        // module for the same reason: so a gate can ask it. The design a pick yields must light the
+        // chip that yielded it.
+        t(`${tag2}: picking it lights its own chip`, matchPreset(want) === pr.key);
+      }
     }
   }
   t("no preset was mutated by any of that", JSON.stringify(PRESETS) === frozen);
@@ -386,7 +406,6 @@ t("non-object JSON → null", P.parseImport("42") === null);
   //    just made by DROPPING a point, at 7 of the 1941 heights the editor allows, and the chip went
   //    dark on the shape it had drawn a moment before. The five heights above are all clean; this is
   //    1941 × 3 saves and reloads, and it costs about a tenth of a second.
-  const litKey = (pts: any[]) => JSON.stringify(pts.map((q: any) => [q.t, q.r, !!q.sharp]));
   const dropped: string[] = [], darkened: string[] = [];
   for (const pr of PRESETS)
     for (let h = LIMITS.height[0]; h <= LIMITS.height[1]; h++) {
@@ -394,12 +413,47 @@ t("non-object JSON → null", P.parseImport("42") === null);
       save({ p: { ...DEFAULTS, height: H, rTop: pr.rTop, rBot: pr.rBot, pts }, bedW: 256, bedD: 256, printRibs: 1 });
       const back = load().p.pts;
       if (back.length !== pts.length || !back.every((q: any, i: number) => Math.abs(q.t - pts[i].t) < 1e-12)) dropped.push(`${pr.name}@${H}`);
-      // `matchPreset` lives in a `.tsx` and cannot be imported here; this is its comparison.
-      if (litKey(presetPts(pr, H)) !== litKey(pts)) darkened.push(`${pr.name}@${H}`);
+      if (matchPreset({ ...DEFAULTS, height: H, pts: back }) !== pr.key) darkened.push(`${pr.name}@${H}`);
     }
   t(`a picked preset survives a save and reload at every height (${LIMITS.height[0]}..${LIMITS.height[1]})`,
     dropped.length === 0 || `${dropped.length} lose a point: ${dropped.slice(0, 8).join(", ")}`);
   t("and the chip stays lit at every one of them", darkened.length === 0 || `${darkened.length}: ${darkened.slice(0, 8).join(", ")}`);
+
+  // 2b. And the PRODUCERS have to emit what the rule accepts. `neckFloor`'s own doc says the list
+  //     "stays as spaced as [`tBounds`] guards it", and that claim was false — it is the sentence
+  //     the h86 bug above was hiding behind. Both are swept here rather than asserted once, because
+  //     what broke it was a particular height's arithmetic, not the formula.
+  {
+    const bad: string[] = [];
+    for (let h = LIMITS.height[0]; h <= LIMITS.height[1]; h++)
+      for (const n of [LIMITS.pts[0], 3, 5, LIMITS.pts[1]]) {
+        // Every point crushed against the bottom, so the floor has to push all of them: the case
+        // that produces `m + i * T_GAP` for every i.
+        const out = neckFloor(Array.from({ length: n }, () => ({ t: 0.001, r: 40 })), h);
+        for (let i = 1; i < out.length; i++)
+          if (!spacedOK(out[i].t - out[i - 1].t)) bad.push(`h${h} n${n} gap ${(out[i].t - out[i - 1].t).toExponential(3)}`);
+        // And the same against the top.
+        const top = neckFloor(Array.from({ length: n }, () => ({ t: 0.999, r: 40 })), h);
+        for (let i = 1; i < top.length; i++)
+          if (!spacedOK(top[i].t - top[i - 1].t)) bad.push(`h${h} n${n} top gap ${(top[i].t - top[i - 1].t).toExponential(3)}`);
+      }
+    t("neckFloor emits gaps the spacing rule accepts, at every height",
+      bad.length === 0 || `${bad.length}: ${bad.slice(0, 6).join(", ")}`);
+    // `tBounds` is the other producer: a ◇ dragged onto either bound must leave a legal gap.
+    const tb: string[] = [];
+    for (let h = LIMITS.height[0]; h <= LIMITS.height[1]; h += 7)
+      for (const n of [3, 5, LIMITS.pts[1]]) {
+        const pts = neckFloor(Array.from({ length: n }, (_, i) => ({ t: 0.1 + i * 0.1, r: 40 })), h);
+        for (let i = 0; i < n; i++)
+          for (const to of tBounds(pts, i, h)) {
+            const moved = pts.map((q, j) => (j === i ? { ...q, t: to } : q));
+            for (let k = 1; k < moved.length; k++)
+              if (!spacedOK(moved[k].t - moved[k - 1].t)) tb.push(`h${h} n${n} #${i}→${to}`);
+          }
+      }
+    t("a ◇ dragged onto either tBounds edge still leaves a legal gap",
+      tb.length === 0 || `${tb.length}: ${tb.slice(0, 6).join(", ")}`);
+  }
 
   // 3. ADDING a ◇ is the third such surface. The `+` ghost is the plain midpoint of a consecutive
   //    pair, and `tBounds` lets a pair sit at exactly `T_GAP`, so on a tight pair the new point
