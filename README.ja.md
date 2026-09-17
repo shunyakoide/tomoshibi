@@ -18,7 +18,7 @@
 
 | 組立 | 印刷 | 点灯 |
 | --- | --- | --- |
-| ![土台に載った組み上がりの型](docs/screenshots/assembly.png) | ![ベッドに並んだ印刷プレート](docs/screenshots/print.png) | ![完成した提灯。点灯し、3本脚で立っている](docs/screenshots/lit.png) |
+| ![土台に載った組み上がりの型。両端に口輪](docs/screenshots/assembly.png) | ![ベッドに並んだ印刷プレート](docs/screenshots/print.png) | ![完成した提灯。点灯し、3本脚で立っている](docs/screenshots/lit.png) |
 | 土台に載せた型。机から浮くので、巻きながら回せます。 | 全部品を自分のベッドに並べたところ。 | つくろうとしているもの。 |
 
 ---
