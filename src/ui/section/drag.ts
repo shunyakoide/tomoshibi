@@ -7,7 +7,7 @@
  * `freezeMap`, whose whole job is to capture the mapping at pointerdown rather than at mount.
  */
 import { outerR } from "../../geometry.ts";
-import { LIMITS, T_GAP } from "../../config.ts";
+import { LIMITS, spacedOK } from "../../config.ts";
 import { clamp } from "../../util.ts";
 import { CX, Y0 } from "./frame.ts";
 import { tBounds, clampR } from "../pointEdit.ts";
@@ -144,12 +144,11 @@ export function sectionDrag(ctx: {
     // the neighbour it crowded, so a design came back from a save with a ◇ the maker had put there
     // themselves missing. The ghost is hidden in the same case (`SectionEditor`); this is the guard
     // behind it, because the affordance and the rule are not the same thing.
-    // **No epsilon.** `legalizePts` keeps a point when the gap is `>= T_GAP` and not a float's worth
-    // less, so a tolerance here is not leniency, it is a disagreement: two drags that both land on
-    // `tBounds`' floor give t = .28 and .36, whose difference is 0.07999999999999996, and a 1e-9
-    // slack offered, accepted and then lost the point. The comparison is the one persist makes.
+    // **`spacedOK`, not a comparison of its own.** Whether this point survives is persist's answer,
+    // and an editor that asks the question a hair differently offers a ◇ the file then drops (or
+    // refuses one it would have kept). One predicate, asked here about the nearest neighbour.
     const near = p.pts.reduce((d, q) => Math.min(d, Math.abs(q.t - mt)), Infinity);
-    if (near < T_GAP) return;
+    if (!spacedOK(near)) return;
     const r = clampR(outerR(p, mt));
     // Sorted and located BEFORE the state write: a `setP` updater must be pure — React may run it
     // twice — and calling `setSel` from inside one is a side effect however stable its value.

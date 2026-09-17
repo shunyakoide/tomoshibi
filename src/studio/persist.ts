@@ -7,7 +7,7 @@
  * must not make `outerR` NaN (a non-manifold STL) or hand the first render an oversized `boards`
  * (a koma whose notches overlap). Verified by `npm run check:persist`.
  */
-import { DEFAULTS, LIMITS, OPENING_MIN, T_GAP } from "../config.ts";
+import { DEFAULTS, LIMITS, OPENING_MIN, spacedOK } from "../config.ts";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
 import { clamp } from "../util.ts";
 import { silhouetteFloors } from "../ui/pointEdit.ts";
@@ -116,7 +116,7 @@ function validatePts(pts: unknown): Pt[] {
  */
 function legalizePts(sorted: Pt[]): Pt[] {
   const kept: Pt[] = [];
-  for (const q of sorted) if (!kept.length || q.t - kept[kept.length - 1].t >= T_GAP) kept.push(q);
+  for (const q of sorted) if (!kept.length || spacedOK(q.t - kept[kept.length - 1].t)) kept.push(q);
   const max = LIMITS.pts[1];
   if (kept.length <= max) return kept;
   // Still over the ceiling. Both ends survive — they ARE the openings, and the neck's radius — and
@@ -165,7 +165,7 @@ function sanitizeP(rawP: unknown): Design {
   p.pts = validatePts(raw && raw.pts);
   coerceNums(p);
   // After the height is clamped, since the floor is millimetres of it. Pushing the ends out keeps
-  // the spacing `legalizePts` just enforced (each carried point lands exactly T_GAP on).
+  // the spacing `legalizePts` just enforced (each carried point lands on `T_GAP`, to `spacedOK`).
   p.pts = silhouetteFloors(p.pts, p.height);
   coerceBools(p);
   p.boards = Math.min(p.boards, maxBoards(p));

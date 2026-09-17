@@ -361,7 +361,8 @@ t("non-object JSON → null", P.parseImport("42") === null);
       t(`${tag}: the necks reach NECK_MIN`,
         pts[0].t * H >= NECK_MIN - 1e-9 && (1 - pts[pts.length - 1].t) * H >= NECK_MIN - 1e-9);
       // The design a pick stores is one persist will hand straight back: the chip stays lit, and the
-      // shape a maker picked is the shape their file reopens as.
+      // shape a maker picked is the shape their file reopens as. **Five heights is not enough** —
+      // see the sweep below, which is the same question asked at every height there is.
       save({ p: { ...DEFAULTS, height: H, rTop: pr.rTop, rBot: pr.rBot, pts }, bedW: 256, bedD: 256, printRibs: 1 });
       const r2 = load();
       t(`${tag}: a picked preset survives a save and reload unchanged`,
@@ -378,6 +379,27 @@ t("non-object JSON → null", P.parseImport("42") === null);
     }
   }
   t("no preset was mutated by any of that", JSON.stringify(PRESETS) === frozen);
+
+  //    EVERY height, not five round ones. `neckFloor` writes `m + i * T_GAP`, and that arithmetic
+  //    can land a hair short in doubles — at h86 it put `たる`'s two lower points
+  //    0.039999999999999994 apart, 7e-18 under `T_GAP` — so persist answered a design the editor had
+  //    just made by DROPPING a point, at 7 of the 1941 heights the editor allows, and the chip went
+  //    dark on the shape it had drawn a moment before. The five heights above are all clean; this is
+  //    1941 × 3 saves and reloads, and it costs about a tenth of a second.
+  const litKey = (pts: any[]) => JSON.stringify(pts.map((q: any) => [q.t, q.r, !!q.sharp]));
+  const dropped: string[] = [], darkened: string[] = [];
+  for (const pr of PRESETS)
+    for (let h = LIMITS.height[0]; h <= LIMITS.height[1]; h++) {
+      const H = presetHeight(pr, h), pts = presetPts(pr, h);
+      save({ p: { ...DEFAULTS, height: H, rTop: pr.rTop, rBot: pr.rBot, pts }, bedW: 256, bedD: 256, printRibs: 1 });
+      const back = load().p.pts;
+      if (back.length !== pts.length || !back.every((q: any, i: number) => Math.abs(q.t - pts[i].t) < 1e-12)) dropped.push(`${pr.name}@${H}`);
+      // `matchPreset` lives in a `.tsx` and cannot be imported here; this is its comparison.
+      if (litKey(presetPts(pr, H)) !== litKey(pts)) darkened.push(`${pr.name}@${H}`);
+    }
+  t(`a picked preset survives a save and reload at every height (${LIMITS.height[0]}..${LIMITS.height[1]})`,
+    dropped.length === 0 || `${dropped.length} lose a point: ${dropped.slice(0, 8).join(", ")}`);
+  t("and the chip stays lit at every one of them", darkened.length === 0 || `${darkened.length}: ${darkened.slice(0, 8).join(", ")}`);
 
   // 3. ADDING a ◇ is the third such surface. The `+` ghost is the plain midpoint of a consecutive
   //    pair, and `tBounds` lets a pair sit at exactly `T_GAP`, so on a tight pair the new point
@@ -399,11 +421,18 @@ t("non-object JSON → null", P.parseImport("42") === null);
   // A pair at exactly T_GAP: there is no room for a midpoint, so the add is refused outright.
   const tight = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.28 + T_GAP, r: 90 }, { t: 0.925, r: 26 }];
   t("add a ◇ between two that are T_GAP apart → refused", addAt(tight, 0.28 + T_GAP / 2) === null);
-  // And the case a TOLERANCE lets through, which is why the guard has none: `0.36 - 0.28` is
-  // 0.07999999999999996, a float's worth under `2 × T_GAP`, and `legalizePts` counts floats. Both
-  // values are exactly what `tBounds`' floor returns, so this is two ordinary drags apart.
+  // And a gap that is `2 × T_GAP` in intent and 0.07999999999999996 in doubles — `.28` and `.36` are
+  // both what `tBounds`' floor returns, so it is two ordinary drags. The add is TAKEN, and the file
+  // keeps it: the rule is `spacedOK`, one predicate with a tolerance far under anything the geometry
+  // can feel, and the editor and persist read the same one. An add taken by a rule that persist
+  // states a hair differently is a point offered and then lost.
   const floaty = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.36, r: 90 }, { t: 0.925, r: 26 }];
-  t("add a ◇ into a gap a float's width too small → refused", addAt(floaty, (0.28 + 0.36) / 2) === null);
+  const fadd = addAt(floaty, (0.28 + 0.36) / 2);
+  t("add a ◇ into a gap 7e-18 under 2×T_GAP → taken", fadd !== null && fadd.pts.length === floaty.length + 1);
+  if (fadd) {
+    save({ p: fadd, bedW: 256, bedD: 256, printRibs: 1 });
+    t("…and the file keeps it", load().p.pts.length === fadd.pts.length);
+  }
   // A pair with room: the point goes in, and the file keeps every one of them.
   const roomy = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.925, r: 26 }];
   const added = addAt(roomy, (0.28 + 0.66) / 2);

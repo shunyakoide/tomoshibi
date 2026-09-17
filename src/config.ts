@@ -62,6 +62,20 @@ export const LIMITS = { height: [60, 2000], r: [8, 600], pts: [2, 8] } as const 
 // down to it. While it lived module-private in the UI the gates could not read the floor they had to
 // corner, and a silhouette packed to it opened the rib's edges with every gate reporting 0 FAIL.
 export const T_GAP = 0.04;
+/**
+ * Is a gap between two control points wide enough — **the one place that answers it**, because the
+ * answer is not `gap >= T_GAP`. `neckFloor` builds its positions as `m + i * T_GAP`, and in doubles
+ * that arithmetic can land a hair SHORT: at a body height of 86mm the floor puts `たる`'s two lower
+ * points 0.039999999999999994 apart, 7e-18 under. With a bare `>=`, persist answered a design the
+ * editor had just produced by DROPPING a point — 7 of the 1941 heights in `LIMITS.height`, on which
+ * the preset chip then went dark on the shape it had drawn a moment earlier.
+ *
+ * So the rule carries a tolerance far below anything the geometry can feel (0.04 of a body, against
+ * a float's 1e-17) and every surface asks THIS rather than comparing for itself: the editor before
+ * it adds a ◇, the `+` ghost before it offers to, and persist when it reads a file. Two of those
+ * disagreeing by an ulp is the same bug twice — a point offered, taken, and then quietly lost.
+ */
+export const spacedOK = (gap: number): boolean => gap >= T_GAP - 1e-9;
 
 // The least neck either end may have, in mm. The washi's end runs onto the neck (`WASHI_END`
 // lands on it, to be folded over the hoop), and with the body's curve — and the first bamboo —

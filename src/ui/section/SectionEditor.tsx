@@ -9,7 +9,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { outerR } from "../../geometry.ts";
-import { LIMITS, T_GAP } from "../../config.ts";
+import { LIMITS, spacedOK } from "../../config.ts";
 import { FS } from "../theme.ts";
 import Legend from "./Legend.tsx";
 import { C } from "./palette.ts";
@@ -100,15 +100,16 @@ export default function SectionEditor({
   }
 
   // Add-point ghost (+), capped at `LIMITS.pts[1]` points. Hidden in curve-adjust mode so focus
-  // stays on the handles — and **not offered between two ◇ that are already `T_GAP` apart**: the
-  // ghost is their midpoint, so there it would land `T_GAP/2` from both, which is a list persist
-  // legalizes by DROPPING points (the new one and the neighbour it crowded). `addAtT` refuses the
-  // same case; a `+` that does nothing when clicked would be the other half of the same bug.
+  // stays on the handles — and **not offered between two ◇ already too close together**: the ghost is
+  // their midpoint, so on a tight pair it would land under `T_GAP` from both, which is a list
+  // persist legalizes by DROPPING points (the new one and the neighbour it crowded). `addAtT`
+  // refuses the same case through the same `spacedOK`; a `+` that does nothing when clicked would be
+  // the other half of the same bug.
   const ghosts = (editMode === "curve" || p.pts.length >= LIMITS.pts[1]) ? [] : p.pts.slice(0, -1).flatMap((pt, i) => {
     const mt = (pt.t + p.pts[i + 1].t) / 2;
-    // The midpoint is `T_GAP` from both ⟺ the pair is `2 × T_GAP` apart. No epsilon, for the same
-    // reason `addAtT` has none: a float's worth of slack here is a `+` whose point the file drops.
-    if (p.pts[i + 1].t - pt.t < 2 * T_GAP) return [];
+    // `spacedOK` on the midpoint's OWN distance — the identical question `addAtT` asks, about the
+    // identical quantity, so the affordance and the rule cannot part company by an ulp.
+    if (!spacedOK(mt - pt.t) || !spacedOK(p.pts[i + 1].t - mt)) return [];
     return [{ mt, x: X(outerR(p, mt)), y: Y(mt) }];
   });
 
