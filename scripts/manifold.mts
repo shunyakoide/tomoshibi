@@ -403,10 +403,20 @@ let gmFail = 0, gmTotal = 0, gmWorst = 0;
       if (gmFail <= 40) console.log(`✗[G] ${tag} :: bodyMinR ${G.bodyMinR(p).toFixed(3)} reads ${high.toFixed(3)}mm ABOVE the body's least radius ${truth(p).toFixed(3)}`);
     }
   };
-  // The design that survived the first three fixes: two dips, the shallower one at a control point.
-  measure({ ...DEFAULTS, height: 205, boards: 16, pts: [
-    { t: 0.08, r: 60 }, { t: 0.24, r: 20 }, { t: 0.72, r: 500, sharp: true }, { t: 0.84, r: 24, sharp: true }, { t: 0.92, r: 600 },
-  ] }, "two dips, h205");
+  // **The family the design that survived the first three fixes belongs to**, not just that design:
+  // a SHALLOW dip that owns the lowest sample — so a refinement polishes its bracket — plus a deeper
+  // undershoot somewhere else, which is then never looked at. Swept deliberately, because a random
+  // sweep meets this shape only by luck (it found 7 of 1200; this grid fails 20 of 108 against the
+  // version that shipped it, the worst by 12.0mm).
+  for (const decoy of [12, 20, 30])
+    for (const big of [300, 500])
+      for (const mid of [20, 24, 40])
+        for (const dt of [0.80, 0.84, 0.88])
+          for (const height of [205, 400])
+            measure({ ...DEFAULTS, height, boards: 16, pts: neckFloor([
+              { t: 0.08, r: 60 }, { t: 0.24, r: decoy }, { t: 0.72, r: big, sharp: true },
+              { t: dt, r: mid, sharp: true }, { t: 0.92, r: 600 },
+            ], height) }, `two dips decoy${decoy} big${big} mid${mid} dt${dt} h${height}`);
   // And a deterministic pseudo-random sweep of the silhouette space. A fixed seed, because a gate
   // that fails on some runs and not others is a gate nobody trusts — and the point is coverage of
   // shapes no preset resembles, not novelty per run.
