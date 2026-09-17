@@ -6,7 +6,7 @@
  * path segment and carries its own `note-` prefix rather than living under `notes/` — see
  * `ROUTES` in `../studio/route.ts`.
  */
-export const NOTE_ROUTES = ["note-motivation"] as const;
+export const NOTE_ROUTES = ["note-motivation", "note-sockets"] as const;
 
 export type NoteSlug = (typeof NOTE_ROUTES)[number];
 

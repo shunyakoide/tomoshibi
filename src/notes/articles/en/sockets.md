@@ -1,0 +1,57 @@
+---
+title: Legs and how to mount the socket
+summary: The mold can make the shade, but lamp sockets are not the same everywhere. Two ways to mount one: a pendant socket, and a ceiling-mount holder.
+category: Build notes
+---
+
+# Legs and how to mount the socket
+
+## The part I got stuck on {#the-hard-part}
+
+The hardest part of prototyping was not the shape of the shade. It was attaching the legs and the lamp socket.
+
+The Akari lights I was looking at come with parts made for those lights. Put them together and the body takes its shape cleanly and the legs stand firm. Making one yourself is not like that. The sockets you can buy differ by country and by shop, so that part was left to me to work out.
+
+## Three legs {#three-legs}
+
+Turn on leg sockets in the settings and the bottom ring gets three holes for the leg ends.
+
+On the cardboard route you bend wire along the template line sized to the bottom opening, making three eyes for the legs. The leg ends just pass through them and fold back.
+
+The bending and the assembly steps themselves are on the build guide. What follows is the part before that: which socket to press into service, and how.
+
+## Using a pendant light socket {#pendant-socket}
+
+An Akari socket has a nut at its lower end that clamps the legs and the frame that holds the body taut, all together. Some pendant light sockets sold today have a similar mechanism, so try assembling it with that.
+
+This is not what the socket was made for, though. Build it at your own risk.
+
+Bend each leg into a dog-leg, and make a loop where it reaches the middle of the bottom opening. That loop is the part the socket clamps, so leave a gap wide enough for it to sit in. All three legs take the same shape.
+
+The frame that holds the body taut is fixed by the same socket. Bend the top end so it stands proud of the top opening, making a handle to carry the lamp by. Below that, bend it to the width that catches on the top opening. The bottom end becomes a loop, like the legs, at the part of the socket that clamps.
+
+Then loosen the threaded part of the socket, hook the three legs' loops and the frame's loop onto it together, and tighten it down. Adjust the angle of the legs and the socket afterwards.
+
+Rubber feet on the leg ends, or simply bending the ends over, will keep them from marking whatever the lamp stands on.
+
+Some sockets have a threaded part at the top instead. Working with that one is just as valid an approach.
+
+## Using a ceiling-mount holder {#receptacle}
+
+The other way uses the kind of holder you mount on a wall — a resep, as it is called in Japan. The legs and the frame are made exactly as above.
+
+I tried this one before the pendant socket. It does need a 3D printer, though, because I printed and assembled a model of my own for it.
+
+A holder like this has no threaded part to clamp against, so I made a part that stands in for one. There is an [STL](notes/resep-adapter.stl) to print, and a [FreeCAD file](notes/resep-adapter.FCStd) if you want to change the dimensions. I tried it with a Japanese holder, so the hole positions and sizes may need adjusting to the one in your hands.
+
+You also need a screw, a washer and a nut. Pass the screw through the recess in the middle and mount the holder on top of it. Onto the screw now sticking out below, hook the legs and the frame the same way as before. Tighten the nut and it holds. A larger washer might make it steadier still.
+
+## Small bulbs suit it {#small-bulbs}
+
+Given the size of shade a home 3D printer can make, a small bulb around E17 feels about right.
+
+For a pendant socket in E17, IKEA's STRÅLA works. It has a threaded part to clamp against, so the legs and the frame can be held there. That part sits close to the bulb, though, so it can end up showing below the bottom of the body.
+
+## Still room to work this out {#still-open}
+
+There is plenty of room left to improve how the legs mount. If you find something that works with the socket you have, I would like to hear about it.

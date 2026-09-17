@@ -2,6 +2,8 @@ import type { Lang } from "../i18n.ts";
 import { isNoteSlug, NOTE_ROUTES, type NoteSlug } from "./slugs.ts";
 import jaMotivation from "./articles/ja/motivation.md?raw";
 import enMotivation from "./articles/en/motivation.md?raw";
+import jaSockets from "./articles/ja/sockets.md?raw";
+import enSockets from "./articles/en/sockets.md?raw";
 
 export type NoteMeta = {
   slug: NoteSlug;
@@ -18,6 +20,7 @@ export type NoteDoc = NoteMeta & {
  *  one language — is a compile error rather than an untitled card. */
 const SOURCES: Record<NoteSlug, Record<Lang, string>> = {
   "note-motivation": { ja: jaMotivation, en: enMotivation },
+  "note-sockets": { ja: jaSockets, en: enSockets },
 };
 
 export function listNotes(lang: Lang): NoteMeta[] {
