@@ -96,11 +96,15 @@ export function paperP(p: Design, matT: number): Design {
 /**
  * What the measured material thickness does to the mold, without building a part — so the app can ask
  * on every render (paperParts returns the same numbers, at the cost of every outline). Two facts,
- * both fixable by changing the design: `wall`, the koma left BETWEEN two notches at the notch bottom,
- * which thicker material thins until it tears when hand-cut (below half the material thickness); and
- * `clamped`/`nMax`, whether the rib count had to come down, the notches otherwise overlapping each
- * other at the deepest the hub may go (`maxBoards`). A thin strip of board where a rib passes the
- * mouth does NOT clamp the count — that is reported and left to the maker (`ribMouthBand`).
+ * both fixable by changing the design: `wall`, the koma left BETWEEN two notches at the notch bottom;
+ * and `clamped`/`nMax`, whether the rib count had to come down, the notches otherwise overlapping
+ * each other at the deepest the hub may go (`maxBoards`). A thin strip of board where a rib passes
+ * the mouth does NOT clamp the count — that is reported and left to the maker (`ribMouthBand`).
+ *
+ * `wall` is a NUMBER, not a warning. It used to carry a `thin` threshold (half the thickness) for an
+ * alert that could not fire once the joint began asking for a wall of `matT` and the hub started
+ * growing until it had one — see `buildAlerts`. It stays because `check:paper` measures it, and
+ * because the number the app could one day quote has to come from here rather than be re-derived.
  */
 export function paperFit(p: Design, matT: number) {
   const pk = paperP(p, matT);
@@ -110,7 +114,6 @@ export function paperFit(p: Design, matT: number) {
     // `JOINT_NOTCH`), so the wall left beside it is wider, and the alert has to report the wall the
     // maker will actually cut.
     wall: (2 * Math.PI * notchR(pk)) / pk.boards - notchWidth(pk),
-    thin: matT / 2,                      // the threshold: thinner than half the material tears when cut by hand
     clamped: p.boards > nMax,
     nMax,
   };

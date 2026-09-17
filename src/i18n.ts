@@ -147,8 +147,6 @@ const EN: Record<string, string> = {
   "→ 薄い材料にする / 羽根板を減らす / 断面図で開口を広げる": "→ use thinner material / fewer ribs / widen the opening in the section view",
   "羽根板を {n} 枚に減らして型紙にしています": "The template is cut for {n} ribs, not the count in the editor",
   "→ 薄い材料にする / 断面図で開口を広げる": "→ use thinner material / widen the opening in the section view",
-  "コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです": "Only {wall}mm of koma left between notches — thin enough to tear when hand-cut",
-  "→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる": "→ Fewer ribs / thinner material / widen the opening in the section view",
   // The rib has to come back out of the shade it shaped, through one of the two openings. This is
   // about the finished lantern, not the print, so the English says come out rather than fit.
   "羽根板の幅 {w}mm — 開口 ⌀{d}mm から抜けません": "The rib is {w}mm wide — it cannot come out of the ⌀{d}mm opening",
