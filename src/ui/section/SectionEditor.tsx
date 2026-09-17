@@ -9,7 +9,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { outerR } from "../../geometry.ts";
-import { LIMITS } from "../../config.ts";
+import { LIMITS, T_GAP } from "../../config.ts";
 import { FS } from "../theme.ts";
 import Legend from "./Legend.tsx";
 import { C } from "./palette.ts";
@@ -100,10 +100,14 @@ export default function SectionEditor({
   }
 
   // Add-point ghost (+), capped at `LIMITS.pts[1]` points. Hidden in curve-adjust mode so focus
-  // stays on the handles.
-  const ghosts = (editMode === "curve" || p.pts.length >= LIMITS.pts[1]) ? [] : p.pts.slice(0, -1).map((pt, i) => {
+  // stays on the handles — and **not offered between two ◇ that are already `T_GAP` apart**: the
+  // ghost is their midpoint, so there it would land `T_GAP/2` from both, which is a list persist
+  // legalizes by DROPPING points (the new one and the neighbour it crowded). `addAtT` refuses the
+  // same case; a `+` that does nothing when clicked would be the other half of the same bug.
+  const ghosts = (editMode === "curve" || p.pts.length >= LIMITS.pts[1]) ? [] : p.pts.slice(0, -1).flatMap((pt, i) => {
     const mt = (pt.t + p.pts[i + 1].t) / 2;
-    return { mt, x: X(outerR(p, mt)), y: Y(mt) };
+    if (p.pts[i + 1].t - pt.t < 2 * T_GAP - 1e-9) return [];
+    return [{ mt, x: X(outerR(p, mt)), y: Y(mt) }];
   });
 
   const spineY = Math.min(Y(tnB), Y(1 - tnT));
