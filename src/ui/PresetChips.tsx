@@ -19,8 +19,10 @@ const ptKey = (q: Pt) =>
 const ptsKey = (pts: Pt[]) => (pts || []).map(ptKey).join("|");
 
 // Key of the preset whose control points the design still matches exactly, or null once edited.
-// "Exactly" means what picking the chip yields at THIS height: a short body pushes a preset's necks
-// out to NECK_MIN on pick, and the chip must stay lit on the design it just made.
+// "Exactly" means what picking the chip yields from THIS design: a short body pushes a preset's necks
+// out to NECK_MIN on pick, and the chip must stay lit on the design it just made. The height is
+// `presetPts`'s to resolve, so the chip is lit by the same call that DRAWS it — a preset carrying its
+// own height (`平丸`) otherwise stayed lit at a body height whose silhouette the chip was not showing.
 export function matchPreset(p: Design): string | null {
   const key = ptsKey(p.pts);
   return PRESETS.find((pr) => ptsKey(presetPts(pr, p.height)) === key)?.key ?? null;
@@ -42,11 +44,9 @@ export default function PresetChips({ p, onPick }: { p: Design; onPick: (pr: Pre
                 aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:border-accent
                 aria-pressed:shadow-[0_3px_8px_var(--color-accent-25)]">
               <svg viewBox="0 0 60 46" className="w-40 h-32 block" aria-hidden="true">
-                {/* At the height the PICK would use: a preset whose identity is a ratio carries its
-                    own (`Preset.height`), and `onPick` resolves it the same way. The neck floor is a
-                    fraction of the height, so drawing 平丸 at the maker's 400mm and then handing
-                    them a 150mm body is the same lie the raw openings were. */}
-                <path d={presetMini(pr, pr.height ?? p.height).d} fill={on ? "rgba(255,255,255,0.25)" : "rgba(59,52,43,0.05)"}
+                {/* The maker's height goes in; `presetMini` decides whether this preset keeps it
+                    (`presetHeight`), exactly as `matchPreset` and `onPick` do. */}
+                <path d={presetMini(pr, p.height).d} fill={on ? "rgba(255,255,255,0.25)" : "rgba(59,52,43,0.05)"}
                   stroke={on ? "#fff" : "#8a7c66"} strokeWidth="2" />
               </svg>
               <span className="text-sm font-medium">{t(pr.name)}</span>

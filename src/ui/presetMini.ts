@@ -12,15 +12,17 @@
  */
 import { outerR } from "../geometry.ts";
 import { DEFAULTS } from "../config.ts";
-import { presetPts } from "./pointEdit.ts";
+import { presetPts, presetHeight } from "./pointEdit.ts";
 import type { Preset } from "../config.ts";
 import type { Design } from "../types.ts";
 
 export function presetMini(pr: Preset, height: number): { d: string; q: Design } {
   // A whole design, not just the four fields the curve needs: `outerR` reads the neck flags and, on
-  // a neck-less end, the koma size derived from the rib count. And the points the PICK would give at
-  // this height, which is the whole of `presetPts`.
-  const q: Design = { ...DEFAULTS, height, rTop: pr.rTop, rBot: pr.rBot, pts: presetPts(pr, height) };
+  // a neck-less end, the koma size derived from the rib count. And the points AND HEIGHT the pick
+  // would give, which is the whole of `presetPts` / `presetHeight` — the caller passes the maker's
+  // height and does not decide whether this preset keeps it.
+  const H = presetHeight(pr, height);
+  const q: Design = { ...DEFAULTS, height: H, rTop: pr.rTop, rBot: pr.rBot, pts: presetPts(pr, H) };
   const N = 40, rr: number[] = [];
   let mx = 0;
   for (let i = 0; i <= N; i++) { const r = outerR(q, i / N); rr.push(r); if (r > mx) mx = r; }

@@ -33,7 +33,7 @@ import Welcome from "../ui/Welcome.tsx";
 import { accent, chipStyle, TContext } from "../ui/theme.ts";
 import PresetChips from "../ui/PresetChips.tsx";
 import PointCard from "../ui/PointCard.tsx";
-import { presetPts } from "../ui/pointEdit.ts";
+import { presetPts, presetHeight } from "../ui/pointEdit.ts";
 import PointBar from "../ui/PointBar.tsx";
 import Toolbar from "../ui/Toolbar.tsx";
 import OverflowMenu, { type MenuItem } from "../ui/Menu.tsx";
@@ -269,10 +269,10 @@ export default function TomoshibiStudio() {
           setSel(null);
           setP((o) => {
             // A preset without a height keeps the maker's, and its necks then have to reach
-            // NECK_MIN at that height — `presetPts` is the one place that answers that, so the chip
-            // is lit by, and DRAWN as, the very points this hands the design.
-            const n = { ...o, rTop: pr.rTop, rBot: pr.rBot, ...(pr.height ? { height: pr.height } : {}) };
-            return { ...n, pts: presetPts(pr, n.height) };
+            // NECK_MIN at that height — `presetHeight`/`presetPts` are the one place that answers
+            // both, so the chip is lit by, and DRAWN as, the very points this hands the design.
+            const n = { ...o, rTop: pr.rTop, rBot: pr.rBot, height: presetHeight(pr, o.height) };
+            return { ...n, pts: presetPts(pr, o.height) };
           });
         }} />
 
