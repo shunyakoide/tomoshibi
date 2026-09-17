@@ -308,7 +308,7 @@ t("non-object JSON → null", P.parseImport("42") === null);
 // somewhere earlier: a design the app holds should already be legal, or the file it writes and the
 // file it reads back are different shapes and the drawing moves under the user. Two surfaces used to
 // hand it points nothing had floored — deleting a ◇, and picking a preset, which is the first design
-// most makers will ever have. `check:persist` is the only gate that can reach either: they live in
+// most makers will ever have — and a third handed it points too CLOSE TOGETHER, adding one. `check:persist` is the only gate that can reach either: they live in
 // `src/ui`, and plain node cannot import a `.tsx`, which is why the chip's miniature is a `.ts` of
 // its own (`presetMini`).
 {
@@ -378,6 +378,38 @@ t("non-object JSON → null", P.parseImport("42") === null);
     }
   }
   t("no preset was mutated by any of that", JSON.stringify(PRESETS) === frozen);
+
+  // 3. ADDING a ◇ is the third such surface. The `+` ghost is the plain midpoint of a consecutive
+  //    pair, and `tBounds` lets a pair sit at exactly `T_GAP`, so on a tight pair the new point
+  //    landed `T_GAP/2` from both — and `legalizePts` answered by dropping TWO of them, the new one
+  //    and the neighbour it crowded. A design came back from a save with a ◇ the maker had put there
+  //    themselves missing. `sectionDrag` is reachable here because `addAtT` touches no DOM (the
+  //    `svgRef` is only read inside a drag).
+  const { sectionDrag } = await import("../src/ui/section/drag.ts");
+  const addAt = (pts: any[], mt: number) => {
+    let out: any = null;
+    const design: any = { ...DEFAULTS, pts };
+    sectionDrag({
+      p: design, setP: (f: any) => { out = typeof f === "function" ? f(design) : f; },
+      setDrag: () => {}, setSel: () => {}, editMode: "move",
+      svgRef: { current: null } as any, s: 1,
+    }).addAtT(mt);
+    return out;
+  };
+  // A pair at exactly T_GAP: there is no room for a midpoint, so the add is refused outright.
+  const tight = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.28 + T_GAP, r: 90 }, { t: 0.925, r: 26 }];
+  t("add a ◇ between two that are T_GAP apart → refused", addAt(tight, 0.28 + T_GAP / 2) === null);
+  // A pair with room: the point goes in, and the file keeps every one of them.
+  const roomy = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.925, r: 26 }];
+  const added = addAt(roomy, (0.28 + 0.66) / 2);
+  t("add a ◇ where there is room → added", added !== null && added.pts.length === roomy.length + 1);
+  if (added) {
+    save({ p: added, bedW: 256, bedD: 256, printRibs: 1 });
+    const r3 = load();
+    t("add a ◇ → a save and reload keeps every point",
+      r3.p.pts.length === added.pts.length
+      && r3.p.pts.every((q: any, i: number) => Math.abs(q.t - added.pts[i].t) < 1e-6));
+  }
 }
 
 console.log(`\n=== ${pass} pass / ${fail} fail ===`);

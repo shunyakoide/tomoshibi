@@ -7,7 +7,7 @@
  * `freezeMap`, whose whole job is to capture the mapping at pointerdown rather than at mount.
  */
 import { outerR } from "../../geometry.ts";
-import { LIMITS } from "../../config.ts";
+import { LIMITS, T_GAP } from "../../config.ts";
 import { clamp } from "../../util.ts";
 import { CX, Y0 } from "./frame.ts";
 import { tBounds, clampR } from "../pointEdit.ts";
@@ -138,6 +138,14 @@ export function sectionDrag(ctx: {
   // new point lands on the shape that is drawn.
   const addAtT = (mt: number) => {
     if (p.pts.length >= LIMITS.pts[1]) return;
+    // **And only where a point FITS.** `tBounds` lets two ◇ sit at exactly `T_GAP`, and the ghost is
+    // the plain midpoint of a pair, so on a tight pair it lands `T_GAP/2` from both — a list persist
+    // will not keep. `legalizePts` drops what is too close, and it dropped TWO: the new point and
+    // the neighbour it crowded, so a design came back from a save with a ◇ the maker had put there
+    // themselves missing. The ghost is hidden in the same case (`SectionEditor`); this is the guard
+    // behind it, because the affordance and the rule are not the same thing.
+    const near = p.pts.reduce((d, q) => Math.min(d, Math.abs(q.t - mt)), Infinity);
+    if (near < T_GAP - 1e-9) return;
     const r = clampR(outerR(p, mt));
     // Sorted and located BEFORE the state write: a `setP` updater must be pure — React may run it
     // twice — and calling `setSel` from inside one is a side effect however stable its value.
