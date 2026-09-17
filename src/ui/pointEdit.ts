@@ -125,7 +125,12 @@ export function pointOps(
 
   const del = () => {
     if (!canDelete) return;
-    setP((o) => ({ ...o, pts: o.pts.filter((_, j) => j !== sel) }));
+    // **Through the floors, because deleting an END point promotes its neighbour to a mouth**, and a
+    // mouth has a floor the interior does not — `OPENING_MIN` is 18mm above `LIMITS.r[0]`. Without
+    // it, a ◇ legally pinched to r8 beside the mouth BECAME an r8 mouth: 2mm of board where a rib
+    // passes it instead of 20 (`ribMouthBand`), a koma shrunk to ⌀16, no clamp and no alert — and
+    // then persist floored it back to 26 on the next reload, the shape changing under the user.
+    setP((o) => ({ ...o, pts: silhouetteFloors(o.pts.filter((_, j) => j !== sel), o.height) }));
     setSel(null);
   };
 

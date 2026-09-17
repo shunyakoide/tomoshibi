@@ -306,14 +306,37 @@ t("non-object JSON → null", P.parseImport("42") === null);
 // ---- the floors are the EDITOR's too, not only a saved file's ----
 // persist is the last line, and a last line that keeps having to catch the same thing is a bug
 // somewhere earlier: a design the app holds should already be legal, or the file it writes and the
-// file it reads back are different shapes and the drawing moves under the user. And a picked preset
-// is the first design most makers will ever have. `check:persist` is the only gate that can reach
-// the surfaces that produce one — they live in `src/ui`, and plain node cannot import a `.tsx`,
-// which is why the chip's miniature is a `.ts` of its own (`presetMini`).
+// file it reads back are different shapes and the drawing moves under the user. Two surfaces used to
+// hand it points nothing had floored — deleting a ◇, and picking a preset, which is the first design
+// most makers will ever have. `check:persist` is the only gate that can reach either: they live in
+// `src/ui`, and plain node cannot import a `.tsx`, which is why the chip's miniature is a `.ts` of
+// its own (`presetMini`).
 {
-  const { presetPts } = await import("../src/ui/pointEdit.ts");
+  const { pointOps, presetPts } = await import("../src/ui/pointEdit.ts");
   const { presetMini } = await import("../src/ui/presetMini.ts");
   const { PRESETS } = await import("../src/config.ts");
+  // 1. Deleting an END ◇ promotes its neighbour to a mouth, and only the ENDS have the opening
+  //    floor — an interior ◇ may legally pinch to `LIMITS.r[0]`, 18mm under it. `del` did not
+  //    re-legalize, so this exact sequence gave an r8 MOUTH: 2mm of board where a rib passes it
+  //    instead of 20, a koma shrunk to ⌀16, no clamp, no alert, and the shape silently floored back
+  //    to 26 the next time the file was read.
+  const p0: any = { ...DEFAULTS, pts: presetPts(PRESETS[0], DEFAULTS.height).map((q) => ({ ...q })) };
+  p0.pts[p0.pts.length - 2].r = LIMITS.r[0];
+  let after: any = null;
+  const ops = pointOps(p0, (f: any) => { after = f(p0); }, p0.pts.length - 1, () => {});
+  t("an end ◇ is deletable at all (the guard is about the point COUNT)", ops.canDelete === true && ops.isEnd === true);
+  ops.del();
+  t(`delete an end ◇ → the new mouth is at or above ${OPENING_MIN}mm`,
+    after.pts[after.pts.length - 1].r >= OPENING_MIN - 1e-6);
+  t("delete an end ◇ → spacing still at or above T_GAP",
+    after.pts.every((q: any, i: number) => i === 0 || q.t - after.pts[i - 1].t >= T_GAP - 1e-9));
+  t("delete an end ◇ → the necks still reach NECK_MIN",
+    after.pts[0].t * after.height >= NECK_MIN - 1e-9 && (1 - after.pts[after.pts.length - 1].t) * after.height >= NECK_MIN - 1e-9);
+  save({ p: after, bedW: 256, bedD: 256, printRibs: 1 });
+  const back = load();
+  t("delete an end ◇ → a save and reload does not move the shape",
+    back.p.pts.every((q: any, i: number) => Math.abs(q.r - after.pts[i].r) < 1e-6 && Math.abs(q.t - after.pts[i].t) < 1e-6));
+  t("delete an end ◇ → watertight", manifoldOK(after) === true);
   // 2. `presetPts` is the ONE answer to "the points a picked preset yields at this height", read by
   //    the pick, by the lit chip and by the chip's own drawing. `miniPath` used to floor nothing, so
   //    two of the three chips drew a mouth (⌀38, ⌀46) the app would never build (⌀52).
