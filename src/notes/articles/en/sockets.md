@@ -50,6 +50,8 @@ You also need a screw, a washer and a nut. Pass the screw through the recess in 
 
 Given the size of shade a home 3D printer can make, a small bulb around E17 feels about right.
 
+Go for a warm-coloured bulb — warm white rather than daylight. Light coming through washi suits a warm colour.
+
 For a pendant socket in E17, IKEA's STRÅLA works. It has a threaded part to clamp against, so the legs and the frame can be held there. That part sits close to the bulb, though, so it can end up showing below the bottom of the body.
 
 ## Still room to work this out {#still-open}
