@@ -500,5 +500,27 @@ t("non-object JSON → null", P.parseImport("42") === null);
   }
 }
 
+// ---- The state a first visit opens on is the state a reload gives back ----
+// `FRESH` is what the studio's `useState` starts from and what 「初期化」 returns to, and it used to
+// hand out `DEFAULTS` raw while every other surface put a point list through `silhouetteFloors`.
+// `DEFAULTS.pts` ends at r19 where `OPENING_MIN` is 26, so the app opened on a ⌀38 mouth the editor
+// would not let you draw, no chip lit for it, and the FIRST SAVE widened it to ⌀52 — and the mouth
+// sizes `komaR`/`tabDepth`/`innerRi`, so the kit exported before that save was not the kit exported
+// after. The invariant is the fix stated in one line: a round trip through the file must not move a
+// fresh state. Asserted on the point list and on the mouth, which is the number that moved.
+{
+  const { matchPreset } = await import("../src/ui/presetChip.ts");
+  const { openingR } = await import("../src/geometry.ts");
+  const back = P.sanitizeSaved(JSON.parse(P.serializeState(FRESH)));
+  const same = !!back && back.p.pts.length === FRESH.p.pts.length
+    && back.p.pts.every((q: any, i: number) => Math.abs(q.t - FRESH.p.pts[i].t) < 1e-9 && Math.abs(q.r - FRESH.p.pts[i].r) < 1e-9);
+  t("a fresh state survives a save and reload unchanged", same);
+  t("a fresh state's openings are already legal (OPENING_MIN)",
+    Math.min(openingR(FRESH.p, false), openingR(FRESH.p, true)) >= OPENING_MIN - 1e-9);
+  // And it is therefore ON a template, which is what the chip is derived from: a first visit that
+  // lights no chip is one whose shape is not one the app will build.
+  t("a fresh state lights the chip it is the shape of", matchPreset(FRESH.p) !== null);
+}
+
 console.log(`\n=== ${pass} pass / ${fail} fail ===`);
 process.exit(fail ? 1 : 0);
