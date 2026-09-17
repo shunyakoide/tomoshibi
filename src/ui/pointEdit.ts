@@ -68,6 +68,17 @@ export function openingFloor(pts: Pt[]): Pt[] {
  */
 export const silhouetteFloors = (pts: Pt[], height: number): Pt[] => openingFloor(neckFloor(pts, height));
 
+/**
+ * The point list a picked preset yields AT THIS HEIGHT. Three surfaces need that one answer — the
+ * pick itself (`TomoshibiStudio`), the chip's lit state (`matchPreset`) and the chip's own DRAWING
+ * (`miniPath`) — and each of them used to floor its own copy, or forget to. The thumbnail forgot:
+ * it drew `pr.pts` raw, so `たまご` advertised a ⌀38 mouth and `平丸` a ⌀46 while picking either gave
+ * ⌀52, the openings being floored on the way in (`OPENING_MIN`). A chip whose picture is not the
+ * shape it hands you is worse than no picture.
+ */
+export const presetPts = (pr: { pts: Pt[] }, height: number): Pt[] =>
+  silhouetteFloors(pr.pts.map((q) => ({ ...q })), height);
+
 /** Which gesture the ◇ handles perform: move the point, or pull its Bézier tangents. */
 export type EditMode = "move" | "curve";
 

@@ -14,8 +14,10 @@ export type Preset = { key: string; name: string; rTop: number; rBot: number; pt
 // the chip's shape is still the design it yields rather than one the floor pushed about.
 // Their OPENINGS are the exception, and knowingly: `OPENING_MIN` raises `たまご`'s r19 and `平丸`'s
 // r23 to 26 on every pick, so those two chips draw a wider mouth than the numbers below (see
-// OPENING_MIN for why the mouth is the only lever there was). `matchPreset` compares through the
-// same `silhouetteFloors`, so the chip stays lit on the shape it just made.
+// OPENING_MIN for why the mouth is the only lever there was) — ⌀52 where the numbers say ⌀38 and
+// ⌀46. The drawing only caught up on 2026-09-17: `miniPath` was building its miniature from `pr.pts`
+// raw while the pick and `matchPreset` both went through the floors, so for two of the three chips
+// the picture was of a shape the app will not build. All three now read `presetPts`.
 export const PRESETS: Preset[] = [
   { key: "egg", name: "たまご", rTop: 19, rBot: 74, pts: [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.925, r: 19 }] },
   { key: "barrel", name: "たる", rTop: 52, rBot: 56, pts: [{ t: 0.075, r: 56 }, { t: 0.14, r: 82, sharp: true }, { t: 0.86, r: 78, sharp: true }, { t: 0.925, r: 52 }] },
