@@ -13,7 +13,7 @@ import { useMemo } from "react";
 import type * as THREE from "three";
 import {
   maxRadius, outerR, standBoardLength,
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit,
+  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit, ribMouthBand,
   washiGore,
 } from "../geometry.ts";
 import { paperFit, paperP, templateOverflow } from "../papercraft.ts";
@@ -90,26 +90,35 @@ export function useFigures(p: Design, m: {
 
   // The cardboard counterpart to the bed-overflow check. Cheap enough to run every render, and
   // deliberately NOT limited to the print view: every way out of it (fewer ribs, thinner material, a
-  // wider opening) is a control you reach for while designing.
+  // wider opening) is a control you reach for while designing. What it still reports is the rib-count
+  // clamp; the koma wall it used to warn about is now the GEOMETRY's promise (see `buildAlerts`).
   const fit = useMemo(() => (route === "paper" ? paperFit(p, matT) : null), [route, p, matT]);
-  const thinWall = fit !== null && fit.wall < fit.thin;
   // Stable identity, so the preview's memo isn't invalidated by every unrelated render.
   const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
   // Parts of the templates this route ships that are wider than A4's content column. The layout
   // clips them away rather than continuing them sideways, so without this nobody finds out until
-  // they hold the sheet — and the washi template has no preview to look at first.
+  // they hold the sheet: a clip is the one fault a preview does not announce, the sheet looking
+  // complete and the cut line simply stopping at the trim box.
   const overSheet = useMemo(() => templateOverflow(p, matT, washiOpts, route, t), [p, matT, washiOpts, route, t]);
   // Can the ribs still come out once the paste has dried? A deep body on a small mouth traps them in
   // the shade, and nothing else notices: every part prints, fits the bed and is watertight. Not a
   // route question — a cardboard mold leaves by the same hole.
   const pull = useMemo(() => ribPullFit(moldSrc), [moldSrc]);
+  // Board left where a rib passes the narrower mouth — cardboard only: on the 3D route the hub is not
+  // sized from the material and this never binds.
+  const mouthBand = route === "paper" ? ribMouthBand(moldSrc) : null;
 
   return {
     maxDia, washiG, legsFit, topOpen, botOpen, overParts,
-    ribFits, ribLen, ribBaseOver, heightLimit, fit, thinWall, washiOpts, moldSrc, pull, overSheet,
+    ribFits, ribLen, ribBaseOver, heightLimit, fit, washiOpts, moldSrc, pull, overSheet, mouthBand,
   };
 }
 
+// The flute pitch of ordinary box board (6-8.5mm): under it the strip at the mouth may not hold one
+// whole flute across, which is the point at which "thin" stops being a proportion and becomes a
+// material fact. Under it the rim is at the opening rather than at `innerRi + grip`, so it is the
+// tab's width too and one line covers both.
+const MOUTH_BAND_WARN = 10;
 /**
  * One COLUMN: bed (3D print) and koma wall (cardboard) are gated on opposite routes, but the
  * pull-out warning belongs to both, so stacking is the only arrangement that cannot overprint.
@@ -133,13 +142,34 @@ export function buildAlerts(f: Figures, a: {
     hint: f.ribBaseOver && f.heightLimit >= LIMITS.height[0]
       ? t("→ 火袋の高さを {h}mm 以下に", { h: f.heightLimit }) : undefined,
   });
-  // Cardboard: the koma's notches are cut to the material thickness, so thick material eats the wall
-  // between them until it tears when cut by hand. `fit` is re-tested only to narrow it — `thinWall`
-  // is false whenever it is null.
-  if (f.fit && f.thinWall) alerts.push({
-    key: "wall",
-    head: t("コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです", { wall: f.fit.wall.toFixed(1) }),
-    hint: t("→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる"),
+  // **There was a koma-wall alert here and it could not fire.** Thick material used to eat the wall
+  // between two notches until it would tear when hand-cut, and this warned at half the thickness.
+  // Then the joint started ASKING for a wall of `matT` (`Design.joint`, 2026-09-14) and the koma hub
+  // grows until it has one, so over 1,854 designs — every preset, 4..16 ribs, 1..10mm board, openings
+  // down to the floor — the wall never came in under `matT` at all, let alone under half of it. The
+  // thinnest was exactly 1.000 × matT. Raising the threshold would not have helped: `wall < matT` is
+  // 0 of 1,854 too. The risk did not vanish, it MOVED — the hub can only grow to the opening, and
+  // past that `maxBoards` trims the rib count instead, which is the alert below this one (140 of the
+  // same 1,854). A warning that cannot fire is the same lie as a gate that passes on anything, so it
+  // is gone rather than left to reassure. `check:paper` pins the wall at `matT` or better, which is
+  // the promise this used to be the fallback for.
+  // Cardboard: the rib count the template actually cuts, when it is not the one the editor shows.
+  // `maxBoards` still clamps for one reason — the notches meeting at the koma's centre, which is not
+  // buildable at any thickness. Said out loud because the stepper reads the count you asked for.
+  if (f.fit?.clamped) alerts.push({
+    key: "ribs",
+    head: t("羽根板を {n} 枚に減らして型紙にしています", { n: f.fit.nMax }),
+    hint: t("→ 薄い材料にする / 断面図で開口を広げる"),
+  });
+  // Cardboard: how much board a rib still has where it passes the narrower mouth. Thick board fattens
+  // the koma hub, the hub is the rib's inner edge, so the strip at the mouth thins — and it is the
+  // strip that carries the koma. Under one flute pitch it may hold no whole flute across. Reported,
+  // never designed around: the count is the maker's. Below the threshold it IS the tab's width too,
+  // the rim stopping at the opening, so this one line covers both.
+  if (f.mouthBand !== null && f.mouthBand < MOUTH_BAND_WARN) alerts.push({
+    key: "mouth",
+    head: t("開口ぎわの羽根板が {b}mm — 段の間隔より細く、爪もこの幅になります", { b: f.mouthBand.toFixed(1) }),
+    hint: t("→ 薄い材料にする / 羽根板を減らす / 断面図で開口を広げる"),
   });
   // A part wider than the sheet is CLIPPED, not continued: pages split downward only. Loud, because
   // the sheet looks complete — the cut line simply stops at the trim box, and the piece you fold is

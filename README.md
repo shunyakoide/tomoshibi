@@ -32,17 +32,17 @@ generates that mold as split parts you can make yourself.
 
 | Part | Role |
 | --- | --- |
-| **Rib (羽根板)** | The radial boards that form the mold surface (N of them, like orange segments). The outer edge carries the lamp-body curve and the bamboo seats; both ends have tabs. |
-| **Koma / hub (コマ)** | Two identical gear-like hubs, top and bottom. Notches around the rim hold the rib tabs. |
+| **Rib (羽根板)** | The radial boards that form the mold surface (N of them, like orange segments). The outer edge carries the lamp-body curve and the bamboo seats; both ends have tabs. The printed rib's inner edge is hollowed toward the middle, which is what lets it out through the opening once the paste has dried; the **cardboard rib's inner edge is straight**, that curve being a knife cut several hundred millimetres long. The panel says so when a shape's ribs then do not clear the mouth. |
+| **Koma / hub (コマ)** | Two identical gear-like hubs, top and bottom. Notches around the rim hold the rib tabs. On the **cardboard route** the joint is sized for board rather than for plastic: the wall left between two notches is the material's own thickness, and the rim is free to sit outside the opening so that wall does not cost the tab its grip. Thicker board needs a fatter hub, and the hub is the rib's inner edge, so the board left where a rib passes the narrower opening thins as the material thickens. The rim **never passes the opening**, so the tab is as wide as the rib is there and its edge runs straight on into the neck. That width is the mouth's radius less the hub — 13mm on the default shape in 2mm board — and it thins as the board thickens, which the app warns about below one flute pitch. A wider tab means a wider mouth, which is why an opening may not be drawn under ⌀52. |
 | **Stand (土台)** | A base that holds the assembled mold off the table on two U-shaped saddles, so you can turn it while you work. 3D-print route only. |
-| **Opening rings (口輪)** | Thin hoops for the finished lantern's two openings, which keep their shape once the koma are gone. The **bottom one can carry leg sockets** (a checkbox, off by default): three pads with a ⌀6 bore, for legs you supply. Where the opening is too small for them it falls back to a plain hoop with a tab on its inner rim, which tells the two apart once made. |
+| **Opening rings (口輪)** | Thin hoops for the finished lantern's two openings, which keep their shape once the koma are gone. The **bottom one can carry leg sockets** (a checkbox, off by default): three pads with a ⌀6 bore, for legs you supply. Where the opening is too small for them it falls back to a plain hoop with a tab on its inner rim, which tells the two apart once made — a guard that no longer fires from the editor, since an opening may not be drawn smaller than the radius at which the pads fit. |
 
 ### Features
 
 - **Direct-manipulation section editor** — drag control points to sculpt the silhouette; the 3D preview and the STL stay in exact agreement.
 - **A mold that comes back out** — a deep body on a small opening makes ribs too wide to pull out of the lantern they shaped. The app measures that while you are still shaping the silhouette, along with whether every part fits your bed.
 - **Bamboo-rib grooves** — evenly spaced sawteeth carved into the curve, as a wooden mold's are: the tip sits on the surface and reaches back over the bamboo, which lies in the cleft under it. Winding tension pulls a ring toward the axis; a plain notch let go as the face lay over, because its crest fell below the rod, and the hooked one does not. Near vertical there is no tooth, only a plain V. Optional **spiral winding (螺旋巻き)** offsets them per rib into one continuous helix; each rib is then unique, so it exports as its own STL engraved with its serial number.
-- **Cardboard route** (beta) — no 3D printer needed: full-scale A4 pages to cut the mold from cardboard.
+- **Cardboard route** — no 3D printer needed: full-scale A4 pages to cut the mold from cardboard.
 - **Washi template (和紙の型紙)** — the paper skin developed flat, one rib-to-rib panel at full scale, so you cut the washi *before* pasting instead of trimming it after. It ships with whichever route you pick.
 - **Build guide** — a step-by-step page of its own (`/guide`, under wherever the app is mounted), drawn from the same `geometry.ts` the STLs are, running past the mold to winding, pasting, drying, pulling the mold out and lighting it.
 - **Build notes** — a page of its own (`/notes`, each article at `/note-…`) for what would weigh the build guide down: the material choices, what failed, and why this exists. A guide step that has a note links straight into it.
@@ -88,17 +88,17 @@ hang it from a pendant cord, or add legs and fix the lamp in from below.
 
 ### The cardboard route, and the washi template
 
-> **Cardboard is beta.** It is checked automatically against the same geometry as the printed parts,
-> but far fewer people have built anything this way. Expect rough edges, and please open an issue if
-> something doesn't fit.
-
 **Cardboard** needs no printer, only a blade and a ruler. The Print view downloads two full-scale
 A4 PDFs — the mold (`tomoshibi_katagami_a4.pdf`) and the washi one — and you enter the thickness you
 measured, so the koma notches are cut to it and the ribs push in with no glue or hardware. The sheet
 carries the ribs, the koma, and the two opening hoops as a blue line to **bend 2mm wire along, not to
-cut**. There is no stand: stand the mold on whatever is to hand. Grooves are not cut either — you
-can't cut a seat that fine into cardboard — so the outer edge is a smooth curve with dashed ticks
-marking where each bamboo rib goes. Print at **100%**, never "fit to page"; one sheet carries a check
+cut**. There is no stand: the mold stands on its own bottom koma, which is how the
+assembly view shows it (the printed one lies in the stand this route does not make). The bamboo
+seats are **not** cut — a 2mm notch in corrugated board tears rather than cuts, and the bamboo is
+held by the washi and the string, not by the rib's edge — so the outer edge is a smooth curve with a
+**5mm tick** marking where each bamboo rib goes. The section and assembly views draw the same ticks —
+the section on **both** sides of the silhouette, the bamboo running right round it — so what you see
+is where you will pencil the bamboo in. Print at **100%**, never "fit to page"; one sheet carries a check
 square to measure with a ruler. A part too tall for a page continues on the next (cut both on the
 blue frame, butt the edges so the coded half-diamonds close into ◇, tape from behind), but pages only
 split downward, so a part wider than A4 does not fit at all — the app says so before you print.

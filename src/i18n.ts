@@ -79,11 +79,13 @@ const EN: Record<string, string> = {
   "この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます":
     "Up to {n} ribs at this opening/thickness (koma notches would overlap). Thinner boards allow more.",
   // ---- Paper template (cardboard) ----
-  "型紙プレビュー · 全 {n} ページ": "Template preview · {n} pages",
+  "型紙プレビュー · 段ボール {n} ページ + 和紙 {w} ページ": "Template preview · {n} cardboard pages + {w} washi pages",
+  "和紙の型紙": "Washi template",
+  "羽根板・コマ・口輪": "ribs, koma, opening hoops",
   "画面上は原寸ではありません。PDF をダウンロードして原寸で印刷してください。":
     "Not to scale on screen — download the PDF and print it at 100%.",
   "型紙(段ボール)": "Paper template",
-  "A4 原寸 · beta": "A4 1:1 · beta",
+  "A4 原寸": "A4 1:1",
   "この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。":
     "This output is still in development. Its dimensions come from the same maths as the 3D-printed parts, but far fewer people have actually built one this way. Measure your material's real thickness, and check the printed 50 mm scale bar with a ruler.",
   "材料の厚み": "Material thickness",
@@ -98,9 +100,13 @@ const EN: Record<string, string> = {
   // Printed on every sheet, in both languages, so keep both SHORT: the note shares its band with
   // the right-aligned footer.
   "← 定規で確認": "<- check with a ruler",
-  // The line under an opening hoop's name. Every other line on that sheet is a cut line or a hint
-  // beside one, so the one part nobody cuts has to say so. Short in BOTH languages: it is set inside
-  // a hoop that can be as small as ⌀22 at the LIMITS floor.
+  // The line under an opening hoop's name, and the only `note` left — every other line on that sheet
+  // is a cut line or a hint beside one, so the one part nobody cuts has to say so, and it says it ON
+  // the line it is about. Short in BOTH languages because it is set INSIDE the hoop: `check:paper`
+  // measures it against the chord at its own height and the English has about 5mm to spare on the
+  // smallest mouth the opening floor allows. The hoop carries a line of `advice` as well, which is
+  // the split at its clearest: what the LINE is stays on the line, what to do with the finished hoop
+  // goes to the corner.
   "針金(2mm)を曲げる線": "bend 2mm wire on this line",
   // ---- Summary ----
   "最大径": "Max diameter",
@@ -137,8 +143,10 @@ const EN: Record<string, string> = {
     "No room for leg sockets at this opening (the bottom ring stays a plain hoop). A wider opening will fit them.",
   "{parts} がベッド {w}×{d}mm を超過": "{parts} exceeds the {w}×{d}mm bed",
   "→ 火袋の高さを {h}mm 以下に": "→ Reduce body height to {h}mm or less",
-  "コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです": "Only {wall}mm of koma left between notches — thin enough to tear when hand-cut",
-  "→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる": "→ Fewer ribs / thinner material / widen the opening in the section view",
+  "開口ぎわの羽根板が {b}mm — 段の間隔より細く、爪もこの幅になります": "Only {b}mm of board where a rib passes the opening — narrower than one flute, and that is the tab's width too",
+  "→ 薄い材料にする / 羽根板を減らす / 断面図で開口を広げる": "→ use thinner material / fewer ribs / widen the opening in the section view",
+  "羽根板を {n} 枚に減らして型紙にしています": "The template is cut for {n} ribs, not the count in the editor",
+  "→ 薄い材料にする / 断面図で開口を広げる": "→ use thinner material / widen the opening in the section view",
   // The rib has to come back out of the shade it shaped, through one of the two openings. This is
   // about the finished lantern, not the print, so the English says come out rather than fit.
   "羽根板の幅 {w}mm — 開口 ⌀{d}mm から抜けません": "The rib is {w}mm wide — it cannot come out of the ⌀{d}mm opening",
@@ -207,8 +215,27 @@ const EN: Record<string, string> = {
   "枚(各1枚)": " (one file each)",
   // ---- Papercraft (cardboard) ----
   "コマ": "Koma",
+  // The bare word, for the advice line the two hoops SHARE — their own names are 口輪(上)/(下) and
+  // one sentence about both cannot be labelled with either.
+  "口輪": "Rings",
+  // The four lines of ADVICE in the boxed corner, each behind its part's name, and BOTH templates
+  // print all four (`paper/advice.ts`). Unlike the hoop's note above they are not set inside a part,
+  // so what bounds them is the box: 86mm, the check square's own width, because a wider corner stops
+  // finding a gap on the sheet and costs a page. The longest is 69mm and `check:paper` holds it.
+  //
+  // **Keep both languages under that**, and keep them instructions rather than explanations. The
+  // slot line in particular says what the drawn width is WORTH, not to follow it: the fraction it is
+  // drawn at came from one build on one board, so the maker's own board decides —
+  // 「段ボールの厚さに合わせて切って。あくまでも参考にしてって」.
+  "切り込みの幅は目安。段ボールの厚さに合わせて切る": "the slot width is a guide - cut it to your own board",
+  "強度が要るなら2枚以上重ねる": "glue 2 or more together if you want it stiffer",
+  "組んだ型に当てて調整": "adjust it against the assembled mold",
   // ---- Washi template (cut the paper before pasting) ----
   "和紙": "Washi",
+  // The washi line. It names BOTH objects — the template and the assembled mold — where it once said
+  // 「この型」, the sheet in the reader's hands: that was true while this line printed only on the
+  // washi sheet, and it now prints on the mold's too, where "this" would be the wrong paper.
+  "切る前に型紙を組んだ型に当てて寸法を確認": "offer the template up to the mold before cutting",
   "羽根板の間 1面分": "one rib-to-rib panel",
   "のりしろ(左右)": "Overlap (sides)",
   "被せ代(上下)": "Cover (ends)",
@@ -284,8 +311,8 @@ const EN: Record<string, string> = {
   "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。":
     "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are. The rings stay behind with the lantern; trim the overhanging washi at the rim.",
   "口輪をはめる": "Fit the opening rings",
-  "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてあるので、曲げた輪は羽根板の外側にすっと入ります。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。":
-    "Bend wire along the blue lines on the template to make the two opening hoops. Each line follows its own opening, so the hoop you bend drops onto the ribs' outer edge. Overlap the two ends a little and twist them together. Nothing holds either the hoops or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the hoops when you paste, which is why they stay in the lantern after the mold comes out. The two hoops are bent on separate lines, so mark which is which once they are off the paper.",
+  "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてありますが、組んだ型に当てて調整してください。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。":
+    "Bend wire along the blue lines on the template to make the two opening hoops. Each line follows its own opening, but offer the hoop up to the assembled mold and adjust it to what is there. Overlap the two ends a little and twist them together. Nothing holds either the hoops or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the hoops when you paste, which is why they stay in the lantern after the mold comes out. The two hoops are bent on separate lines, so mark which is which once they are off the paper.",
   "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。":
     "Slip a ring over each opening. Their bore follows the opening, so they drop onto the ribs' outer edge. Nothing holds either the rings or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the rings when you paste, which is why they stay in the lantern after the mold comes out. The one with the leg sockets is the bottom.",
   "灯りをつける": "Put a light in it",

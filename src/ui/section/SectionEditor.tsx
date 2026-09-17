@@ -9,7 +9,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { outerR } from "../../geometry.ts";
-import { LIMITS } from "../../config.ts";
+import { LIMITS, spacedOK } from "../../config.ts";
 import { FS } from "../theme.ts";
 import Legend from "./Legend.tsx";
 import { C } from "./palette.ts";
@@ -22,7 +22,7 @@ import type { T } from "../../i18n.ts";
 import type { Design } from "../../types.ts";
 
 export default function SectionEditor({
-  p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", compact = false, t = (s) => s,
+  p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", compact = false, mold = p, t = (s) => s,
 }: {
   p: Design;
   setP: React.Dispatch<React.SetStateAction<Design>>;
@@ -34,6 +34,9 @@ export default function SectionEditor({
   editMode?: EditMode;
   /** Phone-sized frame: fit the viewBox to the drawing and size the hit targets for a finger. */
   compact?: boolean;
+  /** The mold this route MAKES — `paperP`'s design on cardboard. The ◇ still edit `p`; only what is
+   *  DRAWN as the rib and the koma follows this, so the section shows the part that comes out. */
+  mold?: Design;
   t?: T;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -60,11 +63,11 @@ export default function SectionEditor({
   const H = p.height;
   // The drawing, in three steps: sample it in millimetres, fit a frame to that sample, then put the
   // sample through the frame. The frame is FITTED TO THE CONTENT, so the sample has to come first.
-  const sample = sampleSection(p);
+  const sample = sampleSection(p, mold);
   const { fr, maxR, komaR: kR, tnB, tnT } = sample;
   const frame = sectionFrame(p, pane, compact, sample);
   const { s, topY, X, Xm, Y, Ymm, viewBox, hitPt, hitAdd, rPt, rRing, rH, rAdd, rTan, markStroke, showLabels, showLegend } = frame;
-  const { d, higo, ribD, bands } = sectionPaths(p, frame, sample, accent);
+  const { d, higo, ribD, ribTicks, bands } = sectionPaths(p, frame, sample, accent, mold);
 
   // The four pointer gestures (ui/section/drag.ts). Rebuilt every render on purpose: each closes
   // over this render's design, and the mapping each one freezes is captured at pointerdown.
@@ -97,10 +100,17 @@ export default function SectionEditor({
   }
 
   // Add-point ghost (+), capped at `LIMITS.pts[1]` points. Hidden in curve-adjust mode so focus
-  // stays on the handles.
-  const ghosts = (editMode === "curve" || p.pts.length >= LIMITS.pts[1]) ? [] : p.pts.slice(0, -1).map((pt, i) => {
+  // stays on the handles — and **not offered between two ◇ already too close together**: the ghost is
+  // their midpoint, so on a tight pair it would land under `T_GAP` from both, which is a list
+  // persist legalizes by DROPPING points (the new one and the neighbour it crowded). `addAtT`
+  // refuses the same case through the same `spacedOK`; a `+` that does nothing when clicked would be
+  // the other half of the same bug.
+  const ghosts = (editMode === "curve" || p.pts.length >= LIMITS.pts[1]) ? [] : p.pts.slice(0, -1).flatMap((pt, i) => {
     const mt = (pt.t + p.pts[i + 1].t) / 2;
-    return { mt, x: X(outerR(p, mt)), y: Y(mt) };
+    // `spacedOK` on the midpoint's OWN distance — the identical question `addAtT` asks, about the
+    // identical quantity, so the affordance and the rule cannot part company by an ulp.
+    if (!spacedOK(mt - pt.t) || !spacedOK(p.pts[i + 1].t - mt)) return [];
+    return [{ mt, x: X(outerR(p, mt)), y: Y(mt) }];
   });
 
   const spineY = Math.min(Y(tnB), Y(1 - tnT));
@@ -145,6 +155,15 @@ export default function SectionEditor({
         {/* Rib (right side = the actual printed cross-section) */}
         <path d={ribD} fillRule="evenodd" fill={C.board} fillOpacity="0.42" stroke={C.boardLine}
           strokeWidth="1.2" strokeLinejoin="round" style={{ pointerEvents: "none" }} />
+        {/* Cardboard only: the bamboo seats as the sheet marks them — a pencil line, not a cut. Both
+            sides, and SOLID: the sheet dashes its ticks because it neighbours cut lines a blade
+            follows, and nothing here is cut, so the dash bought nothing and cost the mark — at this
+            scale a 5mm tick is ~10 units, and a dash pattern turned it into three specks. It is the
+            BAMBOO's colour, not the rib's cut line: this mark is the near end of the `higo` line
+            already crossing there, and in the rib's dark line colour it sat on top of the drawing
+            instead of in it. */}
+        {ribTicks && <path d={ribTicks} stroke={C.higoMark} strokeWidth="2.5" strokeLinecap="round"
+          fill="none" style={{ pointerEvents: "none" }} />}
         {showLabels && <text x={(X(kR) + 9).toFixed(1)} y={(Ymm(H + p.tabLen) + 3).toFixed(1)}
           fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.sm} fontWeight="600"
           fill={C.boardLine} style={{ pointerEvents: "none" }}>{t("羽根板")}</text>}

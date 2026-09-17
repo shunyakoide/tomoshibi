@@ -6,7 +6,7 @@
  */
 import type React from "react";
 import { bakeBezierHandles } from "../geometry.ts";
-import { LIMITS, T_GAP, NECK_MIN } from "../config.ts";
+import { LIMITS, T_GAP, NECK_MIN, OPENING_MIN } from "../config.ts";
 import { clamp } from "../util.ts";
 import type { Design, Pt } from "../types.ts";
 
@@ -43,8 +43,48 @@ export function neckFloor(pts: Pt[], height: number): Pt[] {
   return out;
 }
 
-/** A control point's radius, inside the range the app will build. */
-export const clampR = (r: number) => clamp(...LIMITS.r, r);
+/**
+ * A control point's radius, inside the range the app will build — and for an END point (which IS an
+ * opening) no smaller than `OPENING_MIN`, the mouth being what the rib has left to be there.
+ */
+export const clampR = (r: number, isEnd = false) => clamp(isEnd ? OPENING_MIN : LIMITS.r[0], LIMITS.r[1], r);
+
+/** The opening floor applied to a whole list: the two ends only. Returns `pts` itself if nothing moved. */
+export function openingFloor(pts: Pt[]): Pt[] {
+  const n = pts.length;
+  if (n === 0 || (pts[0].r >= OPENING_MIN && pts[n - 1].r >= OPENING_MIN)) return pts;
+  const out = pts.map((q) => ({ ...q }));
+  out[0].r = Math.max(out[0].r, OPENING_MIN);
+  out[n - 1].r = Math.max(out[n - 1].r, OPENING_MIN);
+  return out;
+}
+
+/**
+ * BOTH silhouette floors, in the one order that composes: `neckFloor` moves `t`, `openingFloor`
+ * moves `r`, so neither undoes the other. Every surface that re-legalizes a point list calls THIS —
+ * the editor's height change, a picked preset, `matchPreset`'s comparison and persist — because a
+ * surface that applies one and not the other makes a design the others consider illegal, and the
+ * preset chip goes dark on the shape it just drew.
+ */
+export const silhouetteFloors = (pts: Pt[], height: number): Pt[] => openingFloor(neckFloor(pts, height));
+
+/**
+ * The point list a picked preset yields, and the HEIGHT it yields it at. Three surfaces need that one
+ * answer — the pick itself (`TomoshibiStudio`), the chip's lit state (`matchPreset`) and the chip's
+ * own drawing (`presetMini`) — and each of them used to work it out again, or forget to. The drawing
+ * forgot the floors: it built its miniature from `pr.pts` raw, so `たまご` advertised a ⌀38 mouth and
+ * `平丸` a ⌀46 while picking either gave ⌀52 (`OPENING_MIN`). A chip whose picture is not the shape
+ * it hands you is worse than no picture.
+ *
+ * **The height is part of the answer**, not the caller's business: a preset whose identity is a RATIO
+ * carries its own (`Preset.height` — `平丸`), and picking it replaces the maker's. Resolved in ONE
+ * place because the two surfaces disagreeing is the same class of bug one step along: with the
+ * drawing on `pr.height` and the lit state on `p.height`, `平丸` stayed lit at a 60mm body while
+ * drawing its 150mm silhouette.
+ */
+export const presetHeight = (pr: { height?: number }, height: number): number => pr.height ?? height;
+export const presetPts = (pr: { pts: Pt[]; height?: number }, height: number): Pt[] =>
+  silhouetteFloors(pr.pts.map((q) => ({ ...q })), presetHeight(pr, height));
 
 /** Which gesture the ◇ handles perform: move the point, or pull its Bézier tangents. */
 export type EditMode = "move" | "curve";
@@ -92,7 +132,12 @@ export function pointOps(
 
   const del = () => {
     if (!canDelete) return;
-    setP((o) => ({ ...o, pts: o.pts.filter((_, j) => j !== sel) }));
+    // **Through the floors, because deleting an END point promotes its neighbour to a mouth**, and a
+    // mouth has a floor the interior does not — `OPENING_MIN` is 18mm above `LIMITS.r[0]`. Without
+    // it, a ◇ legally pinched to r8 beside the mouth BECAME an r8 mouth: 2mm of board where a rib
+    // passes it instead of 20 (`ribMouthBand`), a koma shrunk to ⌀16, no clamp and no alert — and
+    // then persist floored it back to 26 on the next reload, the shape changing under the user.
+    setP((o) => ({ ...o, pts: silhouetteFloors(o.pts.filter((_, j) => j !== sel), o.height) }));
     setSel(null);
   };
 

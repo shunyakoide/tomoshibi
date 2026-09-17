@@ -107,6 +107,19 @@ function runsWidth(runs: Run[], size: number) {
   for (const r of runs) w += r.g ? (r.g.w / 1000) * size : textWidth(r.s, size);
   return w;
 }
+/**
+ * How wide a label comes out in mm — the only place that can answer "will this line fit?", because
+ * only this module knows both metrics the writer sets text from (Helvetica's, and the outlines'
+ * advances). `layout` asks it to RESERVE room for the advice block; `check:paper` asks it to hold
+ * every line of small print to the room it was given.
+ *
+ * It is the PDF's answer. The SVG preview sets the same strings in a browser font, which is close
+ * but not identical — so reserve on this one and the sheet that PRINTS is the one that is true,
+ * which is the way round this project wants to be wrong.
+ */
+export function strWidth(str: string, size: number) {
+  return runsWidth(textRuns(str), size);
+}
 
 const MM = 72 / 25.4;                                     // mm → pt
 const n3 = (v: number) => (Math.round(v * 1000) / 1000).toString();

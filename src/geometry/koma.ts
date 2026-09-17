@@ -8,14 +8,15 @@
  */
 import type { Design } from "../types.ts";
 import * as THREE from "three";
-import { komaR, notchR } from "./profile.ts";
+import { komaR, notchR, notchWidth } from "./profile.ts";
 
 export function komaShape(p: Design): THREE.Shape {
-  const { boards, boardT } = p;
+  const { boards } = p;
   const R = komaR(p);
-  // Notch width = board thickness + print fit. The tab itself stays boardT, so fit only opens the
-  // real fit clearance (fit=0 → no gap).
-  const sw = boardT + Math.max(0, p.fit ?? 0);
+  // From `notchWidth`, never re-derived here: `maxBoards` and `ribCoreFloor` budget for this same
+  // width, and the cardboard route asks for one NARROWER than the tab (`joint.notch`), so a local
+  // copy of "boardT + fit" would draw a notch the count was not reckoned against.
+  const sw = notchWidth(p);
   const eps = Math.asin(Math.min(0.9, (sw / 2) / R));
   const rOut = Math.sqrt(Math.max(1, R * R - (sw / 2) * (sw / 2)));
   const nR = notchR(p); // notch bottom = the dented tab tip, relieved 0.5. Shared with ribOutline2D.

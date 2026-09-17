@@ -57,7 +57,7 @@ function BoardGroup({ matT, setMatT }: { matT: number; setMatT: (v: number) => v
   const t = useT();
   return (
     <>
-      <SectionLabel title="型紙(段ボール)" hint="A4 原寸 · beta" />
+      <SectionLabel title="型紙(段ボール)" hint="A4 原寸" />
       <Note className="mb-12">
         {t("この出力は開発中です。寸法は3Dプリント版と同じ計算から出していますが、実際に組んだ報告がまだ少ないルートです。材料の厚みは必ず実測し、刷った紙の 50mm スケールを定規で確認してください。")}
       </Note>

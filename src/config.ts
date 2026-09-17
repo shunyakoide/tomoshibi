@@ -8,8 +8,16 @@ import type { Design, NumericDesignKey, Pt } from "./types.ts";
  */
 export type Preset = { key: string; name: string; rTop: number; rBot: number; pts: Pt[]; height?: number };
 
-// Every preset's necks sit at NECK_MIN for the height it is picked at (0.075 × 205, 0.10 × 150), so
-// the chip's shape is the design it yields there rather than one the floor then pushes about.
+// Every preset's NECKS are 15.4mm at the height it is picked at (0.075 × 205, 0.10 × 150) — the old
+// NECK_MIN, kept as the shape each chip has always drawn. They now sit above the 10mm floor rather
+// than on it, so `neckFloor` touches them only at a height short enough to bring them under it, and
+// the chip's shape is still the design it yields rather than one the floor pushed about.
+// Their OPENINGS are the exception, and knowingly: `OPENING_MIN` raises `たまご`'s r19 and `平丸`'s
+// r23 to 26 on every pick, so those two chips draw a wider mouth than the numbers below (see
+// OPENING_MIN for why the mouth is the only lever there was) — ⌀52 where the numbers say ⌀38 and
+// ⌀46. The drawing only caught up on 2026-09-17: `miniPath` was building its miniature from `pr.pts`
+// raw while the pick and `matchPreset` both went through the floors, so for two of the three chips
+// the picture was of a shape the app will not build. All three now read `presetPts`.
 export const PRESETS: Preset[] = [
   { key: "egg", name: "たまご", rTop: 19, rBot: 74, pts: [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.925, r: 19 }] },
   { key: "barrel", name: "たる", rTop: 52, rBot: 56, pts: [{ t: 0.075, r: 56 }, { t: 0.14, r: 82, sharp: true }, { t: 0.86, r: 78, sharp: true }, { t: 0.925, r: 52 }] },
@@ -54,15 +62,51 @@ export const LIMITS = { height: [60, 2000], r: [8, 600], pts: [2, 8] } as const 
 // down to it. While it lived module-private in the UI the gates could not read the floor they had to
 // corner, and a silhouette packed to it opened the rib's edges with every gate reporting 0 FAIL.
 export const T_GAP = 0.04;
+/**
+ * Is a gap between two control points wide enough — **the one place that answers it**, because the
+ * answer is not `gap >= T_GAP`. `neckFloor` builds its positions as `m + i * T_GAP`, and in doubles
+ * that arithmetic can land a hair SHORT: at a body height of 86mm the floor puts `たる`'s two lower
+ * points 0.039999999999999994 apart, 7e-18 under. With a bare `>=`, persist answered a design the
+ * editor had just produced by DROPPING a point — 7 of the 1941 heights in `LIMITS.height`, on which
+ * the preset chip then went dark on the shape it had drawn a moment earlier.
+ *
+ * So the rule carries a tolerance far below anything the geometry can feel (0.04 of a body, against
+ * a float's 1e-17) and every surface asks THIS rather than comparing for itself: the editor before
+ * it adds a ◇, the `+` ghost before it offers to, and persist when it reads a file. Two of those
+ * disagreeing by an ulp is the same bug twice — a point offered, taken, and then quietly lost.
+ */
+export const spacedOK = (gap: number): boolean => gap >= T_GAP - 1e-9;
 
 // The least neck either end may have, in mm. The washi's end runs onto the neck (`WASHI_END`
 // lands on it, to be folded over the hoop), and with the body's curve — and the first bamboo —
-// right at the opening the maker found the paper hard to paste: 15 is their number (2026-09-08).
+// right at the opening the maker found the paper hard to paste: 15 was their number (2026-09-08).
+// **10 since 2026-09-11**, theirs again, from the other side of the same part: on cardboard the rib
+// at the neck is a strip only as wide as the mouth leaves (13mm on the default egg), and 15mm of it
+// looked like it would snap in the hand. The floor is what stopped anyone shortening it, so the
+// floor moved rather than the shape — the presets still ship their own 15.4mm and nothing already
+// drawn changes; it is now possible to pull the ◇ in to 10.
 // A LIMIT like the two above, in millimetres because the neck is a length you handle, not a
 // fraction of the body: the editor stops the ◇ there (`tBounds`), a shorter height or a picked
 // preset pushes the ◇ back out to it (`neckFloor`), and persist re-applies it to a file the editor
 // did not write. The ends without a neck are not touched — there the tab IS the neck.
-export const NECK_MIN = 15;
+export const NECK_MIN = 10;
+
+// The least RADIUS an opening may have, in mm — the first and last control points only, never an
+// interior one, so a waisted body can still pinch to `LIMITS.r[0]`. That floor is a geometric wall
+// (below it the rib cannot close); this one is the maker's, and it exists because the opening is
+// what the rib has left to be at the mouth: the koma's hub takes `innerRi` of it, and what remains
+// is the strip that carries the koma and the tab cut into it. 16 keeps 10mm of board there on 2mm
+// stock with 8 ribs — one flute pitch, the width under which the app already warns. It went 16 → 19
+// → **26**, the last on the maker's "何度やりとりすればこの箇所を太くできますか": 16 and 19 both sat at or
+// under the mouth they had actually drawn, so neither changed anything they could see. 26 (⌀52) is
+// the first value that does — 20mm of board at the mouth on 2mm stock — and it is the LAST lever
+// there was. Widening the mouth is the only way to widen that strip: the tab is cut from it, the hub
+// takes `innerRi` of it whatever the rib count, and the koma may not stand outside the opening (that
+// step was refused three times). **The cost, taken knowingly:** this rewrites two shipped presets —
+// `たまご` ⌀38 → ⌀52 and `平丸` ⌀46 → ⌀52 — and a narrow-necked chōchin can no longer be drawn at all.
+// Thicker stock fattens the hub and can still go under one flute; that is what the warning is for,
+// and why this is a floor on the OPENING rather than a promise about the strip.
+export const OPENING_MIN = 26;
 
 /**
  * A scrub row edits ONE numeric field, so its `key` is constrained to the numeric keys rather than

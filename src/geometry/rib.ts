@@ -4,6 +4,7 @@
  * printed rib, the section drawing and the cardboard template, so all three are the same plate.
  */
 import type { Design, Pt2 } from "../types.ts";
+import type { Mark } from "./washi.ts";
 import * as THREE from "three";
 import { cutYbot, cutYtop, effBoardWidth, innerRi, komaR, outerR, RIB_MIN_BAND, tabDepth, tabDented, tabDentH, TAB_DENT_W } from "./profile.ts";
 import { grooveList, grooveOuterPts, grooveReach } from "./groove.ts";
@@ -21,6 +22,12 @@ const RIB_CURVE_HW = 0.3; // curve half-width (t). Applies only to the middle 60
 const RIB_CURVE_D = 0.3;  // scoop amount = the center rib depth × this (the real mold is about 20%; slightly deeper, prioritizing ease of removal)
 export function ribInnerX(p: Design): (y: number) => number {
   const h = p.height, Ri = innerRi(p);
+  // Cardboard has no crescent (`noCrescent`): the curve is cut by hand, and it is drawn from a core
+  // radius the board joint puts much closer to the axis, so the same ratio bites far deeper here.
+  // A mid koma needs this edge as well — it is taken back out by sliding along the ribs and off the
+  // end, which a bore that narrows toward the ends blocks. The rib pays for it at the mouth, and
+  // `ribPullFit` is what reports that, for this straight edge, in the app's own alert.
+  if (p.noCrescent) return () => Ri;
   const W = Math.max(RIB_MIN_BAND, effBoardWidth(p)); // band width to keep
   const bump = (t: number) => {
     const u = (t - RIB_CURVE_C) / RIB_CURVE_HW;
@@ -89,7 +96,8 @@ export function ribOutline2D(p: Design, k = 0, opts: { smooth?: boolean } = {}):
   pts.push([kR, h], [kR, h + tl]);
   if (dent) pts.push([Ri + TAB_DENT_W, h + tl], [Ri + TAB_DENT_W, h + tl - dh], [Ri, h + tl - dh]);
   else pts.push([Ri, h + tl]);
-  // Inner edge: the crescent curve, top to bottom. Both ends return to Ri, so it meets the tabs.
+  // Inner edge, top to bottom: the crescent, or a straight run at Ri on cardboard. Both ends return
+  // to Ri either way, so it meets the tabs.
   const innerX = ribInnerX(p);
   pts.push([Ri, h]);
   for (let y = h - STEP; y > 0; y -= STEP) pts.push([innerX(y), y]);
@@ -105,6 +113,10 @@ const Y_STAGGER = 0.13; // amount (mm) to offset the window's y-ends off the out
 // the old constant band left 0.2mm on the steepest shape the app allowed.
 const BAND_SOLID = 3;
 export function lightenHoles2D(p: Design): { holes: Pt2[][] } {
+  // [Cardboard] No windows: a lightened rib in board is a row of bridges to cut by hand for stiffness
+  // the board does not have to spare. Said HERE rather than at each caller, so the template, the
+  // section drawing and the 3D preview cannot disagree about it.
+  if (p.joint) return { holes: [] };
   const h = p.height, td = tabDepth(p);
   const spineW = Math.max(9, td + 3), bandW = 11, strut = 8, MIN_MAT = 12;
   const oS = (y: number) => outerR(p, Math.min(Math.max(y, 0), h) / h); // smooth outer edge
@@ -208,6 +220,26 @@ export function ribNumberHoles2D(p: Design, k: number): Pt2[][] {
   }
   return holes;
 }
+// Length of the bamboo-rib tick (mm), drawn inward from the outer edge. A MARK, not a cut: cutting
+// the seat into board was tried and taken back out (a 2mm notch in corrugate is torn rather than
+// cut, and the bamboo is held by the washi and the string, not by the rib's edge). Long enough to
+// find with a pencil against the bamboo, short enough not to read as a cut line.
+export const SEAT_TICK = 5;
+
+// The bamboo seats as MARKS: one horizontal line per groove, `SEAT_TICK` mm inward from the rib's
+// smooth outer edge, at the same `grooveList` heights the printed rib cuts its notches at (`k` so
+// spiral winding is marked per rib). Lives here rather than in the paper route because all three
+// cardboard drawings — the A4 sheet, the section overlay and the assembly preview — must mark the
+// same places; a view that puts the bamboo somewhere the sheet does not is the same lie as drawing
+// a groove nobody cut.
+export function seatTicks2D(p: Design, k = 0): Mark[] {
+  const h = p.height || 1;
+  return grooveList(p, k).map((y): Mark => {
+    const x = outerR(p, Math.min(Math.max(y, 0), h) / h);
+    return [x, y, x - SEAT_TICK, y];
+  });
+}
+
 // 3D rib = the 2D final shape extruded. `opts` reaches ribOutline2D untouched — today that is
 // `{ smooth: true }`, the grooveless outer edge the cardboard template cuts (papercraft.ts) and the
 // guide's cardboard figures draw. Omitted, the rib is the printed one, vertex for vertex.

@@ -16,21 +16,35 @@
  * independent integration of `outerR`. It is a document of its own on both routes, so section 4 also
  * pins that its pages are NOT among the cardboard template's.
  */
-import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, TOPBAR } from "../src/papercraft.ts";
-import { winAnsi } from "../src/io/pdf.ts";
+import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, ADVICE_PAD, layout, corner, adviceBox, adviceLines, strip, noteOverflow, STYLE } from "../src/papercraft.ts";
+import { strWidth, winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
-import { komaR, tabDented, innerRi, notchR, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
+import { komaR, tabDented, innerRi, maxBoards, notchR, notchWidth, ribInnerX, ribMouthBand, ribOutline2D, ribPullFit, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
 import type { Design } from "../src/types.ts";
 
 let fail = 0;
 const bad = (msg: string) => { console.log("FAIL:", msg); fail++; };
 const en = makeT("en"); // the PDF is drawn with the English labels (base-14 fonts have no CJK glyphs)
+const ja = makeT("ja"); // = the identity: the dictionary's keys ARE the Japanese, as `tid` is
 const eq = (a: number, b: number, msg: string, tol = 0.01) => { if (Math.abs(a - b) > tol) bad(`${msg}: ${a} != ${b}`); };
 // Every point a part puts on paper. `bend` is in it because the opening hoops are a bend line and
 // NOTHING else — an outline-only reader gets Math.max of an empty list, which is -Infinity, and the
 // NaN travels all the way to a seam assertion that then passes for the wrong reason.
 const pts2 = (q: any) => [q.outline, ...(q.holes || []), ...(q.bend || [])].flat();
+// The narrowest radius the body ever reaches — what caps the cardboard joint (`jointCap`). Derived
+// here rather than imported (`bodyMinR` is private to profile.ts), because a gate that re-derives it
+// independently is the point: the two agreeing is the assertion.
+//
+// **The control points are in it, and that is not a detail.** A `sharp` point is a local minimum by
+// construction and a grid steps straight over it: the first version of this helper sampled `outerR`
+// 400 times and nothing else, which is a milder form of the very blind spot it was written to catch
+// (profile.ts was reading a hidden waist up to 7.47mm high). 2000 samples, plus every control point.
+const bodyMin = (d: Design) => {
+  let m = Math.min(...d.pts.map((q) => q.r));
+  for (let i = 0; i <= 2000; i++) m = Math.min(m, outerR(d, i / 2000));
+  return m;
+};
 // Bounding box of the point list
 const bb = (q: any) => {
   const a = pts2(q);
@@ -47,20 +61,65 @@ for (const preset of PRESETS)
       const tag = `${preset.key} h${height} t${matT}`;
       const find = (pre: string) => parts.find((q) => q.name.startsWith(pre))!;
       eq(bb(find("羽根板")).h, p.height + 2 * p.tabLen, `${tag} rib total length`);
-      // Koma notch width = material thickness exactly (fit=0), or the tab won't fit / will wobble.
-      eq(pk.boardT + Math.max(0, pk.fit ?? 0), matT, `${tag} notch width`);
+      // **The koma's notch is drawn NARROWER than the board it accepts**, which is the one tolerance
+      // here that runs the opposite way to the printed route's. It is not an argument, it is the
+      // first cardboard build: on 3mm board the maker cut about 1mm and said 2mm would be about
+      // right, board crushing as the tab goes in and a knife widening what it cuts, so a slot drawn
+      // at the board's own thickness comes out wider than the board. Both bounds carry a measured
+      // number — over `matT` is the wobble that was predicted of the line, and at or under `matT/2`
+      // is the 1mm-in-3mm that was cut and found too tight.
+      const slot = notchWidth(pk);
+      if (slot >= matT - 0.01) bad(`${tag} notch ${slot.toFixed(2)}mm is not narrower than the ${matT}mm board`);
+      if (slot <= matT / 2 + 0.01) bad(`${tag} notch ${slot.toFixed(2)}mm is at or under half the ${matT}mm board`);
+      // `paperP` is the only place allowed to size it, so a design off that route keeps the printed
+      // width — a `joint` leaking onto the STL route would silently narrow every printed koma.
+      eq(notchWidth(p), p.boardT + Math.max(0, p.fit ?? 0), `${tag} notch width off the paper route`);
       // Cardboard skips the tab-tip dent (strength over the koma stop): a plain straight tab in a
       // full-depth notch.
       if (tabDented(pk)) bad(`${tag} papercraft should have no tab dent (noTabDent)`);
       eq(notchR(pk), innerRi(pk) - 0.5, `${tag} koma notch should be full-depth for the plain tab`);
+      // Cardboard's inner edge is STRAIGHT (`noCrescent`): the crescent is a knife cut hundreds of
+      // millimetres long, and drawn from this route's much smaller core radius it takes a bite the
+      // maker rejected on the sheet.
+      {
+        const inner = ribInnerX(pk), Ri = innerRi(pk);
+        for (let y = 0; y <= pk.height; y += pk.height / 40)
+          eq(inner(y), Ri, `${tag} rib inner edge should be straight at y=${y.toFixed(0)}`);
+      }
       // The wall left between the koma's notches; under half the material thickness it tears when
       // hand-cut. It is a viewport alert rather than a note on the printed page, so what has to hold
       // is that the number the alert quotes is real: paperFit against the formula, and against the
       // copy paperParts hands the template.
-      const wall = (2 * Math.PI * notchR(pk)) / pk.boards - matT;
+      const wall = (2 * Math.PI * notchR(pk)) / pk.boards - slot;
+      // The joint is sized for BOARD (see `Design.joint`): the wall between two notches is the
+      // material's own thickness, and the tab still sits `grip` deep in the notch. The two stopped
+      // trading when the koma's rim was let outside the opening, so BOTH have to hold — a wall that
+      // came back at the old 1.6mm would mean the rim got pinned to the opening again. The one
+      // exception is the cap: past it there is no plate left at the opening to hang a tab on, and
+      // then the wall gives rather than the rib.
+      // The narrower of the two MOUTHS — the ends — is what `komaR` and `ribMouthBand` are measured
+      // against: those two are about what leaves by a hole, and the middle of a waisted body is not a
+      // hole anything leaves by.
+      const mouth = Math.min(outerR(pk, 0), outerR(pk, 1));
+      // The CAP is measured against something else: the narrowest radius the body reaches anywhere
+      // (`jointCap` = `bodyMinR - 2`), because the cardboard rib's inner edge is one straight radius
+      // past the waist as well and a hub outside the waist crosses it. On every shipped preset the
+      // narrowest point IS a mouth, so the two are the same number here — section 10 is where they
+      // are not.
+      const capped = innerRi(pk) >= Math.max(6, bodyMin(pk) - 2) - 0.01;
+      if (!capped && wall < matT - 0.01) bad(`${tag} koma wall ${wall.toFixed(2)} thinner than the ${matT}mm board`);
+      // The board a rib still has where it passes the narrower mouth. It is REPORTED, never clamped —
+      // the count is the maker's — so what is pinned here is that the number the alert quotes is the
+      // real one. Getting that identity wrong is how the alert would start describing a different
+      // mold than the sheet.
+      eq(ribMouthBand(pk), mouth - innerRi(pk), `${tag} ribMouthBand`);
+      // The rim never passes the opening — the maker kept the mouth over the tab's width — so the tab
+      // is `min(grip, band)` and its edge runs straight on into the neck with no step to snap off.
+      if (komaR(pk) - mouth > 0.01) bad(`${tag} koma stands ${(komaR(pk) - mouth).toFixed(2)}mm proud of the mouth`);
+      const tabW = komaR(pk) - innerRi(pk);
+      if (tabW < Math.min(20, ribMouthBand(pk)) - 0.01) bad(`${tag} tab ${tabW.toFixed(2)}mm under min(20, band)`);
       const fit = paperFit(p, matT);
       eq(fit.wall, wall, `${tag} paperFit wall`);
-      eq(fit.thin, matT / 2, `${tag} paperFit thin threshold`);
       if (fit.clamped !== clamped || fit.nMax !== nMax) bad(`${tag} paperFit disagrees with paperParts`);
       // Chords + edge notch cutouts put the koma's circumscribed diameter slightly UNDER komaR
       // (thicker material = wider notches = more under). Exceeding it is the error.
@@ -125,7 +184,10 @@ for (const preset of PRESETS)
           // constants, never copied: a stale "297 - 2*8 - 14" survived the 14mm band's deletion here
           // and passed only because no swept part landed in the gap between its CH and the real one.
           const CH = 297 - 2 * MARGIN;      // a full sheet
-          const CH0 = CH - TOPBAR;          // sheet 1, which gives up its top strip to the check bar
+          // Sheet 1, which gives up its top strip to the document's corner. `strip()` and not TOPBAR:
+          // the corner is the check square PLUS this document's advice, so the strip is 4mm taller
+          // than the square alone needs and `tallest` can land in exactly that difference.
+          const CH0 = CH - strip(adviceLines(en));
           const tallest = Math.max(...parts.map((q) => {
             const a = pts2(q);
             const ys = a.map((v) => v[1]), xs = a.map((v) => v[0]);
@@ -212,12 +274,16 @@ for (const preset of PRESETS)
           // that PDF's; here, only that they are drawn at all.
           const ws = washiPagesSVG(p, { side, end }, undefined, A4).svg;
           if (/NaN|Infinity|undefined/.test(ws)) bad(`${tag}: NaN/undefined in the washi sheets`);
-          if (!ws.includes("和紙")) bad(`${tag}: the panel is not on its own sheets`);
+          // The PANEL, by its name — 「和紙 ×N」 — and not by the word: both documents print the word
+          // in their boxed corner now, where 「和紙: 切る前に…」 is a caution about a part that is
+          // somewhere else. What must stay on one document is the part, and its name is what says so.
+          const panel = /和紙 ×\d/;
+          if (!panel.test(ws)) bad(`${tag}: the panel is not on its own sheets`);
           // Guides must be drawn as guides, never as cut lines (cutting them ruins the panel).
           if (!/class="guide"/.test(ws)) bad(`${tag}: guides not drawn on the washi sheets`);
           // …and nowhere else: a panel on both documents would be one printed twice, at two
           // different rib counts.
-          if (paperPagesSVG(p, 3, undefined, A4).svg.includes("和紙"))
+          if (panel.test(paperPagesSVG(p, 3, undefined, A4).svg))
             bad(`${tag}: the washi panel is still on the cardboard pages`);
         }
 
@@ -273,7 +339,8 @@ for (const preset of PRESETS)
       // pinned to the preview's exact answer, so the sheets shown and the file in the ZIP can never
       // be a different document (same pairing as the cardboard one below).
       const { g } = washiParts(p, { side: 3, end: 3 });
-      const H = g.sTot + 2 * g.end, CH = 297 - 2 * MARGIN, CH0 = CH - TOPBAR;
+      const H = g.sTot + 2 * g.end, CH = 297 - 2 * MARGIN;
+      const CH0 = CH - strip(adviceLines(en));
       const wPages = washiPagesSVG(p, { side: 3, end: 3 }, en, A4).pages;
       if (![Math.max(1, Math.ceil(H / CH)), H <= CH0 ? 1 : 1 + Math.ceil((H - CH0) / CH)].includes(wPages))
         bad(`${tag} washi: preview lays out ${wPages} pages, neither admissible answer`);
@@ -283,9 +350,11 @@ for (const preset of PRESETS)
       // the user prints and the pages they were shown can never be a different document.
       const cs = Buffer.from(paperPDF(p, 5, A4, en)).toString("latin1");
       pdfStructure(cs, `${tag} cardboard`, paperPagesSVG(p, 5, en, A4).pages);
-      // The split, in the shipped bytes: the mold's PDF carries no washi panel. (Labelled in
-      // English here, so this is what "和紙 ×N" comes out as when winAnsi has had it.)
-      if (cs.includes(en("和紙"))) bad(`${tag} cardboard: the washi panel is in the mold's PDF`);
+      // The split, in the shipped bytes: the mold's PDF carries no washi panel. By NAME — 「和紙 ×N」,
+      // which is `Washi ×N` once winAnsi has had it — and not by the word, the corner's caution about
+      // the washi being printed on this document on purpose (see section 4).
+      if (/Washi \\?[( ]?\xd7\d/.test(cs) || cs.includes(`${en("和紙")} \xd7`))
+        bad(`${tag} cardboard: the washi panel is in the mold's PDF`);
       // Every part must still be LABELLED: winAnsi drops what it cannot draw rather than mangling
       // it, so a Japanese translator would leave the names silently blank with every check above
       // still passing. This is the one that notices.
@@ -544,9 +613,210 @@ for (const preset of PRESETS)
       if ((washiPagesSVG(p).svg.match(/class="bend"/g) || []).length) bad(`${tag}: a bend line on the washi template`);
     }
 
+
+// ---- 9. The small print (`note` and `advice`) ----
+// Two failures, both of which every gate above reports 0 FAIL for, because a template with grey text
+// across a cut line is still watertight, still 1:1 and still has every part on it:
+//
+//   · a `note` too long for the part it is set inside. It is centred on a line 12% below the part's
+//     middle, so the room it has is the CHORD there, not the bounding box the packer used — on the
+//     starting egg the koma's box is 37.9mm wide and that line is 33.9mm. The English runs ~40%
+//     longer than the Japanese it is keyed by and nobody translating sees the part, so BOTH are swept.
+//   · a line of `advice` too long for the box it is set in. The box is a CONSTANT width (the check
+//     square's, so the corner's footprint cannot move with the UI language — see `adviceBox`), and
+//     there is no way to shrink a line that does not fit, only to notice.
+//
+// **Split in two on purpose, because the two questions cost different amounts.** The note fit is a
+// question about the DESIGN — every part of every combination — and answering it needs the layout but
+// not the markup. Whether the box is drawn, and each line printed once on one sheet, is a question
+// about the CORNER: the same code for every design, varying only with how many sheets the document
+// has. Rendering both documents' SVG for all 384 combinations to ask the second one took this gate
+// from 4s to 34s, which is most of a `check:paper` spent re-answering a question about four strings.
+let nn = 0;
+// Is every line inside its box? Per LANGUAGE, not per design — the box is a constant and the lines
+// do not depend on the drawing.
+const ROOM = adviceBox(adviceLines(ja)).w - 2 * ADVICE_PAD;
+for (const [lang, t] of [["ja", ja], ["en", en]] as const) {
+  if (corner(adviceLines(t)).w > A4.w - 2 * MARGIN)
+    bad(`advice ${lang}: the corner is ${corner(adviceLines(t)).w}mm wide, column is ${A4.w - 2 * MARGIN}`);
+  for (const a of adviceLines(t)) {
+    const w = strWidth(a, STYLE.note.size);   // the size the sheet sets it at, never a copy of it
+    if (w > ROOM) bad(`advice ${lang}: "${a}" is ${w.toFixed(1)}mm, box holds ${ROOM}`);
+  }
+}
+// The note fit, over the design space. No SVG: `layout` is what decides where a part's lettering
+// lands, and `noteOverflow` reads the part.
+for (const preset of PRESETS)
+  for (const height of [60, 140, 205, 400])
+    for (const boards of [4, 8, 12, 16])
+      for (const matT of [1, 2, 5, 10])
+        for (const [lang, t] of [["ja", ja], ["en", en]] as const) {
+          nn++;
+          const p = { ...DEFAULTS, ...preset, height, boards };
+          const want = adviceLines(t);
+          for (const [doc, parts] of [["cardboard", paperParts(p, matT, t).parts],
+                                      ["washi", washiParts(paperP(p, matT), {}, t).parts]] as const) {
+            const tag = `small print ${preset.key} h${height} b${boards} t${matT} ${lang} ${doc}`;
+            const lay = layout(parts, A4, want);
+            for (const q of lay.placed) {
+              const over = noteOverflow(q);
+              if (over > 0) bad(`${tag}: ${q.name}'s note hangs ${over.toFixed(1)}mm outside the part`);
+            }
+            if (lay.advice.length !== want.length) bad(`${tag}: ${lay.advice.length} advice lines, want ${want.length}`);
+          }
+        }
+// What the SHEETS say, on designs chosen for their page counts rather than swept: a one-sheet
+// document, a two-sheet one, and a body long enough to span (where a line could be drawn twice or
+// land on the wrong sheet). Both documents, both languages.
+let ns9 = 0;
+for (const [label, p] of [["1 sheet", { ...DEFAULTS, height: 60 }],
+                          ["2 sheets", { ...DEFAULTS }],
+                          ["spanning", { ...DEFAULTS, height: 400 }]] as const)
+  for (const [lang, t] of [["ja", ja], ["en", en]] as const) {
+    const want = adviceLines(t);
+    for (const [doc, svg] of [["cardboard", paperPagesSVG(p, 3, t, A4).svg],
+                              ["washi", washiPagesSVG(paperP(p, 3), {}, t, A4).svg]] as const) {
+      ns9++;
+      const tag = `advice ${label} ${lang} ${doc}`;
+      // BOTH documents print EVERY line — 「両方のシートに全部載せる」, the person cutting the mold
+      // being the person who will cut the washi — each once, on one sheet.
+      const sheets = svg.split('<svg class="pg"').slice(1);
+      for (const a of want) {
+        const on = sheets.filter((x) => x.includes(a)).length;
+        if (on !== 1) bad(`${tag}: "${a}" on ${on} of ${sheets.length} sheets, want exactly 1`);
+        const times = (svg.match(new RegExp(a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
+        if (times !== 1) bad(`${tag}: "${a}" printed ${times} times, want once`);
+      }
+      // The box is STROKED, and as a `guide` — grey and dashed, because a solid rectangle on this
+      // sheet is the shape of a part and a blade follows solid lines. A CLOSED guide path, which on
+      // these sheets can only be the box: the washi panel's own guides are open polylines.
+      if (!/<path d="M[^"]*Z" class="guide"\/>/.test(svg))
+        bad(`${tag}: no closed guide path — the advice box is not drawn`);
+    }
+  }
+
+// ---- 10. A waisted body on cardboard (the hub has to stay inside the shape) ----
+// Every sweep above runs the PRESETS, and on all three of them the narrowest radius the body reaches
+// IS one of the mouths. So none of them asks the question this section is about: a body that pinches
+// in the MIDDLE, narrower than either opening — an hourglass, which the editor allows and nothing
+// floors.
+//
+// The cardboard rib's inner edge is ONE radius from tab to tab (`noCrescent`), so it runs past that
+// waist. If the hub is outside it, that edge is outside the outer curve and **the cut line crosses
+// itself**: the part is undrawable, and every gate here passed it — the sheet is still 1:1, still has
+// every part, still has no NaN, and `ribPullFit` still reports ok, because pulling out is a question
+// about the MOUTH. The printed route has been guarded all along, `nominalRi` keeping the core inside
+// `bodyMinR - 3`; the `joint` branch of `innerRi` does not go through `nominalRi`, which is how the
+// guard got lost on this route alone (325 of 1728 swept waisted designs crossed, the worst 32.9mm
+// outside the waist).
+//
+// **Asked in three costs, as section 9 is**, and the middle one exists because the first version of
+// this section was too narrow to fail: it swept mouths 30..120 and two waist POSITIONS, and reported
+// `0 FAIL` while 300 of 15,744 legal waisted designs still drew a crossing rib. What the failure
+// needs is a mouth/waist RATIO wide enough that the curve between two of `bodyMinR`'s samples dives
+// under the cap, and a waist sitting off its grid — mouth 600 against a waist of 10, at t≈0.13.
+//   · the band — arithmetic on `innerRi` and an independent minimum — over the whole space;
+//   · the parts, drawn, on a dozen designs (`paperParts` builds every rib);
+//   · one actual count of segment crossings, that being 637k pairs, on the tightest design found.
+let n10 = 0, tightest: { tag: string; pk: Design; band: number } | null = null;
+const waisted = (mouth: number, waist: number, ribs: number, tw: number, sharp: boolean): Design => ({
+  ...DEFAULTS, height: 280, boards: ribs,
+  pts: [{ t: 0.075, r: mouth }, { t: tw, r: waist, sharp }, { t: 0.925, r: mouth }],
+});
+// **Where the waist goes is the whole of whether this section bites.** `bodyMinR` scans 40 intervals
+// between the two end points, so a waist sitting MIDWAY between two of its samples is the one it
+// cannot see — and that, not the mouth or the board, is what decided failure: over a grid of round
+// positions the tightest band came out +0.07mm and this section reported 0 FAIL while the design one
+// step off that grid was 6mm outside its own outline. So the positions are chosen adversarially,
+// against the scan's own arithmetic, with 0.5 kept as a position it does see.
+const blind = (i: number) => 0.075 + 0.85 * (i + 0.5) / 40;
+const WAIST_T = [blind(2), blind(4), blind(8), blind(16), blind(24), blind(32), blind(36), 0.5];
+for (const mouth of [60, 120, 300, 600])
+  for (const waist of [8, 14, 20, 40])
+    for (const ribs of [4, 8, 16])
+      for (const matT of [1, 3, 10])
+        for (const tw of WAIST_T)
+          // `sharp` is the sharpest corner the editor allows, and a corner IS a local minimum: the
+          // scan has nothing sitting at it unless a sample lands there.
+          for (const sharp of [false, true]) {
+            if (waist >= mouth) continue;
+            n10++;
+            const pk = paperP(waisted(mouth, waist, ribs, tw, sharp), matT);
+            const tag = `waist mouth${mouth} waist${waist} ${ribs}ribs t${matT} tw${tw.toFixed(3)}${sharp ? " sharp" : ""}`;
+            // THE assertion: the hub inside the narrowest radius the body reaches, measured on
+            // `outerR` and the control points rather than on anything profile.ts told us.
+            const band = bodyMin(pk) - innerRi(pk);
+            if (band <= 0)
+              bad(`${tag}: the hub is ${(-band).toFixed(2)}mm OUTSIDE the body — the rib's inner edge crosses its outer edge`);
+            if (!tightest || band < tightest.band) tightest = { tag, pk, band };
+            // The rim still never passes the mouth, the waist having no say in that (section 1's
+            // rule, restated where the two numbers differ).
+            const mouthR = Math.min(outerR(pk, 0), outerR(pk, 1));
+            if (komaR(pk) - mouthR > 0.01) bad(`${tag}: koma stands ${(komaR(pk) - mouthR).toFixed(2)}mm proud of the mouth`);
+            // What gives on a waisted body is the rib COUNT: the hub cannot grow past the waist, so
+            // the notches run out of circle and `maxBoards` trims the count, which the app reports.
+            // Asserted as the EQUALITY — `pk.boards > ribs` cannot fail, `paperP` ending in a
+            // `Math.min`, so it was an assertion that asserted nothing.
+            if (pk.boards !== Math.min(ribs, maxBoards(pk)))
+              bad(`${tag}: rib count ${pk.boards}, want min(${ribs}, ${maxBoards(pk)})`);
+          }
+// Drawn, on a dozen of them: every part on paper, no NaN. `paperParts` builds every rib, so this is
+// the expensive question and it is asked of the corners of the space rather than all of it.
+for (const mouth of [60, 600])
+  for (const waist of [8, 20])
+    for (const ribs of [4, 16])
+      for (const [tw, sharp] of [[blind(4), true], [0.5, false]] as const) {
+        const p = waisted(mouth, waist, ribs, tw, sharp);
+        const { parts, pk } = paperParts(p, 10);
+        const tag = `waist drawn mouth${mouth} waist${waist} ${ribs}ribs tw${tw}${sharp ? " sharp" : ""}`;
+        if (!parts.some((q) => q.name.startsWith("羽根板")) || !parts.some((q) => q.name.startsWith("コマ")))
+          bad(`${tag}: a part is missing from the sheet`);
+        for (const q of parts)
+          for (const [x, y] of pts2(q))
+            if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
+        if (bodyMin(pk) - innerRi(pk) <= 0) bad(`${tag}: the hub is outside the body`);
+      }
+// Once, on the tightest of them: does the drawn outline actually cross itself anywhere? This is the
+// failure in its own terms, and the band above is the cheap proxy the sweep can afford (637k segment
+// pairs per design).
+if (tightest) {
+  const o = ribOutline2D(tightest.pk, 0, { smooth: true }) as [number, number][];
+  const side = (a: number[], b: number[], c: number[]) =>
+    Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  const cross = (a: number[], b: number[], c: number[], d: number[]) =>
+    side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+  let hits = 0;
+  for (let i = 0; i < o.length; i++)
+    for (let j = i + 2; j < o.length; j++) {
+      if (i === 0 && j === o.length - 1) continue;
+      if (cross(o[i], o[(i + 1) % o.length], o[j], o[(j + 1) % o.length])) hits++;
+    }
+  if (hits) bad(`${tightest.tag}: the rib outline crosses itself ${hits}×`);
+  // And that `ribPullFit` is NOT what would have caught it — the note above says so, so it is pinned.
+  if (!ribPullFit(tightest.pk).ok && tightest.band > 0)
+    bad(`pull-out now reports the waist; the comment in section 10 needs rewriting`);
+}
+
+// ---- 11. The preview puts BOTH documents in one DOM ----
+// The PDFs are two files and never meet. The preview renders both into one HTML page
+// (`ui/PagePreview.tsx`), and an SVG id is scoped to the DOCUMENT, so the sheets' clipPath ids must
+// not collide: with `clip0` on each, the washi sheet's `url(#clip0)` resolved to the CARDBOARD
+// sheet's clip — first matching id in the DOM wins — and the washi part was clipped to the wrong
+// band, silently, because a clip ends a cut line at the trim box and draws nothing to say so.
+{
+  const ids = (svg: string) => (svg.match(/ id="([^"]+)"/g) || []).map((m) => m.slice(5, -1));
+  const p = { ...DEFAULTS, ...PRESETS[0] };
+  const m = ids(paperPagesSVG(p, 5, undefined, A4).svg), w = ids(washiPagesSVG(paperP(p, 5), undefined, undefined, A4).svg);
+  if (!m.length || !w.length) bad(`preview: no ids at all (${m.length}/${w.length}) — this section stopped asking anything`);
+  const dup = m.filter((id) => w.includes(id));
+  if (dup.length) bad(`preview: both documents emit id ${JSON.stringify(dup[0])} (${dup.length} shared)`);
+  for (const [doc, list] of [["cardboard", m], ["washi", w]] as const)
+    if (new Set(list).size !== list.length) bad(`preview: the ${doc} document repeats an id among its own sheets`);
+}
+
 // Japanese labels cannot be drawn with base-14 fonts, so they must be dropped, never emitted raw.
 if (winAnsi("和紙 ×8") !== " ×8") bad(`winAnsi should drop Japanese: ${JSON.stringify(winAnsi("和紙 ×8"))}`);
 if (winAnsi("50mm ← 定規で確認") !== "50mm <- ") bad(`winAnsi arrow fold: ${JSON.stringify(winAnsi("50mm ← 定規で確認"))}`);
 
-console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme + ${nh} hoop combos, ${fail} FAIL ===`);
+console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme + ${nh} hoop + ${nn} small-print + ${ns9} advice-sheet + ${n10} waisted combos, ${fail} FAIL ===`);
 process.exit(fail ? 1 : 0);
