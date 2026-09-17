@@ -1,6 +1,9 @@
 /**
- * A thin flat hoop glued around the finished lantern's opening to hold it round, after the mold has
- * been taken apart and pulled out. Sized from `openingR()` (the outermost control point), so it
+ * A thin flat hoop that holds one of the lantern's openings round. It goes on the ASSEMBLED MOLD,
+ * sliding over the rib tips outside the opening, and it goes on BEFORE the bamboo and the washi (the
+ * guide's `rings` step): the washi's end allowance is folded back over it, which is what holds it
+ * there, and it stays with the lantern when the mold is pulled out — the one exported part that is
+ * not part of the mold. Sized from `openingR()` (the outermost control point), so it
  * follows the design like every other part; thin both radially and in height, not a thick washer or
  * a tall band, and independent of the mold's own parts.
  *
@@ -211,4 +214,84 @@ export function wireRing2D(p: Design, top: boolean): Pt2[] {
 export function wireRingGeometry(p: Design, top: boolean): THREE.BufferGeometry {
   const path = wireRing2D(p, top).map(([x, y]) => new THREE.Vector3(x, y, 0));
   return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(path, true, "centripetal"), path.length, WIRE_D / 2, 8, true);
+}
+
+/**
+ * How far to TURN a hoop about its own axis, in radians, so what reaches inward off its inner rim
+ * passes BETWEEN the ribs instead of into one.
+ *
+ * Everything on the rim that is not the rim reaches inside the mouth: a leg pad by
+ * `TRI_R + TRI_R/2 - LEG_OVERLAP` (14.25mm on the default egg's ⌀148), the wire hoop's eyes by about
+ * `2·EYE_R`, the marker tab by `MARK_D - RING_FIT`. The rib plate at the mouth is solid from the tab
+ * out to the opening at every height in the neck, so a hoop offered up in any old orientation has
+ * those features fouling a rib — and the answer is the maker's own: **you turn it.** The gaps between
+ * eight 2mm plates are almost all air.
+ *
+ * A single feature (the tab) wants half a rib pitch. `LEG_N` pads at `2π/LEG_N` want the angle that
+ * is furthest from every rib at once, which is a one-dimensional packing with a closed form: take the
+ * pads' positions modulo one rib pitch, find the largest gap between neighbours on that circle, and
+ * turn so its MIDDLE is where the rib sits. Each pad then clears the nearest rib by half that gap —
+ * **half a pitch where the rib count is a multiple of `LEG_N`**, all three pads sharing one residue
+ * (30° at 6 ribs, 20° at 9), and a sixth of it otherwise (7.5° at 8, 3.75° at 16).
+ *
+ * **It can run out, and the opening is what decides.** A pad's own half-width is
+ * `atan(TRI_R·√3/2 / (Rc + TRI_R/2))` — an angle, so it grows as the mouth shrinks — and past the
+ * clearance above the pad is back in a rib whatever the turn. Measured against the plates as drawn
+ * (`boardT`, solid from the tab out to the mouth), the smallest mouth whose pads clear: **⌀146 at 8
+ * ribs** (the default egg's ⌀148 makes it by 0.17mm), ⌀294 at 16, ⌀184 at 10, ⌀128 at 7 — against ⌀40
+ * at 3, 6 and 9 ribs, i.e. as small as sockets are cut at all. The bent wire's eyes are narrower than
+ * a printed pad and clear from ⌀116 at 8 ribs. Turning is still the best there is where it is not
+ * enough; a hoop that will not go on is the PART's news, not this function's.
+ *
+ * `top` is answered with 0 — the top hoop is a plain band with nothing on its rim.
+ */
+export function hoopTurn(p: Design, top: boolean): number {
+  if (top) return 0;
+  const pitch = (2 * Math.PI) / Math.max(1, p.boards);
+  const legs = ringLegs(p);
+  if (!legs) return pitch / 2;                    // the marker tab: one feature, so mid-gap is the answer
+  const at: number[] = [];
+  for (let i = 0; i < legs.n; i++) at.push((((i * 2 * Math.PI) / legs.n) % pitch + pitch) % pitch);
+  at.sort((a, b) => a - b);
+  let widest = -1, middle = 0;
+  for (let i = 0; i < at.length; i++) {
+    const lo = at[i], hi = i + 1 < at.length ? at[i + 1] : at[0] + pitch;   // wraps by one pitch
+    if (hi - lo > widest) { widest = hi - lo; middle = (lo + hi) / 2; }
+  }
+  return -middle;
+}
+
+/**
+ * How far a hoop can LEAN on the mold it has been fitted over, in radians — a drawing's dimension,
+ * and here rather than in the viewport because it is `RING_FIT` that answers it.
+ *
+ * A hoop resting on an opening is held by nothing at that point in the build (the guide's `rings`
+ * step says so, and says to put a rubber band on it), and drawn flat on the opening plane it reads
+ * as fused into the rib edges it is only lying against. So it is drawn leaning, and this is the
+ * limit: the inner rim clears the neck by `RING_FIT` — the bent wire's inner surface sits at that
+ * same radius — and a circle of radius `r + f` tilted by α presents a minor axis of `(r + f)·cos α`,
+ * which binds on the neck at `acos(r / (r + f))`. **A wide mouth leans less**: 3.6° on the default
+ * egg's ⌀148, 11° at the ⌀16 floor, the clearance being a smaller fraction of a bigger circle — which
+ * is how a hoop behaves in the hand, and the reason this is not one constant angle.
+ *
+ * `room` is the millimetres the caller has along the axis (opening → the koma's outer face, which is
+ * where the low rim would foul the part the mold stands on), and the lean is capped at the angle that
+ * spends exactly that. What a leaning hoop occupies is `2·rOuter·sin α + RING_H·cos α` — the low rim's
+ * drop **plus the hoop's own thickness**, which is the term this cap was missing: at a ⌀600 mouth on a
+ * 60mm body it spent 21.10mm of 20.00mm, and in the standing pose (where `Box3` puts the mold on the
+ * floor by its own extent) that hovers the whole mold 1.1mm off the table. `check:manifold` measures
+ * the span on the ring's own vertices now, which is what found it.
+ *
+ * `A·sin α + B·cos α = hypot(A,B)·sin(α + atan2(B,A))`, so the cap inverts in closed form.
+ *
+ * Both routes, one expression: `WIRE_D` is `RING_WALL`'s twin AND `RING_H`'s (2mm all three), so the
+ * leaning hoop has the same outer radius and the same thickness whether it was printed or bent.
+ */
+export function hoopLean(p: Design, top: boolean, room: number): number {
+  const r = openingR(p, top);
+  const bind = Math.acos(Math.min(1, r / (r + RING_FIT)));
+  const drop = 2 * (r + RING_FIT + RING_WALL);          // the low rim's travel per radian of lean
+  const phase = Math.atan2(RING_H, drop);
+  const fits = Math.asin(Math.min(1, Math.max(0, room) / Math.hypot(drop, RING_H))) - phase;
+  return Math.max(0, Math.min(bind, fits));
 }
