@@ -303,5 +303,47 @@ t("broken JSON → null", P.parseImport("{ not json") === null);
 t("empty string → null", P.parseImport("") === null);
 t("non-object JSON → null", P.parseImport("42") === null);
 
+// ---- the floors are the EDITOR's too, not only a saved file's ----
+// persist is the last line, and a last line that keeps having to catch the same thing is a bug
+// somewhere earlier: a design the app holds should already be legal, or the file it writes and the
+// file it reads back are different shapes and the drawing moves under the user. And a picked preset
+// is the first design most makers will ever have. `check:persist` is the only gate that can reach
+// the surfaces that produce one — they live in `src/ui`, and plain node cannot import a `.tsx`,
+// which is why the chip's miniature is a `.ts` of its own (`presetMini`).
+{
+  const { presetPts } = await import("../src/ui/pointEdit.ts");
+  const { presetMini } = await import("../src/ui/presetMini.ts");
+  const { PRESETS } = await import("../src/config.ts");
+  // 2. `presetPts` is the ONE answer to "the points a picked preset yields at this height", read by
+  //    the pick, by the lit chip and by the chip's own drawing. `miniPath` used to floor nothing, so
+  //    two of the three chips drew a mouth (⌀38, ⌀46) the app would never build (⌀52).
+  for (const pr of PRESETS) {
+    for (const height of [LIMITS.height[0], 150, 205, 400, LIMITS.height[1]]) {
+      const H = pr.height ?? height;   // as onPick and the chip both resolve it
+      const pts = presetPts(pr, H);
+      const tag = `${pr.name} h${H}`;
+      t(`${tag}: both openings at or above ${OPENING_MIN}mm`,
+        pts[0].r >= OPENING_MIN - 1e-6 && pts[pts.length - 1].r >= OPENING_MIN - 1e-6);
+      t(`${tag}: the necks reach NECK_MIN`,
+        pts[0].t * H >= NECK_MIN - 1e-9 && (1 - pts[pts.length - 1].t) * H >= NECK_MIN - 1e-9);
+      // The design a pick stores is one persist will hand straight back: the chip stays lit, and the
+      // shape a maker picked is the shape their file reopens as.
+      save({ p: { ...DEFAULTS, height: H, rTop: pr.rTop, rBot: pr.rBot, pts }, bedW: 256, bedD: 256, printRibs: 1 });
+      const r2 = load();
+      t(`${tag}: a picked preset survives a save and reload unchanged`,
+        r2.p.pts.length === pts.length && r2.p.pts.every((q: any, i: number) => Math.abs(q.r - pts[i].r) < 1e-6 && Math.abs(q.t - pts[i].t) < 1e-6));
+      // `presetPts` does not mutate the preset — three surfaces call it on every render.
+      t(`${tag}: the preset itself is untouched`, pr.pts.every((q, i) => q.r === PRESETS.find((x) => x.key === pr.key)!.pts[i].r));
+      // THE chip assertion: the miniature's own design is the one the pick stores. It lives in a
+      // plain `.ts` for exactly this (`presetMini`), because what went wrong was not `presetPts` —
+      // that was always right — but a drawing that did not call it.
+      const mini = presetMini(pr, H);
+      t(`${tag}: the chip draws the design the pick yields`,
+        mini.q.height === H && JSON.stringify(mini.q.pts) === JSON.stringify(pts));
+      t(`${tag}: the chip's path is drawn`, /^M [\d.]+ [\d.]+( L [\d.]+ [\d.]+){81} Z$/.test(mini.d));
+    }
+  }
+}
+
 console.log(`\n=== ${pass} pass / ${fail} fail ===`);
 process.exit(fail ? 1 : 0);
