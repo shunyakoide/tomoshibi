@@ -90,9 +90,9 @@ export function useFigures(p: Design, m: {
 
   // The cardboard counterpart to the bed-overflow check. Cheap enough to run every render, and
   // deliberately NOT limited to the print view: every way out of it (fewer ribs, thinner material, a
-  // wider opening) is a control you reach for while designing.
+  // wider opening) is a control you reach for while designing. What it still reports is the rib-count
+  // clamp; the koma wall it used to warn about is now the GEOMETRY's promise (see `buildAlerts`).
   const fit = useMemo(() => (route === "paper" ? paperFit(p, matT) : null), [route, p, matT]);
-  const thinWall = fit !== null && fit.wall < fit.thin;
   // Stable identity, so the preview's memo isn't invalidated by every unrelated render.
   const washiOpts = useMemo(() => ({ side: washiSide, end: washiEnd }), [washiSide, washiEnd]);
   // Parts of the templates this route ships that are wider than A4's content column. The layout
@@ -110,7 +110,7 @@ export function useFigures(p: Design, m: {
 
   return {
     maxDia, washiG, legsFit, topOpen, botOpen, overParts,
-    ribFits, ribLen, ribBaseOver, heightLimit, fit, thinWall, washiOpts, moldSrc, pull, overSheet, mouthBand,
+    ribFits, ribLen, ribBaseOver, heightLimit, fit, washiOpts, moldSrc, pull, overSheet, mouthBand,
   };
 }
 
@@ -142,14 +142,17 @@ export function buildAlerts(f: Figures, a: {
     hint: f.ribBaseOver && f.heightLimit >= LIMITS.height[0]
       ? t("→ 火袋の高さを {h}mm 以下に", { h: f.heightLimit }) : undefined,
   });
-  // Cardboard: the koma's notches are cut to the material thickness, so thick material eats the wall
-  // between them until it tears when cut by hand. `fit` is re-tested only to narrow it — `thinWall`
-  // is false whenever it is null.
-  if (f.fit && f.thinWall) alerts.push({
-    key: "wall",
-    head: t("コマの溝と溝の壁が {wall}mm — 手で切ると裂けやすい細さです", { wall: f.fit.wall.toFixed(1) }),
-    hint: t("→ 羽根板を減らす / 薄い材料にする / 断面図で開口を広げる"),
-  });
+  // **There was a koma-wall alert here and it could not fire.** Thick material used to eat the wall
+  // between two notches until it would tear when hand-cut, and this warned at half the thickness.
+  // Then the joint started ASKING for a wall of `matT` (`Design.joint`, 2026-09-14) and the koma hub
+  // grows until it has one, so over 1,854 designs — every preset, 4..16 ribs, 1..10mm board, openings
+  // down to the floor — the wall never came in under `matT` at all, let alone under half of it. The
+  // thinnest was exactly 1.000 × matT. Raising the threshold would not have helped: `wall < matT` is
+  // 0 of 1,854 too. The risk did not vanish, it MOVED — the hub can only grow to the opening, and
+  // past that `maxBoards` trims the rib count instead, which is the alert below this one (140 of the
+  // same 1,854). A warning that cannot fire is the same lie as a gate that passes on anything, so it
+  // is gone rather than left to reassure. `check:paper` pins the wall at `matT` or better, which is
+  // the promise this used to be the fallback for.
   // Cardboard: the rib count the template actually cuts, when it is not the one the editor shows.
   // `maxBoards` still clamps for one reason — the notches meeting at the koma's centre, which is not
   // buildable at any thickness. Said out loud because the stepper reads the count you asked for.

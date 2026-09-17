@@ -102,7 +102,6 @@ for (const preset of PRESETS)
       if (tabW < Math.min(20, ribMouthBand(pk)) - 0.01) bad(`${tag} tab ${tabW.toFixed(2)}mm under min(20, band)`);
       const fit = paperFit(p, matT);
       eq(fit.wall, wall, `${tag} paperFit wall`);
-      eq(fit.thin, matT / 2, `${tag} paperFit thin threshold`);
       if (fit.clamped !== clamped || fit.nMax !== nMax) bad(`${tag} paperFit disagrees with paperParts`);
       // Chords + edge notch cutouts put the koma's circumscribed diameter slightly UNDER komaR
       // (thicker material = wider notches = more under). Exceeding it is the error.
