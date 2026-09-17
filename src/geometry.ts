@@ -12,7 +12,11 @@ export {
   cutYbot, cutYtop,
   komaR, maxBoards, innerRi, ribMouthBand,
   tabDented, notchR, notchWidth,
+  bodyMinR,
 } from "./geometry/profile.ts";
+// (`bodyMinR` is on the last line for `check:manifold`, not for the app: it is the self-intersection
+//  guard `nominalRi` and `jointCap` are built on, it was read too HIGH three times running, and a
+//  guard no gate can see is a guard nothing checks. Nothing in src/ imports it.
 // (TAB_DENT_W / tabDentH stay internal: rib.ts imports them from profile.ts directly. The surface here was
 //  left exactly as it was before the split, so no caller could tell it happened — and then trimmed
 //  once, of the names that split had carried out of `profile.ts` for nobody: a re-export with no

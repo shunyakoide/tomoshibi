@@ -45,6 +45,23 @@ function fukuroSpline(P: Pt[], x: number, T?: number[]): number {
   return (2 * s3 - 3 * s2 + 1) * p1.r + (s3 - 2 * s2 + s) * m1 + (-2 * s3 + 3 * s2) * p2.r + (s3 - s2) * m2;
 }
 
+/**
+ * The least value of `a s³ + b s² + c s + d` on s ∈ [0,1]: the two endpoints, plus any root of the
+ * derivative `3a s² + 2b s + c` that lands strictly inside. Used by `bodyMinR` — see the note there
+ * for why that function may not sample.
+ */
+function cubicMin(a: number, b: number, c: number, d: number): number {
+  let m = Math.min(d, a + b + c + d);                       // s = 0 and s = 1
+  const A = 3 * a, B = 2 * b;
+  const take = (s: number) => { if (s > 0 && s < 1) m = Math.min(m, ((a * s + b) * s + c) * s + d); };
+  if (Math.abs(A) < 1e-12) { if (Math.abs(B) > 1e-12) take(-c / B); }   // the derivative is linear
+  else {
+    const disc = B * B - 4 * A * c;
+    if (disc >= 0) { const q = Math.sqrt(disc); take((-B + q) / (2 * A)); take((-B - q) / (2 * A)); }
+  }
+  return m;
+}
+
 // ---- Bézier tangent handles (optional) ----
 // Like a pen tool's direction lines: `ho` (next-point side) / `hi` (prev-point side) are relative
 // vectors {dt,dr} in (t,r) space. **One point with a handle switches the lamp body to Bézier
@@ -140,36 +157,56 @@ function snapHolds(pts: Pt[], snap: number[]): boolean {
   return true;
 }
 /**
- * **A scan is not a minimum, and this one is a guard** — `nominalRi` and `jointCap` keep the rib's
- * inner edge inside it, so a value read too HIGH is an edge outside the body: a cut line that
- * crosses itself. Three things, because 41 samples alone were not it:
- *   - every CONTROL POINT's own radius. A `sharp` point is a local minimum by construction and the
- *     grid steps straight over it — the scan read 11.20mm on a body pinched to r8 at t=0.173, and
- *     the 2mm `jointCap` keeps then bought a rib 1.20mm OUTSIDE its own outline.
- *   - the 41-sample scan, which finds the bracket.
- *   - a ternary refinement inside that bracket, for a smooth dip between two samples: the corner
- *     case is exact from the control points, but a rounded waist has no point sitting at its lowest.
- * Over 15,744 legal waisted designs the result is within 0.01mm of a 20,000-sample truth, where the
- * bare scan was up to 7.47mm high. ~120 `profileR` calls instead of 41, once per `pts` array.
+ * **The body's least radius, and it is a MINIMUM rather than a scan of one.** `nominalRi` and
+ * `jointCap` subtract a keep from it to hold the rib's straight inner edge inside the body, so a
+ * value read HIGH is an edge outside the outline: a printed rib that comes out non-watertight, a
+ * cardboard cut line that crosses itself. It was 41 samples of the curve, and samples cannot carry
+ * that weight — three rounds of review found three ways past them:
+ *   - a `sharp` control point between two samples (read 7.47mm high), so the control points went in;
+ *   - a smooth dip between two samples, so a refinement went in;
+ *   - **two dips, where a refinement of the lowest SAMPLE's bracket polishes the wrong one.** On a
+ *     five-point silhouette (r60, r20, r500 sharp, r24 sharp, r600 at h205) it returned the r20
+ *     control point while the true minimum was 9.211 at t=0.848 — 10.8mm high, giving 8 open edges
+ *     on three printed ribs and two self-crossings on the cardboard one, with every gate at 0 FAIL.
+ *
+ * So there is no sampling left. Between two control points the radius IS one cubic — Hermite with
+ * the clamped tangents `fukuroSpline` uses, or the Bézier `fukuroBezierR` does, whose r-components
+ * are not touched by that function's t-clamp — and a cubic's minimum on a closed interval is its
+ * endpoints plus whichever roots of its derivative lie inside. Exact, and CHEAPER than what it
+ * replaced: one quadratic and at most four evaluations per segment, against 41 spline evaluations.
+ * Still memoized per `pts` array, since it is asked for thousands of times per rib.
+ *
+ * It is the SPLINE's minimum, and `outerR` floors what it draws at 8mm, so on a silhouette whose
+ * curve dives below that this reads under the outline — the conservative direction, and the only one
+ * this value may ever err in.
+ *
+ * Exported for `check:manifold`, which measures it against an independently sampled truth over the
+ * silhouette space. The bug above hid three times behind a private function whose answer no gate
+ * could see; a guard that nothing can read is a guard nothing checks.
  */
-function bodyMinR(p: Design): number {
+export function bodyMinR(p: Design): number {
   const pts = p.pts;
   if (!pts || pts.length < 2) return openMin(p);
   const hit = minRMemo.get(pts);
   if (hit && snapHolds(pts, hit.snap)) return hit.m;
-  const T = anyHandle(pts) ? undefined : fukuroTangents(pts);   // once for the scan, not per sample
-  const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
-  const at = (u: number) => profileR(pts, t0 + (t1 - t0) * u, T);
-  const N = 40;
-  let best = Infinity, bi = 0;
-  for (let i = 0; i <= N; i++) { const v = at(i / N); if (v < best) { best = v; bi = i; } }
-  // The lowest sample's two neighbouring intervals hold any smooth minimum the grid missed.
-  let lo = Math.max(0, bi - 1) / N, hi = Math.min(N, bi + 1) / N;
-  for (let k = 0; k < 40; k++) {
-    const a = lo + (hi - lo) / 3, b = hi - (hi - lo) / 3;
-    if (at(a) < at(b)) hi = b; else lo = a;
+  let m = Infinity;
+  if (anyHandle(pts)) {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      // The same control values `fukuroBezierR` evaluates. Its t-clamp scales only the t components,
+      // so r(u) is the plain cubic Bézier through these four numbers.
+      const c1 = a.r + (a.ho || bezDefault(pts, i).ho).dr;
+      const c2 = b.r + (b.hi || bezDefault(pts, i + 1).hi).dr;
+      m = Math.min(m, cubicMin(-a.r + 3 * c1 - 3 * c2 + b.r, 3 * a.r - 6 * c1 + 3 * c2, -3 * a.r + 3 * c1, a.r));
+    }
+  } else {
+    const T = fukuroTangents(pts);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1], h = b.t - a.t, m1 = T[i] * h, m2 = T[i + 1] * h;
+      // The Hermite basis of `fukuroSpline`, in the power basis of s.
+      m = Math.min(m, cubicMin(2 * a.r - 2 * b.r + m1 + m2, -3 * a.r + 3 * b.r - 2 * m1 - m2, m1, a.r));
+    }
   }
-  const m = Math.min(best, at((lo + hi) / 2), ...pts.map((q) => q.r));
   minRMemo.set(pts, { snap: ptsSnap(pts), m });
   return m;
 }
