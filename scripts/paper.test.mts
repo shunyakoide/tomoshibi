@@ -19,7 +19,7 @@
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, ADVICE_PAD, layout, corner, adviceBox, adviceLines, strip, noteOverflow, STYLE } from "../src/papercraft.ts";
 import { strWidth, winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
-import { komaR, tabDented, innerRi, notchR, notchWidth, ribInnerX, ribMouthBand, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
+import { komaR, tabDented, innerRi, notchR, notchWidth, ribInnerX, ribMouthBand, ribOutline2D, ribPullFit, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
 import type { Design } from "../src/types.ts";
 
@@ -32,6 +32,14 @@ const eq = (a: number, b: number, msg: string, tol = 0.01) => { if (Math.abs(a -
 // NOTHING else — an outline-only reader gets Math.max of an empty list, which is -Infinity, and the
 // NaN travels all the way to a seam assertion that then passes for the wrong reason.
 const pts2 = (q: any) => [q.outline, ...(q.holes || []), ...(q.bend || [])].flat();
+// The narrowest radius the body ever reaches, sampled — what caps the cardboard joint (`jointCap`).
+// Sampled here rather than imported because `bodyMinR` is private to profile.ts, and a gate that
+// re-derives it independently is the point: the two agreeing is the assertion.
+const bodyMin = (d: Design) => {
+  let m = Infinity;
+  for (let i = 0; i <= 400; i++) m = Math.min(m, outerR(d, i / 400));
+  return m;
+};
 // Bounding box of the point list
 const bb = (q: any) => {
   const a = pts2(q);
@@ -84,11 +92,16 @@ for (const preset of PRESETS)
       // came back at the old 1.6mm would mean the rim got pinned to the opening again. The one
       // exception is the cap: past it there is no plate left at the opening to hang a tab on, and
       // then the wall gives rather than the rib.
-      // The narrower of the two MOUTHS — the ends, which is what `openMin` reads and therefore what
-      // the joint is measured against. Not the smallest control point: a waisted body pinches in the
-      // middle, and the middle is not a hole anything leaves by.
+      // The narrower of the two MOUTHS — the ends — is what `komaR` and `ribMouthBand` are measured
+      // against: those two are about what leaves by a hole, and the middle of a waisted body is not a
+      // hole anything leaves by.
       const mouth = Math.min(outerR(pk, 0), outerR(pk, 1));
-      const capped = innerRi(pk) >= Math.max(6, mouth - 2) - 0.01;
+      // The CAP is measured against something else: the narrowest radius the body reaches anywhere
+      // (`jointCap` = `bodyMinR - 2`), because the cardboard rib's inner edge is one straight radius
+      // past the waist as well and a hub outside the waist crosses it. On every shipped preset the
+      // narrowest point IS a mouth, so the two are the same number here — section 10 is where they
+      // are not.
+      const capped = innerRi(pk) >= Math.max(6, bodyMin(pk) - 2) - 0.01;
       if (!capped && wall < matT - 0.01) bad(`${tag} koma wall ${wall.toFixed(2)} thinner than the ${matT}mm board`);
       // The board a rib still has where it passes the narrower mouth. It is REPORTED, never clamped —
       // the count is the maker's — so what is pinned here is that the number the alert quotes is the
@@ -677,9 +690,79 @@ for (const [label, p] of [["1 sheet", { ...DEFAULTS, height: 60 }],
     }
   }
 
+// ---- 10. A waisted body on cardboard (the hub has to stay inside the shape) ----
+// Every sweep above runs the PRESETS, and on all three of them the narrowest radius the body reaches
+// IS one of the mouths. So none of them asks the question this section is about: a body that pinches
+// in the MIDDLE, narrower than either opening — an hourglass, which the editor allows and nothing
+// floors.
+//
+// The cardboard rib's inner edge is ONE radius from tab to tab (`noCrescent`), so it runs past that
+// waist. If the hub is outside it, that edge is outside the outer curve and **the cut line crosses
+// itself**: the part is undrawable, and every gate here passed it — the sheet is still 1:1, still has
+// every part, still has no NaN, and `ribPullFit` still reports ok, because pulling out is a question
+// about the MOUTH. The printed route has been guarded all along, `nominalRi` keeping the core inside
+// `bodyMinR - 3`; the `joint` branch of `innerRi` does not go through `nominalRi`, which is how the
+// guard got lost on this route alone (325 of 1728 swept waisted designs crossed, the worst 32.9mm
+// outside the waist).
+//
+// Asked in two costs, as section 9 is: the band is arithmetic and runs over the whole set, while
+// counting actual segment crossings is 637k pairs per design and is asked ONCE, of the design the
+// sweep found tightest.
+let n10 = 0, tightest: { tag: string; pk: Design; band: number } | null = null;
+for (const mouth of [30, 60, 120])
+  for (const waist of [10, 18, 26, 40])
+    for (const ribs of [4, 8, 16])
+      // A waist deliberately OFF the 40-sample grid `bodyMinR` scans on, and `sharp` for the worst
+      // curvature the editor allows: the cap is 2mm and the scan can read a hidden waist high.
+      for (const [tw, sharp] of [[0.5, false], [0.7777, true]] as const)
+        for (const matT of [1, 5, 10]) {
+          if (waist >= mouth) continue;
+          n10++;
+          const p: Design = { ...DEFAULTS, height: 280, boards: ribs,
+            pts: [{ t: 0.075, r: mouth }, { t: tw, r: waist, sharp }, { t: 0.925, r: mouth }] };
+          const { parts, pk } = paperParts(p, matT);
+          const tag = `waist mouth${mouth} waist${waist} ${ribs}ribs t${matT}${sharp ? " sharp" : ""}`;
+          // THE assertion: the hub inside the narrowest radius, measured on `outerR` itself rather
+          // than on anything profile.ts told us.
+          const band = bodyMin(pk) - innerRi(pk);
+          if (band <= 0)
+            bad(`${tag}: the hub is ${(-band).toFixed(2)}mm OUTSIDE the waist — the rib's inner edge crosses its outer edge`);
+          if (!tightest || band < tightest.band) tightest = { tag, pk, band };
+          // The rim still never passes the mouth, the waist having no say in that (section 1's rule,
+          // restated where the two numbers differ).
+          const mouthR = Math.min(outerR(pk, 0), outerR(pk, 1));
+          if (komaR(pk) - mouthR > 0.01) bad(`${tag}: koma stands ${(komaR(pk) - mouthR).toFixed(2)}mm proud of the mouth`);
+          // What gives on a waisted body is the rib COUNT, not the wall and not the rib: the hub
+          // cannot grow past the waist, so the notches run out of circle. That clamp is reported to
+          // the maker; a count that survives unclamped here would mean the cap is not binding.
+          if (pk.boards > ribs) bad(`${tag}: rib count went UP, ${ribs} → ${pk.boards}`);
+          for (const q of parts)
+            for (const [x, y] of pts2(q))
+              if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
+        }
+// Once, on the tightest of them: does the drawn outline actually cross itself anywhere? This is the
+// failure in its own terms, and the band above is the cheap proxy the sweep can afford.
+if (tightest) {
+  const o = ribOutline2D(tightest.pk, 0, { smooth: true }) as [number, number][];
+  const side = (a: number[], b: number[], c: number[]) =>
+    Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  const cross = (a: number[], b: number[], c: number[], d: number[]) =>
+    side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+  let hits = 0;
+  for (let i = 0; i < o.length; i++)
+    for (let j = i + 2; j < o.length; j++) {
+      if (i === 0 && j === o.length - 1) continue;
+      if (cross(o[i], o[(i + 1) % o.length], o[j], o[(j + 1) % o.length])) hits++;
+    }
+  if (hits) bad(`${tightest.tag}: the rib outline crosses itself ${hits}×`);
+  // And that `ribPullFit` is NOT what would have caught it — the note above says so, so it is pinned.
+  if (!ribPullFit(tightest.pk).ok && tightest.band > 0)
+    bad(`pull-out now reports the waist; the comment in section 10 needs rewriting`);
+}
+
 // Japanese labels cannot be drawn with base-14 fonts, so they must be dropped, never emitted raw.
 if (winAnsi("和紙 ×8") !== " ×8") bad(`winAnsi should drop Japanese: ${JSON.stringify(winAnsi("和紙 ×8"))}`);
 if (winAnsi("50mm ← 定規で確認") !== "50mm <- ") bad(`winAnsi arrow fold: ${JSON.stringify(winAnsi("50mm ← 定規で確認"))}`);
 
-console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme + ${nh} hoop + ${nn} small-print + ${ns9} advice-sheet combos, ${fail} FAIL ===`);
+console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme + ${nh} hoop + ${nn} small-print + ${ns9} advice-sheet + ${n10} waisted combos, ${fail} FAIL ===`);
 process.exit(fail ? 1 : 0);
