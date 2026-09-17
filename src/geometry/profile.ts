@@ -262,10 +262,25 @@ function ribCoreFloor(p: Design): number {
   const rNotchMin = (jointWall(p) + notchWidth(p)) * p.boards / (2 * Math.PI);
   return Math.max(6, rNotchMin + 0.5);
 }
-// How far in the tab's inner end may go before the plate has nothing left at the opening: the rib's
-// band there runs `Ri..outerR`, so a tab tip past the opening leaves no plate to hang it on. This is
-// what caps the joint — growth has to go OUTWARD, into a bigger rim, not further toward the axis.
-function jointCap(p: Design): number { return Math.max(6, openMin(p) - 2); }
+// How far in the tab's inner end may go before the SHAPE has nothing left to hang it on: 2mm inside
+// the NARROWEST radius the body ever reaches. `bodyMinR` starts at the smaller control point — the
+// opening — and only scans downward, so this one number says both things at once:
+//   - at the opening it is the plate the tab hangs on: the rib's band there runs `Ri..outerR`, and a
+//     tab tip past the mouth leaves nothing to hang it on;
+//   - at a WAIST it is the rib not crossing itself. The cardboard rib's inner edge is one radius from
+//     tab to tab (`noCrescent`), so it runs past the waist as well, and a hub outside a waist
+//     narrower than the mouths puts that edge outside the outer curve — the cut line crosses itself
+//     on the sheet. `nominalRi` has carried this guard all along (`bodyMinR - 3`) and the joint branch
+//     of `innerRi` does not go through it: 325 of 1728 swept waisted designs crossed, the worst 32.9mm
+//     out (a ⌀20 waist, 16 ribs, 10mm board), with `ribPullFit` still reporting ok.
+// It stays 2mm rather than borrowing `nominalRi`'s 3 so that a body whose narrowest point IS its
+// mouth — every shipped preset — keeps the cap it was measured with; the waist is the new case (0 of
+// 24 preset×thickness combinations moved). 2mm is not 2mm of real band, because `bodyMinR` scans 41
+// samples and a waist can hide between two of them: on the sharpest one the editor allows the scan
+// reads up to 0.74mm high, so the band at the waist is at worst 1.27mm. Measured, not assumed.
+// This is what caps the joint — growth has to go OUTWARD, into a bigger rim, not toward the axis.
+// The 6mm floor is under any radius the editor allows (`LIMITS.r[0]` is 8), so it cannot itself cross.
+function jointCap(p: Design): number { return Math.max(6, bodyMinR(p) - 2); }
 // The rib-count ceiling: the most boards whose koma notch walls still clear `MIN_WALL` at this
 // opening / board thickness / tolerance (wall = 2π·r/boards − notchW). Without it a small opening
 // plus a thick board plus many boards overlaps the notches near the centre and the koma comes out
