@@ -399,6 +399,11 @@ t("non-object JSON → null", P.parseImport("42") === null);
   // A pair at exactly T_GAP: there is no room for a midpoint, so the add is refused outright.
   const tight = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.28 + T_GAP, r: 90 }, { t: 0.925, r: 26 }];
   t("add a ◇ between two that are T_GAP apart → refused", addAt(tight, 0.28 + T_GAP / 2) === null);
+  // And the case a TOLERANCE lets through, which is why the guard has none: `0.36 - 0.28` is
+  // 0.07999999999999996, a float's worth under `2 × T_GAP`, and `legalizePts` counts floats. Both
+  // values are exactly what `tBounds`' floor returns, so this is two ordinary drags apart.
+  const floaty = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.36, r: 90 }, { t: 0.925, r: 26 }];
+  t("add a ◇ into a gap a float's width too small → refused", addAt(floaty, (0.28 + 0.36) / 2) === null);
   // A pair with room: the point goes in, and the file keeps every one of them.
   const roomy = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.925, r: 26 }];
   const added = addAt(roomy, (0.28 + 0.66) / 2);
