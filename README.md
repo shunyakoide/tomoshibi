@@ -77,10 +77,10 @@ degrading.
 ### From mold to lantern
 
 1. Make the parts. Push the rib tabs into the two koma hubs' notches.
-2. Set the assembly on the stand.
-3. Wind bamboo ribs into the outer-edge grooves; paste washi paper over them.
-4. Let it dry, then pull the koma out (toward the tab side) and slip the ribs out through the openings.
-5. Glue the opening rings into the two openings, and fit your own light.
+2. Fit an opening hoop over each opening — it slides on outside the ribs — and set the assembly on the stand.
+3. Wind bamboo ribs into the outer-edge grooves; paste washi paper over them, folding the end allowance back over the hoops.
+4. Let it dry, then pull the koma out (toward the tab side) and slip the ribs out through the openings. The hoops stay in the lantern.
+5. Fit your own light.
 
 The app's **build guide** (☰ → How to build it) walks the same route with every step drawn, lists
 what you supply yourself, and ends with three ways to light it: cover a lamp standing on the floor,
