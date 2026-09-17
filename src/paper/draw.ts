@@ -64,7 +64,7 @@ export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
     text(ox + q.x + q.w / 2, oy + q.y + q.h * NAME_Y, q.name, "pname");
     // One line under it, only where the name does not say what a LINE on the part is — a hoop is a
     // line to bend on, and the sheet's whole vocabulary otherwise says "cut this". Anything true away
-    // from the part goes in the corner instead (`RawPart.advice`), because there is no room here:
+    // from the part goes in the corner instead (`paper/advice.ts`), because there is no room here:
     // `noteOverflow` is how much of this one hangs outside the outline, and it must be ≤ 0.
     if (q.note) text(ox + q.x + q.w / 2, oy + q.y + q.h * NAME_Y + NOTE_DY, q.note, "pnote");
   }
