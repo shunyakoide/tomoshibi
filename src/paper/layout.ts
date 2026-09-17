@@ -6,8 +6,14 @@ import type { Pt2 } from "../types.ts";
  * A part as geometry hands it over: mm, y UP, plus the hints that are drawn but never cut.
  *
  * `outline` is the CUT line and may be empty — the wire hoops are a `bend` line and nothing else, and
- * an empty cut path is the honest way to say a part has nothing to cut. `note` is one line of small
- * print under the part's name, for a part whose name does not say what to do with it.
+ * an empty cut path is the honest way to say a part has nothing to cut.
+ *
+ * `note` is one line of small print set INSIDE the part, under its name, and so can only be about a
+ * LINE on it — the hoop's "bend 2mm wire on this line", which means nothing away from the line it
+ * sits on. It must therefore fit inside the outline at the height it is set (`noteOverflow`, pinned
+ * by `check:paper`): on a koma that is thirteen Japanese characters on the starting design and nine
+ * at the opening floor. Anything a part needs SAID rather than marked is not a note — it belongs to
+ * the kit and goes in the document's boxed corner (`paper/advice.ts`).
  */
 export type RawPart = { name: string; outline: Pt2[]; holes?: Pt2[][]; guides?: Pt2[][]; bend?: Pt2[][]; marks?: Mark[]; note?: string };
 /** The same part in page coordinates — y DOWN from its own top-left corner — and its footprint. */
@@ -18,11 +24,12 @@ export type Placed = PagePart & { x: number; y: number };
 export type Row = { y: number; h: number };
 /** One sheet: the content band it shows, which row that is, and where the band lands on paper. */
 export type PageBand = { top: number; row: Row | null; y0: number; bot: number };
-/** Where the full-scale check square goes — a sheet and a corner on it. */
+/** Where the document's corner goes — a sheet, and the top-left of the check square on it. The boxed
+ *  advice hangs under the square from the same x (see `corner`). */
 export type Spot = { page: number; x: number; y: number };
 /** A part no orientation fits across the sheet: its ORIENTED width and the overhang, both mm. */
 export type Overflow = { name: string; w: number; over: number };
-export type Layout = { placed: Placed[]; CW: number; CH: number; pages: PageBand[]; spot: Spot; over: Overflow[] };
+export type Layout = { placed: Placed[]; CW: number; CH: number; pages: PageBand[]; spot: Spot; advice: string[]; over: Overflow[] };
 /** A page mid-construction: `y0`/`bot` are filled by the pass after the row loop. */
 export type PageDraft = { top: number; row: Row | null; y0?: number; bot?: number };
 
@@ -51,7 +58,7 @@ const GAP = 6;       // Gap between parts (mm). Margin for cutting them apart.
 // begins a row shows that white and a page that CONTINUES one — a seam — shows none. Add it to `y0`
 // instead and a spanning part gets a 3mm break in its cut line at the very join the sheets are
 // butted on. (The `TOPBAR` note below is the same trap from the other side.)
-const EDGE = GAP / 2;
+export const EDGE = GAP / 2;
 
 function bbox(pts: Pt2[]) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -87,7 +94,7 @@ function toPage(part: RawPart, rot: boolean): PagePart {
 // **Never let a row that fits on one page span pages**: if it does not fit, the next page starts at
 // the top of that row, so there is nothing to join. A seam happens only for a row taller than one
 // page, and the sheets then BUTT at the trim line (see "Joining sheets" in `pageOps`).
-export function layout(parts: RawPart[], page: Page): Layout {
+export function layout(parts: RawPart[], page: Page, advice: string[]): Layout {
   const CW = page.w - 2 * MARGIN;              // content width = the trim box, which is what the clip,
                                               // the frame and the join diamonds are all drawn to
   const colW = CW - 2 * EDGE;                  // ...and what is left for PARTS once both edges are kept clear
@@ -166,23 +173,69 @@ export function layout(parts: RawPart[], page: Page): Layout {
     const asGiven = build(oriented, topbar), sorted = build(byHeight, topbar);
     return sorted.pages.length < asGiven.pages.length ? sorted : asGiven;
   };
-  // The check square is a mark, not a part, so it takes room the layout ALREADY leaves; only when
-  // nothing anywhere fits does sheet 1 give up TOPBAR. Keep BOTH halves.
+  // The corner is a mark, not a part, so it takes room the layout ALREADY leaves; only when nothing
+  // anywhere fits does sheet 1 give up a strip for it. Keep BOTH halves.
+  const box = corner(advice);
   const free = pick(0);
-  const spot = scaleSpot(free);
-  if (spot) return { ...free, spot };
-  const held = pick(TOPBAR);
-  return { ...held, spot: { page: 0, x: MARGIN, y: MARGIN } };
+  const spot = scaleSpot(free, box);
+  if (spot) return { ...free, spot, advice };
+  const held = pick(strip(advice));
+  return { ...held, spot: { page: 0, x: MARGIN, y: MARGIN }, advice };
 }
 
 // Footprint of the check square including its labels (mm).
-const SQ = { w: 86, h: 34 };
+export const SQ = { w: 86, h: 34 };
+/** Line pitch of the advice box (mm) — the `note` style at 2.6mm, led like the seam codes. */
+export const ADVICE_LH = 3.4;
+/** White between the advice box's rule and its text (mm). Enough that the rule reads as a box round
+ *  the lines rather than as an underline touching them. */
+export const ADVICE_PAD = 2;
 /**
- * The first place the check square fits without touching a part, sheets scanned in order (it is more
+ * The document's corner: the check square, with the advice UNDER it. Under, not beside, and the
+ * difference is measured — beside it the box is 159mm of the 200mm column, and 83 of 1200 swept
+ * documents stopped finding a gap that wide and gave up a whole sheet's top strip instead. Under it
+ * the box keeps the square's own width and grows by a line each (40.4mm for one, 43.8mm for the
+ * cardboard sheet's two): not one of the same 1200 documents gained a page, and the strip is given up
+ * exactly as often as before (16 times). The block is worth a line of small print, not a sheet of A4.
+ *
+ * Its own advice is what it measures, so a longer sentence reserves more room rather than printing
+ * over a cut line. What it cannot answer for itself is a line too long for the column — there is no
+ * way to shrink one — and that is `check:paper`'s to hold.
+ */
+export function corner(advice: string[]) {
+  if (!advice.length) return SQ;
+  return { w: SQ.w, h: SQ.h + EDGE + adviceBox(advice).h };
+}
+/**
+ * The advice box (mm). `draw.ts` strokes exactly this rectangle.
+ *
+ * **Its width is the check square's, not its text's**, and that is the whole point: measured off the
+ * lines, the box came out 69mm in Japanese and 80 in English, so the corner's footprint — and with it
+ * which gap on the sheet it fits into, and the page count — moved with the UI LANGUAGE. `check:paper`
+ * §6 pins that the drawing does not, and it was right to. A constant width also means one sheet
+ * count per design rather than one per language.
+ *
+ * What holds the copy to it is therefore the gate, not this function: every line must fit
+ * `SQ.w - 2·ADVICE_PAD` in BOTH languages. The longest is 69mm against 82mm of room.
+ */
+export function adviceBox(advice: string[]) {
+  return { w: SQ.w, h: advice.length * ADVICE_LH + 2 * ADVICE_PAD };
+}
+/**
+ * How much of sheet 1's top the document gives up when NOTHING anywhere has room for that corner.
+ * `TOPBAR` is what the square alone needs; the advice under it is why this is a max rather than the
+ * constant. Sheet 1's capacity — and so the page count and where the seams fall — follows it, which
+ * is why `check:paper` derives its own expectation from this function rather than from `TOPBAR`.
+ */
+export function strip(advice: string[]) {
+  return Math.max(TOPBAR, corner(advice).h);
+}
+/**
+ * The first place that corner fits without touching a part, sheets scanned in order (it is more
  * use on an early one). Parts are tested by BOUNDING BOX, deliberately conservative: printing the one
  * mark the sheet's scale is judged by across a cut line is worse than spending a page.
  */
-function scaleSpot(lay: Omit<Layout, "spot">): Spot | null {
+function scaleSpot(lay: Omit<Layout, "spot" | "advice">, box: { w: number; h: number }): Spot | null {
   for (let i = 0; i < lay.pages.length; i++) {
     const { top, bot, y0 } = lay.pages[i];
     // The band starts at `y0`. It used to add 1mm when `prev.bot > top`, which cannot happen:
@@ -196,8 +249,8 @@ function scaleSpot(lay: Omit<Layout, "spot">): Spot | null {
     const xs = [MARGIN, ...near.map((q) => q.x + q.w + GAP)].sort((a, b) => a - b);
     const ys = [bandTop, ...near.map((q) => q.y + q.h + GAP)].sort((a, b) => a - b);
     for (const y of ys) for (const x of xs) {
-      if (x + SQ.w > MARGIN + lay.CW || y + SQ.h > bandBot || y < bandTop) continue;
-      if (!near.some((q) => q.x < x + SQ.w && q.x + q.w > x && q.y < y + SQ.h && q.y + q.h > y))
+      if (x + box.w > MARGIN + lay.CW || y + box.h > bandBot || y < bandTop) continue;
+      if (!near.some((q) => q.x < x + box.w && q.x + q.w > x && q.y < y + box.h && q.y + q.h > y))
         return { page: i, x, y };
     }
   }

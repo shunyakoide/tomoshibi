@@ -7,7 +7,7 @@
  *
  * Every dimension comes from the `geometry.ts` barrel, so what is drawn here is what gets printed.
  */
-import { outerR, cutYbot, cutYtop, fukuroRange, grooveList, grooveOuterPts, komaR, ribOutline2D, lightenHoles2D } from "../../geometry.ts";
+import { outerR, cutYbot, cutYtop, fukuroRange, grooveList, grooveOuterPts, komaR, ribOutline2D, lightenHoles2D, seatTicks2D } from "../../geometry.ts";
 import { C } from "./palette.ts";
 import type { SectionFrame } from "./frame.ts";
 import type { Design, Pt2 } from "../../types.ts";
@@ -28,16 +28,24 @@ export type SectionSample = {
   tnB: number; tnT: number;
 };
 
-export function sampleSection(p: Design): SectionSample {
+/**
+ * `mold` is the design this route actually MAKES — `paperP`'s on cardboard, `p` itself on the 3D
+ * route — and it is what the rib overlay and the koma radius are drawn from, so the section shows
+ * the part that comes out rather than one this route never cuts. The cardboard rib is a smooth edge
+ * with the seats only ticked (`paper/mold.ts`), so its surface here carries no notch either; the
+ * bamboo circles still sit at `gs`, which is what the ticks mark.
+ */
+export function sampleSection(p: Design, mold: Design = p): SectionSample {
   const H = p.height;
   const gs = grooveList(p);
-  const op = grooveOuterPts(p, gs);
+  // `joint` marks the cardboard mold (types.ts), whose edge is smooth: no grooves asked for.
+  const op = grooveOuterPts(mold, mold.joint ? [] : gs);
   return {
     fr: fukuroRange(p),
     gs,
     op,
     maxR: Math.max(...op.map((q) => q[0])) + 4,
-    komaR: komaR(p),
+    komaR: komaR(mold),
     tnB: cutYbot(p) / H, tnT: cutYtop(p) / H,
   };
 }
@@ -45,8 +53,9 @@ export function sampleSection(p: Design): SectionSample {
 /** One band of the region colour-coding (neck / lamp body), clipped to the silhouette. */
 export type Band = { t0: number; t1: number; fill: string; op?: number };
 
-export function sectionPaths(p: Design, f: SectionFrame, sample: SectionSample, accent: string): {
-  d: string; higo: string; ribD: string; bands: Band[];
+export function sectionPaths(p: Design, f: SectionFrame, sample: SectionSample, accent: string,
+  mold: Design = p): {
+  d: string; higo: string; ribD: string; ribTicks: string; bands: Band[];
 } {
   const H = p.height;
   const { X, Xm, Y, Ymm } = f;
@@ -74,8 +83,26 @@ export function sectionPaths(p: Design, f: SectionFrame, sample: SectionSample, 
   // The rib's own cross-section, overlaid on the right side: the exact printed part, in millimetres
   // on both axes (x = radius, y = height).
   const poly2d = (pl: Pt2[]) => "M " + pl.map(([px, py], i) => `${i ? "L " : ""}${X(px).toFixed(1)} ${Ymm(py).toFixed(1)}`).join(" ") + " Z";
-  let ribD = poly2d(ribOutline2D(p));
-  for (const hole of lightenHoles2D(p).holes) ribD += " " + poly2d(hole); // punch out the windows via evenodd
+  let ribD = poly2d(ribOutline2D(mold, 0, { smooth: !!mold.joint }));
+  // `lightenHoles2D` returns none for a cardboard mold, so this draws the windows on one route only.
+  for (const hole of lightenHoles2D(mold).holes) ribD += " " + poly2d(hole); // punch out via evenodd
 
-  return { d, higo, ribD, bands };
+  // Cardboard's rib has no notch to see, so the seats are marked on it exactly as the A4 sheet marks
+  // them — the same `seatTicks2D`, so the drawing says where the bamboo lies and nothing else.
+  // The printed rib needs none: its notches are in `ribD` already.
+  //
+  // BOTH sides. The rib overlay is on the right, but the seat is a fact about the SURFACE, and the
+  // surface is the whole silhouette — the bamboo runs right round it. Marked on one side only it
+  // read as a feature of the overlay rather than as where the bamboo lies, which is the one thing
+  // this drawing has to say on a route that cuts no notch. `Ymm(y) === Y(y / H)`, so the mirrored
+  // pair sits at exactly the height the bamboo line already crosses.
+  const ribTicks = mold.joint
+    ? seatTicks2D(mold).map(([x0, y0, x1]) => {   // horizontal, so the mark's own y1 is y0
+      const y = Ymm(y0).toFixed(1);
+      return `M ${X(x0).toFixed(1)} ${y} L ${X(x1).toFixed(1)} ${y}`
+        + ` M ${Xm(x0).toFixed(1)} ${y} L ${Xm(x1).toFixed(1)} ${y}`;
+    }).join(" ")
+    : "";
+
+  return { d, higo, ribD, ribTicks, bands };
 }

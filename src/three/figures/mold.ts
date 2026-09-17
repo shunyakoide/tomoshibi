@@ -14,10 +14,11 @@ import { higoGeometries } from "../higo.ts";
 import { HI, HI_FACE, INK, LIT_FACE, VIEW_DIR, part } from "./ink.ts";
 
 /**
- * The rib as the reader's route makes it: cardboard cuts a SMOOTH outer edge (no 0.5mm V in board)
- * and no lightening windows. `smooth` carries the route in; the rest is `p`, via `paperP`.
+ * The rib as the reader's route makes it: cardboard cuts a SMOOTH outer edge (the bamboo seats are
+ * ticked, not notched — see `paper/mold.ts`). The windows need no flag, `lightenHoles2D` reading
+ * `joint` off the design itself; `smooth` is the caller's word for "this is the cardboard route".
  */
-export const ribGeo = (p: Design, k: number, smooth: boolean) => ribGeometry(smooth ? { ...p, lighten: false } : p, k, { smooth });
+export const ribGeo = (p: Design, k: number, smooth: boolean) => ribGeometry(p, k, { smooth });
 
 /**
  * The rubber bands holding the assembly while you work: one just outside each koma, the only thing

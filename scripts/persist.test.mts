@@ -16,7 +16,8 @@ globalThis.localStorage = {
 
 const P = await import("../src/studio/persist.ts");
 const G = await import("../src/geometry.ts");
-const { DEFAULTS, LIMITS, T_GAP, NECK_MIN } = await import("../src/config.ts");
+const { DEFAULTS, LIMITS, T_GAP, NECK_MIN, OPENING_MIN } = await import("../src/config.ts");
+const { FRESH } = P;
 type SavedState = import("../src/studio/persist.ts").SavedState;
 
 // Most of what goes in below is deliberately NOT a valid SavedState. The casts live here rather
@@ -114,11 +115,17 @@ t("pre-flag save → sockets off", r.p.legSockets === false && G.ringLegs(r.p) =
 t("pre-flag save → watertight", manifoldOK(r.p) === true);
 
 // A tiny opening has no room for pads; the ring must fall back to a hoop rather than fold up, and
-// say so through ringLegsFit rather than by silently producing a different part.
-save({ p: { ...DEFAULTS, pts: [{ t: 0.05, r: 10 }, { t: 0.5, r: 40 }, { t: 0.95, r: 10 }] },
-  bedW: 256, bedD: 256, printRibs: 1 });
+// say so through ringLegsFit rather than by silently producing a different part. Asked of the
+// GEOMETRY directly: since `OPENING_MIN` a saved file's openings are floored to 26mm, where the pads
+// do fit, so a round trip can no longer deliver a design this small — the guard still has to hold
+// for the geometry, which `check:manifold` also sweeps below the editor's floor.
+const tiny = { ...DEFAULTS, legSockets: true, pts: [{ t: 0.05, r: 10 }, { t: 0.5, r: 40 }, { t: 0.95, r: 10 }] };
+t("opening too small → no sockets", G.ringLegs(tiny) === null && G.ringLegsFit(tiny) === false);
+// And through persist, which is where the floor now acts: the same file comes back with openings it
+// CAN hang pads on, and the ring says so — the flag having asked for them.
+save({ p: tiny, bedW: 256, bedD: 256, printRibs: 1 });
 r = load();
-t("opening too small → no sockets", G.ringLegs(r.p) === null && G.ringLegsFit(r.p) === false);
+t("saved tiny opening → floored, and the pads then fit", G.ringLegsFit(r.p) === true && G.ringLegs(r.p) !== null);
 t("opening too small → still watertight", manifoldOK(r.p) === true);
 
 save({ p: { ...DEFAULTS, height: 333 }, bedW: 256, bedD: 256, printRibs: 3 });
@@ -177,6 +184,24 @@ t("1e-9 gap → watertight", manifoldOK(r.p) === true);
 // stand's slot spacing from a number nothing on screen can show.
 save({ p: { ...DEFAULTS, tabLen: 25 }, bedW: 256, bedD: 256, printRibs: 1 });
 t("tabLen 25 → DEFAULTS.tabLen", load().p.tabLen === DEFAULTS.tabLen);
+
+// ---- the opening floor ----
+// `OPENING_MIN` applies to the two ENDS only: they ARE the openings, and the mouth is what the rib
+// has left to be there. An interior point may still pinch to `LIMITS.r[0]`, which is a geometric
+// wall rather than a taste, and a waisted body needs it.
+save({ p: { ...DEFAULTS, pts: [{ t: 0.075, r: 9 }, { t: 0.5, r: 9 }, { t: 0.925, r: 9 }] }, bedW: 256, bedD: 256, printRibs: 1 });
+r = load();
+t(`opening floor → both ends at or above ${OPENING_MIN}mm`,
+  r.p.pts[0].r >= OPENING_MIN - 1e-6 && r.p.pts[r.p.pts.length - 1].r >= OPENING_MIN - 1e-6);
+t("opening floor → an interior point is left alone", Math.abs(r.p.pts[1].r - 9) < 1e-6);
+t("opening floor → watertight", manifoldOK(r.p) === true);
+// A design already above it is not touched. Spelled out rather than reusing DEFAULTS, whose own top
+// opening sits under the floor and is raised by it.
+const wideMouth = { ...DEFAULTS, pts: DEFAULTS.pts.map((q, i) => ({ ...q, r: i === DEFAULTS.pts.length - 1 ? 30 : q.r })) };
+save({ p: wideMouth, bedW: 256, bedD: 256, printRibs: 1 });
+r = load();
+t("opening floor → a design above it keeps its radii",
+  r.p.pts.every((q, i) => Math.abs(q.r - wideMouth.pts[i].r) < 1e-6));
 
 // ---- the neck floor ----
 // `NECK_MIN` is millimetres of a body whose control points are fractions, so a file can sit under
@@ -262,7 +287,7 @@ t("JSON round-trip: watertight", manifoldOK(roundTrip.p) === true);
 
 // Even a ZIP config.json equivalent (only {schemaVersion, p, bedW, bedD}) has missing fields filled by DEFAULTS.
 const fromZipCfg = parse(JSON.stringify({ schemaVersion: 1, p: { ...DEFAULTS }, bedW: 256, bedD: 256 }));
-t("ZIP config load: missing printRibs/matT filled with defaults", fromZipCfg && fromZipCfg.printRibs === 1 && fromZipCfg.matT === 5);
+t("ZIP config load: missing printRibs/matT filled with defaults", fromZipCfg && fromZipCfg.printRibs === 1 && fromZipCfg.matT === FRESH.matT);
 t("ZIP config load: watertight", manifoldOK(fromZipCfg.p) === true);
 
 // ---- build route (3D print / cardboard) ----
@@ -277,6 +302,203 @@ t("route garbage → stl", rt("cardboard").route === "stl" && rt(7).route === "s
 t("broken JSON → null", P.parseImport("{ not json") === null);
 t("empty string → null", P.parseImport("") === null);
 t("non-object JSON → null", P.parseImport("42") === null);
+
+// ---- the floors are the EDITOR's too, not only a saved file's ----
+// persist is the last line, and a last line that keeps having to catch the same thing is a bug
+// somewhere earlier: a design the app holds should already be legal, or the file it writes and the
+// file it reads back are different shapes and the drawing moves under the user. Two surfaces used to
+// hand it points nothing had floored — deleting a ◇, and picking a preset, which is the first design
+// most makers will ever have — and a third handed it points too CLOSE TOGETHER, adding one.
+// `check:persist` is the only gate that can reach any of them: they live in `src/ui`, and plain node
+// cannot load a `.tsx`, which is why everything about a chip except its markup is a `.ts` of its own
+// (`ui/presetChip.ts` — the design a pick yields, the picture, and the lit state).
+{
+  const { pointOps, presetPts, presetHeight, neckFloor, tBounds } = await import("../src/ui/pointEdit.ts");
+  const { spacedOK } = await import("../src/config.ts");
+  const { presetMini, presetDesign, matchPreset } = await import("../src/ui/presetChip.ts");
+  const { PRESETS } = await import("../src/config.ts");
+  // 1. Deleting an END ◇ promotes its neighbour to a mouth, and only the ENDS have the opening
+  //    floor — an interior ◇ may legally pinch to `LIMITS.r[0]`, 18mm under it. `del` did not
+  //    re-legalize, so this exact sequence gave an r8 MOUTH: 2mm of board where a rib passes it
+  //    instead of 20, a koma shrunk to ⌀16, no clamp, no alert, and the shape silently floored back
+  //    to 26 the next time the file was read.
+  const p0: any = { ...DEFAULTS, pts: presetPts(PRESETS[0], DEFAULTS.height).map((q) => ({ ...q })) };
+  p0.pts[p0.pts.length - 2].r = LIMITS.r[0];
+  let after: any = null;
+  const ops = pointOps(p0, (f: any) => { after = f(p0); }, p0.pts.length - 1, () => {});
+  t("an end ◇ is deletable at all (the guard is about the point COUNT)", ops.canDelete === true && ops.isEnd === true);
+  ops.del();
+  t(`delete an end ◇ → the new mouth is at or above ${OPENING_MIN}mm`,
+    after.pts[after.pts.length - 1].r >= OPENING_MIN - 1e-6);
+  t("delete an end ◇ → spacing still at or above T_GAP",
+    after.pts.every((q: any, i: number) => i === 0 || q.t - after.pts[i - 1].t >= T_GAP - 1e-9));
+  t("delete an end ◇ → the necks still reach NECK_MIN",
+    after.pts[0].t * after.height >= NECK_MIN - 1e-9 && (1 - after.pts[after.pts.length - 1].t) * after.height >= NECK_MIN - 1e-9);
+  save({ p: after, bedW: 256, bedD: 256, printRibs: 1 });
+  const back = load();
+  t("delete an end ◇ → a save and reload does not move the shape",
+    back.p.pts.every((q: any, i: number) => Math.abs(q.r - after.pts[i].r) < 1e-6 && Math.abs(q.t - after.pts[i].t) < 1e-6));
+  t("delete an end ◇ → watertight", manifoldOK(after) === true);
+  // 2. `presetPts` is the ONE answer to "the points a picked preset yields", and `presetHeight` to
+  //    "at what height" — read by the pick, by the lit chip and by the chip's own drawing. The
+  //    drawing used to floor nothing, so two of the three chips drew a mouth (⌀38, ⌀46) the app
+  //    would never build (⌀52).
+  //
+  //    A DEEP snapshot of the presets first, because the thing to prove about a function three
+  //    surfaces call on every render is that it does not touch its input — and `pr` IS the element
+  //    of `PRESETS`, so comparing `pr` against `PRESETS.find(...)` compares it with itself and
+  //    passes however much it was mutated. It also has to compare `t`: `neckFloor` is the half that
+  //    moves t, and it is the half a preset with its own height goes through.
+  const frozen = JSON.stringify(PRESETS);
+  // `presetPts` hands back a fresh list, and its own copy is what keeps `neckFloor` off the preset.
+  // Asserted by identity, because the deep snapshot below passes with that copy removed — the floors
+  // are copy-on-write as well, and an assertion that needs two bugs to fire guards neither.
+  t("presetPts returns its own list, not the preset's",
+    PRESETS.every((pr) => { const out = presetPts(pr, 205); return out !== pr.pts && out.every((q, i) => q !== pr.pts[i]); }));
+  for (const pr of PRESETS) {
+    // One RAW height per distinct resolved one, and the raw value is what goes in — the chip passes
+    // the maker's height and `presetDesign` decides whether this preset keeps it. Resolving it here
+    // would hand the assertion the answer: with `平丸`'s own 150 passed in, the height half of the
+    // drawing cannot disagree with the pick, and backing `presetHeight` out of the drawing left this
+    // gate at 0 fail.
+    const seen = new Set<number>();
+    const heights = [LIMITS.height[0], 150, 205, 400, LIMITS.height[1]]
+      .filter((h) => { const H = presetHeight(pr, h); if (seen.has(H)) return false; seen.add(H); return true; });
+    for (const height of heights) {
+      const H = presetHeight(pr, height);
+      const pts = presetPts(pr, height);
+      const tag = `${pr.name} h${height}→${H}`;
+      t(`${tag}: both openings at or above ${OPENING_MIN}mm`,
+        pts[0].r >= OPENING_MIN - 1e-6 && pts[pts.length - 1].r >= OPENING_MIN - 1e-6);
+      t(`${tag}: the necks reach NECK_MIN`,
+        pts[0].t * H >= NECK_MIN - 1e-9 && (1 - pts[pts.length - 1].t) * H >= NECK_MIN - 1e-9);
+      // The design a pick stores is one persist will hand straight back: the chip stays lit, and the
+      // shape a maker picked is the shape their file reopens as. **Five heights is not enough** —
+      // see the sweep below, which is the same question asked at every height there is.
+      save({ p: { ...DEFAULTS, height: H, rTop: pr.rTop, rBot: pr.rBot, pts }, bedW: 256, bedD: 256, printRibs: 1 });
+      const r2 = load();
+      t(`${tag}: a picked preset survives a save and reload unchanged`,
+        r2.p.pts.length === pts.length && r2.p.pts.every((q: any, i: number) => Math.abs(q.r - pts[i].r) < 1e-6 && Math.abs(q.t - pts[i].t) < 1e-6));
+      // THE chip assertions, over the fields `outerR` actually reads — the maker's neck flags and rib
+      // count as well as the points and the height. The miniature drew with `DEFAULTS`' flags for a
+      // long time, and with both necks off that is a silhouette out by half the chip's own width.
+      for (const [nb, nt, boards] of [[true, true, 8], [false, false, 16], [false, true, 4]] as const) {
+        const base = { ...DEFAULTS, neckBot: nb, neckTop: nt, boards, height, rTop: 42, rBot: 42 };
+        const want = presetDesign(pr, base);
+        const mini = presetMini(pr, base);
+        const tag2 = `${tag} necks${nb ? 1 : 0}${nt ? 1 : 0} b${boards}`;
+        t(`${tag2}: the chip draws the design the pick yields`, JSON.stringify(mini.q) === JSON.stringify(want));
+        t(`${tag2}: and it keeps the maker's own fields`,
+          mini.q.neckBot === nb && mini.q.neckTop === nt && mini.q.boards === boards && mini.q.height === H);
+        t(`${tag2}: the chip's path is drawn`, /^M [\d.]+ [\d.]+( L [\d.]+ [\d.]+){81} Z$/.test(mini.d));
+        // The lit state is the other half of "the picture is the shape you have", and it is in this
+        // module for the same reason: so a gate can ask it. The design a pick yields must light the
+        // chip that yielded it.
+        t(`${tag2}: picking it lights its own chip`, matchPreset(want) === pr.key);
+      }
+    }
+  }
+  t("no preset was mutated by any of that", JSON.stringify(PRESETS) === frozen);
+
+  //    EVERY height, not five round ones. `neckFloor` writes `m + i * T_GAP`, and that arithmetic
+  //    can land a hair short in doubles — at h86 it put `たる`'s two lower points
+  //    0.039999999999999994 apart, 7e-18 under `T_GAP` — so persist answered a design the editor had
+  //    just made by DROPPING a point, at 7 of the 1941 heights the editor allows, and the chip went
+  //    dark on the shape it had drawn a moment before. The five heights above are all clean; this is
+  //    1941 × 3 saves and reloads, and it costs about a tenth of a second.
+  const dropped: string[] = [], darkened: string[] = [];
+  for (const pr of PRESETS)
+    for (let h = LIMITS.height[0]; h <= LIMITS.height[1]; h++) {
+      const H = presetHeight(pr, h), pts = presetPts(pr, h);
+      save({ p: { ...DEFAULTS, height: H, rTop: pr.rTop, rBot: pr.rBot, pts }, bedW: 256, bedD: 256, printRibs: 1 });
+      const back = load().p.pts;
+      if (back.length !== pts.length || !back.every((q: any, i: number) => Math.abs(q.t - pts[i].t) < 1e-12)) dropped.push(`${pr.name}@${H}`);
+      if (matchPreset({ ...DEFAULTS, height: H, pts: back }) !== pr.key) darkened.push(`${pr.name}@${H}`);
+    }
+  t(`a picked preset survives a save and reload at every height (${LIMITS.height[0]}..${LIMITS.height[1]})`,
+    dropped.length === 0 || `${dropped.length} lose a point: ${dropped.slice(0, 8).join(", ")}`);
+  t("and the chip stays lit at every one of them", darkened.length === 0 || `${darkened.length}: ${darkened.slice(0, 8).join(", ")}`);
+
+  // 2b. And the PRODUCERS have to emit what the rule accepts. `neckFloor`'s own doc says the list
+  //     "stays as spaced as [`tBounds`] guards it", and that claim was false — it is the sentence
+  //     the h86 bug above was hiding behind. Both are swept here rather than asserted once, because
+  //     what broke it was a particular height's arithmetic, not the formula.
+  {
+    const bad: string[] = [];
+    for (let h = LIMITS.height[0]; h <= LIMITS.height[1]; h++)
+      for (const n of [LIMITS.pts[0], 3, 5, LIMITS.pts[1]]) {
+        // Every point crushed against the bottom, so the floor has to push all of them: the case
+        // that produces `m + i * T_GAP` for every i.
+        const out = neckFloor(Array.from({ length: n }, () => ({ t: 0.001, r: 40 })), h);
+        for (let i = 1; i < out.length; i++)
+          if (!spacedOK(out[i].t - out[i - 1].t)) bad.push(`h${h} n${n} gap ${(out[i].t - out[i - 1].t).toExponential(3)}`);
+        // And the same against the top.
+        const top = neckFloor(Array.from({ length: n }, () => ({ t: 0.999, r: 40 })), h);
+        for (let i = 1; i < top.length; i++)
+          if (!spacedOK(top[i].t - top[i - 1].t)) bad.push(`h${h} n${n} top gap ${(top[i].t - top[i - 1].t).toExponential(3)}`);
+      }
+    t("neckFloor emits gaps the spacing rule accepts, at every height",
+      bad.length === 0 || `${bad.length}: ${bad.slice(0, 6).join(", ")}`);
+    // `tBounds` is the other producer: a ◇ dragged onto either bound must leave a legal gap.
+    const tb: string[] = [];
+    for (let h = LIMITS.height[0]; h <= LIMITS.height[1]; h += 7)
+      for (const n of [3, 5, LIMITS.pts[1]]) {
+        const pts = neckFloor(Array.from({ length: n }, (_, i) => ({ t: 0.1 + i * 0.1, r: 40 })), h);
+        for (let i = 0; i < n; i++)
+          for (const to of tBounds(pts, i, h)) {
+            const moved = pts.map((q, j) => (j === i ? { ...q, t: to } : q));
+            for (let k = 1; k < moved.length; k++)
+              if (!spacedOK(moved[k].t - moved[k - 1].t)) tb.push(`h${h} n${n} #${i}→${to}`);
+          }
+      }
+    t("a ◇ dragged onto either tBounds edge still leaves a legal gap",
+      tb.length === 0 || `${tb.length}: ${tb.slice(0, 6).join(", ")}`);
+  }
+
+  // 3. ADDING a ◇ is the third such surface. The `+` ghost is the plain midpoint of a consecutive
+  //    pair, and `tBounds` lets a pair sit at exactly `T_GAP`, so on a tight pair the new point
+  //    landed `T_GAP/2` from both — and `legalizePts` answered by dropping TWO of them, the new one
+  //    and the neighbour it crowded. A design came back from a save with a ◇ the maker had put there
+  //    themselves missing. `sectionDrag` is reachable here because `addAtT` touches no DOM (the
+  //    `svgRef` is only read inside a drag).
+  const { sectionDrag } = await import("../src/ui/section/drag.ts");
+  const addAt = (pts: any[], mt: number) => {
+    let out: any = null;
+    const design: any = { ...DEFAULTS, pts };
+    sectionDrag({
+      p: design, setP: (f: any) => { out = typeof f === "function" ? f(design) : f; },
+      setDrag: () => {}, setSel: () => {}, editMode: "move",
+      svgRef: { current: null } as any, s: 1,
+    }).addAtT(mt);
+    return out;
+  };
+  // A pair at exactly T_GAP: there is no room for a midpoint, so the add is refused outright.
+  const tight = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.28 + T_GAP, r: 90 }, { t: 0.925, r: 26 }];
+  t("add a ◇ between two that are T_GAP apart → refused", addAt(tight, 0.28 + T_GAP / 2) === null);
+  // And a gap that is `2 × T_GAP` in intent and 0.07999999999999996 in doubles — `.28` and `.36` are
+  // both what `tBounds`' floor returns, so it is two ordinary drags. The add is TAKEN, and the file
+  // keeps it: the rule is `spacedOK`, one predicate with a tolerance far under anything the geometry
+  // can feel, and the editor and persist read the same one. An add taken by a rule that persist
+  // states a hair differently is a point offered and then lost.
+  const floaty = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.36, r: 90 }, { t: 0.925, r: 26 }];
+  const fadd = addAt(floaty, (0.28 + 0.36) / 2);
+  t("add a ◇ into a gap 7e-18 under 2×T_GAP → taken", fadd !== null && fadd.pts.length === floaty.length + 1);
+  if (fadd) {
+    save({ p: fadd, bedW: 256, bedD: 256, printRibs: 1 });
+    t("…and the file keeps it", load().p.pts.length === fadd.pts.length);
+  }
+  // A pair with room: the point goes in, and the file keeps every one of them.
+  const roomy = [{ t: 0.075, r: 74 }, { t: 0.28, r: 94 }, { t: 0.66, r: 80 }, { t: 0.925, r: 26 }];
+  const added = addAt(roomy, (0.28 + 0.66) / 2);
+  t("add a ◇ where there is room → added", added !== null && added.pts.length === roomy.length + 1);
+  if (added) {
+    save({ p: added, bedW: 256, bedD: 256, printRibs: 1 });
+    const r3 = load();
+    t("add a ◇ → a save and reload keeps every point",
+      r3.p.pts.length === added.pts.length
+      && r3.p.pts.every((q: any, i: number) => Math.abs(q.t - added.pts[i].t) < 1e-6));
+  }
+}
 
 console.log(`\n=== ${pass} pass / ${fail} fail ===`);
 process.exit(fail ? 1 : 0);

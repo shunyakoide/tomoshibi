@@ -2,9 +2,10 @@ import * as THREE from "three";
 import {
   maxRadius, standBoardLength,
   ribGeometry, komaGeometry, standGeometry, boardGeometry,
-  standCollarTop, standSaddleH, standSlotSep, ringGeometry, washiSurface,
+  standCollarTop, standSaddleH, standSlotSep, ringGeometry, washiSurface, seatTicks2D,
 } from "../geometry.ts";
 import { fitOnBed } from "../bed.ts";
+import { ribGeo } from "./figures/mold.ts";
 import { higoGeometries } from "./higo.ts";
 import type { ViewportHandle, ViewportState } from "./viewport.ts";
 import type { Design, Route } from "../types.ts";
@@ -46,12 +47,42 @@ function frame(s: ViewportState, contentH: number, contentR: number, centerY: nu
   s.setOrbit({ dist: s.baseDist, lookY: centerY });
 }
 
-function moldGroup(p: Design, s: ViewportState): THREE.Group {
+// The bamboo seats on a CARDBOARD rib, as the marks the A4 sheet prints (`seatTicks2D`) and not as a
+// notch: that route cuts none, and drawing one here would show a mold nobody will hold — the same
+// reason the lightening windows are left out below.
+//
+// Drawn as thin QUADS rather than as lines. A `LineSegments` is one device pixel wide whatever the
+// zoom — WebGL ignores `linewidth` almost everywhere — so the marks thinned to invisibility on the
+// very view they exist for. A quad is `TICK_W` of real millimetres and reads at any distance. Solid,
+// for the same reason the section's are: the SHEET dashes its ticks because a blade follows the
+// lines beside them, and nothing here is cut. One copy just clear of each face, so the mark is there
+// whichever side of a rib is turned toward you, and `depthWrite` off so two coplanar marks on a
+// neighbouring rib cannot fight. The material is module-level and shared: `buildScene` disposes
+// geometries on rebuild, never materials.
+const TICK_W = 0.9;                 // mm — the drawn width of a seat mark. Not a dimension: the tick is 5mm LONG (SEAT_TICK) and that is the part the maker measures.
+const TICK_MAT = new THREE.MeshBasicMaterial({ color: 0x7d6c56, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
+function seatTickLines(p: Design, k: number): THREE.Mesh {
+  const v: number[] = [];
+  for (const z of [p.boardT / 2 + 0.05, -(p.boardT / 2 + 0.05)])
+    for (const [x0, y0, x1] of seatTicks2D(p, k)) {   // horizontal, so the mark's own y1 is y0
+      const a = y0 - TICK_W / 2, b = y0 + TICK_W / 2;
+      v.push(x0, a, z, x1, a, z, x1, b, z, x0, a, z, x1, b, z, x0, b, z);
+    }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
+  return new THREE.Mesh(g, TICK_MAT);
+}
+
+/** The assembled mold. `smooth` is the CARDBOARD route: that template cuts no grooves and opens no
+ *  lightening windows, so drawing them here would show a mold nobody on that route will hold. The
+ *  same flag the guide's figures use (`ribGeo`), for the same reason. */
+function moldGroup(p: Design, s: ViewportState, smooth: boolean): THREE.Group {
   const mold = new THREE.Group();
   for (let k = 0; k < p.boards; k++) {
-    const mesh = new THREE.Mesh(ribGeometry(p, k), s.ribMat);
+    const mesh = new THREE.Mesh(smooth ? ribGeo(p, k, true) : ribGeometry(p, k), s.ribMat);
     mesh.rotation.y = (k / p.boards) * Math.PI * 2;
     mold.add(mesh);
+    if (smooth) { const ticks = seatTickLines(p, k); ticks.rotation.y = mesh.rotation.y; mold.add(ticks); }
   }
   const kb = new THREE.Mesh(komaGeometry(p), s.komaMat);
   kb.rotation.x = -Math.PI / 2; kb.position.y = -p.tabLen;
@@ -127,31 +158,47 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   frame(s, (legH + p.height) * 1.16, maxRadius(p) * 1.1, (legH + p.height) * 0.5);
 }
 
-// ---- mold: the working pose, lying in the stand ----
-function buildMold(s: ViewportState, p: Design, viewChanged: boolean): void {
+// ---- mold: the working pose — lying in the stand, or standing on its own koma ----
+function buildMold(s: ViewportState, p: Design, viewChanged: boolean, stand: boolean): void {
   const R = maxRadius(p);
-  const collarTop = standCollarTop();          // top face of the collar = where the posts start
-  const komaY = collarTop + standSaddleH(p);   // koma centre = saddle centre height
-  const sep = standSlotSep(p);                 // koma centre spacing = post spacing
-  // Lay the mold on its side (axis along X) so the koma centres land at X=±sep/2, Y=komaY.
-  const mold = moldGroup(p, s);
-  mold.rotation.z = Math.PI / 2;
-  mold.position.set(p.height / 2, komaY, 0);
-  s.group.add(mold);
-
-  const board = new THREE.Mesh(boardGeometry(p), s.standMat);
-  board.rotation.x = -Math.PI / 2;             // flat on the floor, collar facing up
-  s.group.add(board);
-  for (const sgn of [-1, 1]) {
-    const col = new THREE.Mesh(standGeometry(p), s.standMat);
-    col.rotation.y = Math.PI / 2;              // board-thickness direction along the mold axis (X)
-    col.position.set((sgn * sep) / 2, collarTop, 0);
-    s.group.add(col);
+  const mold = moldGroup(p, s, !stand);
+  if (stand) {
+    // 3D PRINT: the mold lies on its side (axis along X) in the stand this route also prints, its
+    // koma centres landing at X=±sep/2 on the saddles.
+    const collarTop = standCollarTop();        // top face of the collar = where the posts start
+    const komaY = collarTop + standSaddleH(p);
+    mold.rotation.z = Math.PI / 2;
+    mold.position.set(p.height / 2, komaY, 0);
+    s.group.add(mold);
+    const sep = standSlotSep(p);               // koma centre spacing = post spacing
+    const board = new THREE.Mesh(boardGeometry(p), s.standMat);
+    board.rotation.x = -Math.PI / 2;           // flat on the floor, collar facing up
+    s.group.add(board);
+    for (const sgn of [-1, 1]) {
+      const col = new THREE.Mesh(standGeometry(p), s.standMat);
+      col.rotation.y = Math.PI / 2;            // board-thickness direction along the mold axis (X)
+      col.position.set((sgn * sep) / 2, collarTop, 0);
+      s.group.add(col);
+    }
+    s.shadow.scale.set(R * 3.2, R * 3.2, 1);
+    if (viewChanged) s.setOrbit({ pitch: -0.12, yaw: 0.32 });   // from the side, along the mold axis
+    const top = komaY + R;
+    frame(s, top * 1.2, Math.max(standBoardLength(p) / 2, R) * 1.25, top * 0.5);
+    return;
   }
+  // CARDBOARD: this route's template emits no stand (see "Papercraft" in the design notes), so there
+  // is nothing to lay the mold in — it STANDS, on its own bottom koma, which is how it will sit on
+  // the table while the washi is pasted. Lying it down is the printed pose, and it is the stand that
+  // holds it there; on its side with no stand it only looked like it had rolled over. Dropped onto
+  // the floor by its own extent rather than by a formula, so the tab length, the koma thickness and
+  // a mid koma cannot put it through the floor or leave it hovering.
+  s.group.add(mold);
+  const box = new THREE.Box3().setFromObject(mold);
+  mold.position.y = -box.min.y;
+  const H = box.max.y - box.min.y;
   s.shadow.scale.set(R * 3.2, R * 3.2, 1);
-  if (viewChanged) s.setOrbit({ pitch: -0.12, yaw: 0.32 });   // from the side, along the mold axis
-  const top = komaY + R;
-  frame(s, top * 1.2, Math.max(standBoardLength(p) / 2, R) * 1.25, top * 0.5);
+  if (viewChanged) s.setOrbit({ pitch: -0.12, yaw: 0.32 });     // the same eye height as the stand pose
+  frame(s, H * 1.16, R * 1.25, H * 0.5);
 }
 
 // Pack parts of one kind onto plates: equal cells sized by the largest part, centred on the bed,
@@ -289,6 +336,6 @@ export function buildScene(s: ViewportHandle, { p, view, viewChanged, printRibs,
   s.bloomPass.enabled = false;   // the lit builder turns it back on
 
   if (view === "lit") buildLit(s, p, viewChanged);
-  else if (view === "mold") buildMold(s, p, viewChanged);
+  else if (view === "mold") buildMold(s, p, viewChanged, route !== "paper");
   else buildPrint(s, p, { printRibs, bedW, bedD });
 }

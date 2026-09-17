@@ -1,3 +1,4 @@
+import { adviceLines } from "./advice.ts";
 import { layout } from "./layout.ts";
 import { pageOps } from "./draw.ts";
 import { pageSVG } from "./svg.ts";
@@ -14,12 +15,16 @@ export const tid: T = (s, params) => (params ? Object.keys(params).reduce((a, k)
 
 /**
  * Both templates render through this one function, so neither can grow a second opinion about how
- * many sheets there are or where a part is split across two of them.
+ * many sheets there are or where a part is split across two of them — nor about which cautions it
+ * prints: `adviceLines` is read HERE and nowhere else, so both documents carry the whole set.
+ *
+ * @param doc names the template, and exists only to keep the two apart in ONE DOM: the preview shows
+ * both, and an SVG id is document-scoped (see `pageSVG`). Nothing dimensional reads it.
  */
-export function pagesSVG(parts: RawPart[], page: Page, t: T) {
-  const lay = layout(parts, page);
+export function pagesSVG(parts: RawPart[], page: Page, t: T, doc: string) {
+  const lay = layout(parts, page, adviceLines(t));
   const svgs: string[] = [];
-  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, t), i, page));
+  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, t), i, page, doc));
   return { svg: svgs.join(""), css: styleCSS(".pages "), pages: lay.pages.length };
 }
 
@@ -29,7 +34,7 @@ export function pagesSVG(parts: RawPart[], page: Page, t: T) {
  * Nothing dimensional depends on the labels.
  */
 export function pagesPDF(parts: RawPart[], page: Page, t: T, title: string): Uint8Array {
-  const lay = layout(parts, page);
+  const lay = layout(parts, page, adviceLines(t));
   const pages: Op[][] = [];
   for (let i = 0; i < lay.pages.length; i++) pages.push(pageOps(lay, i, page, t));
   return buildPDF(pages, page, STYLE, title);

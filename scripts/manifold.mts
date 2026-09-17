@@ -47,6 +47,7 @@ function report(t: Tally): void {
   console.log(`\n=== control-point spacing (gap ${T_GAP}..0.1 × ${LIMITS.pts[0]}..${LIMITS.pts[1]} points): ${t.spcTotal} checks, ${t.spcFail} FAIL ===`);
   console.log(`\n=== bottom-ring leg sockets: ${t.lgTotal} checks, ${t.lgFail} FAIL ===`);
   console.log(`sockets cut: ${t.lgOn} / plain hoop + marker (off, or no room): ${t.lgOff}`);
+  console.log(`\n=== the self-intersection guard (bodyMinR vs an independent scan): ${t.gmTotal} checks, ${t.gmFail} FAIL ===`);
 }
 const [hLo, hHi] = LIMITS.height, [rLo, rHi] = LIMITS.r;
 
@@ -363,9 +364,83 @@ for (const preset of PRESETS)
           }
         }
       }
-const tally: Tally = { total, fail, stopOn, stopOff, clamped, htotal, hfail, spTotal, spFail, exTotal, exFail, spcTotal, spcFail, lgTotal, lgFail, lgOn, lgOff };
+// ============ The self-intersection guard itself (`bodyMinR`) ============
+// **A guard read too HIGH is what makes an open edge here.** `nominalRi` (printed) and `jointCap`
+// (cardboard) both hold the rib's inner edge inside `bodyMinR`, so if that number comes back above
+// the body's true least radius, the inner edge is drawn OUTSIDE the outer curve: `grooveOuterPts`
+// folds the outline through itself and the extruded rib has open edges. That is a failure of the
+// STL, which makes it this script's.
+//
+// It was 41 samples of the curve for a long time, and three rounds of review found three ways past
+// it: a `sharp` control point between two samples, a smooth dip between two samples, and TWO dips,
+// where refining the lowest sample's bracket polishes the wrong one. The last of those returned
+// 20.00 on a five-point silhouette whose true minimum was 9.21 — 8 open edges on three printed ribs,
+// and every sweep above reported 0 FAIL, because the design was nothing like a preset.
+//
+// So this section does not sweep shapes hoping to catch one. It measures the GUARD, against a truth
+// sampled independently of it, over silhouettes that are deliberately not preset-shaped: random
+// counts, radii, spacings, `sharp` flags and dragged Bézier handles, plus the one design that got
+// past all three fixes. Reading LOW is safe (the cap is conservative) and is not a failure; reading
+// HIGH by more than a rounding error is.
+let gmFail = 0, gmTotal = 0, gmWorst = 0;
+{
+  // The truth: `profileR` is what `bodyMinR` claims a minimum of, and `outerR` is that floored at
+  // 8mm, so the comparison is against a dense scan of `outerR` with its own floor applied. 20,001
+  // samples of a curve whose guard is allowed 2mm.
+  const truth = (p: Design) => {
+    const t0 = p.pts[0].t, t1 = p.pts[p.pts.length - 1].t;
+    let m = Infinity;
+    for (let i = 0; i <= 20000; i++) m = Math.min(m, G.outerR(p, t0 + (t1 - t0) * i / 20000));
+    return m;
+  };
+  const measure = (p: Design, tag: string) => {
+    if (!mine()) return;
+    gmTotal++;
+    const high = Math.max(8, G.bodyMinR(p)) - truth(p);   // floored the way `outerR` floors what it draws
+    if (high > gmWorst) gmWorst = high;
+    if (high > 0.01) {
+      gmFail++;
+      if (gmFail <= 40) console.log(`✗[G] ${tag} :: bodyMinR ${G.bodyMinR(p).toFixed(3)} reads ${high.toFixed(3)}mm ABOVE the body's least radius ${truth(p).toFixed(3)}`);
+    }
+  };
+  // **The family the design that survived the first three fixes belongs to**, not just that design:
+  // a SHALLOW dip that owns the lowest sample — so a refinement polishes its bracket — plus a deeper
+  // undershoot somewhere else, which is then never looked at. Swept deliberately, because a random
+  // sweep meets this shape only by luck (it found 7 of 1200; this grid fails 20 of 108 against the
+  // version that shipped it, the worst by 12.0mm).
+  for (const decoy of [12, 20, 30])
+    for (const big of [300, 500])
+      for (const mid of [20, 24, 40])
+        for (const dt of [0.80, 0.84, 0.88])
+          for (const height of [205, 400])
+            measure({ ...DEFAULTS, height, boards: 16, pts: neckFloor([
+              { t: 0.08, r: 60 }, { t: 0.24, r: decoy }, { t: 0.72, r: big, sharp: true },
+              { t: dt, r: mid, sharp: true }, { t: 0.92, r: 600 },
+            ], height) }, `two dips decoy${decoy} big${big} mid${mid} dt${dt} h${height}`);
+  // And a deterministic pseudo-random sweep of the silhouette space. A fixed seed, because a gate
+  // that fails on some runs and not others is a gate nobody trusts — and the point is coverage of
+  // shapes no preset resembles, not novelty per run.
+  let seed = 20260917;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let k = 0; k < 1200; k++) {
+    const nPts = LIMITS.pts[0] + Math.floor(rnd() * (LIMITS.pts[1] - LIMITS.pts[0] + 1));
+    const height = hLo + rnd() * (hHi - hLo);
+    const pts: Pt[] = [];
+    let t = 0.02 + rnd() * 0.08;
+    for (let i = 0; i < nPts; i++) { pts.push({ t, r: rLo + rnd() * (rHi - rLo), sharp: rnd() < 0.4 }); t += T_GAP + rnd() * (0.8 / nPts); }
+    if (pts[nPts - 1].t > 0.98) continue;                 // past the top opening: not a design at all
+    if (rnd() < 0.4) for (const q of pts) if (rnd() < 0.7) {   // dragged handles → the Bézier path
+      q.ho = { dt: rnd() * 0.1, dr: (rnd() - 0.5) * 200 };
+      q.hi = { dt: -rnd() * 0.1, dr: (rnd() - 0.5) * 200 };
+    }
+    // Through the editor's own floors, so every design here is one a maker could be holding.
+    measure({ ...DEFAULTS, height, pts: neckFloor(pts, height) }, `random #${k} n${nPts}`);
+  }
+}
+
+const tally: Tally = { total, fail, stopOn, stopOff, clamped, htotal, hfail, spTotal, spFail, exTotal, exFail, spcTotal, spcFail, lgTotal, lgFail, lgOn, lgOff, gmTotal, gmFail };
 if (!isMainThread) parentPort!.postMessage(tally);
 else {
   report(tally);
-  process.exit(fail + hfail + spFail + spcFail + exFail + lgFail ? 1 : 0);
+  process.exit(fail + hfail + spFail + spcFail + exFail + lgFail + gmFail ? 1 : 0);
 }
