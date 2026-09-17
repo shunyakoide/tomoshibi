@@ -69,15 +69,22 @@ export function openingFloor(pts: Pt[]): Pt[] {
 export const silhouetteFloors = (pts: Pt[], height: number): Pt[] => openingFloor(neckFloor(pts, height));
 
 /**
- * The point list a picked preset yields AT THIS HEIGHT. Three surfaces need that one answer — the
- * pick itself (`TomoshibiStudio`), the chip's lit state (`matchPreset`) and the chip's own DRAWING
- * (`miniPath`) — and each of them used to floor its own copy, or forget to. The thumbnail forgot:
- * it drew `pr.pts` raw, so `たまご` advertised a ⌀38 mouth and `平丸` a ⌀46 while picking either gave
- * ⌀52, the openings being floored on the way in (`OPENING_MIN`). A chip whose picture is not the
- * shape it hands you is worse than no picture.
+ * The point list a picked preset yields, and the HEIGHT it yields it at. Three surfaces need that one
+ * answer — the pick itself (`TomoshibiStudio`), the chip's lit state (`matchPreset`) and the chip's
+ * own drawing (`presetMini`) — and each of them used to work it out again, or forget to. The drawing
+ * forgot the floors: it built its miniature from `pr.pts` raw, so `たまご` advertised a ⌀38 mouth and
+ * `平丸` a ⌀46 while picking either gave ⌀52 (`OPENING_MIN`). A chip whose picture is not the shape
+ * it hands you is worse than no picture.
+ *
+ * **The height is part of the answer**, not the caller's business: a preset whose identity is a RATIO
+ * carries its own (`Preset.height` — `平丸`), and picking it replaces the maker's. Resolved in ONE
+ * place because the two surfaces disagreeing is the same class of bug one step along: with the
+ * drawing on `pr.height` and the lit state on `p.height`, `平丸` stayed lit at a 60mm body while
+ * drawing its 150mm silhouette.
  */
-export const presetPts = (pr: { pts: Pt[] }, height: number): Pt[] =>
-  silhouetteFloors(pr.pts.map((q) => ({ ...q })), height);
+export const presetHeight = (pr: { height?: number }, height: number): number => pr.height ?? height;
+export const presetPts = (pr: { pts: Pt[]; height?: number }, height: number): Pt[] =>
+  silhouetteFloors(pr.pts.map((q) => ({ ...q })), presetHeight(pr, height));
 
 /** Which gesture the ◇ handles perform: move the point, or pull its Bézier tangents. */
 export type EditMode = "move" | "curve";

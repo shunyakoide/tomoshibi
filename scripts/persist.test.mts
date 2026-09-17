@@ -312,7 +312,7 @@ t("non-object JSON → null", P.parseImport("42") === null);
 // `src/ui`, and plain node cannot import a `.tsx`, which is why the chip's miniature is a `.ts` of
 // its own (`presetMini`).
 {
-  const { pointOps, presetPts } = await import("../src/ui/pointEdit.ts");
+  const { pointOps, presetPts, presetHeight } = await import("../src/ui/pointEdit.ts");
   const { presetMini } = await import("../src/ui/presetMini.ts");
   const { PRESETS } = await import("../src/config.ts");
   // 1. Deleting an END ◇ promotes its neighbour to a mouth, and only the ENDS have the opening
@@ -337,13 +337,24 @@ t("non-object JSON → null", P.parseImport("42") === null);
   t("delete an end ◇ → a save and reload does not move the shape",
     back.p.pts.every((q: any, i: number) => Math.abs(q.r - after.pts[i].r) < 1e-6 && Math.abs(q.t - after.pts[i].t) < 1e-6));
   t("delete an end ◇ → watertight", manifoldOK(after) === true);
-  // 2. `presetPts` is the ONE answer to "the points a picked preset yields at this height", read by
-  //    the pick, by the lit chip and by the chip's own drawing. `miniPath` used to floor nothing, so
-  //    two of the three chips drew a mouth (⌀38, ⌀46) the app would never build (⌀52).
+  // 2. `presetPts` is the ONE answer to "the points a picked preset yields", and `presetHeight` to
+  //    "at what height" — read by the pick, by the lit chip and by the chip's own drawing. The
+  //    drawing used to floor nothing, so two of the three chips drew a mouth (⌀38, ⌀46) the app
+  //    would never build (⌀52).
+  //
+  //    A DEEP snapshot of the presets first, because the thing to prove about a function three
+  //    surfaces call on every render is that it does not touch its input — and `pr` IS the element
+  //    of `PRESETS`, so comparing `pr` against `PRESETS.find(...)` compares it with itself and
+  //    passes however much it was mutated. It also has to compare `t`: `neckFloor` is the half that
+  //    moves t, and it is the half a preset with its own height goes through.
+  const frozen = JSON.stringify(PRESETS);
   for (const pr of PRESETS) {
-    for (const height of [LIMITS.height[0], 150, 205, 400, LIMITS.height[1]]) {
-      const H = pr.height ?? height;   // as onPick and the chip both resolve it
-      const pts = presetPts(pr, H);
+    // The heights that RESOLVE differently. `平丸` carries its own, so every entry below collapses
+    // to 150 for it — and five identical iterations under one name is a pass count, not a test.
+    const heights = [...new Set([LIMITS.height[0], 150, 205, 400, LIMITS.height[1]].map((h) => presetHeight(pr, h)))];
+    for (const height of heights) {
+      const H = presetHeight(pr, height);
+      const pts = presetPts(pr, height);
       const tag = `${pr.name} h${H}`;
       t(`${tag}: both openings at or above ${OPENING_MIN}mm`,
         pts[0].r >= OPENING_MIN - 1e-6 && pts[pts.length - 1].r >= OPENING_MIN - 1e-6);
@@ -355,17 +366,18 @@ t("non-object JSON → null", P.parseImport("42") === null);
       const r2 = load();
       t(`${tag}: a picked preset survives a save and reload unchanged`,
         r2.p.pts.length === pts.length && r2.p.pts.every((q: any, i: number) => Math.abs(q.r - pts[i].r) < 1e-6 && Math.abs(q.t - pts[i].t) < 1e-6));
-      // `presetPts` does not mutate the preset — three surfaces call it on every render.
-      t(`${tag}: the preset itself is untouched`, pr.pts.every((q, i) => q.r === PRESETS.find((x) => x.key === pr.key)!.pts[i].r));
-      // THE chip assertion: the miniature's own design is the one the pick stores. It lives in a
-      // plain `.ts` for exactly this (`presetMini`), because what went wrong was not `presetPts` —
-      // that was always right — but a drawing that did not call it.
-      const mini = presetMini(pr, H);
+      // THE chip assertion: the miniature's own design — points AND height — is the one the pick
+      // stores. It lives in a plain `.ts` for exactly this (`presetMini`), because what went wrong
+      // was not `presetPts`, which was always right, but a drawing that did not call it. The height
+      // goes in UNRESOLVED, the way the chip passes the maker's: resolving it here instead would
+      // hide the disagreement this is here to catch.
+      const mini = presetMini(pr, height);
       t(`${tag}: the chip draws the design the pick yields`,
         mini.q.height === H && JSON.stringify(mini.q.pts) === JSON.stringify(pts));
       t(`${tag}: the chip's path is drawn`, /^M [\d.]+ [\d.]+( L [\d.]+ [\d.]+){81} Z$/.test(mini.d));
     }
   }
+  t("no preset was mutated by any of that", JSON.stringify(PRESETS) === frozen);
 }
 
 console.log(`\n=== ${pass} pass / ${fail} fail ===`);
