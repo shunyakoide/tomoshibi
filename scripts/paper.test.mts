@@ -16,7 +16,7 @@
  * independent integration of `outerR`. It is a document of its own on both routes, so section 4 also
  * pins that its pages are NOT among the cardboard template's.
  */
-import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, layout, corner, adviceBox, adviceLines, strip, noteOverflow } from "../src/papercraft.ts";
+import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, ADVICE_PAD, layout, corner, adviceBox, adviceLines, strip, noteOverflow, STYLE } from "../src/papercraft.ts";
 import { strWidth, winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
 import { komaR, tabDented, innerRi, notchR, notchWidth, ribInnerX, ribMouthBand, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
@@ -603,14 +603,32 @@ for (const preset of PRESETS)
 //
 //   · a `note` too long for the part it is set inside. It is centred on a line 12% below the part's
 //     middle, so the room it has is the CHORD there, not the bounding box the packer used — on the
-//     default egg the koma's box is 37.9mm wide and that line is 33.9mm. The English runs ~40% longer
-//     than the Japanese it is keyed by and nobody translating sees the part, so BOTH are swept.
-//   · an `advice` block that outgrows the column. It rides beside the check square in whatever gap
-//     the parts leave, and there is no way to shrink a line that does not fit — only to notice.
+//     starting egg the koma's box is 37.9mm wide and that line is 33.9mm. The English runs ~40%
+//     longer than the Japanese it is keyed by and nobody translating sees the part, so BOTH are swept.
+//   · a line of `advice` too long for the box it is set in. The box is a CONSTANT width (the check
+//     square's, so the corner's footprint cannot move with the UI language — see `adviceBox`), and
+//     there is no way to shrink a line that does not fit, only to notice.
 //
-// Said once per document however many sheets carry the part: the koma is two identical cuts with the
-// identical sentence, and the same sentence twice in one corner reads as two different rules.
+// **Split in two on purpose, because the two questions cost different amounts.** The note fit is a
+// question about the DESIGN — every part of every combination — and answering it needs the layout but
+// not the markup. Whether the box is drawn, and each line printed once on one sheet, is a question
+// about the CORNER: the same code for every design, varying only with how many sheets the document
+// has. Rendering both documents' SVG for all 384 combinations to ask the second one took this gate
+// from 4s to 34s, which is most of a `check:paper` spent re-answering a question about four strings.
 let nn = 0;
+// Is every line inside its box? Per LANGUAGE, not per design — the box is a constant and the lines
+// do not depend on the drawing.
+const ROOM = adviceBox(adviceLines(ja)).w - 2 * ADVICE_PAD;
+for (const [lang, t] of [["ja", ja], ["en", en]] as const) {
+  if (corner(adviceLines(t)).w > A4.w - 2 * MARGIN)
+    bad(`advice ${lang}: the corner is ${corner(adviceLines(t)).w}mm wide, column is ${A4.w - 2 * MARGIN}`);
+  for (const a of adviceLines(t)) {
+    const w = strWidth(a, STYLE.note.size);   // the size the sheet sets it at, never a copy of it
+    if (w > ROOM) bad(`advice ${lang}: "${a}" is ${w.toFixed(1)}mm, box holds ${ROOM}`);
+  }
+}
+// The note fit, over the design space. No SVG: `layout` is what decides where a part's lettering
+// lands, and `noteOverflow` reads the part.
 for (const preset of PRESETS)
   for (const height of [60, 140, 205, 400])
     for (const boards of [4, 8, 12, 16])
@@ -618,52 +636,51 @@ for (const preset of PRESETS)
         for (const [lang, t] of [["ja", ja], ["en", en]] as const) {
           nn++;
           const p = { ...DEFAULTS, ...preset, height, boards };
-          const docs = [
-            { doc: "cardboard", parts: paperParts(p, matT, t).parts, svg: paperPagesSVG(p, matT, t, A4) },
-            { doc: "washi", parts: washiParts(paperP(p, matT), {}, t).parts, svg: washiPagesSVG(paperP(p, matT), {}, t, A4) },
-          ];
           const want = adviceLines(t);
-          for (const { doc, parts, svg } of docs) {
+          for (const [doc, parts] of [["cardboard", paperParts(p, matT, t).parts],
+                                      ["washi", washiParts(paperP(p, matT), {}, t).parts]] as const) {
             const tag = `small print ${preset.key} h${height} b${boards} t${matT} ${lang} ${doc}`;
             const lay = layout(parts, A4, want);
-            // (a) every note inside the part it is about
             for (const q of lay.placed) {
               const over = noteOverflow(q);
               if (over > 0) bad(`${tag}: ${q.name}'s note hangs ${over.toFixed(1)}mm outside the part`);
             }
-            // (b) the corner — check square plus the boxed advice under it — inside the column, and
-            // the box itself no wider than the square, which is what keeps the corner able to find a
-            // gap at all (a 159mm one cost 83 of 1200 documents a whole sheet).
-            const CW = A4.w - 2 * MARGIN;
-            if (corner(want).w > CW) bad(`${tag}: the corner is ${corner(want).w.toFixed(1)}mm wide, column is ${CW}`);
-            // The box is a constant width, so what can overflow is a LINE. Held in both languages:
-            // the English runs ~40% longer than the Japanese it is keyed by.
-            for (const a of want) {
-              const w = strWidth(a, 2.6);
-              if (w > adviceBox(want).w - 4) bad(`${tag}: advice line ${w.toFixed(1)}mm wide, box holds ${adviceBox(want).w - 4}`);
-            }
-            // (c) BOTH documents print EVERY line — 「両方のシートに全部載せる」, the person cutting
-            // the mold being the person who will cut the washi — each once, on one sheet.
             if (lay.advice.length !== want.length) bad(`${tag}: ${lay.advice.length} advice lines, want ${want.length}`);
-            const sheets = svg.svg.split('<svg class="pg"').slice(1);
-            for (const a of want) {
-              const on = sheets.filter((x) => x.includes(a)).length;
-              if (on !== 1) bad(`${tag}: "${a}" on ${on} sheets, want exactly 1`);
-              const times = (svg.svg.match(new RegExp(a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
-              if (times !== 1) bad(`${tag}: "${a}" printed ${times} times, want once`);
-            }
-            // (d) the box is STROKED, and as a `guide` — grey and dashed, because a solid rectangle
-            // on this sheet is the shape of a part and a blade follows solid lines.
-            // A CLOSED guide path, which on these sheets can only be the box: the washi panel's own
-            // guides are open polylines (a closed one would be a shape to cut out).
-            if (!/<path d="M[^"]*Z" class="guide"\/>/.test(svg.svg))
-              bad(`${tag}: no closed guide path — the advice box is not drawn`);
           }
         }
+// What the SHEETS say, on designs chosen for their page counts rather than swept: a one-sheet
+// document, a two-sheet one, and a body long enough to span (where a line could be drawn twice or
+// land on the wrong sheet). Both documents, both languages.
+let ns9 = 0;
+for (const [label, p] of [["1 sheet", { ...DEFAULTS, height: 60 }],
+                          ["2 sheets", { ...DEFAULTS }],
+                          ["spanning", { ...DEFAULTS, height: 400 }]] as const)
+  for (const [lang, t] of [["ja", ja], ["en", en]] as const) {
+    const want = adviceLines(t);
+    for (const [doc, svg] of [["cardboard", paperPagesSVG(p, 3, t, A4).svg],
+                              ["washi", washiPagesSVG(paperP(p, 3), {}, t, A4).svg]] as const) {
+      ns9++;
+      const tag = `advice ${label} ${lang} ${doc}`;
+      // BOTH documents print EVERY line — 「両方のシートに全部載せる」, the person cutting the mold
+      // being the person who will cut the washi — each once, on one sheet.
+      const sheets = svg.split('<svg class="pg"').slice(1);
+      for (const a of want) {
+        const on = sheets.filter((x) => x.includes(a)).length;
+        if (on !== 1) bad(`${tag}: "${a}" on ${on} of ${sheets.length} sheets, want exactly 1`);
+        const times = (svg.match(new RegExp(a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
+        if (times !== 1) bad(`${tag}: "${a}" printed ${times} times, want once`);
+      }
+      // The box is STROKED, and as a `guide` — grey and dashed, because a solid rectangle on this
+      // sheet is the shape of a part and a blade follows solid lines. A CLOSED guide path, which on
+      // these sheets can only be the box: the washi panel's own guides are open polylines.
+      if (!/<path d="M[^"]*Z" class="guide"\/>/.test(svg))
+        bad(`${tag}: no closed guide path — the advice box is not drawn`);
+    }
+  }
 
 // Japanese labels cannot be drawn with base-14 fonts, so they must be dropped, never emitted raw.
 if (winAnsi("和紙 ×8") !== " ×8") bad(`winAnsi should drop Japanese: ${JSON.stringify(winAnsi("和紙 ×8"))}`);
 if (winAnsi("50mm ← 定規で確認") !== "50mm <- ") bad(`winAnsi arrow fold: ${JSON.stringify(winAnsi("50mm ← 定規で確認"))}`);
 
-console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme + ${nh} hoop + ${nn} small-print combos, ${fail} FAIL ===`);
+console.log(`\n=== ${n} combos (incl. ${PRESETS.length * 16} full-scale combos) + ${nw} washi + ${np} pdf + ${ns} preview=PDF + ${nx} extreme + ${nh} hoop + ${nn} small-print + ${ns9} advice-sheet combos, ${fail} FAIL ===`);
 process.exit(fail ? 1 : 0);

@@ -6,10 +6,17 @@
  * Dependencies run one way: layout ← draw ← render ← {mold, skin}, with style, svg and advice as
  * leaves.
  * React/DOM-free (stl.ts opens or downloads the bytes).
+ *
+ * **The app reaches for the bottom two lines; the row above them is `check:paper`'s.** A gate has to
+ * be able to ask the layout what it decided — where the corner went, how wide the box is, how far a
+ * note hangs outside its part — and the rule against importing `./paper/*` applies to the check
+ * scripts too, they being callers like any other. Exported deliberately rather than reached around,
+ * so a function moving between those modules stays a non-event for the gate as well.
  */
-export { A4, MARGIN, TOPBAR, layout, corner, adviceBox, strip } from "./paper/layout.ts";
+export { A4, MARGIN, TOPBAR, ADVICE_PAD, layout, corner, adviceBox, strip } from "./paper/layout.ts";
 export { adviceLines } from "./paper/advice.ts";
 export { noteOverflow } from "./paper/draw.ts";
+export { STYLE } from "./paper/style.ts";
 export { paperP, paperFit, paperParts, paperPagesSVG, paperPDF } from "./paper/mold.ts";
 export { washiParts, washiPDF, washiPagesSVG } from "./paper/skin.ts";
 
