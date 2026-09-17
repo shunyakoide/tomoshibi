@@ -19,7 +19,7 @@ client-side and the build output is static files.
 
 | Assembly | Print | Lit |
 | --- | --- | --- |
-| ![The assembled mold cradled on its stand](docs/screenshots/assembly.png) | ![Print plates laid out on the bed](docs/screenshots/print.png) | ![The finished lantern, lit, standing on three legs](docs/screenshots/lit.png) |
+| ![The assembled mold cradled on its stand, an opening hoop at each end](docs/screenshots/assembly.png) | ![Print plates laid out on the bed](docs/screenshots/print.png) | ![The finished lantern, lit, standing on three legs](docs/screenshots/lit.png) |
 | The mold on its stand, held clear of the table so you can turn it as you wind. | Every part laid out on your bed. | What you are building towards. |
 
 ---
