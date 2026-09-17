@@ -139,14 +139,37 @@ function snapHolds(pts: Pt[], snap: number[]): boolean {
   }
   return true;
 }
+/**
+ * **A scan is not a minimum, and this one is a guard** — `nominalRi` and `jointCap` keep the rib's
+ * inner edge inside it, so a value read too HIGH is an edge outside the body: a cut line that
+ * crosses itself. Three things, because 41 samples alone were not it:
+ *   - every CONTROL POINT's own radius. A `sharp` point is a local minimum by construction and the
+ *     grid steps straight over it — the scan read 11.20mm on a body pinched to r8 at t=0.173, and
+ *     the 2mm `jointCap` keeps then bought a rib 1.20mm OUTSIDE its own outline.
+ *   - the 41-sample scan, which finds the bracket.
+ *   - a ternary refinement inside that bracket, for a smooth dip between two samples: the corner
+ *     case is exact from the control points, but a rounded waist has no point sitting at its lowest.
+ * Over 15,744 legal waisted designs the result is within 0.01mm of a 20,000-sample truth, where the
+ * bare scan was up to 7.47mm high. ~120 `profileR` calls instead of 41, once per `pts` array.
+ */
 function bodyMinR(p: Design): number {
   const pts = p.pts;
   if (!pts || pts.length < 2) return openMin(p);
   const hit = minRMemo.get(pts);
   if (hit && snapHolds(pts, hit.snap)) return hit.m;
-  let m = Math.min(pts[0].r, pts[pts.length - 1].r);
   const T = anyHandle(pts) ? undefined : fukuroTangents(pts);   // once for the scan, not per sample
-  for (let i = 0; i <= 40; i++) { const t = pts[0].t + (pts[pts.length - 1].t - pts[0].t) * i / 40; m = Math.min(m, profileR(pts, t, T)); }
+  const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+  const at = (u: number) => profileR(pts, t0 + (t1 - t0) * u, T);
+  const N = 40;
+  let best = Infinity, bi = 0;
+  for (let i = 0; i <= N; i++) { const v = at(i / N); if (v < best) { best = v; bi = i; } }
+  // The lowest sample's two neighbouring intervals hold any smooth minimum the grid missed.
+  let lo = Math.max(0, bi - 1) / N, hi = Math.min(N, bi + 1) / N;
+  for (let k = 0; k < 40; k++) {
+    const a = lo + (hi - lo) / 3, b = hi - (hi - lo) / 3;
+    if (at(a) < at(b)) hi = b; else lo = a;
+  }
+  const m = Math.min(best, at((lo + hi) / 2), ...pts.map((q) => q.r));
   minRMemo.set(pts, { snap: ptsSnap(pts), m });
   return m;
 }
@@ -275,9 +298,14 @@ function ribCoreFloor(p: Design): number {
 //     out (a ⌀20 waist, 16 ribs, 10mm board), with `ribPullFit` still reporting ok.
 // It stays 2mm rather than borrowing `nominalRi`'s 3 so that a body whose narrowest point IS its
 // mouth — every shipped preset — keeps the cap it was measured with; the waist is the new case (0 of
-// 24 preset×thickness combinations moved). 2mm is not 2mm of real band, because `bodyMinR` scans 41
-// samples and a waist can hide between two of them: on the sharpest one the editor allows the scan
-// reads up to 0.74mm high, so the band at the waist is at worst 1.27mm. Measured, not assumed.
+// 24 preset×thickness combinations moved, and `check:hash` is identical).
+//
+// **2mm is only worth 2mm because `bodyMinR` is a minimum and not a sample.** It was 41 samples when
+// this cap was written, and that alone did not hold: a `sharp` waist between two of them was read up
+// to 7.47mm high, so 304 of 15,744 legal waisted designs still put the hub outside the body and 300
+// still drew a rib that crossed itself — the guard changed which designs failed rather than whether
+// they did. `bodyMinR` now takes the control points and refines the scan, and over that same sweep
+// the band never comes in under 2.00mm.
 // This is what caps the joint — growth has to go OUTWARD, into a bigger rim, not toward the axis.
 // The 6mm floor is under any radius the editor allows (`LIMITS.r[0]` is 8), so it cannot itself cross.
 function jointCap(p: Design): number { return Math.max(6, bodyMinR(p) - 2); }

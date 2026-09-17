@@ -17,9 +17,8 @@ export const tid: T = (s, params) => (params ? Object.keys(params).reduce((a, k)
  * Both templates render through this one function, so neither can grow a second opinion about how
  * many sheets there are or where a part is split across two of them — nor about which cautions it
  * prints: `adviceLines` is read HERE and nowhere else, so both documents carry the whole set.
- */
-/**
- * `doc` names the template, and it exists only to keep the two apart in ONE DOM: the preview shows
+ *
+ * @param doc names the template, and exists only to keep the two apart in ONE DOM: the preview shows
  * both, and an SVG id is document-scoped (see `pageSVG`). Nothing dimensional reads it.
  */
 export function pagesSVG(parts: RawPart[], page: Page, t: T, doc: string) {
