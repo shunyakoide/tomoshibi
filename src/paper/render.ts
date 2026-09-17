@@ -18,10 +18,14 @@ export const tid: T = (s, params) => (params ? Object.keys(params).reduce((a, k)
  * many sheets there are or where a part is split across two of them — nor about which cautions it
  * prints: `adviceLines` is read HERE and nowhere else, so both documents carry the whole set.
  */
-export function pagesSVG(parts: RawPart[], page: Page, t: T) {
+/**
+ * `doc` names the template, and it exists only to keep the two apart in ONE DOM: the preview shows
+ * both, and an SVG id is document-scoped (see `pageSVG`). Nothing dimensional reads it.
+ */
+export function pagesSVG(parts: RawPart[], page: Page, t: T, doc: string) {
   const lay = layout(parts, page, adviceLines(t));
   const svgs: string[] = [];
-  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, t), i, page));
+  for (let i = 0; i < lay.pages.length; i++) svgs.push(pageSVG(pageOps(lay, i, page, t), i, page, doc));
   return { svg: svgs.join(""), css: styleCSS(".pages "), pages: lay.pages.length };
 }
 

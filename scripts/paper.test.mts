@@ -760,6 +760,23 @@ if (tightest) {
     bad(`pull-out now reports the waist; the comment in section 10 needs rewriting`);
 }
 
+// ---- 11. The preview puts BOTH documents in one DOM ----
+// The PDFs are two files and never meet. The preview renders both into one HTML page
+// (`ui/PagePreview.tsx`), and an SVG id is scoped to the DOCUMENT, so the sheets' clipPath ids must
+// not collide: with `clip0` on each, the washi sheet's `url(#clip0)` resolved to the CARDBOARD
+// sheet's clip — first matching id in the DOM wins — and the washi part was clipped to the wrong
+// band, silently, because a clip ends a cut line at the trim box and draws nothing to say so.
+{
+  const ids = (svg: string) => (svg.match(/ id="([^"]+)"/g) || []).map((m) => m.slice(5, -1));
+  const p = { ...DEFAULTS, ...PRESETS[0] };
+  const m = ids(paperPagesSVG(p, 5, undefined, A4).svg), w = ids(washiPagesSVG(paperP(p, 5), undefined, undefined, A4).svg);
+  if (!m.length || !w.length) bad(`preview: no ids at all (${m.length}/${w.length}) — this section stopped asking anything`);
+  const dup = m.filter((id) => w.includes(id));
+  if (dup.length) bad(`preview: both documents emit id ${JSON.stringify(dup[0])} (${dup.length} shared)`);
+  for (const [doc, list] of [["cardboard", m], ["washi", w]] as const)
+    if (new Set(list).size !== list.length) bad(`preview: the ${doc} document repeats an id among its own sheets`);
+}
+
 // Japanese labels cannot be drawn with base-14 fonts, so they must be dropped, never emitted raw.
 if (winAnsi("和紙 ×8") !== " ×8") bad(`winAnsi should drop Japanese: ${JSON.stringify(winAnsi("和紙 ×8"))}`);
 if (winAnsi("50mm ← 定規で確認") !== "50mm <- ") bad(`winAnsi arrow fold: ${JSON.stringify(winAnsi("50mm ← 定規で確認"))}`);
