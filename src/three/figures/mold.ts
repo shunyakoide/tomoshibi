@@ -7,7 +7,7 @@ import * as THREE from "three";
 import type { Design } from "../../types.ts";
 import {
   fukuroRange, komaGeometry, komaR, maxRadius, openingR,
-  ribGeometry, ringGeometry, wireRingGeometry, boardGeometry, standCollarTop, standGeometry, standSaddleH,
+  ribGeometry, ringGeometry, wireRingGeometry, hoopTurn, boardGeometry, standCollarTop, standGeometry, standSaddleH,
   standSlotSep, washiSurface,
 } from "../../geometry.ts";
 import { higoGeometries } from "../higo.ts";
@@ -166,7 +166,20 @@ export function moldPieces(p: Design, { ribs = true, komaBot = true, komaTop = t
     const { lo: t0, hi: t1 } = fukuroRange(p);
     for (const top of [false, true]) {
       // Cardboard bends its hoops from wire (see `wireRing2D`); 3D prints them.
-      const r = part(smooth ? wireRingGeometry(p, top) : ringGeometry(p, top), hot === "rings");
+      const geo = smooth ? wireRingGeometry(p, top) : ringGeometry(p, top);
+      // TURNED so the leg pads (the eyes, on wire) pass BETWEEN the ribs instead of into one, which
+      // is how a hoop goes on and therefore how it has to be drawn going on — `hoopTurn`, the same
+      // angle the assembly view uses, `GUIDE_P` pinning `legSockets: true` so there are always pads
+      // here to foul something. It is only the orientation; nothing about the part changes.
+      //
+      // **Only where the RIBS are drawn.** With no ribs this is the finished lantern (`litShade`),
+      // where there is nothing left to clear — and where turning the hoop alone would move the pads
+      // out from under the legs, which `lightLegs` roots at `ringLegs()`'s own pad centres. That
+      // function stays the single answer to where a leg goes (the design notes' rule, and
+      // `check:manifold`'s bore test reads the same angles), so the hoop does not get a second
+      // opinion about it.
+      if (ribs) geo.rotateZ(hoopTurn(p, top));
+      const r = part(geo, hot === "rings");
       r.rotation.x = -Math.PI / 2;
       r.position.y = (top ? t1 : t0) * p.height;    // the openings, which is where they seat
       g.add(r);
