@@ -19,7 +19,7 @@
 import { paperPagesSVG, washiPagesSVG, paperPDF, paperParts, paperFit, paperP, washiParts, washiPDF, A4, MARGIN, ADVICE_PAD, layout, corner, adviceBox, adviceLines, strip, noteOverflow, STYLE } from "../src/papercraft.ts";
 import { strWidth, winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
-import { komaR, tabDented, innerRi, notchR, notchWidth, ribInnerX, ribMouthBand, ribOutline2D, ribPullFit, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
+import { komaR, tabDented, innerRi, maxBoards, notchR, notchWidth, ribInnerX, ribMouthBand, ribOutline2D, ribPullFit, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
 import type { Design } from "../src/types.ts";
 
@@ -32,12 +32,17 @@ const eq = (a: number, b: number, msg: string, tol = 0.01) => { if (Math.abs(a -
 // NOTHING else — an outline-only reader gets Math.max of an empty list, which is -Infinity, and the
 // NaN travels all the way to a seam assertion that then passes for the wrong reason.
 const pts2 = (q: any) => [q.outline, ...(q.holes || []), ...(q.bend || [])].flat();
-// The narrowest radius the body ever reaches, sampled — what caps the cardboard joint (`jointCap`).
-// Sampled here rather than imported because `bodyMinR` is private to profile.ts, and a gate that
-// re-derives it independently is the point: the two agreeing is the assertion.
+// The narrowest radius the body ever reaches — what caps the cardboard joint (`jointCap`). Derived
+// here rather than imported (`bodyMinR` is private to profile.ts), because a gate that re-derives it
+// independently is the point: the two agreeing is the assertion.
+//
+// **The control points are in it, and that is not a detail.** A `sharp` point is a local minimum by
+// construction and a grid steps straight over it: the first version of this helper sampled `outerR`
+// 400 times and nothing else, which is a milder form of the very blind spot it was written to catch
+// (profile.ts was reading a hidden waist up to 7.47mm high). 2000 samples, plus every control point.
 const bodyMin = (d: Design) => {
-  let m = Infinity;
-  for (let i = 0; i <= 400; i++) m = Math.min(m, outerR(d, i / 400));
+  let m = Math.min(...d.pts.map((q) => q.r));
+  for (let i = 0; i <= 2000; i++) m = Math.min(m, outerR(d, i / 2000));
   return m;
 };
 // Bounding box of the point list
@@ -705,43 +710,75 @@ for (const [label, p] of [["1 sheet", { ...DEFAULTS, height: 60 }],
 // guard got lost on this route alone (325 of 1728 swept waisted designs crossed, the worst 32.9mm
 // outside the waist).
 //
-// Asked in two costs, as section 9 is: the band is arithmetic and runs over the whole set, while
-// counting actual segment crossings is 637k pairs per design and is asked ONCE, of the design the
-// sweep found tightest.
+// **Asked in three costs, as section 9 is**, and the middle one exists because the first version of
+// this section was too narrow to fail: it swept mouths 30..120 and two waist POSITIONS, and reported
+// `0 FAIL` while 300 of 15,744 legal waisted designs still drew a crossing rib. What the failure
+// needs is a mouth/waist RATIO wide enough that the curve between two of `bodyMinR`'s samples dives
+// under the cap, and a waist sitting off its grid — mouth 600 against a waist of 10, at t≈0.13.
+//   · the band — arithmetic on `innerRi` and an independent minimum — over the whole space;
+//   · the parts, drawn, on a dozen designs (`paperParts` builds every rib);
+//   · one actual count of segment crossings, that being 637k pairs, on the tightest design found.
 let n10 = 0, tightest: { tag: string; pk: Design; band: number } | null = null;
-for (const mouth of [30, 60, 120])
-  for (const waist of [10, 18, 26, 40])
+const waisted = (mouth: number, waist: number, ribs: number, tw: number, sharp: boolean): Design => ({
+  ...DEFAULTS, height: 280, boards: ribs,
+  pts: [{ t: 0.075, r: mouth }, { t: tw, r: waist, sharp }, { t: 0.925, r: mouth }],
+});
+// **Where the waist goes is the whole of whether this section bites.** `bodyMinR` scans 40 intervals
+// between the two end points, so a waist sitting MIDWAY between two of its samples is the one it
+// cannot see — and that, not the mouth or the board, is what decided failure: over a grid of round
+// positions the tightest band came out +0.07mm and this section reported 0 FAIL while the design one
+// step off that grid was 6mm outside its own outline. So the positions are chosen adversarially,
+// against the scan's own arithmetic, with 0.5 kept as a position it does see.
+const blind = (i: number) => 0.075 + 0.85 * (i + 0.5) / 40;
+const WAIST_T = [blind(2), blind(4), blind(8), blind(16), blind(24), blind(32), blind(36), 0.5];
+for (const mouth of [60, 120, 300, 600])
+  for (const waist of [8, 14, 20, 40])
     for (const ribs of [4, 8, 16])
-      // A waist deliberately OFF the 40-sample grid `bodyMinR` scans on, and `sharp` for the worst
-      // curvature the editor allows: the cap is 2mm and the scan can read a hidden waist high.
-      for (const [tw, sharp] of [[0.5, false], [0.7777, true]] as const)
-        for (const matT of [1, 5, 10]) {
-          if (waist >= mouth) continue;
-          n10++;
-          const p: Design = { ...DEFAULTS, height: 280, boards: ribs,
-            pts: [{ t: 0.075, r: mouth }, { t: tw, r: waist, sharp }, { t: 0.925, r: mouth }] };
-          const { parts, pk } = paperParts(p, matT);
-          const tag = `waist mouth${mouth} waist${waist} ${ribs}ribs t${matT}${sharp ? " sharp" : ""}`;
-          // THE assertion: the hub inside the narrowest radius, measured on `outerR` itself rather
-          // than on anything profile.ts told us.
-          const band = bodyMin(pk) - innerRi(pk);
-          if (band <= 0)
-            bad(`${tag}: the hub is ${(-band).toFixed(2)}mm OUTSIDE the waist — the rib's inner edge crosses its outer edge`);
-          if (!tightest || band < tightest.band) tightest = { tag, pk, band };
-          // The rim still never passes the mouth, the waist having no say in that (section 1's rule,
-          // restated where the two numbers differ).
-          const mouthR = Math.min(outerR(pk, 0), outerR(pk, 1));
-          if (komaR(pk) - mouthR > 0.01) bad(`${tag}: koma stands ${(komaR(pk) - mouthR).toFixed(2)}mm proud of the mouth`);
-          // What gives on a waisted body is the rib COUNT, not the wall and not the rib: the hub
-          // cannot grow past the waist, so the notches run out of circle. That clamp is reported to
-          // the maker; a count that survives unclamped here would mean the cap is not binding.
-          if (pk.boards > ribs) bad(`${tag}: rib count went UP, ${ribs} → ${pk.boards}`);
-          for (const q of parts)
-            for (const [x, y] of pts2(q))
-              if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
-        }
+      for (const matT of [1, 3, 10])
+        for (const tw of WAIST_T)
+          // `sharp` is the sharpest corner the editor allows, and a corner IS a local minimum: the
+          // scan has nothing sitting at it unless a sample lands there.
+          for (const sharp of [false, true]) {
+            if (waist >= mouth) continue;
+            n10++;
+            const pk = paperP(waisted(mouth, waist, ribs, tw, sharp), matT);
+            const tag = `waist mouth${mouth} waist${waist} ${ribs}ribs t${matT} tw${tw.toFixed(3)}${sharp ? " sharp" : ""}`;
+            // THE assertion: the hub inside the narrowest radius the body reaches, measured on
+            // `outerR` and the control points rather than on anything profile.ts told us.
+            const band = bodyMin(pk) - innerRi(pk);
+            if (band <= 0)
+              bad(`${tag}: the hub is ${(-band).toFixed(2)}mm OUTSIDE the body — the rib's inner edge crosses its outer edge`);
+            if (!tightest || band < tightest.band) tightest = { tag, pk, band };
+            // The rim still never passes the mouth, the waist having no say in that (section 1's
+            // rule, restated where the two numbers differ).
+            const mouthR = Math.min(outerR(pk, 0), outerR(pk, 1));
+            if (komaR(pk) - mouthR > 0.01) bad(`${tag}: koma stands ${(komaR(pk) - mouthR).toFixed(2)}mm proud of the mouth`);
+            // What gives on a waisted body is the rib COUNT: the hub cannot grow past the waist, so
+            // the notches run out of circle and `maxBoards` trims the count, which the app reports.
+            // Asserted as the EQUALITY — `pk.boards > ribs` cannot fail, `paperP` ending in a
+            // `Math.min`, so it was an assertion that asserted nothing.
+            if (pk.boards !== Math.min(ribs, maxBoards(pk)))
+              bad(`${tag}: rib count ${pk.boards}, want min(${ribs}, ${maxBoards(pk)})`);
+          }
+// Drawn, on a dozen of them: every part on paper, no NaN. `paperParts` builds every rib, so this is
+// the expensive question and it is asked of the corners of the space rather than all of it.
+for (const mouth of [60, 600])
+  for (const waist of [8, 20])
+    for (const ribs of [4, 16])
+      for (const [tw, sharp] of [[blind(4), true], [0.5, false]] as const) {
+        const p = waisted(mouth, waist, ribs, tw, sharp);
+        const { parts, pk } = paperParts(p, 10);
+        const tag = `waist drawn mouth${mouth} waist${waist} ${ribs}ribs tw${tw}${sharp ? " sharp" : ""}`;
+        if (!parts.some((q) => q.name.startsWith("羽根板")) || !parts.some((q) => q.name.startsWith("コマ")))
+          bad(`${tag}: a part is missing from the sheet`);
+        for (const q of parts)
+          for (const [x, y] of pts2(q))
+            if (!Number.isFinite(x) || !Number.isFinite(y)) bad(`${tag}: ${q.name} has NaN`);
+        if (bodyMin(pk) - innerRi(pk) <= 0) bad(`${tag}: the hub is outside the body`);
+      }
 // Once, on the tightest of them: does the drawn outline actually cross itself anywhere? This is the
-// failure in its own terms, and the band above is the cheap proxy the sweep can afford.
+// failure in its own terms, and the band above is the cheap proxy the sweep can afford (637k segment
+// pairs per design).
 if (tightest) {
   const o = ribOutline2D(tightest.pk, 0, { smooth: true }) as [number, number][];
   const side = (a: number[], b: number[], c: number[]) =>
