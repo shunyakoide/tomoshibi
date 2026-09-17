@@ -163,7 +163,7 @@ export function paperPagesSVG(p: Design, matT: number, t: T = tid, page: Page & 
   const { parts, pk, clamped, nMax } = paperParts(p, matT, t);
   // The fit facts ride along with the sheets because the print view shows both at once; the sheets
   // themselves are `pagesSVG`'s, the same ones the washi template gets.
-  return { ...pagesSVG(parts, page, t), pk, clamped, nMax };
+  return { ...pagesSVG(parts, page, t, "mold"), pk, clamped, nMax };
 }
 
 /**

@@ -48,5 +48,5 @@ export function washiPDF(p: Design, opts: WashiOpts = {}, page = A4, t: T = tid)
  */
 export function washiPagesSVG(p: Design, opts: WashiOpts = {}, t: T = tid, page: Page & { name?: string } = A4) {
   const { parts } = washiParts(p, opts, t);
-  return pagesSVG(parts, page, t);
+  return pagesSVG(parts, page, t, "washi");
 }
