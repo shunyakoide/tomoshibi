@@ -106,7 +106,9 @@ export default function SectionEditor({
   // same case; a `+` that does nothing when clicked would be the other half of the same bug.
   const ghosts = (editMode === "curve" || p.pts.length >= LIMITS.pts[1]) ? [] : p.pts.slice(0, -1).flatMap((pt, i) => {
     const mt = (pt.t + p.pts[i + 1].t) / 2;
-    if (p.pts[i + 1].t - pt.t < 2 * T_GAP - 1e-9) return [];
+    // The midpoint is `T_GAP` from both ⟺ the pair is `2 × T_GAP` apart. No epsilon, for the same
+    // reason `addAtT` has none: a float's worth of slack here is a `+` whose point the file drops.
+    if (p.pts[i + 1].t - pt.t < 2 * T_GAP) return [];
     return [{ mt, x: X(outerR(p, mt)), y: Y(mt) }];
   });
 

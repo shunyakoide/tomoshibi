@@ -144,8 +144,12 @@ export function sectionDrag(ctx: {
     // the neighbour it crowded, so a design came back from a save with a ◇ the maker had put there
     // themselves missing. The ghost is hidden in the same case (`SectionEditor`); this is the guard
     // behind it, because the affordance and the rule are not the same thing.
+    // **No epsilon.** `legalizePts` keeps a point when the gap is `>= T_GAP` and not a float's worth
+    // less, so a tolerance here is not leniency, it is a disagreement: two drags that both land on
+    // `tBounds`' floor give t = .28 and .36, whose difference is 0.07999999999999996, and a 1e-9
+    // slack offered, accepted and then lost the point. The comparison is the one persist makes.
     const near = p.pts.reduce((d, q) => Math.min(d, Math.abs(q.t - mt)), Infinity);
-    if (near < T_GAP - 1e-9) return;
+    if (near < T_GAP) return;
     const r = clampR(outerR(p, mt));
     // Sorted and located BEFORE the state write: a `setP` updater must be pure — React may run it
     // twice — and calling `setSel` from inside one is a side effect however stable its value.
