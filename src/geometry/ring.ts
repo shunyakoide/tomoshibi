@@ -260,38 +260,3 @@ export function hoopTurn(p: Design, top: boolean): number {
   }
   return -middle;
 }
-
-/**
- * How far a hoop can LEAN on the mold it has been fitted over, in radians — a drawing's dimension,
- * and here rather than in the viewport because it is `RING_FIT` that answers it.
- *
- * A hoop resting on an opening is held by nothing at that point in the build (the guide's `rings`
- * step says so, and says to put a rubber band on it), and drawn flat on the opening plane it reads
- * as fused into the rib edges it is only lying against. So it is drawn leaning, and this is the
- * limit: the inner rim clears the neck by `RING_FIT` — the bent wire's inner surface sits at that
- * same radius — and a circle of radius `r + f` tilted by α presents a minor axis of `(r + f)·cos α`,
- * which binds on the neck at `acos(r / (r + f))`. **A wide mouth leans less**: 3.6° on the default
- * egg's ⌀148, 11° at the ⌀16 floor, the clearance being a smaller fraction of a bigger circle — which
- * is how a hoop behaves in the hand, and the reason this is not one constant angle.
- *
- * `room` is the millimetres the caller has along the axis (opening → the koma's outer face, which is
- * where the low rim would foul the part the mold stands on), and the lean is capped at the angle that
- * spends exactly that. What a leaning hoop occupies is `2·rOuter·sin α + RING_H·cos α` — the low rim's
- * drop **plus the hoop's own thickness**, which is the term this cap was missing: at a ⌀600 mouth on a
- * 60mm body it spent 21.10mm of 20.00mm, and in the standing pose (where `Box3` puts the mold on the
- * floor by its own extent) that hovers the whole mold 1.1mm off the table. `check:manifold` measures
- * the span on the ring's own vertices now, which is what found it.
- *
- * `A·sin α + B·cos α = hypot(A,B)·sin(α + atan2(B,A))`, so the cap inverts in closed form.
- *
- * Both routes, one expression: `WIRE_D` is `RING_WALL`'s twin AND `RING_H`'s (2mm all three), so the
- * leaning hoop has the same outer radius and the same thickness whether it was printed or bent.
- */
-export function hoopLean(p: Design, top: boolean, room: number): number {
-  const r = openingR(p, top);
-  const bind = Math.acos(Math.min(1, r / (r + RING_FIT)));
-  const drop = 2 * (r + RING_FIT + RING_WALL);          // the low rim's travel per radian of lean
-  const phase = Math.atan2(RING_H, drop);
-  const fits = Math.asin(Math.min(1, Math.max(0, room) / Math.hypot(drop, RING_H))) - phase;
-  return Math.max(0, Math.min(bind, fits));
-}
