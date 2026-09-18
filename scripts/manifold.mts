@@ -49,7 +49,7 @@ function report(t: Tally): void {
   console.log(`\n=== bottom-ring leg sockets: ${t.lgTotal} checks, ${t.lgFail} FAIL ===`);
   console.log(`sockets cut: ${t.lgOn} / plain hoop + marker (off, or no room): ${t.lgOff}`);
   console.log(`\n=== the self-intersection guard (bodyMinR vs an independent scan): ${t.gmTotal} checks, ${t.gmFail} FAIL ===`);
-  console.log(`\n=== how a hoop goes on (hoopTurn vs a search, hoopLean vs its room): ${t.hpTotal} checks, ${t.hpFail} FAIL ===`);
+  console.log(`\n=== how a hoop goes on (hoopTurn vs a search): ${t.hpTotal} checks, ${t.hpFail} FAIL ===`);
 }
 const [hLo, hHi] = LIMITS.height, [rLo, rHi] = LIMITS.r;
 
@@ -440,10 +440,10 @@ let gmFail = 0, gmTotal = 0, gmWorst = 0;
   }
 }
 
-// ============ How a hoop goes ON the mold (`hoopTurn`, `hoopLean`) ============
-// Neither angle moves a vertex of an exported part — they are how the assembly view and the guide's
-// figures SEAT a hoop on the assembled mold — but both are arithmetic in `geometry/ring.ts`, and the
-// last round's lesson was that a number no gate can read is a number nothing checks. Two claims:
+// ============ How a hoop goes ON the mold (`hoopTurn`) ============
+// The turn moves no vertex of an exported part — it is how the assembly view and the guide's figures
+// SEAT a hoop on the assembled mold — but it is arithmetic in `geometry/ring.ts`, and a number no gate
+// can read is a number nothing checks. Two claims:
 //
 //  * **`hoopTurn` is the best turn there is.** Everything on the hoop's inner rim reaches inside the
 //    mouth — a leg pad by ~14mm, the bent wire's eyes by ~10mm, the marker tab by 1.35mm — while the
@@ -452,35 +452,18 @@ let gmFail = 0, gmTotal = 0, gmWorst = 0;
 //    middle of their largest gap; here it is checked against a 3,600-step search over every turn, and
 //    the two values it predicts are pinned: half a pitch where the rib count is a multiple of the pad
 //    count (all the residues coincide) and a sixth of it otherwise.
-//  * **`hoopLean` cannot spend more room than it was given.** The viewport leans the hoop away from
-//    the body and the standing pose then puts the mold on the floor by its own extent, so a lean that
-//    overspent its room would hover the mold or push the hoop through the table. Checked on the
-//    ring's OWN vertices, turned the way the viewport turns them, rather than on `2·rOuter·sin α`.
-//    It must not bind on the neck either, and the fit that decides THAT is read off the plain top
-//    hoop's geometry — a constant copied into a gate agrees with itself forever.
+//  * **A hoop does not reach past a koma's outer face.** The assembly view lays it flat on the neck
+//    side of the opening, and the standing pose puts the mold on the floor by its own extent, so a
+//    hoop thicker than that room would hover the mold. Checked on the ring's OWN vertices.
 let hpFail = 0, hpTotal = 0;
 {
   const pos = (geo: THREE.BufferGeometry) => geo.getAttribute("position");
-  // The hoop's smallest radius in its own plane. On the plain top hoop that IS the inner rim, the
-  // hole's polygon sitting exactly on it; on the bottom one a pad or the tab reaches further in.
-  const rimR = (geo: THREE.BufferGeometry) => {
+  // What the hoop occupies along the mold's axis, lying flat: its own extent along local z, which
+  // the viewport's `rotation.x = -π/2` turns into world y.
+  const axisSpan = (geo: THREE.BufferGeometry) => {
     const a = pos(geo);
-    let m = Infinity;
-    for (let i = 0; i < a.count; i++) m = Math.min(m, Math.hypot(a.getX(i), a.getY(i)));
-    return m;
-  };
-  // What the lean costs along the mold's axis. The viewport stands the hoop up (`rotation.x = -π/2`,
-  // local y → world -z, local z → world y) and leans it about world Z, so a local vertex lands at
-  // `x·sin α + z·cos α` and the hoop occupies the span of that over every vertex — whatever the
-  // placement then does with it, since the placement only slides the whole thing.
-  const leanSpan = (geo: THREE.BufferGeometry, lean: number) => {
-    const a = pos(geo), s = Math.sin(lean), c = Math.cos(lean);
     let lo = Infinity, hi = -Infinity;
-    for (let i = 0; i < a.count; i++) {
-      const y = a.getX(i) * s + a.getZ(i) * c;
-      if (y < lo) lo = y;
-      if (y > hi) hi = y;
-    }
+    for (let i = 0; i < a.count; i++) { lo = Math.min(lo, a.getZ(i)); hi = Math.max(hi, a.getZ(i)); }
     return hi - lo;
   };
   // Where the inward features sit in the hoop's own frame: the pad centres the ray test already
@@ -519,38 +502,21 @@ let hpFail = 0, hpTotal = 0;
       hpFail++;
       if (hpFail <= 40) console.log(`✗[H] ${tag} :: clearance ${(got * 180 / Math.PI).toFixed(3)}° is not the promised ${(want * 180 / Math.PI).toFixed(3)}°`);
     }
-    // (3) the lean spends only the room it was given, and does not bind on the neck
+    // (3) lying flat, the hoop fits between the opening and the koma's outer face
     const { lo, hi } = G.fukuroRange(p);
-    const fit = rimR(G.ringGeometry(p, true)) - G.openingR(p, true);   // the part's own clearance
     for (const top of [false, true]) {
       const openY = (top ? hi : lo) * p.height;
       const room = top ? p.height + p.tabLen - openY : openY + p.tabLen;
-      const lean = G.hoopLean(p, top, room);
-      const geo = wire ? G.wireRingGeometry(p, top) : G.ringGeometry(p, top);
-      geo.rotateZ(G.hoopTurn(p, top));                                  // as the viewport builds it
-      const span = leanSpan(geo, lean);
-      // 1e-3mm, for the reason the binding tolerance below carries one: these are Float32 vertices,
-      // and at the ⌀1200 ceiling a last-bit error is ~4e-5mm — while the cap is meant to spend the
-      // room exactly, so the comparison sits right on the boundary. The defect this found was 1.10mm.
+      const span = axisSpan(wire ? G.wireRingGeometry(p, top) : G.ringGeometry(p, top));
       if (span > room + 1e-3) {
         hpFail++;
-        if (hpFail <= 40) console.log(`✗[H] ${tag} ${top ? "top" : "bot"} :: leaning ${(lean * 180 / Math.PI).toFixed(2)}° spends ${span.toFixed(2)}mm of ${room.toFixed(2)}mm`);
-      }
-      const r = G.openingR(p, top);
-      const bind = Math.acos(Math.min(1, r / (r + fit)));               // where the rim binds on the neck
-      // 1e-5 rad, because `fit` was read off Float32 vertices: at the ⌀16 floor the binding angle
-      // goes as √(2f/r), so a last-bit error in a 0.15mm clearance moves it by ~3e-7 rad and an
-      // exact comparison failed 1104 times on angles that print the same to three decimals. A lean
-      // that is really past its clearance is out by degrees.
-      if (lean > bind + 1e-5) {
-        hpFail++;
-        if (hpFail <= 40) console.log(`✗[H] ${tag} ${top ? "top" : "bot"} :: leaning ${(lean * 180 / Math.PI).toFixed(3)}° past the ${(bind * 180 / Math.PI).toFixed(3)}° its ${fit.toFixed(2)}mm of clearance allows`);
+        if (hpFail <= 40) console.log(`✗[H] ${tag} ${top ? "top" : "bot"} :: the hoop takes ${span.toFixed(2)}mm of ${room.toFixed(2)}mm`);
       }
     }
   };
   // The hoop answers to the opening, the rib count and the sockets, and the room answers to the
   // height — so those four are swept, both hoops each time. The bent wire rides a coarser radius
-  // grid: it is the same two angles on a 3.8m centreline sampled every 2mm.
+  // grid: it is the same turn on a 3.8m centreline sampled every 2mm.
   for (const rBot of [8, 13, 26, 40, 74, 120, 300, 600])
     for (const boards of [3, 4, 5, 6, 7, 8, 9, 10, 12, 16])
       for (const legSockets of [true, false])

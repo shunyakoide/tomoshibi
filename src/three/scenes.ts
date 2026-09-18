@@ -2,7 +2,7 @@ import * as THREE from "three";
 import {
   maxRadius, standBoardLength, fukuroRange,
   ribGeometry, komaGeometry, standGeometry, boardGeometry,
-  standCollarTop, standSaddleH, standSlotSep, ringGeometry, wireRingGeometry, hoopLean, hoopTurn, washiSurface, seatTicks2D,
+  standCollarTop, standSaddleH, standSlotSep, ringGeometry, wireRingGeometry, hoopTurn, washiSurface, seatTicks2D,
 } from "../geometry.ts";
 import { fitOnBed } from "../bed.ts";
 import { ribGeo } from "./figures/mold.ts";
@@ -88,39 +88,28 @@ const WIRE_MAT = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.
  * washi folded over it (see "Opening hoops" in the design notes). **The same placement, the same
  * route split and the same turn as the guide's ring step** (`three/figures/mold.ts`) — cardboard
  * bends wire where the printed route prints a ring — because the two pictures are of one assembly
- * and nothing here may disagree with the step that shows the maker how to put it on. The one thing
- * the guide does NOT copy is the lean: that step is about the ACT of fitting a hoop, where square to
- * the opening is the instruction.
+ * and nothing here may disagree with the step that shows the maker how to put it on — including
+ * that it lies SQUARE to the opening, as the guide draws it.
  *
  * Inside the mold GROUP, so the hoops follow the pose rather than being placed twice, and they do not
  * move it: **no hoop may reach past a koma's outer face** — that being the extent the standing route
- * drops the mold by (`Box3`) and what both framings read — which is exactly the room `hoopLean` is
- * capped on, and `check:manifold` measures the span on the ring's own vertices against it. It is
- * there because the first cap forgot the hoop's own 2mm and spent 21.10mm of 20.00mm at a ⌀1200
- * mouth, which hovers the standing mold 1.1mm off the table. Radially the hoop can stand
+ * drops the mold by (`Box3`) and what both framings read. Lying flat, a hoop takes its own 2mm along
+ * the axis, on the neck side of the opening. Radially it can stand
  * `RING_FIT + RING_WALL - higoD` proud: at most 1.15mm, and only where the opening IS the widest
  * point, `maxRadius` already carrying the bamboo's diameter, against a framing margin of 25%.
  *
- * **The lean is not what clears the rim's own features; the TURN is.** A leg pad reaches
+ * **What clears the rim's own features is the TURN.** A leg pad reaches
  * `TRI_R + TRI_R/2 - LEG_OVERLAP` inside the mouth (14.25mm on the default egg), the wire hoop's eyes
  * about 10mm, the marker tab 1.35mm, and the rib plate there is solid from `r=6` out to the mouth at
- * every height in the neck — so a hoop laid on in any old orientation has them buried in a rib, which
- * is what leaning it could only ever half-hide. **The answer is the maker's own: you turn it** until
- * they pass between the plates (`hoopTurn`), which is a placement, not a part — no vertex of any
- * exported STL moves, and `check:hash` says so.
+ * every height in the neck — so a hoop laid on in any old orientation has them buried in a rib.
+ * **The answer is the maker's own: you turn it** until they pass between the plates (`hoopTurn`),
+ * which is a placement, not a part — no vertex of any exported STL moves, and `check:hash` says so.
  */
 function openingHoops(p: Design, smooth: boolean, mat: THREE.Material): THREE.Group {
   const g = new THREE.Group();
   const { lo, hi } = fukuroRange(p);
   for (const top of [false, true]) {
     const openY = (top ? hi : lo) * p.height;
-    // It LEANS, by as much as its own clearance on the neck allows (`hoopLean`) and no more than the
-    // room out to the koma's outer face — flat on the opening plane it read as fused into the rib
-    // edges it is only lying against, which is not what is holding it at this point in the build
-    // (nothing is). In a group, so the lean composes with the hoop's own quarter turn rather than
-    // fighting it for one Euler triple.
-    const tilt = new THREE.Group();
-    tilt.rotation.z = hoopLean(p, top, top ? p.height + p.tabLen - openY : openY + p.tabLen);
     const geo = smooth ? wireRingGeometry(p, top) : ringGeometry(p, top);
     // TURNED so the leg pads (the eyes, on wire) and the marker tab pass between the ribs rather
     // than into one — `hoopTurn`. On the geometry, which is the hoop's own plane, and which this
@@ -128,18 +117,14 @@ function openingHoops(p: Design, smooth: boolean, mat: THREE.Material): THREE.Gr
     geo.rotateZ(hoopTurn(p, top));
     const hoop = new THREE.Mesh(geo, mat);
     hoop.rotation.x = -Math.PI / 2;
-    tilt.add(hoop);
-    // It leans DOWN the neck, never up into the body: the rim on the body side stays on the opening
-    // plane and the rest of the hoop hangs below it (above it, at the top opening). Pivoting on the
-    // centre instead would bury the raised rim IN the body, whose radius grows the moment you leave
-    // the opening — on the default egg the 3.65° lean raises a rim 4.84mm, and 4.84mm above that
-    // mouth the body is 2.54mm wider, against the 2.15mm the hoop stands outside it by. Placed off
-    // the tilted geometry's own box rather than from `2·rOuter·sin α`, so the printed ring's
-    // one-sided extrusion and the wire's centred tube both land by what they actually occupy.
-    tilt.updateMatrixWorld(true);
-    const b = new THREE.Box3().setFromObject(tilt);
-    tilt.position.y = openY - (top ? b.min.y : b.max.y);
-    g.add(tilt);
+    // On the NECK side of the opening, never into the body: the rim on the body side stays on the
+    // opening plane and the hoop's thickness lies below it (above it, at the top opening). Placed off
+    // the geometry's own box, so the printed ring's one-sided extrusion and the wire's centred tube
+    // both land by what they actually occupy.
+    hoop.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(hoop);
+    hoop.position.y = openY - (top ? b.min.y : b.max.y);
+    g.add(hoop);
   }
   return g;
 }
