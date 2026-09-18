@@ -260,6 +260,7 @@ const EN: Record<string, string> = {
   "補足": "Note",
   "関連ノート": "Related note",
   "Tomoshibiを作った理由": "Why I made Tomoshibi",
+  "和紙ランプ作りの流れ": "How a washi lamp comes together",
   "← Notes一覧": "← All notes",
   "作り方へ戻る": "Back to the build guide",
   "ノートが見つかりません": "Note not found",
@@ -307,6 +308,8 @@ const EN: Record<string, string> = {
   "乾かす": "Let it dry",
   "糊と和紙が完全に乾くまで置きます。乾くと紙が張って形が決まります。急がないこと — 生乾きで型を抜くと歪みます。":
     "Leave it until the paste and the paper are completely dry. Drying is what pulls the paper taut and sets the shape. Do not rush it: pulling the mold from a damp shade warps it.",
+  "糊と和紙を乾かします。乾くと紙が張って形が決まります。段ボールの型は和紙が型にも引っ付いてしまうので、完全に乾くまでは待たず、ある程度乾いてきたら型を抜いてください。口輪のところの和紙が剥がれたら、クリップで押さえてそのまま乾かします。":
+    "Leave the paste and the paper to dry. Drying is what pulls the paper taut and sets the shape. The washi sticks to a cardboard mold as well, so do not wait for it to dry completely: once it has dried somewhat, pull the mold. If the washi comes loose at a ring, clip it down and let it finish drying.",
   "型を抜く": "Pull the mold",
   "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。":
     "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are. The rings stay behind with the lantern; trim the overhanging washi at the rim.",
