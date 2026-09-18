@@ -18,6 +18,12 @@ Turn on leg sockets in the settings and the bottom ring gets three holes for the
 
 On the cardboard route you bend wire along the template line sized to the bottom opening, making three eyes for the legs. The leg ends just pass through them and fold back.
 
+If you make the rings from wire, the cardboard PDF carries a template for them, so use that as your guide.
+
+![Bending the wire to the line on the template](notes/wire-ring-bending.jpg)
+
+![The finished rings. The bottom one carries three eyes for the legs](notes/wire-rings-done.jpg)
+
 The bending and the assembly steps themselves are on the build guide. What follows is the part before that: which socket to press into service, and how.
 
 ## Using a pendant light socket {#pendant-socket}
@@ -28,9 +34,19 @@ This is not what the socket was made for, though. Build it at your own risk.
 
 Bend each leg into a dog-leg, and make a loop where it reaches the middle of the bottom opening. That loop is the part the socket clamps, so leave a gap wide enough for it to sit in. All three legs take the same shape.
 
+![The frame (left) and the three legs (right), laid flat](notes/wire-parts-flat.jpg)
+
 The frame that holds the body taut is fixed by the same socket. Bend the top end so it stands proud of the top opening, making a handle to carry the lamp by. Below that, bend it to the width that catches on the top opening. The bottom end becomes a loop, like the legs, at the part of the socket that clamps.
 
+![The frame and the three legs, their ends bent into loops](notes/wire-parts.jpg)
+
 Then loosen the threaded part of the socket, hook the three legs' loops and the frame's loop onto it together, and tighten it down. Adjust the angle of the legs and the socket afterwards.
+
+![The legs' and the frame's loops fitted onto the socket, before tightening](notes/socket-fitted.jpg)
+
+![The same, from the front](notes/socket-fitted-front.jpg)
+
+![From inside the body. The bottom ring the legs and the frame pass through is bent from wire here, not 3D printed](notes/inside-the-shade.jpg)
 
 Rubber feet on the leg ends, or simply bending the ends over, will keep them from marking whatever the lamp stands on.
 
@@ -52,7 +68,9 @@ Given the size of shade a home 3D printer can make, a small bulb around E17 feel
 
 Go for a warm-coloured bulb — warm white rather than daylight. Light coming through washi suits a warm colour.
 
-For a pendant socket in E17, IKEA's STRÅLA works. It has a threaded part to clamp against, so the legs and the frame can be held there. That part sits close to the bulb, though, so it can end up showing below the bottom of the body.
+For a pendant socket in E17, IKEA's STRÅLA works. It has a threaded part to clamp against, so the legs and the frame can be held there. That part sits close to the bulb, though, so it can end up showing below the bottom of the body. A part made to fit this one might be worth developing.
+
+![IKEA's STRÅLA](notes/strala.jpg)
 
 ## Still room to work this out {#still-open}
 
