@@ -2,7 +2,7 @@ import * as THREE from "three";
 import {
   maxRadius, standBoardLength, fukuroRange,
   ribGeometry, komaGeometry, standGeometry, boardGeometry,
-  standCollarTop, standSaddleH, standSlotSep, ringGeometry, wireRingGeometry, hoopTurn, washiSurface, seatTicks2D,
+  standCollarTop, standSaddleH, standSlotSep, ringGeometry, ringLegs, wireRingGeometry, hoopTurn, washiSurface, seatTicks2D,
 } from "../geometry.ts";
 import { fitOnBed } from "../bed.ts";
 import { ribGeo } from "./figures/mold.ts";
@@ -152,11 +152,17 @@ function moldGroup(p: Design, s: ViewportState, smooth: boolean): THREE.Group {
 }
 
 // ---- lit: the finished lantern, no mold ----
+// The bottom rim's tube: the opening hoop, drawn as the one ring the lit lantern keeps.
+const RIM_TUBE = 1.8;
 function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
-  const legH = p.height * 0.42;                 // three legs (1AY style)
   // The neck carries no bamboo or washi: draw the lamp body only, openings left open. The surface is
   // `washiSurface` — the same meridian the assembly figures use, over the same `fukuroRange`.
   const prof = washiSurface(p, 160);            // fine vertical sampling keeps the silhouette smooth
+  // Three legs (1AY style) only when the lantern HAS them — `ringLegs()`, the answer the guide's leg
+  // step and the ring's sockets both read, so "off" and "no room" alike stand it on its bottom rim.
+  // Without them the whole lantern is lifted so the rim's tube just touches the floor.
+  const legs = !!ringLegs(p);
+  const legH = legs ? p.height * 0.42 : RIM_TUBE - Math.min(...prof.map(([, y]) => y));
   const pts = prof.map(([r, y]: [number, number]) => new THREE.Vector2(r, legH + y));
   s.group.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 128), s.washiMat));
 
@@ -176,12 +182,12 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   // black iron instead of sinking into the dark background.
   const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
   const [rimR, rimY0] = prof[0], rimY = legH + rimY0;   // the skin's bottom rim, by construction
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, 1.8, 14, 96), legMat);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, RIM_TUBE, 14, 96), legMat);
   rim.rotation.x = Math.PI / 2; rim.position.y = rimY;
   s.group.add(rim);
   // The feet land further out than the root: a tripod spreading from the opening, not tapering in.
   const r0 = rimR, r1 = rimR + legH * 0.35;
-  for (let i = 0; i < 3; i++) {
+  if (legs) for (let i = 0; i < 3; i++) {
     const a = (i / 3) * Math.PI * 2 + Math.PI / 6;
     const topP = new THREE.Vector3(r0 * Math.cos(a), rimY, r0 * Math.sin(a));
     const botP = new THREE.Vector3(r1 * Math.cos(a), 2, r1 * Math.sin(a));
