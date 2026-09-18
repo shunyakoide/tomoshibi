@@ -56,7 +56,7 @@ Thanks to all of that, I managed to make a first lamp. There are still many thin
 
 I would like to improve support for larger molds and the cardboard route in the future.
 
-There is also one difficult problem with this kind of lamp-making: even if Tomoshibi can help make the shade, lamp sockets are different around the world. The way the light is mounted changes depending on what socket or fixture someone has, so I plan to write about that in a separate note.
+There is also one difficult problem with this kind of lamp-making: even if Tomoshibi can help make the shade, lamp sockets are different around the world. The way the light is mounted changes depending on what socket or fixture someone has, so that has a note of its own: [Legs and how to mount the socket](note-sockets).
 
 ## What these notes are for {#what-notes-are-for}
 
@@ -66,6 +66,6 @@ The build guide is meant to stay focused on the shortest path to making a lanter
 
 Tomoshibi is a site for helping people enjoy making washi lamps with their own hands. I would be happy if people used it to try different shapes, draw on the washi, or make lamps together with friends and family.
 
-If you make something, please show it to me by tagging me on Instagram or X. You should be able to find me as `shunyakoide`.
+If you make something, please show it to me by tagging me on Instagram or X. You should be able to find me as shunyakoide.
 
 Enjoy making your washi lamp.
