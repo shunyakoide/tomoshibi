@@ -28,7 +28,7 @@ export default function Markdown({ source }: { source: string }) {
           return (
             <figure key={i} className="my-18">
               <img src={img[2]} alt={img[1]}
-                className="block w-full max-h-[520px] object-contain rounded-lg border border-card-edge bg-card" />
+                className="block w-auto max-w-full max-h-[520px] rounded-lg border border-card-edge" />
               {img[1] && <figcaption className="mt-6 text-sm leading-[1.6] text-sub">{img[1]}</figcaption>}
             </figure>
           );
