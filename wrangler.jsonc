@@ -1,0 +1,17 @@
+// Cloudflare Workers static-assets deployment (trial). No Worker script: Cloudflare serves dist/
+// as-is, the same bytes GitHub Pages serves. See CONTRIBUTING.md "Cloudflare trial deployment".
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tomoshibi",
+  "compatibility_date": "2026-09-17",
+  "workers_dev": true,
+  "routes": [{ "pattern": "tomoshibi.shunyakoide.com", "custom_domain": true }],
+  "assets": {
+    "directory": "./dist",
+    // A request for /guide or /note-* gets index.html with a 200, which is what the router in
+    // src/studio/route.ts reads. dist/404.html (the GitHub Pages fallback) is unused here.
+    "not_found_handling": "single-page-application"
+  },
+  // Same offset scheme as vite.config.ts: dev 8173, preview 8174, the Cloudflare runtime 8175.
+  "dev": { "port": 8175 }
+}
