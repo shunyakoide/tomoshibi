@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import {
-  maxRadius, standBoardLength,
+  maxRadius, standBoardLength, fukuroRange,
   ribGeometry, komaGeometry, standGeometry, boardGeometry,
-  standCollarTop, standSaddleH, standSlotSep, ringGeometry, washiSurface, seatTicks2D,
+  standCollarTop, standSaddleH, standSlotSep, ringGeometry, ringLegs, wireRingGeometry, hoopTurn, washiSurface, seatTicks2D,
 } from "../geometry.ts";
 import { fitOnBed } from "../bed.ts";
 import { ribGeo } from "./figures/mold.ts";
@@ -73,6 +73,62 @@ function seatTickLines(p: Design, k: number): THREE.Mesh {
   return new THREE.Mesh(g, TICK_MAT);
 }
 
+// The wire the cardboard route bends its hoops from — steel, so the one part on that route the maker
+// does not cut out of board does not read as a strip of board. The same colour as the lit view's
+// legs, that being the app's other bent-wire part. Module-level and shared for `TICK_MAT`'s reason:
+// `buildScene` disposes geometries on rebuild, never materials.
+const WIRE_MAT = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3, envMapIntensity: 0.9 });
+
+/**
+ * The two opening hoops, seated where they seat: `fukuroRange` is where the BODY ends — the opening —
+ * so a neck moves the hoop with it, and the koma's own plane (`tabLen` further out) does not.
+ *
+ * They are drawn in the assembly view because the hoop goes ON the mold and stays there for the rest
+ * of the build: its inner face against the rib tips, the bamboo wound around its outer edge, the
+ * washi folded over it (see "Opening hoops" in the design notes). **The same placement, the same
+ * route split and the same turn as the guide's ring step** (`three/figures/mold.ts`) — cardboard
+ * bends wire where the printed route prints a ring — because the two pictures are of one assembly
+ * and nothing here may disagree with the step that shows the maker how to put it on — including
+ * that it lies SQUARE to the opening, as the guide draws it.
+ *
+ * Inside the mold GROUP, so the hoops follow the pose rather than being placed twice, and they do not
+ * move it: **no hoop may reach past a koma's outer face** — that being the extent the standing route
+ * drops the mold by (`Box3`) and what both framings read. Lying flat, a hoop takes its own 2mm along
+ * the axis, on the neck side of the opening. Radially it can stand
+ * `RING_FIT + RING_WALL - higoD` proud: at most 1.15mm, and only where the opening IS the widest
+ * point, `maxRadius` already carrying the bamboo's diameter, against a framing margin of 25%.
+ *
+ * **What clears the rim's own features is the TURN.** A leg pad reaches
+ * `TRI_R + TRI_R/2 - LEG_OVERLAP` inside the mouth (14.25mm on the default egg), the wire hoop's eyes
+ * about 10mm, the marker tab 1.35mm, and the rib plate there is solid from `r=6` out to the mouth at
+ * every height in the neck — so a hoop laid on in any old orientation has them buried in a rib.
+ * **The answer is the maker's own: you turn it** until they pass between the plates (`hoopTurn`),
+ * which is a placement, not a part — no vertex of any exported STL moves, and `check:hash` says so.
+ */
+function openingHoops(p: Design, smooth: boolean, mat: THREE.Material): THREE.Group {
+  const g = new THREE.Group();
+  const { lo, hi } = fukuroRange(p);
+  for (const top of [false, true]) {
+    const openY = (top ? hi : lo) * p.height;
+    const geo = smooth ? wireRingGeometry(p, top) : ringGeometry(p, top);
+    // TURNED so the leg pads (the eyes, on wire) and the marker tab pass between the ribs rather
+    // than into one — `hoopTurn`. On the geometry, which is the hoop's own plane, and which this
+    // file may do because it disposes these geometries on the next rebuild.
+    geo.rotateZ(hoopTurn(p, top));
+    const hoop = new THREE.Mesh(geo, mat);
+    hoop.rotation.x = -Math.PI / 2;
+    // On the NECK side of the opening, never into the body: the rim on the body side stays on the
+    // opening plane and the hoop's thickness lies below it (above it, at the top opening). Placed off
+    // the geometry's own box, so the printed ring's one-sided extrusion and the wire's centred tube
+    // both land by what they actually occupy.
+    hoop.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(hoop);
+    hoop.position.y = openY - (top ? b.min.y : b.max.y);
+    g.add(hoop);
+  }
+  return g;
+}
+
 /** The assembled mold. `smooth` is the CARDBOARD route: that template cuts no grooves and opens no
  *  lightening windows, so drawing them here would show a mold nobody on that route will hold. The
  *  same flag the guide's figures use (`ribGeo`), for the same reason. */
@@ -89,15 +145,24 @@ function moldGroup(p: Design, s: ViewportState, smooth: boolean): THREE.Group {
   const kt = new THREE.Mesh(komaGeometry(p), s.komaMat);
   kt.rotation.x = Math.PI / 2; kt.position.y = p.height + p.tabLen;
   mold.add(kb, kt);
+  // The printed hoop is a printed part, so it takes the koma's material — the same one the print
+  // view lays it on the plate with; the bent one is wire.
+  mold.add(openingHoops(p, smooth, smooth ? WIRE_MAT : s.komaMat));
   return mold;
 }
 
 // ---- lit: the finished lantern, no mold ----
+// The bottom rim's tube: the opening hoop, drawn as the one ring the lit lantern keeps.
+const RIM_TUBE = 1.8;
 function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
-  const legH = p.height * 0.42;                 // three legs (1AY style)
   // The neck carries no bamboo or washi: draw the lamp body only, openings left open. The surface is
   // `washiSurface` — the same meridian the assembly figures use, over the same `fukuroRange`.
   const prof = washiSurface(p, 160);            // fine vertical sampling keeps the silhouette smooth
+  // Three legs (1AY style) only when the lantern HAS them — `ringLegs()`, the answer the guide's leg
+  // step and the ring's sockets both read, so "off" and "no room" alike stand it on its bottom rim.
+  // Without them the whole lantern is lifted so the rim's tube just touches the floor.
+  const legs = !!ringLegs(p);
+  const legH = legs ? p.height * 0.42 : RIM_TUBE - Math.min(...prof.map(([, y]) => y));
   const pts = prof.map(([r, y]: [number, number]) => new THREE.Vector2(r, legH + y));
   s.group.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 128), s.washiMat));
 
@@ -117,12 +182,12 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   // black iron instead of sinking into the dark background.
   const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
   const [rimR, rimY0] = prof[0], rimY = legH + rimY0;   // the skin's bottom rim, by construction
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, 1.8, 14, 96), legMat);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, RIM_TUBE, 14, 96), legMat);
   rim.rotation.x = Math.PI / 2; rim.position.y = rimY;
   s.group.add(rim);
   // The feet land further out than the root: a tripod spreading from the opening, not tapering in.
   const r0 = rimR, r1 = rimR + legH * 0.35;
-  for (let i = 0; i < 3; i++) {
+  if (legs) for (let i = 0; i < 3; i++) {
     const a = (i / 3) * Math.PI * 2 + Math.PI / 6;
     const topP = new THREE.Vector3(r0 * Math.cos(a), rimY, r0 * Math.sin(a));
     const botP = new THREE.Vector3(r1 * Math.cos(a), 2, r1 * Math.sin(a));
