@@ -33,7 +33,16 @@ export type SavedState = {
  * bare `5` anyway. Reading a default from anywhere but here is how the next one drifts.
  */
 export const FRESH: SavedState = {
-  p: DEFAULTS,
+  // **Through the silhouette floors, like every other surface that hands out a point list.** The
+  // rule is `silhouetteFloors`' own: a surface that skips them makes a design the others consider
+  // illegal. This one skipped them, and it is the first thing anybody sees — `DEFAULTS.pts` ends at
+  // r19 (the shape `たまご` has always carried) while `OPENING_MIN` is 26, so a first visit opened on
+  // a ⌀38 mouth that no chip lit up for, that the editor would not let you draw, and that the first
+  // save silently widened to ⌀52: the mouth sizes `komaR`/`tabDepth`/`innerRi`, so the kit exported
+  // before that save was not the kit exported after it. Floored here, a fresh state is the state a
+  // reload gives back — `check:persist` asserts exactly that — and the chip is lit on the shape the
+  // app is actually in. `DEFAULTS` keeps its own numbers, as the presets keep theirs.
+  p: { ...DEFAULTS, pts: silhouetteFloors(DEFAULTS.pts, DEFAULTS.height) },
   bedW: 256, bedD: 256,        // print bed (mm) — a common 256mm machine until the maker says otherwise
   printRibs: 1,
   matT: 2,                     // cardboard thickness (mm). MEASURED on a grocery box, not read off a flute

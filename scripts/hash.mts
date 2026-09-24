@@ -19,6 +19,7 @@ import type * as THREE from "three";
 import crypto from "node:crypto";
 import * as G from "../src/geometry.ts";
 import { PRESETS, DEFAULTS } from "../src/config.ts";
+import { FRESH } from "../src/studio/persist.ts";   // the state a first visit opens on
 
 const hash = (g: THREE.BufferGeometry) => {
   const a = g.getAttribute("position").array;
@@ -44,4 +45,16 @@ for (const preset of PRESETS)
           out.push(`${tag} ring.bot ${hash(G.ringGeometry(p, false))}`);
           out.push(`${tag} ring.top ${hash(G.ringGeometry(p, true))}`);
         }
+// And the design the app actually OPENS on. Everything above merges a preset over `DEFAULTS`, so it
+// hashes the presets' own point lists — which is not a state the app is ever in: `OPENING_MIN` floors
+// two of the three the moment they are picked, and `FRESH` floors the starting design the same way.
+// The one design every visitor gets was the one design this gate could not see.
+for (const [tag, p] of [["fresh", FRESH.p]] as [string, typeof FRESH.p][]) {
+  out.push(`${tag} rib   ${hash(G.ribGeometry(p, 0))}`);
+  out.push(`${tag} koma  ${hash(G.komaGeometry(p))}`);
+  out.push(`${tag} stand ${hash(G.standGeometry(p))}`);
+  out.push(`${tag} board ${hash(G.boardGeometry(p))}`);
+  out.push(`${tag} ring.bot ${hash(G.ringGeometry(p, false))}`);
+  out.push(`${tag} ring.top ${hash(G.ringGeometry(p, true))}`);
+}
 console.log(out.join("\n"));

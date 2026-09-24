@@ -21,6 +21,7 @@ import os from "node:os";
 import * as G from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS, T_GAP } from "../src/config.ts";
 import { neckFloor } from "../src/ui/pointEdit.ts";
+import { paperP } from "../src/papercraft.ts";   // the cardboard route's own design: the hoop there is bent wire
 import type { Design, Pt } from "../src/types.ts";
 
 /** One part's verdict. `reason` is what gets printed when it fails. */
@@ -48,6 +49,7 @@ function report(t: Tally): void {
   console.log(`\n=== bottom-ring leg sockets: ${t.lgTotal} checks, ${t.lgFail} FAIL ===`);
   console.log(`sockets cut: ${t.lgOn} / plain hoop + marker (off, or no room): ${t.lgOff}`);
   console.log(`\n=== the self-intersection guard (bodyMinR vs an independent scan): ${t.gmTotal} checks, ${t.gmFail} FAIL ===`);
+  console.log(`\n=== how a hoop goes on (hoopTurn vs a search): ${t.hpTotal} checks, ${t.hpFail} FAIL ===`);
 }
 const [hLo, hHi] = LIMITS.height, [rLo, rHi] = LIMITS.r;
 
@@ -438,9 +440,100 @@ let gmFail = 0, gmTotal = 0, gmWorst = 0;
   }
 }
 
-const tally: Tally = { total, fail, stopOn, stopOff, clamped, htotal, hfail, spTotal, spFail, exTotal, exFail, spcTotal, spcFail, lgTotal, lgFail, lgOn, lgOff, gmTotal, gmFail };
+// ============ How a hoop goes ON the mold (`hoopTurn`) ============
+// The turn moves no vertex of an exported part — it is how the assembly view and the guide's figures
+// SEAT a hoop on the assembled mold — but it is arithmetic in `geometry/ring.ts`, and a number no gate
+// can read is a number nothing checks. Two claims:
+//
+//  * **`hoopTurn` is the best turn there is.** Everything on the hoop's inner rim reaches inside the
+//    mouth — a leg pad by ~14mm, the bent wire's eyes by ~10mm, the marker tab by 1.35mm — while the
+//    rib plate there is solid from the tab out to the opening, so those features have to pass BETWEEN
+//    the plates. The closed form takes the pads' azimuths modulo one rib pitch and puts a rib in the
+//    middle of their largest gap; here it is checked against a 3,600-step search over every turn, and
+//    the two values it predicts are pinned: half a pitch where the rib count is a multiple of the pad
+//    count (all the residues coincide) and a sixth of it otherwise.
+//  * **A hoop does not reach past a koma's outer face.** The assembly view lays it flat on the neck
+//    side of the opening, and the standing pose puts the mold on the floor by its own extent, so a
+//    hoop thicker than that room would hover the mold. Checked on the ring's OWN vertices.
+let hpFail = 0, hpTotal = 0;
+{
+  const pos = (geo: THREE.BufferGeometry) => geo.getAttribute("position");
+  // What the hoop occupies along the mold's axis, lying flat: its own extent along local z, which
+  // the viewport's `rotation.x = -π/2` turns into world y.
+  const axisSpan = (geo: THREE.BufferGeometry) => {
+    const a = pos(geo);
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < a.count; i++) { lo = Math.min(lo, a.getZ(i)); hi = Math.max(hi, a.getZ(i)); }
+    return hi - lo;
+  };
+  // Where the inward features sit in the hoop's own frame: the pad centres the ray test already
+  // reads, or the marker tab, which `annulusGeo` splices in on the +x side.
+  const featureAz = (p: Design) => {
+    const pads = padCentres(p);
+    return pads.length ? pads.map(([x, y]) => Math.atan2(y, x)) : [0];
+  };
+  // The nearest rib, in radians, for the worst of those features at a given turn.
+  const toNearestRib = (p: Design, az: number[], turn: number) => {
+    const pitch = (2 * Math.PI) / p.boards;
+    let m = Infinity;
+    for (const a of az) {
+      const d = Math.abs((((a + turn) % pitch) + pitch + pitch / 2) % pitch - pitch / 2);
+      if (d < m) m = d;
+    }
+    return m;
+  };
+  const check = (p: Design, tag: string, wire: boolean) => {
+    if (!mine()) return;
+    hpTotal++;
+    const pitch = (2 * Math.PI) / p.boards;
+    const az = featureAz(p);
+    const turn = G.hoopTurn(p, false);
+    const got = toNearestRib(p, az, turn);
+    // (1) no turn anywhere does better
+    let best = 0;
+    for (let i = 0; i < 3600; i++) best = Math.max(best, toNearestRib(p, az, (i / 3600) * 2 * Math.PI));
+    if (got < best - 1e-9) {
+      hpFail++;
+      if (hpFail <= 40) console.log(`✗[H] ${tag} :: hoopTurn clears ${(got * 180 / Math.PI).toFixed(3)}° where ${(best * 180 / Math.PI).toFixed(3)}° was available`);
+    }
+    // (2) and it is the value the closed form promises
+    const want = az.length > 1 && p.boards % az.length !== 0 ? pitch / (2 * az.length) : pitch / 2;
+    if (Math.abs(got - want) > 1e-9) {
+      hpFail++;
+      if (hpFail <= 40) console.log(`✗[H] ${tag} :: clearance ${(got * 180 / Math.PI).toFixed(3)}° is not the promised ${(want * 180 / Math.PI).toFixed(3)}°`);
+    }
+    // (3) lying flat, the hoop fits between the opening and the koma's outer face
+    const { lo, hi } = G.fukuroRange(p);
+    for (const top of [false, true]) {
+      const openY = (top ? hi : lo) * p.height;
+      const room = top ? p.height + p.tabLen - openY : openY + p.tabLen;
+      const span = axisSpan(wire ? G.wireRingGeometry(p, top) : G.ringGeometry(p, top));
+      if (span > room + 1e-3) {
+        hpFail++;
+        if (hpFail <= 40) console.log(`✗[H] ${tag} ${top ? "top" : "bot"} :: the hoop takes ${span.toFixed(2)}mm of ${room.toFixed(2)}mm`);
+      }
+    }
+  };
+  // The hoop answers to the opening, the rib count and the sockets, and the room answers to the
+  // height — so those four are swept, both hoops each time. The bent wire rides a coarser radius
+  // grid: it is the same turn on a 3.8m centreline sampled every 2mm.
+  for (const rBot of [8, 13, 26, 40, 74, 120, 300, 600])
+    for (const boards of [3, 4, 5, 6, 7, 8, 9, 10, 12, 16])
+      for (const legSockets of [true, false])
+        for (const height of [60, 205, 900]) {
+          const pts: Pt[] = [{ t: 0.075, r: rBot }, { t: 0.5, r: Math.max(rBot, 60) }, { t: 0.925, r: 30 }];
+          const base = { ...DEFAULTS, height, rBot, rTop: 30, pts: neckFloor(pts, height), legSockets };
+          const p = { ...base, boards: Math.min(boards, G.maxBoards(base)) };
+          if (p.boards !== boards) continue;                            // a count the UI cannot make here
+          const tag = `r${rBot} b${boards} legs${legSockets ? 1 : 0} h${height}`;
+          check(p, tag, false);
+          if (rBot === 26 || rBot === 74) check(paperP(p, 3), `${tag} wire`, true);
+        }
+}
+
+const tally: Tally = { total, fail, stopOn, stopOff, clamped, htotal, hfail, spTotal, spFail, exTotal, exFail, spcTotal, spcFail, lgTotal, lgFail, lgOn, lgOff, gmTotal, gmFail, hpTotal, hpFail };
 if (!isMainThread) parentPort!.postMessage(tally);
 else {
   report(tally);
-  process.exit(fail + hfail + spFail + spcFail + exFail + lgFail + gmFail ? 1 : 0);
+  process.exit(fail + hfail + spFail + spcFail + exFail + lgFail + gmFail + hpFail ? 1 : 0);
 }
