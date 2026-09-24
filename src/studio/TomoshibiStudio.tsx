@@ -311,7 +311,9 @@ export default function TomoshibiStudio() {
         {inspector}
         <input ref={designFile} type="file" accept=".json,application/json" className="hidden"
           onChange={(e) => { importDesign(e.target.files?.[0]); e.target.value = ""; }} />
-        {welcome && (
+        {/* Held back while a page is open, not dismissed: someone who arrives on a note's link came
+            to read it, and the card introduces the app they meet when they close it. */}
+        {welcome && !page && (
           <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome}
             onPick={(r) => { set("route", r); closeWelcome(); }} />
         )}
