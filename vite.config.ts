@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { defineConfig, type Plugin, type ResolvedConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwind from "@tailwindcss/vite";
+import { ROUTES } from "./src/studio/routes.ts";
 
 /**
  * Publish the built document a second time as 404.html.
@@ -39,6 +40,28 @@ function spa404(): Plugin {
   };
 }
 
+/**
+ * Drop a trailing slash after a route — `/tomoshibi/notes/` → `/tomoshibi/notes` — before anything
+ * else in the page loads.
+ *
+ * With the slash, the relative asset tags resolve one directory too deep (`notes/assets/x.js`), and
+ * both hosts answer that with an HTML page — GitHub Pages its 404, Cloudflare its SPA fallback — so
+ * the bundle never runs and the page sits on "Loading…" forever. The router cannot fix it; it IS
+ * the bundle. So this is an inline script, first in `<head>`, ahead of the asset tags.
+ *
+ * Only a known route's slash goes: the mount itself (`/tomoshibi/`) ends in one too, and a
+ * redirect that stripped that would send the app's root to the parent directory.
+ */
+function trailingSlash(): Plugin {
+  const pattern = `/(${ROUTES.join("|")})\\/+$`;
+  const script = `<script>(function(){var l=location,m=l.pathname.match(new RegExp("${pattern}"));`
+    + `if(m)l.replace(l.pathname.slice(0,m.index+1+m[1].length)+l.search+l.hash)})()</script>`;
+  return {
+    name: "trailing-slash",
+    transformIndexHtml: (html) => html.replace("<head>", "<head>\n    " + script),
+  };
+}
+
 // base: "./" emits relative asset paths, so the build works as-is on any static host with no
 // per-host reconfiguration. What it does NOT carry across hosts is the 404 fallback above: a host
 // that ignores 404.html will 404 on /guide itself, though the app's own root works everywhere.
@@ -46,7 +69,7 @@ export default defineConfig({
   base: "./",
   // Tailwind generates only the utilities that appear in the source, and brings NO preflight here —
   // see the import in index.css for why the app keeps its own reset.
-  plugins: [react(), tailwind(), spa404()],
+  plugins: [react(), tailwind(), trailingSlash(), spa404()],
   // A dedicated port instead of Vite's default 5173, which every other Vite project also wants.
   // strictPort makes a collision fail loudly rather than drifting to 5174/5175…, where you can no
   // longer tell which project is on which port. Same offset for preview.
