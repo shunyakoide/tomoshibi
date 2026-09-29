@@ -39,9 +39,9 @@ Put together the mold you printed, or the one you cut from cardboard.
 
 ![The printed mold parts](notes/printed-parts.jpg)
 
-![The 3D-printed mold assembled, on its stand](notes/printed-mold.jpg)
+![The 3D-printed mold assembled, on its base](notes/printed-mold.jpg)
 
-The cardboard route has no stand, so you get the mold for the body only.
+The cardboard route has no base, so you get the mold for the body only.
 
 Another way might be to make a hole in the middle of the top and bottom koma, put a rod through it and work with the mold on its side.
 

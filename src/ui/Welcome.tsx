@@ -138,7 +138,7 @@ export default function Welcome({ route = null, onPick, onClose }: {
             with the outcome (a lantern, yours, any shape) makes that bullet unnecessary: the three
             steps below then SHOW that what this site hands you is the mold, which is what 「型から」
             says without stopping to define itself. */}
-        <div className="mt-8 text-md text-sub">{t("好きな形の和紙提灯を、型からつくれます")}</div>
+        <div className="mt-8 text-md text-sub">{t("好きな形の和紙ランプを、型からつくれます")}</div>
 
         {/* The three steps, with arrows between them */}
         <div className="flex items-stretch gap-4 my-18 mb-16 bg-card border border-card-edge
