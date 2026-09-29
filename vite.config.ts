@@ -56,9 +56,24 @@ function trailingSlash(): Plugin {
   const pattern = `/(${ROUTES.join("|")})\\/+$`;
   const script = `<script>(function(){var l=location,m=l.pathname.match(new RegExp("${pattern}"));`
     + `if(m)l.replace(l.pathname.slice(0,m.index+1+m[1].length)+l.search+l.hash)})()</script>`;
+  let config: ResolvedConfig;
   return {
     name: "trailing-slash",
     transformIndexHtml: (html) => html.replace("<head>", "<head>\n    " + script),
+    configResolved(c) { config = c; },
+    // A route must not share its name with anything in the output. GitHub Pages answers `/notes`
+    // with a 301 to `/notes/` when a `notes/` directory exists, the script above sends it back,
+    // and the page loops forever. That shipped once: the note photos lived in `public/notes/`.
+    closeBundle() {
+      if (config.command !== "build") return;
+      const out = resolve(config.root, config.build.outDir);
+      const clash = ROUTES.filter((r) => existsSync(resolve(out, r)));
+      if (clash.length) {
+        throw new Error(`trailing-slash: dist/ has ${clash.map((r) => `"${r}"`).join(", ")}, the `
+          + "same name as a route. GitHub Pages redirects a route onto that directory and the page "
+          + "loops; rename the file or directory in public/.");
+      }
+    },
   };
 }
 
