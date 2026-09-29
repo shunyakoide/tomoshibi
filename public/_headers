@@ -1,0 +1,7 @@
+# Cloudflare only — GitHub Pages serves this file as plain text and applies none of it.
+# Keep the trial workers.dev copy out of search results while GitHub Pages is canonical.
+# Remove X-Robots-Tag when the site moves to its own domain (with index.html's og:url).
+/*
+  X-Robots-Tag: noindex
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
