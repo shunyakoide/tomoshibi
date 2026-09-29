@@ -25,7 +25,7 @@ const EN: Record<string, string> = {
   // ---- Welcome / onboarding (first run, reopened from the ☰ menu in the header) ----
   "閉じる": "Close",
   "はじめかた": "Getting started",
-  "好きな形の和紙提灯を、型からつくれます": "Make a washi lantern in any shape you like — starting from its mold",
+  "好きな形の和紙ランプを、型からつくれます": "Make a washi lamp in any shape you like — starting from its mold",
   "断面を決める": "Draw the section",
   "◇ドラッグで形をつくる": "Drag the ◇ to shape the curve",
   "出力する": "Export it",
@@ -81,7 +81,7 @@ const EN: Record<string, string> = {
   // ---- Paper template (cardboard) ----
   "型紙プレビュー · 段ボール {n} ページ + 和紙 {w} ページ": "Template preview · {n} cardboard pages + {w} washi pages",
   "和紙の型紙": "Washi template",
-  "羽根板・コマ・口輪": "ribs, koma, opening hoops",
+  "羽根板・コマ・口輪": "ribs, koma, opening rings",
   "画面上は原寸ではありません。PDF をダウンロードして原寸で印刷してください。":
     "Not to scale on screen — download the PDF and print it at 100%.",
   "型紙(段ボール)": "Paper template",
@@ -115,7 +115,7 @@ const EN: Record<string, string> = {
   "開口": "Openings",   // compact footer: the short form of 上下の開口(半径)
   "設定パネル": "Settings panel",   // the bottom sheet's grabber, on a phone
   "表示": "View",              // aria-label of the narrow chip bar's view <select>
-  "つくりかた": "How to make",   // aria-label of the narrow chip bar's route <select>
+  "型の種類": "Mold type",       // aria-label of the narrow chip bar's route <select>
   // ---- CTA / export ----
   "STL 書き出し": "Export STL",
   "印刷・書き出しへ進む →": "Go to print / export →",
@@ -125,8 +125,8 @@ const EN: Record<string, string> = {
   // The export's manifest, folded behind a disclosure and opened when the download happens.
   "同梱物": "In the ZIP",
   " — 和紙の型紙(原寸で印刷)": " — washi template (print at 100%)",
-  " — 型紙(羽根板・コマ・口輪)": " — the template: ribs, koma, opening hoops",
-  " — 羽根板・コマ・土台・口輪": " — ribs, koma, stand, opening rings",
+  " — 型紙(羽根板・コマ・口輪)": " — the template: ribs, koma, opening rings",
+  " — 羽根板・コマ・土台・口輪": " — ribs, koma, base, opening rings",
   " — 設計のバックアップ": " — design backup",
   // ---- Warnings / status ----
   "⚠ 3Dプレビューを初期化できませんでした": "⚠ Could not initialize the 3D preview",
@@ -137,10 +137,10 @@ const EN: Record<string, string> = {
   "連結板": "Connector",
   "開口リング": "Opening ring",
   // ---- Opening ring (kuchiwa) ----
-  "完成品に残る輪": "stays in the finished lantern",
-  "脚ソケット(下)": "Leg sockets (bottom)",
-  "この開口には脚ソケットが入りません(下の輪のみになります)。開口を広げると入ります":
-    "No room for leg sockets at this opening (the bottom ring stays a plain hoop). A wider opening will fit them.",
+  "完成品に残る輪": "stays in the finished lamp",
+  "足ソケット(下)": "Leg sockets (bottom)",
+  "この開口には足ソケットが入りません(下の輪のみになります)。開口を広げると入ります":
+    "No room for leg sockets at this opening (the bottom ring stays a plain ring). A wider opening will fit them.",
   "{parts} がベッド {w}×{d}mm を超過": "{parts} exceeds the {w}×{d}mm bed",
   "→ 火袋の高さを {h}mm 以下に": "→ Reduce body height to {h}mm or less",
   "開口ぎわの羽根板が {b}mm — 段の間隔より細く、爪もこの幅になります": "Only {b}mm of board where a rib passes the opening — narrower than one flute, and that is the tab's width too",
@@ -255,11 +255,11 @@ const EN: Record<string, string> = {
   "作り方": "How to build it",
   "Notes": "Notes",
   "制作ノート": "Build notes",
-  "作り方ページに入れると重くなる、材料選び・失敗例・考えたことの置き場所です。":
-    "A place for material choices, failures and thoughts that would make the build guide too heavy.",
   "補足": "Note",
   "関連ノート": "Related note",
   "Tomoshibiを作った理由": "Why I made Tomoshibi",
+  "和紙ランプ作りの流れ": "How a washi lamp comes together",
+  "足とソケットの付け方": "Legs and how to mount the socket",
   "← Notes一覧": "← All notes",
   "作り方へ戻る": "Back to the build guide",
   "ノートが見つかりません": "Note not found",
@@ -279,42 +279,44 @@ const EN: Record<string, string> = {
   "口輪(上)": "Ring (top)",
   "図を描けませんでした": "Figure unavailable",
   "段ボールの型には支柱・土台がありません(型紙が刷るのは、型そのものと口輪を曲げる線です)。回すときは手で持つか、箱などに載せてください。":
-    "The cardboard mold has no posts and no base — the template cuts the mold itself and draws the lines its opening hoops are bent on. Hold it in your hands as you turn it, or rest it on a box.",
+    "The cardboard mold has no posts and no base — the template cuts the mold itself and draws the lines its opening rings are bent on. Hold it in your hands as you turn it, or rest it on a box.",
   "「印刷」ビューへ →": "Go to the Print view →",
   "部品をつくる": "Make the parts",
   "「印刷」ビューから STL を書き出し、羽根板・コマ・支柱・土台・口輪を印刷します。コマと支柱は上下で同じ部品なので、スライサーで2つに複製してください。":
     "Export the STLs from the Print view and print the ribs, koma, posts, base and rings. The koma and the posts are the same part top and bottom, so duplicate each one in your slicer.",
   "「印刷」ビューから型紙 ZIP をダウンロードし、原寸(100%)で刷ります。段ボールに貼るか下敷きにして、線のとおりに切り出します。刃は新しいものを。":
     "Download the template ZIP from the Print view and print it at 100%. Glue the sheets to the cardboard or slip them underneath, and cut along the lines. Use a fresh blade.",
-  "土台を組む": "Assemble the stand",
+  "土台を組む": "Assemble the base",
   "土台のスリットに支柱の爪をまっすぐ差し込みます。肩が襟の上面に当たるまで押し込めば正しい深さです。2本とも、くぼみを上に向けて同じ向きに。":
     "Push each post straight down into its slot in the base. When the shoulders meet the top of the collar it is in far enough. Both posts face the same way, saddle up.",
   "コマに羽根板を差す": "Plug the ribs into a koma",
   "コマを平らに置き、まわりのノッチに羽根板の爪を差し込みます。爪の先の欠きがコマの内側に噛むので、奥まで入れば止まります。太い側の向きをすべて揃えてください。":
     "Lay one koma flat and plug a rib tab into each notch around it. The notch at the tip of the tab catches the koma's hub, so a tab that is all the way in stops there. Point every rib's wider end the same way.",
   "もう1枚のコマをかぶせる": "Cap it with the second koma",
-  "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1か所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。":
+  "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1ヶ所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。":
     "Line every tab up with a notch first, then press the koma down flat. Seating one tab at a time is what cracks them — work around the whole circle a little at a time. The two koma are the same part.",
-  "土台に載せる": "Set it in the stand",
+  "土台に載せる": "Set it in the base",
   "型を横向きにして、両端のコマを支柱のくぼみに載せます。こうすると型が回るので、1面貼っては回し、を繰り返せます。まず手で1回転させて、振れや引っかかりがないか確認してください。":
     "Turn the mold on its side and rest a koma in each post's saddle. Now it turns: paste one panel, roll it round, paste the next. Spin it once by hand first and check that it runs true and catches on nothing.",
   "竹ひごを巻く": "Wind the bamboo",
   "羽根板の外縁の溝に竹ひごを沿わせ、下から上へ巻いていきます。溝が受けるので滑り落ちません。「螺旋巻き」で設計した型なら、溝が段ごとにずれていて1本の連続した螺旋になります。":
     "Lay the bamboo into the grooves on the ribs' outer edges and wind upward from the bottom. The grooves hold it, so it cannot slip. If you designed with spiral winding, they step round rib by rib and the bamboo becomes one continuous helix.",
   "和紙を貼る": "Paste the washi",
-  "でんぷん糊を竹ひごに置き、和紙をのせて刷毛で撫でて密着させます。羽根板と羽根板の間を1面ずつ、1つ飛ばしに。一周したら戻って間を埋めます — 縁を重ねる相手が濡れていない面になります。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。":
+  "でんぷんのりを竹ひごに置き、和紙をのせてブラシで撫でて密着させます。羽根板と羽根板の間を1面ずつ、1つ飛ばしに。一周したら戻って間を埋めます — 縁を重ねる相手が濡れていない面になります。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。":
     "Dab starch paste onto the bamboo, lay the washi over it and stroke it down with a brush. Work one rib-to-rib panel at a time, skipping every other bay; go round once, then come back and fill the gaps — each overlap then lands on a panel that is no longer wet. Cut the paper first with the washi template in the ZIP — trimming it wet is the fiddly part.",
   "乾かす": "Let it dry",
-  "糊と和紙が完全に乾くまで置きます。乾くと紙が張って形が決まります。急がないこと — 生乾きで型を抜くと歪みます。":
+  "のりと和紙が完全に乾くまで置きます。乾くと紙が張って形が決まります。急がないこと — 生乾きで型を抜くと歪みます。":
     "Leave it until the paste and the paper are completely dry. Drying is what pulls the paper taut and sets the shape. Do not rush it: pulling the mold from a damp shade warps it.",
+  "のりと和紙を乾かします。乾くと紙が張って形が決まります。段ボールの型は和紙が型にも引っ付いてしまうので、完全に乾くまでは待たず、ある程度乾いてきたら型を抜いてください。口輪のところの和紙が剥がれたら、クリップで押さえてそのまま乾かします。":
+    "Leave the paste and the paper to dry. Drying is what pulls the paper taut and sets the shape. The washi sticks to a cardboard mold as well, so do not wait for it to dry completely: once it has dried somewhat, pull the mold. If the washi comes loose at a ring, clip it down and let it finish drying.",
   "型を抜く": "Pull the mold",
-  "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。":
-    "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are. The rings stay behind with the lantern; trim the overhanging washi at the rim.",
+  "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は火袋側に残ります。はみ出した和紙は開口の縁で切り揃えてください。":
+    "Draw each koma off outward, the way the tabs point, then take the ribs out through the opening one at a time. Their inner edges are hollowed at the middle, which is what lets them pass through a mouth narrower than they are. The rings stay behind with the body; trim the overhanging washi at the rim.",
   "口輪をはめる": "Fit the opening rings",
-  "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてありますが、組んだ型に当てて調整してください。脚を掛ける輪は開口より内側に出ているので、羽根板の間に来るまで回してください。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。":
-    "Bend wire along the blue lines on the template to make the two opening hoops. Each line follows its own opening, but offer the hoop up to the assembled mold and adjust it to what is there. The eyes for the legs reach inside the opening, so turn the hoop until they sit between the ribs. Overlap the two ends a little and twist them together. Nothing holds either the hoops or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the hoops when you paste, which is why they stay in the lantern after the mold comes out. The two hoops are bent on separate lines, so mark which is which once they are off the paper.",
-  "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。ソケットは開口より内側に出ているので、羽根板の間に来るまで回してください。":
-    "Slip a ring over each opening. Their bore follows the opening, so they drop onto the ribs' outer edge. Nothing holds either the rings or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the rings when you paste, which is why they stay in the lantern after the mold comes out. The one with the leg sockets is the bottom. The sockets reach inside the opening, so turn that ring until they sit between the ribs.",
+  "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてありますが、組んだ型に当てて調整してください。足を掛ける輪は開口より内側に出ているので、羽根板の間に来るまで回してください。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも火袋に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。":
+    "Bend wire along the blue lines on the template to make the two opening rings. Each line follows its own opening, but offer the ring up to the assembled mold and adjust it to what is there. The eyes for the legs reach inside the opening, so turn the ring until they sit between the ribs. Overlap the two ends a little and twist them together. Nothing holds either the rings or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the rings when you paste, which is why they stay in the body after the mold comes out. The two rings are bent on separate lines, so mark which is which once they are off the paper.",
+  "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも火袋に残ります。足ソケットが付いている方が下です。ソケットは開口より内側に出ているので、羽根板の間に来るまで回してください。":
+    "Slip a ring over each opening. Their bore follows the opening, so they drop onto the ribs' outer edge. Nothing holds either the rings or the assembly yet, so use rubber bands or clips — a band round the tabs just outside each koma also evens out how far the ribs splay. The washi's cover allowance is folded over the rings when you paste, which is why they stay in the body after the mold comes out. The one with the leg sockets is the bottom. The sockets reach inside the opening, so turn that ring until they sit between the ribs.",
   "灯りをつける": "Put a light in it",
   "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。":
     "There are {n} ways to light it. Whichever you pick, the bulb sits just inside the washi, so use an LED rather than a filament bulb.",
@@ -327,16 +329,16 @@ const EN: Record<string, string> = {
   "竹ひご": "Bamboo ribs",
   "ワイヤー": "Wire",
   "任意": "optional",
-  "脚を付けるか吊るす場合": "for the legs or for hanging it",
-  "口輪に。脚や吊り線にも": "for the opening hoops, and for legs or a hanger",
+  "足を付けるか吊るす場合": "for the legs or for hanging it",
+  "口輪に。足や吊り線にも": "for the opening rings, and for legs or a hanger",
   "ワイヤーを曲げる": "for bending the wire",
   "のり": "Paste",
   "でんぷんのり、または木工用ボンド": "starch paste or wood glue",
   "テープや糸など": "Tape, thread, or the like",
   "竹ひごを留める": "holds the bamboo in place",
-  "のりを塗るはけ": "Brush for the paste",
-  "障子貼り用の糊刷毛など": "a paste brush for shoji paper, or similar",
-  "紙を張るブラシ": "Brush for laying the paper",
+  "のりを塗るブラシ": "Brush for the paste",
+  "障子貼り用ののりブラシなど": "a paste brush for shoji paper, or similar",
+  "紙を貼るブラシ": "Brush for laying the paper",
   "靴磨き用など": "a shoe brush, or similar",
   "霧吹き": "Spray bottle",
   "貼るときと、貼ったあとに": "As you paste, and again after",
@@ -346,7 +348,7 @@ const EN: Record<string, string> = {
   "ライト": "Lamp",
   "熱を持ちにくい LED のもの": "an LED one, so it stays cool",
   "置いたライトに被せる": "Cover a lamp you stand on the floor",
-  "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。":
+  "LED ライトを床に置き、上から火袋(シェード)を被せます。足も金具も要りません。ライトは下の開口を通る大きさのものを。":
     "Stand an LED lamp on the floor and drop the shade over it. No legs, no fittings. Pick a lamp that fits through the bottom opening.",
   "上から吊るす": "Hang it from above",
   // Hanging. One wire bowed into an arch over the top opening: the SOCKET hangs in the U bent into
@@ -356,35 +358,35 @@ const EN: Record<string, string> = {
   "ソケットを大きいほうの開口から入れ、コードを上の開口から出します。吊り線1本のUにコードを入れてソケットを引っ掛け、両端を上の開口の縁の下に入れます。":
     "Put the socket in through the wider opening and bring the cord out of the top one. Drop the cord into the U of one hanger so the socket catches in it, and tuck the hanger's two ends under the rim of the top opening.",
   "上の開口の大きさによっては安定しないことがあります。長さや曲げ方は現物に合わせて調整してください。":
-    "Depending on how big the top opening is, it may not sit steadily. Adjust the length and the bends to suit the lantern you have made.",
+    "Depending on how big the top opening is, it may not sit steadily. Adjust the length and the bends to suit the body you have made.",
   "吊り線を曲げる": "Bend the hanger",
   "ワイヤーの中央をUの字に曲げます。間はコードが通ってソケットが通らない幅に。中央が高くなるようゆるい弧に曲げ、両端は上の開口の縁の下を通って外まで出る長さに伸ばします。":
     "Bend the middle of the wire into a U, its gap wide enough to pass the cord and narrow enough to stop the socket. Bow the wire into a shallow arch, highest in the middle, and leave the two ends long enough to pass under the rim of the top opening and out the other side.",
   "ソケットを引っ掛ける": "Hang the socket in it",
   "Uにコードを入れると、ソケットが引っ掛かります。両端は上の開口の縁の下に入れます。":
     "Drop the cord into the U and the socket catches in it. Tuck the two ends under the rim of the top opening.",
-  "脚を付けて下から留める": "Add legs and fix it from below",
-  "段ボールの型では下の口輪の線に、脚を通す輪っかが3ヶ所入っています。針金で曲げてあれば、脚の先はそこへ通して折り返すだけです。あとは同じで、脚と枠を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。":
-    "On the cardboard route the bottom hoop's line carries three eyes for the legs. Bend it from wire and the leg ends simply pass through them and fold back. The rest is the same: take the lamp with its legs and its frame on it in through the bottom opening to stand it up, and run the cord out between the legs.",
-  "脚と枠を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは脚のあいだから下へ逃がします。":
-    "Take the lamp with its legs and its frame on it in through the bottom opening and push the leg ends into the bottom ring's leg sockets to stand it up. The frame runs up inside the body and shows a little of itself at the top opening, holding the body taut between the two ends. The cord runs down and out between the legs.",
+  "足を付けて下から留める": "Add legs and fix it from below",
+  "段ボールの型では下の口輪の線に、足を通す輪っかが3ヶ所入っています。針金で曲げてあれば、足の先はそこへ通して折り返すだけです。あとは同じで、足と枠を付けたライトを下の開口から差し入れて立て、コードは足のあいだから逃がします。ソケットの種類によってはこの組み立てが難しいことがあるので、関連ノートも参考にしてください。":
+    "On the cardboard route the bottom ring's line carries three eyes for the legs. Bend it from wire and the leg ends simply pass through them and fold back. The rest is the same: take the lamp with its legs and its frame on it in through the bottom opening to stand it up, and run the cord out between the legs. Depending on the socket you have, putting it together this way can be difficult, so read the related note as well.",
+  "足と枠を付けたライトを下の開口から差し入れ、足の先を下の口輪の足ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは足のあいだから下へ逃がします。ソケットの種類によってはこの組み立てが難しいことがあるので、関連ノートも参考にしてください。":
+    "Take the lamp with its legs and its frame on it in through the bottom opening and push the leg ends into the bottom ring's leg sockets to stand it up. The frame runs up inside the body and shows a little of itself at the top opening, holding the body taut between the two ends. The cord runs down and out between the legs. Depending on the socket you have, putting it together this way can be difficult, so read the related note as well.",
   // The wire work under that one. The socket's threaded stem and its fixing nut are one pair of
   // words the sub-steps must keep calling the same thing in both languages, or the reader loses
   // which part is which between figures. This step is named for the legs, not the wire: the wire
   // wording is already the pliers' line on the kit list, and one key cannot carry both.
-  "脚を曲げる": "Bend the legs",
+  "足を曲げる": "Bend the legs",
   "ペンチで先端を輪に曲げます。輪はソケットのネジが通る大きさに。残りは外へ渡してから下へ折り、床に届く長さにします。3本とも同じ形に。":
     "Bend a loop in one end with the pliers, big enough to pass over the socket's threaded stem. Take the rest outward, then turn it down and cut it long enough to reach the floor. All three the same shape.",
   // The frame is the hoop holding the shade out to its height — the lampshade sense of the word,
   // not the mold's rib boards.
   "枠を曲げる": "Bend the frame",
-  "もう1本を輪に曲げます。下は両端を合わせて脚と同じ大きさの輪にし、そこから電球とソケットに当たらないよう外へ開いて立ち上げます。上の端は小さな輪に。高さは、その輪が上の開口から少し出るくらいに。":
-    "Bend a second length into a hoop. At the bottom, bring both ends together into a loop the same size as the legs'; from there open it outward, clear of the bulb and the socket, before taking it up. A small loop at the top end. Make it tall enough that the loop stands a little proud of the top opening.",
+  "もう1本を輪に曲げます。下は両端を合わせて足と同じ大きさの輪にし、そこから電球とソケットに当たらないよう外へ開いて立ち上げます。上の端は小さな輪に。高さは、その輪が上の開口から少し出るくらいに。":
+    "Bend a second length into a loop. At the bottom, bring both ends together into a loop the same size as the legs'; from there open it outward, clear of the bulb and the socket, before taking it up. A small loop at the top end. Make it tall enough that the loop stands a little proud of the top opening.",
   "ネジに通す": "Onto the stem",
-  "ソケットの固定ナットを外し、3本の脚と枠の輪をネジに重ねて通します。脚が120°ずつ開くように向きを揃えてください。":
+  "ソケットの固定ナットを外し、3本の足と枠の輪をネジに重ねて通します。足が120°ずつ開くように向きを揃えてください。":
     "Take the socket's fixing nut off and stack the three legs' loops and the frame's on the stem. Set them so the legs come out 120° apart.",
   "ナットで締める": "Tighten the nut",
-  "ナットを戻して締めます。これでライトと脚と枠が1つになります。":
+  "ナットを戻して締めます。これでライトと足と枠が1つになります。":
     "Run the nut back up and tighten it. The lamp, its legs and its frame are now one piece.",
 };
 
