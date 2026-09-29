@@ -18,10 +18,6 @@ category: Build notes
 - washi
 - something to fix the bamboo with (thread or tape)
 
-![The paste I use: wallpaper paste and wood glue](notes/paste.jpg)
-
-![Wire](notes/wire-coil.jpg)
-
 ### Tools
 
 - two brushes: one to press the washi onto the bamboo, one to apply the paste
@@ -45,7 +41,9 @@ Put together the mold you printed, or the one you cut from cardboard.
 
 ![The 3D-printed mold assembled, on its stand](notes/printed-mold.jpg)
 
-The cardboard route has no stand, so you get the mold for the body only. A stand makes pasting the washi a little easier, but it is not essential.
+The cardboard route has no stand, so you get the mold for the body only.
+
+Another way might be to make a hole in the middle of the top and bottom koma, put a rod through it and work with the mold on its side.
 
 ![The mold cut from cardboard and assembled](notes/cardboard-mold.jpg)
 
@@ -57,13 +55,19 @@ For the grooves in the cardboard, make a short straight cut sideways with the ti
 
 On the 3D-printed route you can print the rings too. On cardboard you cannot, so you bend them from wire.
 
+![A printed ring, this one with three holes for the legs](notes/leg-socket-ring.jpg)
+
+The holes take the legs that hold the light up. How the legs mount has a note of its own: [Legs and how to mount the socket](note-sockets).
+
+![Wire](notes/wire-coil.jpg)
+
+The wire in the photo is 2mm, but use whatever thickness you like. Some thickness to it gives the rings their strength and holds them steady.
+
 The PDF carries a template for the rings, so bend the wire to it with pliers. Mind the wire's ends, which can be sharp.
 
-![Bending the wire to the line on the template](notes/wire-ring-bending.jpg)
+![Bending the wire to the line on the template. I am bending it by hand here; around a pen it comes out neater](notes/wire-ring-bending.jpg)
 
 ![The finished rings](notes/wire-rings-done.jpg)
-
-I use 2mm wire, but use whatever thickness you like.
 
 ![The wire rings fitted onto the cardboard mold](notes/cardboard-rings.jpg)
 
@@ -93,7 +97,7 @@ Wind the bamboo into the mold's groove. Mark it where it comes round to itself, 
 
 ![The bamboo wound onto the cardboard mold](notes/bamboo-wound-cardboard.jpg)
 
-As for fixing it: looking into how lanterns are made, I kept seeing tape or thread, and I use thread as a rule, because it seems less visible once the lamp is lit. The Akari lights I was looking at are held with thread too. Look inside one if you get the chance to see a real one — it is beautifully done and you cannot pick it out at all.
+As for fixing it: looking into how lanterns are made, I kept seeing tape or thread, and I use thread as a rule, because it seems less visible once the lamp is lit. What I wind on is sewing machine thread. The Akari lights I was looking at were held with thread too. Look inside one if you get the chance to see a real one — it is beautifully done and you cannot pick it out at all.
 
 ### Winding a spiral {#winding-spiral}
 
@@ -111,11 +115,13 @@ There are many kinds of washi, but whatever you can get should be fine. I use th
 
 ![Shoji paper](notes/washi-sheets.jpg)
 
-The traditional way seems to be to paste the washi on and then trim the excess with a razor. That can be hard depending on the paper, so the washi panels can be generated as a template too. They are worked out from the body's own shape, but hold them against it before you cut. The top and bottom are sized to fold over the rings, and that is worth adjusting as well.
+The traditional way seems to be to paste the washi on and then trim the excess with a razor. That can be hard depending on the paper, so the washi panels can be generated as a template too, to cut before you paste. They are worked out from the body's own shape, but hold the template itself against the body to check the fit before you cut any washi. The top and bottom are sized to fold over the rings, and that is worth adjusting as well.
 
 ![Cut to the washi template](notes/washi-panels.jpg)
 
 To paste: brush the paste onto the bamboo, then lay the washi over it. Spraying the washi with water softens it and makes it easier to lay. If it is still stiff, crumple it into a ball and open it out again — it comes out softer still.
+
+![The paste I use: wallpaper paste and wood glue](notes/paste.jpg)
 
 With the washi in place, stroke it gently with a shoe-polish brush and it takes to the bamboo cleanly. Some washi is stiff; if yours is, try something thinner.
 
@@ -150,6 +156,8 @@ For a pendant light there is a simpler way as well: bend a piece of wire that ca
 ![Inside the body: the socket hooked onto the wire](notes/socket-hooked.jpg)
 
 ## Done {#done}
+
+![The finished lamp](notes/finished.jpg)
 
 The feel of it changes with the washi and with the size of the bulb, so make plenty of them.
 
