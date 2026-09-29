@@ -144,8 +144,8 @@ export const STEPS: Step[] = [
         // The lamp and the legs go in as ONE piece — what the sub-steps below build — and there is
         // one fixing, the nut. The cardboard line has to say where the leg ends go as well, since a
         // hoop cut from card has no bores in it.
-        body: "足と枠を付けたライトを下の開口から差し入れ、足の先を下の口輪の足ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは足のあいだから下へ逃がします。",
-        paperBody: "段ボールの型では下の口輪の線に、足を通す輪っかが3ヶ所入っています。針金で曲げてあれば、足の先はそこへ通して折り返すだけです。あとは同じで、足と枠を付けたライトを下の開口から差し入れて立て、コードは足のあいだから逃がします。",
+        body: "足と枠を付けたライトを下の開口から差し入れ、足の先を下の口輪の足ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは足のあいだから下へ逃がします。ソケットの種類によってはこの組み立てが難しいことがあるので、関連ノートも参考にしてください。",
+        paperBody: "段ボールの型では下の口輪の線に、足を通す輪っかが3ヶ所入っています。針金で曲げてあれば、足の先はそこへ通して折り返すだけです。あとは同じで、足と枠を付けたライトを下の開口から差し入れて立て、コードは足のあいだから逃がします。ソケットの種類によってはこの組み立てが難しいことがあるので、関連ノートも参考にしてください。",
         // The wire work: a pendant holder's cord leaves through a threaded stem with a nut on it, so
         // a loop bent in the wire's end stacks on that stem and one nut clamps the lot, which is how
         // the ready-made lantern kits do it. The slots read the same on BOTH routes on purpose: they
