@@ -26,16 +26,36 @@ export default function Markdown({ source }: { source: string }) {
         const img = b.text.match(IMAGE);
         if (img) {
           return (
-            <figure key={i} className="my-18">
-              <img src={img[2]} alt={img[1]}
-                className="block w-full max-h-[520px] object-contain rounded-lg border border-card-edge bg-card" />
-              {img[1] && <figcaption className="mt-6 text-sm leading-[1.6] text-sub">{img[1]}</figcaption>}
-            </figure>
+            <Figure key={i} src={img[2]} alt={img[1]} />
           );
         }
         return <p key={i} className="mt-0 mx-0 mb-13 text-md leading-[1.85] text-text max-w-[68ch]">{inline(b.text)}</p>;
       })}
     </div>
+  );
+}
+
+/**
+ * One photo. Landscape and square pictures take the column's width, so every figure down the note
+ * shares one left and right edge. A PORTRAIT one at that width is over 1000px tall — a whole screen
+ * for one photo — so it keeps its own aspect under a height cap instead, which is the one place the
+ * widths differ. The aspect is not known until the file loads, hence the state rather than a class.
+ */
+function Figure({ src, alt }: { src: string; alt: string }) {
+  const [tall, setTall] = React.useState(false);
+  // A cached picture is already decoded before React attaches onLoad, and that event then never
+  // fires — a portrait one would stand at the column's full width. So measure from the ref too.
+  const measure = (img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth) setTall(img.naturalHeight > img.naturalWidth);
+  };
+  return (
+    <figure className={`my-18 ${tall ? "w-fit mx-auto" : ""}`}>
+      <img src={src} alt={alt} ref={measure}
+        onLoad={(e) => setTall(e.currentTarget.naturalHeight > e.currentTarget.naturalWidth)}
+        className={`block rounded-lg border border-card-edge
+          ${tall ? "w-auto max-w-full max-h-[720px]" : "w-full"}`} />
+      {alt && <figcaption className="mt-6 text-sm leading-[1.6] text-sub">{alt}</figcaption>}
+    </figure>
   );
 }
 

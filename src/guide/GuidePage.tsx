@@ -142,9 +142,9 @@ export default function GuidePage({ route, onClose, onGoPrint, onGoNote }: {
         </p>
         <div className={NOTE_BOX}>
           <span>{t("補足")}</span>
-          <a href={routeHref("note-motivation", "#starting-by-copying")} className={NOTE_LINK}
-            onClick={(e) => { e.preventDefault(); onGoNote("note-motivation", "#starting-by-copying"); }}>
-            {t("Tomoshibiを作った理由")}
+          <a href={routeHref("note-build")} className={NOTE_LINK}
+            onClick={(e) => { e.preventDefault(); onGoNote("note-build"); }}>
+            {t("和紙ランプ作りの流れ")}
           </a>
         </div>
 
