@@ -366,10 +366,10 @@ const EN: Record<string, string> = {
   "Uにコードを入れると、ソケットが引っ掛かります。両端は上の開口の縁の下に入れます。":
     "Drop the cord into the U and the socket catches in it. Tuck the two ends under the rim of the top opening.",
   "足を付けて下から留める": "Add legs and fix it from below",
-  "段ボールの型では下の口輪の線に、足を通す輪っかが3ヶ所入っています。針金で曲げてあれば、足の先はそこへ通して折り返すだけです。あとは同じで、足と枠を付けたライトを下の開口から差し入れて立て、コードは足のあいだから逃がします。":
-    "On the cardboard route the bottom ring's line carries three eyes for the legs. Bend it from wire and the leg ends simply pass through them and fold back. The rest is the same: take the lamp with its legs and its frame on it in through the bottom opening to stand it up, and run the cord out between the legs.",
-  "足と枠を付けたライトを下の開口から差し入れ、足の先を下の口輪の足ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは足のあいだから下へ逃がします。":
-    "Take the lamp with its legs and its frame on it in through the bottom opening and push the leg ends into the bottom ring's leg sockets to stand it up. The frame runs up inside the body and shows a little of itself at the top opening, holding the body taut between the two ends. The cord runs down and out between the legs.",
+  "段ボールの型では下の口輪の線に、足を通す輪っかが3ヶ所入っています。針金で曲げてあれば、足の先はそこへ通して折り返すだけです。あとは同じで、足と枠を付けたライトを下の開口から差し入れて立て、コードは足のあいだから逃がします。ソケットの種類によってはこの組み立てが難しいことがあるので、関連ノートも参考にしてください。":
+    "On the cardboard route the bottom ring's line carries three eyes for the legs. Bend it from wire and the leg ends simply pass through them and fold back. The rest is the same: take the lamp with its legs and its frame on it in through the bottom opening to stand it up, and run the cord out between the legs. Depending on the socket you have, putting it together this way can be difficult, so read the related note as well.",
+  "足と枠を付けたライトを下の開口から差し入れ、足の先を下の口輪の足ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは足のあいだから下へ逃がします。ソケットの種類によってはこの組み立てが難しいことがあるので、関連ノートも参考にしてください。":
+    "Take the lamp with its legs and its frame on it in through the bottom opening and push the leg ends into the bottom ring's leg sockets to stand it up. The frame runs up inside the body and shows a little of itself at the top opening, holding the body taut between the two ends. The cord runs down and out between the legs. Depending on the socket you have, putting it together this way can be difficult, so read the related note as well.",
   // The wire work under that one. The socket's threaded stem and its fixing nut are one pair of
   // words the sub-steps must keep calling the same thing in both languages, or the reader loses
   // which part is which between figures. This step is named for the legs, not the wire: the wire
