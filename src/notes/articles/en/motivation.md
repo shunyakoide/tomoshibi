@@ -38,11 +38,9 @@ I wanted Tomoshibi to make the process feel as simple as possible: decide the sh
 
 ## Starting with 3D printing {#first-prototype}
 
-I had a 3D printer at home that had been gathering dust, so this was a good excuse to use it again. I started with the 3D-printed mold route first, because if I could make a working mold that way, I would feel more confident publishing the site.
+I had a 3D printer at home that had been gathering dust, so this was a good excuse to use it again. I started with the feature that makes the mold on a 3D printer.
 
 The basic idea was to edit the side profile of the lamp and generate the mold parts from that profile. I also wanted to show a 3D preview in the browser, so first-time users could understand what they were about to make.
-
-Most of the implementation was done with Claude Code. The idea for Tomoshibi came to me on a train while I was heading out for a hike, and I was able to start prototyping it right there. It really is an astonishing time to be making things.
 
 ## Looking at the mold structure {#learning-from-akari}
 
@@ -52,7 +50,11 @@ I was especially curious about the notched outer edge that catches the bamboo. S
 
 ## The first build worked {#first-build}
 
-Thanks to all of that, I managed to make a first lamp. There are still many things I want to improve, but the washi light I made with my own hands has its own charm, and I was very happy with it.
+Thanks to all of that, I managed to make a first lamp.
+
+![The first lamp that came together](notes/finished.jpg)
+
+There are still many things I want to improve, but the washi light I made with my own hands has its own charm, and I was very happy with it.
 
 I would like to improve support for larger molds and the cardboard route in the future.
 
@@ -62,7 +64,7 @@ There is also one difficult problem with this kind of lamp-making: even if Tomos
 
 I am still learning by trial and error as I make washi lamps myself. I plan to collect what I learn here in Notes.
 
-The build guide is meant to stay focused on the shortest path to making a lantern. Material choices, mistakes, design reasons, and small discoveries fit better here, where they do not interrupt the step-by-step flow.
+The build guide is meant to stay focused on the shortest path to making a lantern. Material choices, mistakes, and design reasons fit better here, where they do not interrupt the step-by-step flow.
 
 Tomoshibi is a site for helping people enjoy making washi lamps with their own hands. I would be happy if people used it to try different shapes, draw on the washi, or make lamps together with friends and family.
 
