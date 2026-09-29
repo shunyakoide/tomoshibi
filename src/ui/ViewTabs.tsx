@@ -85,7 +85,7 @@ export function ViewBar({ view, setView, route, setRoute, isLit, menu }: {
       {/* The view control stays even in lit: this bar is the only way back out of it. */}
       {!isLit && (
         <span className="relative inline-flex">
-          <select value={route} aria-label={t("つくりかた")} onChange={(e) => setRoute(e.target.value as Route)}
+          <select value={route} aria-label={t("型の種類")} onChange={(e) => setRoute(e.target.value as Route)}
             className={`${SELECT} ${SELECT_OFF}`}>
             {ROUTES.map(([k, l]) => (
               <option key={k} value={k}>{t(l)}</option>

@@ -62,7 +62,7 @@ export const STEPS: Step[] = [
   },
   {
     id: "komaOn", title: "もう1枚のコマをかぶせる", fig: "komaOn",
-    body: "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1か所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。",
+    body: "反対側の爪をすべてノッチに合わせてから、コマを平行に押し下げます。1ヶ所ずつ入れると割れやすいので、全体を少しずつ。上下のコマは同じ部品です。",
   },
   {
     // Both routes, since both end up with a hoop at each opening — one printed, one bent from wire on
@@ -72,8 +72,8 @@ export const STEPS: Step[] = [
     // meets a hand-cut board, so `paperBody` says to adjust it and the printed body still says it
     // drops on. The template's own corner carries the same line (`paper/advice.ts`).
     id: "rings", title: "口輪をはめる", fig: "rings",
-    paperBody: "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてありますが、組んだ型に当てて調整してください。足を掛ける輪は開口より内側に出ているので、羽根板の間に来るまで回してください。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。",
-    body: "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。足ソケットが付いている方が下です。ソケットは開口より内側に出ているので、羽根板の間に来るまで回してください。",
+    paperBody: "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてありますが、組んだ型に当てて調整してください。足を掛ける輪は開口より内側に出ているので、羽根板の間に来るまで回してください。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも火袋に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。",
+    body: "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも火袋に残ります。足ソケットが付いている方が下です。ソケットは開口より内側に出ているので、羽根板の間に来るまで回してください。",
   },
   {
     id: "higo", title: "竹ひごを巻く", fig: "higo",
@@ -89,16 +89,16 @@ export const STEPS: Step[] = [
   },
   {
     id: "washi", title: "和紙を貼る", fig: "washi",
-    body: "でんぷん糊を竹ひごに置き、和紙をのせて刷毛で撫でて密着させます。羽根板と羽根板の間を1面ずつ、1つ飛ばしに。一周したら戻って間を埋めます — 縁を重ねる相手が濡れていない面になります。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。",
+    body: "でんぷんのりを竹ひごに置き、和紙をのせてブラシで撫でて密着させます。羽根板と羽根板の間を1面ずつ、1つ飛ばしに。一周したら戻って間を埋めます — 縁を重ねる相手が濡れていない面になります。和紙の型紙(ZIP に同梱)で先に切っておくと、濡れた紙を切らずに済みます。",
   },
   {
     id: "dry", title: "乾かす", fig: "dry",
-    body: "糊と和紙が完全に乾くまで置きます。乾くと紙が張って形が決まります。急がないこと — 生乾きで型を抜くと歪みます。",
-    paperBody: "糊と和紙を乾かします。乾くと紙が張って形が決まります。段ボールの型は和紙が型にも引っ付いてしまうので、完全に乾くまでは待たず、ある程度乾いてきたら型を抜いてください。口輪のところの和紙が剥がれたら、クリップで押さえてそのまま乾かします。",
+    body: "のりと和紙が完全に乾くまで置きます。乾くと紙が張って形が決まります。急がないこと — 生乾きで型を抜くと歪みます。",
+    paperBody: "のりと和紙を乾かします。乾くと紙が張って形が決まります。段ボールの型は和紙が型にも引っ付いてしまうので、完全に乾くまでは待たず、ある程度乾いてきたら型を抜いてください。口輪のところの和紙が剥がれたら、クリップで押さえてそのまま乾かします。",
   },
   {
     id: "pull", title: "型を抜く", fig: "pull",
-    body: "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は提灯側に残ります。はみ出した和紙は開口の縁で切り揃えてください。",
+    body: "コマを爪先の側(外向き)へ抜き、羽根板を開口から1枚ずつ引き出します。羽根板の内側は中央がえぐってあるので、開口より小さくなって抜けます。口輪は火袋側に残ります。はみ出した和紙は開口の縁で切り揃えてください。",
   },
   {
     // Three ways, three SECTIONS — not three steps: they are alternatives, and numbering them
@@ -109,12 +109,13 @@ export const STEPS: Step[] = [
     // step must not name a part its own route never makes.
     id: "light", title: "灯りをつける",
     body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
+    notes: [{ slug: "note-sockets", hash: "#pendant-socket", label: "足とソケットの付け方" }],
     options: [
       {
         // No `detail`: there is no fitting to work through — you set the lamp down and drop the shade
         // over it, which is the whole method and is already the figure.
         id: "set", fig: "lightSet", title: "置いたライトに被せる",
-        body: "LED ライトを床に置き、上からシェードを被せます。足も金具も要りません。ライトは下の開口を通る大きさのものを。",
+        body: "LED ライトを床に置き、上から火袋(シェード)を被せます。足も金具も要りません。ライトは下の開口を通る大きさのものを。",
       },
       {
         id: "hang", fig: "lightHang", title: "上から吊るす",
@@ -208,8 +209,8 @@ export const KIT: KitGroup[] = [
       paper: { opt: false, note: "口輪に。足や吊り線にも" } },
   ] },
   { id: "tools", title: "道具", items: [
-    { name: "のりを塗るはけ", fig: "kitPasteBrush", opt: true, note: "障子貼り用の糊刷毛など" },
-    { name: "紙を張るブラシ", fig: "kitBrush", opt: true, note: "靴磨き用など" },
+    { name: "のりを塗るブラシ", fig: "kitPasteBrush", opt: true, note: "障子貼り用ののりブラシなど" },
+    { name: "紙を貼るブラシ", fig: "kitBrush", opt: true, note: "靴磨き用など" },
     // Sits with the brushes rather than at the end: it belongs to the pasting, as they do, where the
     // pliers belong to two of the lighting ways. The note names TWO moments because the craft uses it
     // at two. A chochin maker damps the sheet as she lays it
