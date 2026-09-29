@@ -72,8 +72,8 @@ export const STEPS: Step[] = [
     // meets a hand-cut board, so `paperBody` says to adjust it and the printed body still says it
     // drops on. The template's own corner carries the same line (`paper/advice.ts`).
     id: "rings", title: "口輪をはめる", fig: "rings",
-    paperBody: "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてありますが、組んだ型に当てて調整してください。脚を掛ける輪は開口より内側に出ているので、羽根板の間に来るまで回してください。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。",
-    body: "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。脚ソケットが付いている方が下です。ソケットは開口より内側に出ているので、羽根板の間に来るまで回してください。",
+    paperBody: "型紙の青い線の上で針金を曲げ、上下2つの口輪をつくります。線は開口に合わせてありますが、組んだ型に当てて調整してください。足を掛ける輪は開口より内側に出ているので、羽根板の間に来るまで回してください。両端は少し重ねてねじってください。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。上下は別々の線なので、曲げたらどちらか分かるようにしておいてください。",
+    body: "上下の開口に口輪をはめます。内径が開口に合わせてあるので、羽根板の外側にすっと入ります。口輪も組んだ型も、まだ何にも留まっていません。輪ゴムやクリップで押さえてください(コマのすぐ外側に輪ゴムを1本ずつ巻くと羽根板の開きも揃います)。和紙は端の被せ代をこの口輪に折り返して貼るため、口輪は型を抜いたあとも提灯に残ります。足ソケットが付いている方が下です。ソケットは開口より内側に出ているので、羽根板の間に来るまで回してください。",
   },
   {
     id: "higo", title: "竹ひごを巻く", fig: "higo",
@@ -114,7 +114,7 @@ export const STEPS: Step[] = [
         // No `detail`: there is no fitting to work through — you set the lamp down and drop the shade
         // over it, which is the whole method and is already the figure.
         id: "set", fig: "lightSet", title: "置いたライトに被せる",
-        body: "LED ライトを床に置き、上からシェードを被せます。脚も金具も要りません。ライトは下の開口を通る大きさのものを。",
+        body: "LED ライトを床に置き、上からシェードを被せます。足も金具も要りません。ライトは下の開口を通る大きさのものを。",
       },
       {
         id: "hang", fig: "lightHang", title: "上から吊るす",
@@ -139,12 +139,12 @@ export const STEPS: Step[] = [
         // Needs the leg sockets: without them the figure would draw a legless lantern under the words
         // "add legs", so the option is dropped instead. Not the 3D route, though — cardboard prints
         // no ring, but the finished lantern has one either way, the hoop just being the builder's.
-        id: "legs", fig: "lightLegs", title: "脚を付けて下から留める", needs: (q) => !!ringLegs(q),
+        id: "legs", fig: "lightLegs", title: "足を付けて下から留める", needs: (q) => !!ringLegs(q),
         // The lamp and the legs go in as ONE piece — what the sub-steps below build — and there is
         // one fixing, the nut. The cardboard line has to say where the leg ends go as well, since a
         // hoop cut from card has no bores in it.
-        body: "脚と枠を付けたライトを下の開口から差し入れ、脚の先を下の口輪の脚ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは脚のあいだから下へ逃がします。",
-        paperBody: "段ボールの型では下の口輪の線に、脚を通す輪っかが3ヶ所入っています。針金で曲げてあれば、脚の先はそこへ通して折り返すだけです。あとは同じで、脚と枠を付けたライトを下の開口から差し入れて立て、コードは脚のあいだから逃がします。",
+        body: "足と枠を付けたライトを下の開口から差し入れ、足の先を下の口輪の足ソケットに挿して立てます。枠は火袋の内側を通って上の開口から少し顔を出し、火袋を上下に張らせます。コードは足のあいだから下へ逃がします。",
+        paperBody: "段ボールの型では下の口輪の線に、足を通す輪っかが3ヶ所入っています。針金で曲げてあれば、足の先はそこへ通して折り返すだけです。あとは同じで、足と枠を付けたライトを下の開口から差し入れて立て、コードは足のあいだから逃がします。",
         // The wire work: a pendant holder's cord leaves through a threaded stem with a nut on it, so
         // a loop bent in the wire's end stacks on that stem and one nut clamps the lot, which is how
         // the ready-made lantern kits do it. The slots read the same on BOTH routes on purpose: they
@@ -152,7 +152,7 @@ export const STEPS: Step[] = [
         // card on the other — is what the option's own body/paperBody says. (A slot has no
         // `paperBody`, and should not need one.)
         detail: [
-          { id: "wire1", fig: "legBend", title: "脚を曲げる",
+          { id: "wire1", fig: "legBend", title: "足を曲げる",
             body: "ペンチで先端を輪に曲げます。輪はソケットのネジが通る大きさに。残りは外へ渡してから下へ折り、床に届く長さにします。3本とも同じ形に。" },
           // The frame keeps the shade at its full height — a paper bag with a ring at each end and
           // nothing between them sags shut. Bent from the same wire and fixed by the same nut as the
@@ -163,11 +163,11 @@ export const STEPS: Step[] = [
           // under the bulb), and the nut is its only fixing — holding the top out against a foot that
           // cannot move is what puts the shade in tension.
           { id: "wire4", fig: "frameBend", title: "枠を曲げる",
-            body: "もう1本を輪に曲げます。下は両端を合わせて脚と同じ大きさの輪にし、そこから電球とソケットに当たらないよう外へ開いて立ち上げます。上の端は小さな輪に。高さは、その輪が上の開口から少し出るくらいに。" },
+            body: "もう1本を輪に曲げます。下は両端を合わせて足と同じ大きさの輪にし、そこから電球とソケットに当たらないよう外へ開いて立ち上げます。上の端は小さな輪に。高さは、その輪が上の開口から少し出るくらいに。" },
           { id: "wire2", fig: "legStack", title: "ネジに通す",
-            body: "ソケットの固定ナットを外し、3本の脚と枠の輪をネジに重ねて通します。脚が120°ずつ開くように向きを揃えてください。" },
+            body: "ソケットの固定ナットを外し、3本の足と枠の輪をネジに重ねて通します。足が120°ずつ開くように向きを揃えてください。" },
           { id: "wire3", fig: "legStood", title: "ナットで締める",
-            body: "ナットを戻して締めます。これでライトと脚と枠が1つになります。" },
+            body: "ナットを戻して締めます。これでライトと足と枠が1つになります。" },
         ],
       },
     ],
@@ -204,8 +204,8 @@ export const KIT: KitGroup[] = [
     { name: "ライト", fig: "kitLight", note: "熱を持ちにくい LED のもの" },
     // Optional on the 3D route, where the rings are printed and wire serves only two of the lighting
     // ways. On cardboard the hoops themselves are wire, so it is as unconditional as the bamboo.
-    { name: "ワイヤー", fig: "kitWire", opt: true, note: "脚を付けるか吊るす場合",
-      paper: { opt: false, note: "口輪に。脚や吊り線にも" } },
+    { name: "ワイヤー", fig: "kitWire", opt: true, note: "足を付けるか吊るす場合",
+      paper: { opt: false, note: "口輪に。足や吊り線にも" } },
   ] },
   { id: "tools", title: "道具", items: [
     { name: "のりを塗るはけ", fig: "kitPasteBrush", opt: true, note: "障子貼り用の糊刷毛など" },
