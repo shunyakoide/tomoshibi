@@ -52,7 +52,7 @@ I was especially curious about the notched outer edge that catches the bamboo. S
 
 Thanks to all of that, I managed to make a first lamp.
 
-![The first lamp that came together](notes/finished.jpg)
+![The first lamp that came together](media/finished.jpg)
 
 There are still many things I want to improve, but the washi light I made with my own hands has its own charm, and I was very happy with it.
 
