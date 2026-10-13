@@ -11,7 +11,7 @@
  *
  * Pure arithmetic: no three.js, React or DOM, and nothing here builds geometry.
  */
-import type { Design, Handle, Pt } from "../types.ts";
+import type { Design, Handle, Pt, Pts } from "../types.ts";
 
 // ============ Profile (control-point spline) ============
 // The silhouette is a radius function joining the control-point array `pts` with monotone Hermite
@@ -107,14 +107,13 @@ function profileR(P: Pt[], x: number, T?: number[]): number { return anyHandle(P
 // (pts unchanged). A cubic Hermite IS a cubic Bézier with the control point shifted Δt/3 along the
 // tangent, so the shape does not move. After baking, `sharp` means only "the handles are not
 // mirrored, so the corner can move independently"; evaluation always uses ho/hi.
-export function bakeBezierHandles(pts: Pt[]): Pt[] {
-  if (!pts || pts.length < 2) return pts;
+export function bakeBezierHandles(pts: Pts): Pts {
   const T = fukuroTangents(pts), n = pts.length;
   return pts.map((q, i) => {
     const dtN = i < n - 1 ? (pts[i + 1].t - q.t) / 3 : 0;   // next-point side Δt/3
     const dtP = i > 0 ? (q.t - pts[i - 1].t) / 3 : 0;       // prev-point side Δt/3
     return { ...q, ho: { dt: dtN, dr: T[i] * dtN }, hi: { dt: -dtP, dr: -T[i] * dtP } };
-  });
+  }) as Pts;   // map keeps the length; TypeScript only forgets it
 }
 // Effective outer radius: t∈[0,1] → mm. One continuous spline from the ends (t=0/1) to the apex with
 // no vertical neck inserted — a neck there would put a flat-to-curve kink at the joint — so the ends

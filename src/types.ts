@@ -17,6 +17,9 @@ export type Pt = { t: number; r: number; sharp?: boolean; ho?: Handle; hi?: Hand
 /** A point in a 2D cross-section outline: [x, y] in mm. The form every part's outline is built in. */
 export type Pt2 = [number, number];
 
+/** A silhouette's control points: two or more, which is what `outerR` needs to interpolate. */
+export type Pts = [Pt, Pt, ...Pt[]];
+
 /**
  * The design — the object called `p` everywhere here. The optional fields are not settings: they are
  * the way the CARDBOARD route reaches geometry without coming from the editor. `paperP` sets every
@@ -34,10 +37,9 @@ export type Pt2 = [number, number];
 export type Design = {
   /** Lamp-body height (mm). The silhouette's t axis spans this. */
   height: number;
-  /** The silhouette itself: control points in ascending t, never fewer than `LIMITS.pts[0]` (2).
-   *  geometry reads `pts[0]` and the last point unguarded; `validatePts` holds this for every saved
-   *  or imported design, and the editor will not delete below it. */
-  pts: Pt[];
+  /** The silhouette itself: control points in ascending t. Never fewer than two (`LIMITS.pts[0]`):
+   *  geometry reads the first and last point unguarded, so the type carries the floor. */
+  pts: Pts;
   /** Neck (the vertical rectangle outside the outermost control point), chosen per end. */
   neckBot: boolean;
   neckTop: boolean;
