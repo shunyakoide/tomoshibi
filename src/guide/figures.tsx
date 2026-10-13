@@ -2,7 +2,8 @@
 // what makes the guide a manual rather than a report on your lantern.
 import { DEFAULTS } from "../config.ts";
 import { paperP } from "../papercraft.ts";
-import { figureImage } from "../three/figures.ts";
+import { useEffect, useRef } from "react";
+import { figureImage, moves, playFigure } from "../three/figures.ts";
 import { PARTS, KIT_FIGS, STEPS } from "./content.ts";
 import type { PartRow } from "./content.ts";
 import type { T } from "../i18n.ts";
@@ -37,10 +38,29 @@ const WELL_FAIL = "text-sm text-fine text-center p-8";
  * means the drawing FAILED rather than not having arrived, and saying so beats an empty well, which
  * nobody reads as a bug.
  */
-export function Fig({ src, t, part = false }: { src?: string | null; t: T; part?: boolean }) {
+export function Fig({ src, t, part = false, id, smooth = false }: {
+  src?: string | null; t: T; part?: boolean; id?: string; smooth?: boolean;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const live = !!src && !!id && moves(id);
+  // A figure with a motion plays it while it is across the middle of the window — one at a time, and
+  // the one being read rather than whichever scrolled in last. The still stays underneath and is
+  // what prints: the live canvas sits in a print-hidden layer.
+  useEffect(() => {
+    const el = host.current;
+    if (!live || !el || !id) return undefined;
+    let stop: (() => void) | null = null;
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) stop ??= playFigure(id, smooth, el);
+      else { stop?.(); stop = null; }
+    }, { rootMargin: "-50% 0px -50% 0px" });
+    io.observe(el);
+    return () => { io.disconnect(); stop?.(); };
+  }, [live, id, smooth]);
   return (
-    <div className={`${WELL}${part ? WELL_PART : WELL_STEP}`}>
+    <div className={`${WELL}${part ? WELL_PART : WELL_STEP}${live ? " relative" : ""}`}>
       {src && <img src={src} alt="" className={WELL_IMG} />}
+      {live && <div ref={host} className="absolute inset-0 print:hidden" />}
       {src === null && <span className={WELL_FAIL}>{t("図を描けませんでした")}</span>}
     </div>
   );
