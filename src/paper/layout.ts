@@ -41,7 +41,6 @@ export const A4 = { w: 210, h: 297, name: "A4" };
 // value that prints whole on essentially anything (home inkjets stop at ~3.2mm, lasers ~4.2-5mm);
 // further clips the frame the sheets are aligned by, which costs more than the millimetre gains.
 export const MARGIN = 5;
-const FOOTER = 0;    // No band at the foot of every page: the parts get the full height between the margins.
 // The FIRST page instead starts this far down, and the strip carries the check square — reserved once
 // per document rather than 14mm on every sheet, and only when nothing anywhere fits (`scaleSpot`).
 // 36mm is what the try square's short arm plus its labels need.
@@ -98,7 +97,7 @@ export function layout(parts: RawPart[], page: Page, advice: string[]): Layout {
   const CW = page.w - 2 * MARGIN;              // content width = the trim box, which is what the clip,
                                               // the frame and the join diamonds are all drawn to
   const colW = CW - 2 * EDGE;                  // ...and what is left for PARTS once both edges are kept clear
-  const CH = page.h - 2 * MARGIN - FOOTER;     // content height (usable height per page)
+  const CH = page.h - 2 * MARGIN;              // content height (usable height per page)
 
   // Orient every part before any packing decision — a part too wide for the paper is rotated 90° —
   // so the row ordering below sorts on the ORIENTED height, not on the wrong dimension.

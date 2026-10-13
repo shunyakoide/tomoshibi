@@ -25,7 +25,7 @@ export type Handle = {
   lx: number; ly: number; anchor: "end";
 };
 
-export type SectionDrag = {
+type SectionDrag = {
   beginDrag: (e: React.PointerEvent, cfg: Handle) => void;
   beginDragPt: (e: React.PointerEvent, i: number) => void;
   beginDragHandle: (e: React.PointerEvent, i: number, which: "ho" | "hi") => void;

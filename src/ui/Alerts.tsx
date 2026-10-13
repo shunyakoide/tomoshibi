@@ -4,7 +4,7 @@ import type { AlertItem } from "../studio/derived.ts";
 
 /** Two fields rather than free children, so the narrow strip can quote `head` without rendering the
  *  whole card. */
-export function Alert({ head, hint }: { head: string; hint?: string }) {
+function Alert({ head, hint }: { head: string; hint?: string }) {
   return (
     <div className="flex items-center gap-10 px-14 py-10 bg-card border border-accent-4
       rounded-lg shadow-[0_3px_12px_rgba(59,52,43,0.1)] font-sans text-base text-text text-left">

@@ -7,14 +7,14 @@ import enBuild from "./articles/en/build.md?raw";
 import jaSockets from "./articles/ja/sockets.md?raw";
 import enSockets from "./articles/en/sockets.md?raw";
 
-export type NoteMeta = {
+type NoteMeta = {
   slug: NoteSlug;
   title: string;
   summary: string;
   category: string;
 };
 
-export type NoteDoc = NoteMeta & {
+type NoteDoc = NoteMeta & {
   body: string;
 };
 
