@@ -58,7 +58,7 @@ export const SCHEMA_VERSION = 1;
 
 // First-run onboarding card, on its own key: exporting a design must not carry "has this person
 // seen the intro", and clearing the flag must not touch the shape. Same shape as i18n's lang key.
-export const WELCOME_KEY = "tomoshibi.welcome";
+const WELCOME_KEY = "tomoshibi.welcome";
 export function loadWelcomeSeen() {
   try { return localStorage.getItem(WELCOME_KEY) === "1"; }
   catch { return true; }   // storage blocked → don't nag on every load
@@ -153,25 +153,25 @@ function coerceNums(p: Design): Design {
  * `p.neckBot ?? true`, and written straight back out by `serializeState` — a `Design` permanently
  * failing its own type. A wrong type falls back to DEFAULTS, the same answer the numeric path
  * gives, rather than to `!!value`, which would read `"false"` as true.
- *
- * `noTabDent` is DROPPED rather than defaulted when it is the wrong type: it is optional, and
- * absence is the answer the papercraft's callers rely on — a defaulted `false` would state one.
  */
 const BOOL_KEYS = ["neckBot", "neckTop", "lighten", "spiral", "legSockets"] as const;
-const OPT_BOOL_KEYS = ["noTabDent"] as const;
 function coerceBools(p: Design): Design {
   for (const k of BOOL_KEYS) if (typeof p[k] !== "boolean") p[k] = DEFAULTS[k];
-  for (const k of OPT_BOOL_KEYS) if (p[k] !== undefined && typeof p[k] !== "boolean") delete p[k];
   return p;
 }
 
-// Sanitize a shape p: shallow-merge missing fields from DEFAULTS, validate pts, coerce numbers,
-// clamp boards. The boards clamp brings TomoshibiStudio's self-healing effect forward, so the first
-// render cannot produce a non-watertight koma.
+// Sanitize a shape p: take DEFAULTS' fields from the file, validate pts, coerce numbers, clamp
+// boards. The boards clamp brings TomoshibiStudio's self-healing effect forward, so the first render
+// cannot produce a non-watertight koma.
+//
+// Only DEFAULTS' keys are read. Every optional `Design` field (`joint`, `noCrescent`, `noTabDent`)
+// is set by `paperP` on a derived design and is never state; spread from a file, one reshaped the
+// printed STL, and a malformed `joint` threw in render on every load, before autosave could heal it.
 function sanitizeP(rawP: unknown): Design {
-  const raw = rawP as Partial<Design> | null | undefined;
-  const p: Design = { ...DEFAULTS, ...raw };   // missing fields are filled from the single source of truth, DEFAULTS
-  p.pts = validatePts(raw && raw.pts);
+  const raw = (rawP && typeof rawP === "object" ? rawP : {}) as Record<string, unknown>;
+  // A cast, not a check: what each field holds is coerced below, field by field.
+  const p = Object.fromEntries(Object.keys(DEFAULTS).map((k) => [k, k in raw ? raw[k] : DEFAULTS[k as keyof Design]])) as Design;
+  p.pts = validatePts(raw.pts);
   coerceNums(p);
   // After the height is clamped, since the floor is millimetres of it. Pushing the ends out keeps
   // the spacing `legalizePts` just enforced (each carried point lands on `T_GAP`, to `spacedOK`).
