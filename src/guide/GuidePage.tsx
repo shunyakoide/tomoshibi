@@ -208,7 +208,7 @@ export default function GuidePage({ route, onRoute, onClose, onGoPrint, onGoNote
               {/* No well when the step has nothing to show: beside ten drawn figures an empty box
                   reads as one that failed. A step with `options` puts its figures in the sections
                   instead, one per way of doing it. */}
-              {s.fig && <Fig src={figs[s.fig]} t={t} />}
+              {s.fig && <Fig src={figs[s.fig]} t={t} id={s.fig} smooth={!stl} />}
               <div>
                 <h3 className={STEP_H3}>
                   <span className={STEP_NUM}>{i + 1}</span>
