@@ -237,7 +237,11 @@ export function strip(advice: string[]) {
  */
 function scaleSpot(lay: Omit<Layout, "spot" | "advice">, box: { w: number; h: number }): Spot | null {
   for (let i = 0; i < lay.pages.length; i++) {
-    const { top, bot, y0 } = lay.pages[i];
+    const { top, bot, y0, row } = lay.pages[i];
+    // A seam sheet carries `pageOps`' trim chevrons at mid-height, reaching 3.4mm in from each side;
+    // keeping the corner GAP off both sides keeps them out of the advice box.
+    const seam = !!row && (lay.pages[i - 1]?.row === row || lay.pages[i + 1]?.row === row);
+    const xLo = seam ? MARGIN + GAP : MARGIN, xHi = MARGIN + lay.CW - (seam ? GAP : 0);
     // The band starts at `y0`. It used to add 1mm when `prev.bot > top`, which cannot happen:
     // `build` sets a page's `bot` to the next page's `top` exactly when the row continues, and to
     // its own cap otherwise. Zero hits over 7,704 page boundaries across both templates.
@@ -246,10 +250,10 @@ function scaleSpot(lay: Omit<Layout, "spot" | "advice">, box: { w: number; h: nu
       .map((q) => ({ x: MARGIN + q.x, y: oy + q.y, w: q.w, h: q.h }));
     // Candidates: the band's top-left corner plus the bottom-right corners the parts leave (the
     // standard corner heuristic). A free rectangle always has one of these as its top-left.
-    const xs = [MARGIN, ...near.map((q) => q.x + q.w + GAP)].sort((a, b) => a - b);
+    const xs = [xLo, ...near.map((q) => q.x + q.w + GAP)].sort((a, b) => a - b);
     const ys = [bandTop, ...near.map((q) => q.y + q.h + GAP)].sort((a, b) => a - b);
     for (const y of ys) for (const x of xs) {
-      if (x + box.w > MARGIN + lay.CW || y + box.h > bandBot || y < bandTop) continue;
+      if (x < xLo || x + box.w > xHi || y + box.h > bandBot || y < bandTop) continue;
       if (!near.some((q) => q.x < x + box.w && q.x + q.w > x && q.y < y + box.h && q.y + q.h > y))
         return { page: i, x, y };
     }
