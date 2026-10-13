@@ -319,7 +319,7 @@ export default function TomoshibiStudio() {
         {/* The guide's one outbound link closes it as well as switching the view: leaving the
             document open over the print view would hide the thing it just sent you to. */}
         {guide && (
-          <GuidePage route={route} onClose={() => goPage(null)}
+          <GuidePage route={route} onRoute={(r) => set("route", r)} onClose={() => goPage(null)}
             onGoPrint={() => { goPage(null); setView("print"); }}
             onGoNote={(slug, hash) => goPage(slug, hash)} />
         )}
