@@ -34,10 +34,9 @@ export type Pt2 = [number, number];
 export type Design = {
   /** Lamp-body height (mm). The silhouette's t axis spans this. */
   height: number;
-  /** Fallback opening radii, used only when `pts` is empty. Not on the normal path. */
-  rTop: number;
-  rBot: number;
-  /** The silhouette itself: control points in ascending t. */
+  /** The silhouette itself: control points in ascending t, never fewer than `LIMITS.pts[0]` (2).
+   *  geometry reads `pts[0]` and the last point unguarded; `validatePts` holds this for every saved
+   *  or imported design, and the editor will not delete below it. */
   pts: Pt[];
   /** Neck (the vertical rectangle outside the outermost control point), chosen per end. */
   neckBot: boolean;

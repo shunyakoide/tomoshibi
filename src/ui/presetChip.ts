@@ -15,7 +15,7 @@
  *     flags, and a neck-less end IS the koma size, which the rib count sets.
  *
  * So there is ONE function that says what a pick produces (`presetDesign`), and the pick, the picture
- * and the lit state are all it. A pick replaces `rTop`/`rBot`/`pts` and, for a preset whose identity
+ * and the lit state are all it. A pick replaces `pts` and, for a preset whose identity
  * is a ratio, the height — everything else is the maker's and stays theirs.
  */
 import { outerR } from "../geometry.ts";
@@ -26,7 +26,7 @@ import type { Design, Pt } from "../types.ts";
 
 /** The design `onPick` stores — and therefore the one the chip must draw and be lit by. */
 export function presetDesign(pr: Preset, p: Design): Design {
-  return { ...p, rTop: pr.rTop, rBot: pr.rBot, height: presetHeight(pr, p.height), pts: presetPts(pr, p.height) };
+  return { ...p, height: presetHeight(pr, p.height), pts: presetPts(pr, p.height) };
 }
 
 /**
@@ -48,9 +48,8 @@ export function presetMini(pr: Preset, p: Design): { d: string; q: Design } {
   return { d: d + " Z", q };
 }
 
-// Compare on pts alone: rTop/rBot are only a fallback for an empty pts and are never edited. The
-// handles go in as plain pairs — a design that has been through JSON has its {dt,dr} rebuilt, and
-// key order must not decide this.
+// Compare on pts alone. The handles go in as plain pairs — a design that has been through JSON has
+// its {dt,dr} rebuilt, and key order must not decide this.
 const ptKey = (q: Pt) =>
   JSON.stringify([q.t, q.r, !!q.sharp, q.ho ? [q.ho.dt, q.ho.dr] : 0, q.hi ? [q.hi.dt, q.hi.dr] : 0]);
 const ptsKey = (pts: Pt[]) => (pts || []).map(ptKey).join("|");
