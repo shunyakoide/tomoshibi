@@ -56,7 +56,7 @@ export function useBottomSheet({ narrow, isLit, lang }: {
     const ro = new ResizeObserver(read);
     ro.observe(bar);
     return () => ro.disconnect();
-  }, [narrow, lang]);
+  }, [narrow, lang, isLit]);   // the bar unmounts with the inspector while lit
 
   // The budget the viewport and the sheet share. Their SUM is invariant — one grows exactly as the
   // other shrinks — so observing both and adding gives a number that does not move while the sheet

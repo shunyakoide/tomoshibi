@@ -126,6 +126,7 @@ export function sectionDrag(ctx: {
       if (editMode === "curve") return;   // in curve-adjust mode the point doesn't move (only the handles do)
       const c = f.toSvg(ev.clientX, ev.clientY);
       setP((o) => {
+        if (!o.pts[i]) return o;   // the list shrank under a held ◇ (⌘Z, or a second finger's 削除)
         const pts = o.pts.map((q) => ({ ...q }));
         pts[i].r = clampR(start.r + (c.x - s0.x) / f.s, i === 0 || i === pts.length - 1);
         pts[i].t = clamp(...tBounds(pts, i, o.height), start.t + (s0.y - c.y) / (H * f.s));
@@ -166,6 +167,7 @@ export function sectionDrag(ctx: {
     startDrag("h" + i + which, e.pointerId, (ev) => {
       const m = f.toModel(ev.clientX, ev.clientY);
       setP((o) => {
+        if (!o.pts[i]) return o;   // as in beginDragPt
         const pts = o.pts.map((q) => ({ ...q, ho: q.ho ? { ...q.ho } : undefined, hi: q.hi ? { ...q.hi } : undefined }));
         const a = pts[i], dt = m.t - a.t, dr = m.r - a.r;
         const mirror = !a.sharp && i > 0 && i < pts.length - 1;
