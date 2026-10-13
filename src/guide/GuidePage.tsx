@@ -7,9 +7,9 @@
  *
  * **The page is generic: every figure is drawn from ONE fixed design (`GUIDE_P`), at most once per
  * ROUTE per session, and no measurement is printed anywhere**, so **nothing here may state a
- * QUANTITY the design decides**. The ROUTE still follows the app, because it changes which parts
- * exist at all — cardboard has no stand and no printed rings, so those steps are filtered, not
- * reworded.
+ * QUANTITY the design decides**. The ROUTE still follows the app (and can be switched from here),
+ * because it changes which parts exist at all — cardboard has no stand and no printed rings, so those
+ * steps are filtered, not reworded.
  *
  * Print styles live in index.css: the browser's own "Save as PDF" is the paper version, which is why
  * the guide is not a PDF the app writes.
@@ -20,7 +20,7 @@ import { KIT, KIT_FIGS, PARTS, STEPS } from "./content.ts";
 import { Fig, GUIDE_P, drawn, figure } from "./figures.tsx";
 import WayItem, { STEP_P } from "./WayItem.tsx";
 import { useT } from "../ui/theme.ts";
-import { Badge, Button } from "../ui/controls.tsx";
+import { Badge, Button, SegButton } from "../ui/controls.tsx";
 import type { Way } from "./content.ts";
 import type { NoteSlug } from "../notes/slugs.ts";
 import { routeHref } from "../studio/route.ts";
@@ -39,6 +39,7 @@ const COLUMN = "max-w-860 mx-auto pt-30 px-24 pb-72 narrow:pt-26 narrow:px-14 na
   + "print:max-w-none print:p-0";
 const EYEBROW = "mt-0 mx-0 mb-6 font-mono text-sm font-semibold tracking-[0.14em] uppercase text-accent";
 const TITLE = "mt-0 mx-0 mb-10 text-3xl font-bold text-head";
+const ROUTE_SEG = "flex gap-6 max-w-[320px] mt-0 mx-0 mb-14 print:hidden";
 const LEDE = "m-0 text-lg leading-[1.75] text-fine max-w-[62ch]";
 const H2 = "mt-40 mx-0 mb-14 text-md font-bold tracking-[0.08em] text-head border-b border-b-edge pb-8 "
   + "print:[break-after:avoid]";
@@ -68,8 +69,9 @@ const NOTE_BOX = "mt-14 flex flex-wrap items-center gap-7 text-sm text-sub print
 const NOTE_LINK = "inline-flex items-center min-h-26 px-8 rounded-md bg-accent-06 text-accent "
   + "border border-accent-25 no-underline hover:bg-[#fffaf5] hover:border-accent-45";
 
-export default function GuidePage({ route, onClose, onGoPrint, onGoNote }: {
-  route: Route; onClose: () => void; onGoPrint: () => void; onGoNote: (slug: NoteSlug, hash?: string) => void;
+export default function GuidePage({ route, onRoute, onClose, onGoPrint, onGoNote }: {
+  route: Route; onRoute: (r: Route) => void; onClose: () => void; onGoPrint: () => void;
+  onGoNote: (slug: NoteSlug, hash?: string) => void;
 }) {
   const t = useT();
   const stl = route !== "paper";
@@ -137,6 +139,12 @@ export default function GuidePage({ route, onClose, onGoPrint, onGoNote }: {
       <div className={COLUMN}>
         <p className={EYEBROW}>{t("作り方")}</p>
         <h1 className={TITLE}>{t(stl ? "3Dプリントで型をつくる" : "段ボールで型をつくる")}</h1>
+        {/* The APP's route, not a page-local one: the guide and the print view it links to must be
+            about the same mold. Hidden on paper, where the title already says which. */}
+        <div role="group" aria-label={t("型の種類")} className={ROUTE_SEG}>
+          <SegButton label="3Dプリント" active={stl} onClick={() => onRoute("stl")} />
+          <SegButton label="段ボール" active={!stl} onClick={() => onRoute("paper")} />
+        </div>
         <p className={LEDE}>
           {t("型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図は一例で、大きさや枚数は設計によって変わります。")}
         </p>
