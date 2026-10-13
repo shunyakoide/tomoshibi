@@ -1,4 +1,4 @@
-import type { Design, NumericDesignKey, Pt } from "./types.ts";
+import type { Design, NumericDesignKey, Pts } from "./types.ts";
 
 /**
  * A shape preset: the control points a design starts from, plus its chip's label. Deliberately NOT
@@ -6,7 +6,7 @@ import type { Design, NumericDesignKey, Pt } from "./types.ts";
  * for a preset that names one, `height` (`presetDesign`). `height` is optional because only a preset
  * whose identity is a RATIO rather than an outline may claim it; without it the maker's height is kept.
  */
-export type Preset = { key: string; name: string; pts: Pt[]; height?: number };
+export type Preset = { key: string; name: string; pts: Pts; height?: number };
 
 // Every preset's NECKS are 15.4mm at the height it is picked at (0.075 × 205, 0.10 × 150) — the old
 // NECK_MIN, kept as the shape each chip has always drawn. They now sit above the 10mm floor rather

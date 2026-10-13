@@ -8,7 +8,7 @@
  */
 import { outerR } from "../../geometry.ts";
 import { LIMITS, spacedOK } from "../../config.ts";
-import { clamp } from "../../util.ts";
+import { clamp, mapSame, toPts } from "../../util.ts";
 import { CX, Y0 } from "./frame.ts";
 import { tBounds, clampR } from "../pointEdit.ts";
 import type React from "react";
@@ -127,7 +127,7 @@ export function sectionDrag(ctx: {
       const c = f.toSvg(ev.clientX, ev.clientY);
       setP((o) => {
         if (!o.pts[i]) return o;   // the list shrank under a held ◇ (⌘Z, or a second finger's 削除)
-        const pts = o.pts.map((q) => ({ ...q }));
+        const pts = mapSame(o.pts, (q) => ({ ...q }));
         pts[i].r = clampR(start.r + (c.x - s0.x) / f.s, i === 0 || i === pts.length - 1);
         pts[i].t = clamp(...tBounds(pts, i, o.height), start.t + (s0.y - c.y) / (H * f.s));
         return { ...o, pts };
@@ -153,7 +153,7 @@ export function sectionDrag(ctx: {
     const r = clampR(outerR(p, mt));
     // Sorted and located BEFORE the state write: a `setP` updater must be pure — React may run it
     // twice — and calling `setSel` from inside one is a side effect however stable its value.
-    const pts = [...p.pts, { t: mt, r }].sort((a, b) => a.t - b.t);
+    const pts = toPts([...p.pts, { t: mt, r }].sort((a, b) => a.t - b.t));
     setP((o) => ({ ...o, pts }));
     setSel(pts.findIndex((q) => q.t === mt));
   };
@@ -168,7 +168,7 @@ export function sectionDrag(ctx: {
       const m = f.toModel(ev.clientX, ev.clientY);
       setP((o) => {
         if (!o.pts[i]) return o;   // as in beginDragPt
-        const pts = o.pts.map((q) => ({ ...q, ho: q.ho ? { ...q.ho } : undefined, hi: q.hi ? { ...q.hi } : undefined }));
+        const pts = mapSame(o.pts, (q) => ({ ...q, ho: q.ho ? { ...q.ho } : undefined, hi: q.hi ? { ...q.hi } : undefined }));
         const a = pts[i], dt = m.t - a.t, dr = m.r - a.r;
         const mirror = !a.sharp && i > 0 && i < pts.length - 1;
         if (which === "ho") { a.ho = { dt, dr }; if (mirror) a.hi = { dt: -dt, dr: -dr }; }

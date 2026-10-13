@@ -7,7 +7,7 @@
 import type React from "react";
 import { bakeBezierHandles } from "../geometry.ts";
 import { LIMITS, T_GAP, NECK_MIN, OPENING_MIN } from "../config.ts";
-import { clamp } from "../util.ts";
+import { clamp, mapSame, toPts } from "../util.ts";
 import type { Design, Pt } from "../types.ts";
 
 /** The neck floor as a fraction of this body's height: `NECK_MIN` is a length, `t` is not. */
@@ -34,10 +34,10 @@ export function tBounds(pts: Pt[], i: number, height: number): [number, number] 
  * pushes cannot meet: at LIMITS' 60mm floor they leave 0.5 between them, and eight points at
  * `T_GAP` span 0.28.
  */
-export function neckFloor(pts: Pt[], height: number): Pt[] {
+export function neckFloor<P extends Pt[]>(pts: P, height: number): P {
   const m = neckT(height), n = pts.length;
   let out = pts;
-  const set = (i: number, t: number) => { if (out === pts) out = pts.map((q) => ({ ...q })); out[i].t = t; };
+  const set = (i: number, t: number) => { if (out === pts) out = mapSame(pts, (q) => ({ ...q })); out[i].t = t; };
   for (let i = 0; i < n; i++) { const lo = m + i * T_GAP; if (out[i].t < lo) set(i, lo); else break; }
   for (let i = n - 1; i >= 0; i--) { const hi = 1 - m - (n - 1 - i) * T_GAP; if (out[i].t > hi) set(i, hi); else break; }
   return out;
@@ -50,10 +50,10 @@ export function neckFloor(pts: Pt[], height: number): Pt[] {
 export const clampR = (r: number, isEnd = false) => clamp(isEnd ? OPENING_MIN : LIMITS.r[0], LIMITS.r[1], r);
 
 /** The opening floor applied to a whole list: the two ends only. Returns `pts` itself if nothing moved. */
-export function openingFloor(pts: Pt[]): Pt[] {
+export function openingFloor<P extends Pt[]>(pts: P): P {
   const n = pts.length;
   if (n === 0 || (pts[0].r >= OPENING_MIN && pts[n - 1].r >= OPENING_MIN)) return pts;
-  const out = pts.map((q) => ({ ...q }));
+  const out = mapSame(pts, (q) => ({ ...q }));
   out[0].r = Math.max(out[0].r, OPENING_MIN);
   out[n - 1].r = Math.max(out[n - 1].r, OPENING_MIN);
   return out;
@@ -66,7 +66,7 @@ export function openingFloor(pts: Pt[]): Pt[] {
  * surface that applies one and not the other makes a design the others consider illegal, and the
  * preset chip goes dark on the shape it just drew.
  */
-export const silhouetteFloors = (pts: Pt[], height: number): Pt[] => openingFloor(neckFloor(pts, height));
+export const silhouetteFloors = <P extends Pt[]>(pts: P, height: number): P => openingFloor(neckFloor(pts, height));
 
 /**
  * The point list a picked preset yields, and the HEIGHT it yields it at. Three surfaces need that one
@@ -83,8 +83,8 @@ export const silhouetteFloors = (pts: Pt[], height: number): Pt[] => openingFloo
  * drawing its 150mm silhouette.
  */
 export const presetHeight = (pr: { height?: number }, height: number): number => pr.height ?? height;
-export const presetPts = (pr: { pts: Pt[]; height?: number }, height: number): Pt[] =>
-  silhouetteFloors(pr.pts.map((q) => ({ ...q })), presetHeight(pr, height));
+export const presetPts = <P extends Pt[]>(pr: { pts: P; height?: number }, height: number): P =>
+  silhouetteFloors(mapSame(pr.pts, (q) => ({ ...q })), presetHeight(pr, height));
 
 /** Which gesture the ◇ handles perform: move the point, or pull its Bézier tangents. */
 export type EditMode = "move" | "curve";
@@ -119,13 +119,13 @@ export function pointOps(
   const hRange: [number, number] = pt ? tBounds(p.pts, sel!, p.height).map((v) => Math.round(v * p.height)) as [number, number] : [0, p.height];
 
   const patch = (fields: Partial<Pt>) => setP((o) => {
-    const pts = o.pts.map((q) => ({ ...q }));
+    const pts = mapSame(o.pts, (q) => ({ ...q }));
     pts[sel!] = { ...pts[sel!], ...fields };   // only ever called while a point is selected
     return { ...o, pts };
   });
 
   const setHeightMm = (mm: number) => setP((o) => {
-    const pts = o.pts.map((q) => ({ ...q }));
+    const pts = mapSame(o.pts, (q) => ({ ...q }));
     pts[sel!] = { ...pts[sel!], t: clamp(...tBounds(pts, sel!, o.height), mm / o.height) };
     return { ...o, pts };
   });
@@ -139,7 +139,7 @@ export function pointOps(
     // then persist floored it back to 26 on the next reload, the shape changing under the user.
     // Re-checked on `o`: `canDelete` read the rendered `p`, and an update queued before this one
     // (a second delete, an undo) can already have taken the list to the floor.
-    setP((o) => o.pts.length > LIMITS.pts[0] ? { ...o, pts: silhouetteFloors(o.pts.filter((_, j) => j !== sel), o.height) } : o);
+    setP((o) => o.pts.length > LIMITS.pts[0] ? { ...o, pts: silhouetteFloors(toPts(o.pts.filter((_, j) => j !== sel)), o.height) } : o);
     setSel(null);
   };
 

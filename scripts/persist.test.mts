@@ -17,6 +17,7 @@ globalThis.localStorage = {
 const P = await import("../src/studio/persist.ts");
 const G = await import("../src/geometry.ts");
 const { DEFAULTS, LIMITS, T_GAP, NECK_MIN, OPENING_MIN } = await import("../src/config.ts");
+const { toPts } = await import("../src/util.ts");
 const { FRESH } = P;
 type SavedState = import("../src/studio/persist.ts").SavedState;
 
@@ -119,7 +120,7 @@ t("pre-flag save → watertight", manifoldOK(r.p) === true);
 // GEOMETRY directly: since `OPENING_MIN` a saved file's openings are floored to 26mm, where the pads
 // do fit, so a round trip can no longer deliver a design this small — the guard still has to hold
 // for the geometry, which `check:manifold` also sweeps below the editor's floor.
-const tiny = { ...DEFAULTS, legSockets: true, pts: [{ t: 0.05, r: 10 }, { t: 0.5, r: 40 }, { t: 0.95, r: 10 }] };
+const tiny = { ...DEFAULTS, legSockets: true, pts: toPts([{ t: 0.05, r: 10 }, { t: 0.5, r: 40 }, { t: 0.95, r: 10 }]) };
 t("opening too small → no sockets", G.ringLegs(tiny) === null && G.ringLegsFit(tiny) === false);
 // And through persist, which is where the floor now acts: the same file comes back with openings it
 // CAN hang pads on, and the ring says so — the flag having asked for them.

@@ -1,6 +1,16 @@
 import * as THREE from "three";
+import type { Pt, Pts } from "./types.ts";
 
 export const clamp = (lo: number, hi: number, v: number): number => Math.max(lo, Math.min(hi, v));
+
+/** `map` keeps a list's length, which TypeScript forgets for a tuple type such as `Pts`. */
+export const mapSame = <L extends unknown[]>(xs: L, f: (x: L[number], i: number) => L[number]): L => xs.map(f) as L;
+
+/** A plain point list as `Pts`, checked rather than cast: a shorter list breaks every outline. */
+export function toPts(pts: Pt[]): Pts {
+  if (pts.length < 2) throw new Error(`a silhouette needs two points, got ${pts.length}`);
+  return pts as Pts;
+}
 
 /**
  * N points evenly around a circle, UNCLOSED — a start point equal to the end point extrudes a

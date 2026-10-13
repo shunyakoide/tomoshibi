@@ -22,7 +22,8 @@ import * as G from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS, T_GAP } from "../src/config.ts";
 import { neckFloor } from "../src/ui/pointEdit.ts";
 import { paperP } from "../src/papercraft.ts";   // the cardboard route's own design: the hoop there is bent wire
-import type { Design, Pt } from "../src/types.ts";
+import { mapSame, toPts } from "../src/util.ts";
+import type { Design, Pt, Pts } from "../src/types.ts";
 
 /** One part's verdict. `reason` is what gets printed when it fails. */
 type Result = { name?: string; ok: boolean; reason?: string };
@@ -157,9 +158,9 @@ for (const preset of PRESETS)
 // Curve-adjust mode switches outerR to Bézier evaluation. Bake handles onto the
 // midpoint → perturb → check every part, so a steep angle cannot carve the body
 // toward the koma and open the mesh.
-function perturb(pts: Pt[], kind: string): Pt[] {
+function perturb(pts: Pts, kind: string): Pts {
   const mid = Math.max(1, Math.min(pts.length - 2, Math.floor(pts.length / 2)));
-  return pts.map((q, i) => {
+  return mapSame(pts, (q, i) => {
     if (i !== mid || !q.ho || !q.hi) return { ...q };
     const scale = (h: { dt: number; dr: number }, sd: number, sr: number) => ({ dt: h.dt * sd, dr: h.dr * sr });
     switch (kind) {
@@ -228,7 +229,7 @@ for (const preset of PRESETS)
       for (const higoD of [2, 3]) {
         if (!mine()) continue;
         const widest = Math.max(...preset.pts.map((q) => q.r));
-        const pts = neckFloor(preset.pts.map((q) => ({ ...q, r: Math.min(rHi, Math.max(rLo, (q.r * rMax) / widest)) })), height);
+        const pts = neckFloor(mapSame(preset.pts, (q) => ({ ...q, r: Math.min(rHi, Math.max(rLo, (q.r * rMax) / widest)) })), height);
         const base = { ...DEFAULTS, ...preset, pts, height, higoD };
         const p = { ...base, boards: Math.min(8, G.maxBoards(base)) };
         for (const r of checkParts(p)) {
@@ -240,7 +241,7 @@ for (const preset of PRESETS)
 // small may r be" has a single answer, and that answer (LIMITS.r[0]) is what the editor, the typed
 // field and persist all clamp to.
 const cyl = (height: number, r: number) => {
-  const base = { ...DEFAULTS, pts: neckFloor([{ t: 0.075, r }, { t: 0.5, r }, { t: 0.925, r }], height), height };
+  const base = { ...DEFAULTS, pts: neckFloor(toPts([{ t: 0.075, r }, { t: 0.5, r }, { t: 0.925, r }]), height), height };
   return checkParts({ ...base, boards: Math.min(8, G.maxBoards(base)) });
 };
 for (const height of [hLo, 205, hHi]) {
@@ -280,10 +281,10 @@ for (const preset of PRESETS)
           for (const higoD of [2, 3]) {
             if (!mine()) continue;
             const mid = preset.pts.reduce((s, q) => s + q.r, 0) / preset.pts.length;
-            const pts: Pt[] = Array.from({ length: nPts }, (_, i) => ({
+            const pts = toPts(Array.from({ length: nPts }, (_, i) => ({
               t: 0.05 + i * gap,
               r: Math.min(rHi, Math.max(rLo, mid + (i % 2 ? swing : -swing))),
-            }));
+            })));
             if (pts[nPts - 1].t > 0.99) continue;   // past the top opening — not a design the editor can make
             const base = { ...DEFAULTS, ...preset, pts, height, higoD };
             const p = { ...base, boards: Math.min(8, G.maxBoards(base)) };
@@ -332,7 +333,7 @@ for (const preset of PRESETS)
         if (!mine()) continue;
         {
           const widest = Math.max(...preset.pts.map((q) => q.r));
-          const pts = preset.pts.map((q) => ({ ...q, r: Math.min(rHi, Math.max(rLo, (q.r * rMax) / widest)) }));
+          const pts = mapSame(preset.pts, (q) => ({ ...q, r: Math.min(rHi, Math.max(rLo, (q.r * rMax) / widest)) }));
           const p = { ...DEFAULTS, ...preset, pts, height, legSockets };
           if (G.ringLegs(p)) lgOn++; else lgOff++;
           // The flag and the room are separate answers, and the UI shows different text for each.
@@ -436,7 +437,7 @@ let gmFail = 0, gmTotal = 0, gmWorst = 0;
       q.hi = { dt: -rnd() * 0.1, dr: (rnd() - 0.5) * 200 };
     }
     // Through the editor's own floors, so every design here is one a maker could be holding.
-    measure({ ...DEFAULTS, height, pts: neckFloor(pts, height) }, `random #${k} n${nPts}`);
+    measure({ ...DEFAULTS, height, pts: neckFloor(toPts(pts), height) }, `random #${k} n${nPts}`);
   }
 }
 
@@ -521,7 +522,7 @@ let hpFail = 0, hpTotal = 0;
     for (const boards of [3, 4, 5, 6, 7, 8, 9, 10, 12, 16])
       for (const legSockets of [true, false])
         for (const height of [60, 205, 900]) {
-          const pts: Pt[] = [{ t: 0.075, r: rBot }, { t: 0.5, r: Math.max(rBot, 60) }, { t: 0.925, r: 30 }];
+          const pts = toPts([{ t: 0.075, r: rBot }, { t: 0.5, r: Math.max(rBot, 60) }, { t: 0.925, r: 30 }]);
           const base = { ...DEFAULTS, height, pts: neckFloor(pts, height), legSockets };
           const p = { ...base, boards: Math.min(boards, G.maxBoards(base)) };
           if (p.boards !== boards) continue;                            // a count the UI cannot make here

@@ -9,9 +9,9 @@
  */
 import { DEFAULTS, LIMITS, spacedOK } from "../config.ts";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
-import { clamp } from "../util.ts";
+import { clamp, mapSame, toPts } from "../util.ts";
 import { silhouetteFloors } from "../ui/pointEdit.ts";
-import type { Design, NumericDesignKey, Pt, Route } from "../types.ts";
+import type { Design, NumericDesignKey, Pt, Pts, Route } from "../types.ts";
 
 /**
  * Everything one save holds: the design plus the machine settings, which are facts about the maker
@@ -93,10 +93,10 @@ function validHandle(h: unknown): { dt: number; dr: number } | undefined {
 // Validate pts: an array of 2+ points with finite {t,r}, else DEFAULTS.pts. Clamps t to [0,1] and r
 // to a valid range, and sorts ascending by t — a geometry precondition external data cannot promise.
 // ho/hi go through validHandle and are omitted if invalid (that point falls back to an auto tangent).
-function validatePts(pts: unknown): Pt[] {
-  if (!Array.isArray(pts) || pts.length < 2) return DEFAULTS.pts.map((q) => ({ ...q }));
+function validatePts(pts: unknown): Pts {
+  if (!Array.isArray(pts) || pts.length < 2) return mapSame(DEFAULTS.pts, (q) => ({ ...q }));
   for (const q of pts) {
-    if (!q || !Number.isFinite(q.t) || !Number.isFinite(q.r)) return DEFAULTS.pts.map((q2) => ({ ...q2 }));
+    if (!q || !Number.isFinite(q.t) || !Number.isFinite(q.r)) return mapSame(DEFAULTS.pts, (q2) => ({ ...q2 }));
   }
   const sorted = pts
     .map((q) => {
@@ -110,7 +110,7 @@ function validatePts(pts: unknown): Pt[] {
     .sort((a, b) => a.t - b.t);
   const legal = legalizePts(sorted);
   // Thinning can leave fewer than `outerR` can interpolate between (every point inside one T_GAP).
-  return legal.length >= LIMITS.pts[0] ? legal : DEFAULTS.pts.map((q) => ({ ...q }));
+  return legal.length >= LIMITS.pts[0] ? toPts(legal) : mapSame(DEFAULTS.pts, (q) => ({ ...q }));
 }
 
 /**

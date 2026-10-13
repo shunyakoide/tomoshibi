@@ -21,6 +21,7 @@ import { strWidth, winAnsi } from "../src/io/pdf.ts";
 import { makeT } from "../src/i18n.ts";
 import { komaR, tabDented, innerRi, maxBoards, notchR, notchWidth, ribInnerX, ribMouthBand, ribOutline2D, ribPullFit, outerR, fukuroRange, grooveList, openingR, ringGeometry, ringLegs, wireRing2D, WASHI_SIDE, WASHI_END } from "../src/geometry.ts";
 import { PRESETS, DEFAULTS, LIMITS } from "../src/config.ts";
+import { mapSame } from "../src/util.ts";
 import type { Design } from "../src/types.ts";
 
 let fail = 0;
@@ -493,7 +494,7 @@ for (const preset of PRESETS)
     for (const rMax of [xrLo * 2, xrHi]) {
       nx++;
       const widest = Math.max(...preset.pts.map((q) => q.r));
-      const pts = preset.pts.map((q) => ({ ...q, r: Math.min(xrHi, Math.max(xrLo, (q.r * rMax) / widest)) }));
+      const pts = mapSame(preset.pts, (q) => ({ ...q, r: Math.min(xrHi, Math.max(xrLo, (q.r * rMax) / widest)) }));
       const p = { ...DEFAULTS, ...preset, pts, height };
       const tag = `extreme ${preset.key} h${height} rMax${rMax}`;
       const { parts, pk } = paperParts(p, 5);
