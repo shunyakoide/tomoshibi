@@ -42,7 +42,7 @@ export function ScrubRow({ cfg, drag, setDrag }: { cfg: ScrubCfg } & DragState) 
   useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select(); } }, [editing]);
   const commit = (raw: string) => {
     const v = Number(raw);
-    if (Number.isFinite(v)) cfg.onChange(snap(v));
+    if (raw.trim() !== "" && Number.isFinite(v)) cfg.onChange(snap(v));   // Number("") is 0, i.e. the minimum
     setEditing(false);
   };
 
@@ -66,7 +66,7 @@ export function ScrubRow({ cfg, drag, setDrag }: { cfg: ScrubCfg } & DragState) 
         <input ref={inputRef} type="number" inputMode="decimal" defaultValue={value}
           className="w-62 px-6 py-4 rounded-sm flex-none text-right bg-card border border-accent
             text-text font-mono text-base font-semibold"
-          min={min} max={max} step={round}
+          min={min} max={max} step={round} aria-label={`${t(cfg.label)} (${unit})`}
           onKeyDown={(e) => { if (e.key === "Enter") commit(e.currentTarget.value); else if (e.key === "Escape") setEditing(false); }}
           onBlur={(e) => commit(e.currentTarget.value)} />
       ) : (
@@ -127,7 +127,10 @@ export function mmField(value: number, min: number, max: number, onChange: (v: n
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") e.currentTarget.blur(); },
     onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
       const v = Math.round(Number(e.target.value));
-      onChange(Number.isFinite(v) && v > 0 ? clamp(min, max, v) : value);
+      const next = Number.isFinite(v) && v > 0 ? clamp(min, max, v) : value;
+      // `key={value}` only remounts on a CHANGE, so a rejected or clamped-to-same entry is reset here.
+      e.target.value = String(next);
+      onChange(next);
     },
   };
 }
