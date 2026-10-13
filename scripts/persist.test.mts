@@ -245,13 +245,15 @@ t("wrong-typed flag → the DEFAULTS answer, not !!value",
 t("coerced flags survive the round trip as booleans", typeof parse(serialize(r)).p.lighten === "boolean");
 t("non-boolean flags → watertight", manifoldOK(r.p) === true);
 
-// The OPTIONAL flag means something by being absent, so a wrong type drops it rather than
-// defaulting it: `noTabDent` unset is "the app's own state", and a defaulted `false` would state one.
-save({ p: { ...DEFAULTS, noTabDent: 7 }, bedW: 256, bedD: 256, printRibs: 1 });
+// The optional fields are `paperP`'s, set on a derived design and never state. Read from a file they
+// reshaped the PRINTED parts (`joint.notch` narrowed the koma's notch below the rib it takes), and a
+// malformed `joint` threw inside `komaGeometry` during render on every load — before autosave could
+// ever write the record back clean. Only DEFAULTS' keys are read, so none of them survives.
+save({ p: { ...DEFAULTS, joint: { notch: "abc" }, noCrescent: true, noTabDent: true, junk: 1 }, bedW: 256, bedD: 256, printRibs: 1 });
 r = load();
-t("wrong-typed optional flag → dropped, not defaulted", r.p.noTabDent === undefined);
-save({ p: { ...DEFAULTS, noTabDent: true }, bedW: 256, bedD: 256, printRibs: 1 });
-t("a real optional flag is still preserved", load().p.noTabDent === true);
+t("paper-only fields and unknown keys in a file → dropped",
+  ["joint", "noCrescent", "noTabDent", "junk"].every((k) => !(k in r.p)));
+t("a file carrying a malformed joint → still watertight, no throw", manifoldOK(r.p) === true);
 
 // ---- sanitize of Bézier tangent handles (ho/hi) ----
 // Valid handles preserved. Broken handles (non-finite, JSON-serialized Infinity=null,
