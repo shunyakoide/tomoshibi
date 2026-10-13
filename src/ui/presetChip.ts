@@ -52,7 +52,7 @@ export function presetMini(pr: Preset, p: Design): { d: string; q: Design } {
 // its {dt,dr} rebuilt, and key order must not decide this.
 const ptKey = (q: Pt) =>
   JSON.stringify([q.t, q.r, !!q.sharp, q.ho ? [q.ho.dt, q.ho.dr] : 0, q.hi ? [q.hi.dt, q.hi.dr] : 0]);
-const ptsKey = (pts: Pt[]) => (pts || []).map(ptKey).join("|");
+const ptsKey = (pts: Pt[]) => pts.map(ptKey).join("|");
 
 /**
  * Key of the preset whose control points the design still matches exactly, or null once edited.

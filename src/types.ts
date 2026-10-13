@@ -26,7 +26,7 @@ export type Pt2 = [number, number];
  *   `joint`     — sizes the koma/tab joint for board rather than for plastic.
  *
  * There was a second, `neckOn` — the single neck flag that neckBot/neckTop replaced, read as
- * `p.neckBot ?? p.neckOn ?? true`. That fallback could not fire: `sanitizeP` spreads `DEFAULTS`
+ * `p.neckBot ?? p.neckOn ?? true`. That fallback could not fire: `sanitizeP` then spread `DEFAULTS`
  * before the saved fields, so `neckBot` was already `true` by the time the `??` chain ran, and a
  * legacy file's `neckOn: false` restored with its necks ON. It was removed rather than repaired —
  * nothing had read it since the split, so there was no behaviour to preserve, only a claim to drop.
