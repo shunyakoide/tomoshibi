@@ -56,8 +56,8 @@ export function pageOps(lay: Layout, i: number, page: Page, t: T): Op[] {
     // are a bend line and a name, and a stray `d=""` is a path the SVG comparison has to explain.
     if (q.outline.length) path(q.outline.map(at), "cut", true);
     for (const hh of q.holes) path(hh.map(at), "cut", true);
-    for (const gd of q.guides || []) path(gd.map(at), "guide");  // open polyline: a guide, not a cut
-    for (const bd of q.bend || []) path(bd.map(at), "bend", true);   // closed: a wire's own loop
+    for (const gd of q.guides) path(gd.map(at), "guide");  // open polyline: a guide, not a cut
+    for (const bd of q.bend) path(bd.map(at), "bend", true);   // closed: a wire's own loop
     for (const m of q.marks) path([at([m[0], m[1]]), at([m[2], m[3]])], "tick");
     // The part name goes faintly **inside the part**, for identification after cutting. Slightly
     // below centre (62%) because near the top it would land on a cut-away side like a post's U-saddle.

@@ -13,7 +13,7 @@ import type { SectionFrame } from "./frame.ts";
 import type { Design, Pt2 } from "../../types.ts";
 
 /** The drawing in millimetres, sampled once and read by both the frame and the paths. */
-export type SectionSample = {
+type SectionSample = {
   /** t range of the lamp body = between the outermost control points. */
   fr: { lo: number; hi: number };
   /** Groove positions (mm). */
@@ -51,7 +51,7 @@ export function sampleSection(p: Design, mold: Design = p): SectionSample {
 }
 
 /** One band of the region colour-coding (neck / lamp body), clipped to the silhouette. */
-export type Band = { t0: number; t1: number; fill: string; op?: number };
+type Band = { t0: number; t1: number; fill: string; op?: number };
 
 export function sectionPaths(p: Design, f: SectionFrame, sample: SectionSample, accent: string,
   mold: Design = p): {

@@ -15,7 +15,7 @@ import type { Design } from "../types.ts";
  *  `stl` marks a part the cardboard route never makes. */
 export type PartRow = { id: string; name: string; n?: number; note?: string; stl?: boolean };
 /** One numbered sub-step inside a way of lighting it — sequential, unlike the ways around it. */
-export type SubStep = { id: string; fig: string; title: string; body: string };
+type SubStep = { id: string; fig: string; title: string; body: string };
 /** One WAY of doing a step: alternatives, not sub-steps. `needs` drops a way this design cannot
  *  offer, `note` is the footnote at its foot. */
 export type Way = {
@@ -23,14 +23,14 @@ export type Way = {
   needs?: (p: Design) => boolean; note?: string; detail?: SubStep[];
 };
 /** One step of the build. */
-export type Step = {
+type Step = {
   id: string; title: string; body: string; paperBody?: string; fig?: string; stl?: boolean;
   options?: Way[]; notes?: { slug: NoteSlug; hash?: string; label: string }[];
 };
 /** One thing you supply yourself. `paper` overrides the fields the cardboard route reads
  *  differently — the wire is optional on the 3D route and not on the one that bends its own hoops. */
 export type KitItem = { name: string; fig?: string; note?: string; opt?: boolean; paper?: { note?: string; opt?: boolean } };
-export type KitGroup = { id: string; title: string; items: KitItem[] };
+type KitGroup = { id: string; title: string; items: KitItem[] };
 
 // The parts the mold is made of. `n` is either a CONSTANT or it is not printed at all: two koma, two
 // posts, one base and one ring at each end are facts about the mold, while how many ribs it takes is

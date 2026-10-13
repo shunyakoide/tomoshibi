@@ -15,7 +15,7 @@ import { BULB_FOOT, SOCKET_H, SOCKET_R, ledBulb } from "./kit-lamps.ts";
  * No arrow on the nut: it is drawn OFF the thread in (2) and run up tight in (3), the
  * exploded-then-assembled pair `lightSet` uses.
  */
-export const STEM_R = 5.5, STEM_H = 28;      // the threaded stem the cord leaves by, and the nut runs on
+const STEM_R = 5.5; export const STEM_H = 28;     // the threaded stem the cord leaves by, and the nut runs on
 const NUT_R = 9.5, NUT_H = 6;                // across the corners: a hex draws its own edges, unlike a tube
 export const LOOP_R = 8.6;                   // the loop bent in the leg wire end (WIRE_R: ink.ts)
 
