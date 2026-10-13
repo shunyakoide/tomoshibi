@@ -10,17 +10,14 @@ import {
 } from "../geometry.ts";
 import { exportZip, zipBundle, downloadFile, type Part } from "../io/stl.ts";
 import { paperPDF, washiPDF } from "../papercraft.ts";
-import { serializeState, parseImport, STORAGE_KEY, SCHEMA_VERSION, FRESH, type SavedState } from "./persist.ts";
+import { serializeState, parseImport, STORAGE_KEY, FRESH, type SavedState } from "./persist.ts";
 import { WASHI_PDF } from "../config.ts";
 import type { T } from "../i18n.ts";
 import type { Design } from "../types.ts";
 
 /** The STL kit: every printed part, the design as a backup, and the washi template. */
-export function downloadKit(a: {
-  p: Design; nRibs: number; bedW: number; bedD: number;
-  washiSide: number; washiEnd: number; t: T;
-}): void {
-  const { p, nRibs, bedW, bedD, washiSide, washiEnd, t } = a;
+export function downloadKit(s: SavedState, nRibs: number, t: T): void {
+  const { p, washiSide, washiEnd } = s;
   // Rib file layout. Spiral: one rib per file (tomoshibi_rib_01.stl …), placeable individually in
   // the slicer. Otherwise the ribs are identical and go in one file (print one, duplicate it).
   let ribEntries: Part[];
@@ -40,11 +37,12 @@ export function downloadKit(a: {
     }
     ribEntries = [{ name: `tomoshibi_ribs_x${nRibs}.stl`, geos: ribs }];
   }
-  // The config JSON rides along so the ZIP is itself a design backup (same schema as persist.ts).
+  // The config JSON rides along so the ZIP is itself a design backup — the WHOLE record, through the
+  // same serializer as 「バックアップを保存」, so a restore from the ZIP loses no setting.
   // The washi template too: its panel width follows the rib count you are about to print and,
   // unlike the parts, cannot be re-derived from the STLs. A PDF, so it prints at 100%, in the UI's
   // language.
-  const cfg = JSON.stringify({ schemaVersion: SCHEMA_VERSION, p, bedW, bedD }, null, 2);
+  const cfg = serializeState(s);
   exportZip([
     ...ribEntries,
     // Koma and posts are identical top and bottom, so one of each (duplicated in the slicer).

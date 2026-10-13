@@ -130,7 +130,7 @@ export default function TomoshibiStudio() {
   // ---- Exports ----
   // Each is an arrow so `moldSrc` and `washiOpts`, declared below, are read at click time rather
   // than at definition time.
-  const downloadKit = () => kit.downloadKit({ p, nRibs, bedW, bedD, washiSide, washiEnd, t });
+  const downloadKit = () => kit.downloadKit(s, nRibs, t);
   const downloadPaperKit = () => kit.downloadPaperKit({ p, matT, moldSrc, washiOpts, t });
   // Both hand the WHOLE record over, so `setS` IS the apply callback: a restore or a reset that
   // reinstates only the fields someone remembered to list is the bug this collapse exists for.
