@@ -26,6 +26,7 @@ export const WIRE_R = 1.3;          // mm — the leg/hanger wire (`LOOP_R`, the
 /** A part: white faces + its outline. `hot` draws it as the piece being added. */
 export function part(geo: THREE.BufferGeometry, hot: boolean): THREE.Group {
   const g = new THREE.Group();
+  g.userData.moves = hot;   // the guide's motion moves exactly what the still figure highlights
   // polygonOffset pushes the face back so its own outline, drawn on the same surface, does not
   // z-fight it. Every face material here carries it.
   g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
