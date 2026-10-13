@@ -7,7 +7,7 @@
  * must not make `outerR` NaN (a non-manifold STL) or hand the first render an oversized `boards`
  * (a koma whose notches overlap). Verified by `npm run check:persist`.
  */
-import { DEFAULTS, LIMITS, OPENING_MIN, spacedOK } from "../config.ts";
+import { DEFAULTS, LIMITS, spacedOK } from "../config.ts";
 import { maxBoards, WASHI_SIDE, WASHI_END } from "../geometry.ts";
 import { clamp } from "../util.ts";
 import { silhouetteFloors } from "../ui/pointEdit.ts";
@@ -75,7 +75,7 @@ export function saveWelcomeSeen() {
 // r's floor is a geometric wall (below it the rib cannot close), not a UI preference — the opening's
 // own floor (`OPENING_MIN`) is applied separately, to the two END points, by `openingFloor`.
 const BOUNDS: Record<NumericDesignKey, readonly [number, number]> = {
-  height: LIMITS.height, rTop: [OPENING_MIN, LIMITS.r[1]], rBot: [OPENING_MIN, LIMITS.r[1]], boards: [4, 16],
+  height: LIMITS.height, boards: [4, 16],
   boardWidth: [10, 120], boardT: [1, 4], higoD: [1, 4], pitch: [8, 30],
   fit: [0, 1], tabW: [4, 40], komaT: [3, 20], tabR: [6, 40],
   // No control reaches the tab length any more (2026-09-08), so a saved one is not kept: a value

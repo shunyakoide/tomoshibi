@@ -26,7 +26,7 @@ export default function PresetChips({ p, onPick }: { p: Design; onPick: (pr: Pre
                 aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:border-accent
                 aria-pressed:shadow-[0_3px_8px_var(--color-accent-25)]">
               <svg viewBox="0 0 60 46" className="w-40 h-32 block" aria-hidden="true">
-                {/* The whole design goes in, not a height: a pick replaces rTop/rBot/pts and (for a
+                {/* The whole design goes in, not a height: a pick replaces pts and (for a
                     ratio preset) the height, and leaves the maker's necks and rib count alone — all
                     of which `outerR` reads. `presetDesign` is the one place that says so. */}
                 <path d={presetMini(pr, p).d} fill={on ? "rgba(255,255,255,0.25)" : "rgba(59,52,43,0.05)"}

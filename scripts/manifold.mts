@@ -522,7 +522,7 @@ let hpFail = 0, hpTotal = 0;
       for (const legSockets of [true, false])
         for (const height of [60, 205, 900]) {
           const pts: Pt[] = [{ t: 0.075, r: rBot }, { t: 0.5, r: Math.max(rBot, 60) }, { t: 0.925, r: 30 }];
-          const base = { ...DEFAULTS, height, rBot, rTop: 30, pts: neckFloor(pts, height), legSockets };
+          const base = { ...DEFAULTS, height, pts: neckFloor(pts, height), legSockets };
           const p = { ...base, boards: Math.min(boards, G.maxBoards(base)) };
           if (p.boards !== boards) continue;                            // a count the UI cannot make here
           const tag = `r${rBot} b${boards} legs${legSockets ? 1 : 0} h${height}`;

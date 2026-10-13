@@ -16,7 +16,7 @@ import type { Design, Handle, Pt } from "../types.ts";
 // ============ Profile (control-point spline) ============
 // The silhouette is a radius function joining the control-point array `pts` with monotone Hermite
 // interpolation (Fritsch–Carlson); the ◇ handles in the drawing edit `pts` directly. Lamp body
-// spline: P=[{neck bottom, rBot}, …control points…, {neck top, rTop}]. Each point's tangent dr/dt
+// spline: P=[first control point, …, last control point]. Each point's tangent dr/dt
 // comes from the adjacent chords, clamped to the same sign as, and within 3× of, the adjacent chord
 // (no overshoot, no unwanted sharp curves); endpoints use the chord to the next point.
 function fukuroTangents(P: Pt[]): number[] {
@@ -119,13 +119,12 @@ export function bakeBezierHandles(pts: Pt[]): Pt[] {
 }
 // Effective outer radius: t∈[0,1] → mm. One continuous spline from the ends (t=0/1) to the apex with
 // no vertical neck inserted — a neck there would put a flat-to-curve kink at the joint — so the ends
-// are spline control points (rBot/rTop) and the outline stays smooth even with few points. The end
+// are spline control points (the first and last) and the outline stays smooth even with few points. The end
 // bands carrying no bamboo (the neck) are handled separately via cutTbot/cutTtop, radius continuous. The
 // lamp body (curve + grooves) is the t-range BETWEEN the outermost control points; the neck lies
 // outside them at exactly their radius, so no flare or S-curve appears at the join.
 export function fukuroRange(p: Design): { lo: number; hi: number } {
-  const pts = (p.pts && p.pts.length >= 2) ? p.pts : null;
-  if (!pts) return { lo: cutTbot(p), hi: 1 - cutTtop(p) };
+  const pts = p.pts;
   const nB = p.neckBot ?? true, nT = p.neckTop ?? true;
   return { lo: nB ? pts[0].t : 0, hi: nT ? pts[pts.length - 1].t : 1 };
 }
@@ -133,7 +132,7 @@ export function fukuroRange(p: Design): { lo: number; hi: number } {
 // tab size.
 function openMin(p: Design): number {
   const pts = p.pts;
-  return (pts && pts.length) ? Math.min(pts[0].r, pts[pts.length - 1].r) : Math.min(p.rTop ?? 60, p.rBot ?? 60);
+  return Math.min(pts[0].r, pts[pts.length - 1].r);
 }
 // The body's least radius is a scan of the whole curve, and it is asked for by every radius a
 // neck-less body reports and every notch the groove caps — thousands of times per rib, for a value
@@ -186,7 +185,6 @@ function snapHolds(pts: Pt[], snap: number[]): boolean {
  */
 export function bodyMinR(p: Design): number {
   const pts = p.pts;
-  if (!pts || pts.length < 2) return openMin(p);
   const hit = minRMemo.get(pts);
   if (hit && snapHolds(pts, hit.snap)) return hit.m;
   let m = Infinity;
@@ -212,8 +210,7 @@ export function bodyMinR(p: Design): number {
 }
 export function outerR(p: Design, t: number): number {
   t = Math.max(0, Math.min(1, t));
-  const pts = (p.pts && p.pts.length) ? p.pts : [{ t: 0.5, r: (p.rTop + p.rBot) / 2 }];
-  if (pts.length === 1) return Math.max(8, pts[0].r);
+  const pts = p.pts;
   const fp = pts[0], lp = pts[pts.length - 1];
   const nB = p.neckBot ?? true, nT = p.neckTop ?? true;
   // With a neck: widen the opening outward to the control point, then a vertical rectangle from
@@ -242,8 +239,8 @@ export function maxRadius(p: Design): number {
 // The neck = a vertical rectangle outside (toward the opening) the outermost control point; its
 // height is that point's position, and presence is independent top and bottom (neckBot / neckTop).
 // On the neck-less side outerR makes it straight (lantern-like).
-export function cutTbot(p: Design): number { const pts = p.pts; return (pts && pts.length) ? pts[0].t : 0; }
-export function cutTtop(p: Design): number { const pts = p.pts; return (pts && pts.length) ? 1 - pts[pts.length - 1].t : 0; }
+export function cutTbot(p: Design): number { return p.pts[0].t; }
+export function cutTtop(p: Design): number { return 1 - p.pts[p.pts.length - 1].t; }
 export function cutYbot(p: Design): number { return cutTbot(p) * (p.height || 1); }
 export function cutYtop(p: Design): number { return cutTtop(p) * (p.height || 1); }
 // Koma outer radius = the hub that bundles the tabs; the tab (inner end Ri〜Ri+td) meets its outer
