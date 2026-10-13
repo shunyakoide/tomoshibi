@@ -12,7 +12,7 @@ export type Lang = "ja" | "en";
  * where the string is assembled, which is what `npm run check:i18n` does over the real source.
  */
 export type T = (s: string, params?: Record<string, string | number>) => string;
-export const LANG_KEY = "tomoshibi.lang";
+const LANG_KEY = "tomoshibi.lang";
 
 // Japanese→English. Keys are the Japanese as it appears in the UI (interpolation via {name}).
 // Keys not present here are shown in Japanese as-is.

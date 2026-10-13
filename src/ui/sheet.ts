@@ -9,7 +9,7 @@ import type { Lang } from "../i18n.ts";
 const SHEET = { half: 0.45 } as const;
 // The drawing never leaves the screen, at any stop — the sheet is a set of controls FOR it.
 const MIN_VIEW = 140;
-export type SheetStop = "peek" | "half" | "full";
+type SheetStop = "peek" | "half" | "full";
 const SHEET_ORDER: SheetStop[] = ["peek", "half", "full"];
 // Under this much travel a drag is a tap, which cycles to the next stop: 6px is the slop a finger
 // puts into a deliberate press.

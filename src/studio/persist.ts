@@ -58,7 +58,7 @@ export const SCHEMA_VERSION = 1;
 
 // First-run onboarding card, on its own key: exporting a design must not carry "has this person
 // seen the intro", and clearing the flag must not touch the shape. Same shape as i18n's lang key.
-export const WELCOME_KEY = "tomoshibi.welcome";
+const WELCOME_KEY = "tomoshibi.welcome";
 export function loadWelcomeSeen() {
   try { return localStorage.getItem(WELCOME_KEY) === "1"; }
   catch { return true; }   // storage blocked → don't nag on every load

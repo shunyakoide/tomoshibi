@@ -15,7 +15,7 @@ type PrintPart = { geo: THREE.BufferGeometry; mat: THREE.Material; bb?: THREE.Bo
 /** A part that has been given a plate and a position on it. */
 type PlacedPart = PrintPart & { bb: THREE.Box3; plate: number; ox: number; oz: number };
 /** Everything a builder needs beyond the design: which view, and the print route's settings. */
-export type SceneOpts = {
+type SceneOpts = {
   p: Design;
   view: "2d" | "mold" | "print" | "lit";
   viewChanged: boolean;

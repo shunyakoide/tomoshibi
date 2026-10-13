@@ -3,7 +3,7 @@ import { clamp } from "../util.ts";
 import { useT } from "./theme.ts";
 
 /** `key` is the row's identity for the shared drag highlight; `round` is the step and the snap. */
-export type ScrubCfg = {
+type ScrubCfg = {
   key: string; label: string; value: number;
   min: number; max: number; round: number; unit: string;
   curve?: number; display?: string | number;
