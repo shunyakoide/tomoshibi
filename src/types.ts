@@ -26,7 +26,7 @@ export type Pt2 = [number, number];
  *   `joint`     — sizes the koma/tab joint for board rather than for plastic.
  *
  * There was a second, `neckOn` — the single neck flag that neckBot/neckTop replaced, read as
- * `p.neckBot ?? p.neckOn ?? true`. That fallback could not fire: `sanitizeP` spreads `DEFAULTS`
+ * `p.neckBot ?? p.neckOn ?? true`. That fallback could not fire: `sanitizeP` then spread `DEFAULTS`
  * before the saved fields, so `neckBot` was already `true` by the time the `??` chain ran, and a
  * legacy file's `neckOn: false` restored with its necks ON. It was removed rather than repaired —
  * nothing had read it since the split, so there was no behaviour to preserve, only a claim to drop.
@@ -34,10 +34,9 @@ export type Pt2 = [number, number];
 export type Design = {
   /** Lamp-body height (mm). The silhouette's t axis spans this. */
   height: number;
-  /** Fallback opening radii, used only when `pts` is empty. Not on the normal path. */
-  rTop: number;
-  rBot: number;
-  /** The silhouette itself: control points in ascending t. */
+  /** The silhouette itself: control points in ascending t, never fewer than `LIMITS.pts[0]` (2).
+   *  geometry reads `pts[0]` and the last point unguarded; `validatePts` holds this for every saved
+   *  or imported design, and the editor will not delete below it. */
   pts: Pt[];
   /** Neck (the vertical rectangle outside the outermost control point), chosen per end. */
   neckBot: boolean;

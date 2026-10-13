@@ -263,8 +263,7 @@ export default function TomoshibiStudio() {
         <Toolbar undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
 
         {/* The lit chip is derived from p.pts inside PresetChips, so it goes dark as soon as the
-            curve is edited — picking a preset stores no "which one was clicked" flag. rTop/rBot go
-            along because geometry.ts falls back to them when pts is empty. */}
+            curve is edited — picking a preset stores no "which one was clicked" flag. */}
         <PresetChips p={p} onPick={(pr) => {
           setSel(null);
           // `presetDesign` IS the pick: the chip is lit by it and its picture is drawn from it, so

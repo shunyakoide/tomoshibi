@@ -249,10 +249,10 @@ t("non-boolean flags → watertight", manifoldOK(r.p) === true);
 // reshaped the PRINTED parts (`joint.notch` narrowed the koma's notch below the rib it takes), and a
 // malformed `joint` threw inside `komaGeometry` during render on every load — before autosave could
 // ever write the record back clean. Only DEFAULTS' keys are read, so none of them survives.
-save({ p: { ...DEFAULTS, joint: { notch: "abc" }, noCrescent: true, noTabDent: true, junk: 1 }, bedW: 256, bedD: 256, printRibs: 1 });
+save({ p: { ...DEFAULTS, joint: { notch: "abc" }, noCrescent: true, noTabDent: true, rTop: 19, rBot: 74, junk: 1 }, bedW: 256, bedD: 256, printRibs: 1 });
 r = load();
-t("paper-only fields and unknown keys in a file → dropped",
-  ["joint", "noCrescent", "noTabDent", "junk"].every((k) => !(k in r.p)));
+t("paper-only fields, the removed rTop/rBot and unknown keys in a file → dropped",
+  ["joint", "noCrescent", "noTabDent", "rTop", "rBot", "junk"].every((k) => !(k in r.p)));
 t("a file carrying a malformed joint → still watertight, no throw", manifoldOK(r.p) === true);
 
 // ---- sanitize of Bézier tangent handles (ho/hi) ----
@@ -377,7 +377,7 @@ t("non-object JSON → null", P.parseImport("42") === null);
       // The design a pick stores is one persist will hand straight back: the chip stays lit, and the
       // shape a maker picked is the shape their file reopens as. **Five heights is not enough** —
       // see the sweep below, which is the same question asked at every height there is.
-      save({ p: { ...DEFAULTS, height: H, rTop: pr.rTop, rBot: pr.rBot, pts }, bedW: 256, bedD: 256, printRibs: 1 });
+      save({ p: { ...DEFAULTS, height: H, pts }, bedW: 256, bedD: 256, printRibs: 1 });
       const r2 = load();
       t(`${tag}: a picked preset survives a save and reload unchanged`,
         r2.p.pts.length === pts.length && r2.p.pts.every((q: any, i: number) => Math.abs(q.r - pts[i].r) < 1e-6 && Math.abs(q.t - pts[i].t) < 1e-6));
@@ -385,7 +385,7 @@ t("non-object JSON → null", P.parseImport("42") === null);
       // count as well as the points and the height. The miniature drew with `DEFAULTS`' flags for a
       // long time, and with both necks off that is a silhouette out by half the chip's own width.
       for (const [nb, nt, boards] of [[true, true, 8], [false, false, 16], [false, true, 4]] as const) {
-        const base = { ...DEFAULTS, neckBot: nb, neckTop: nt, boards, height, rTop: 42, rBot: 42 };
+        const base = { ...DEFAULTS, neckBot: nb, neckTop: nt, boards, height };
         const want = presetDesign(pr, base);
         const mini = presetMini(pr, base);
         const tag2 = `${tag} necks${nb ? 1 : 0}${nt ? 1 : 0} b${boards}`;
@@ -412,7 +412,7 @@ t("non-object JSON → null", P.parseImport("42") === null);
   for (const pr of PRESETS)
     for (let h = LIMITS.height[0]; h <= LIMITS.height[1]; h++) {
       const H = presetHeight(pr, h), pts = presetPts(pr, h);
-      save({ p: { ...DEFAULTS, height: H, rTop: pr.rTop, rBot: pr.rBot, pts }, bedW: 256, bedD: 256, printRibs: 1 });
+      save({ p: { ...DEFAULTS, height: H, pts }, bedW: 256, bedD: 256, printRibs: 1 });
       const back = load().p.pts;
       if (back.length !== pts.length || !back.every((q: any, i: number) => Math.abs(q.t - pts[i].t) < 1e-12)) dropped.push(`${pr.name}@${H}`);
       if (matchPreset({ ...DEFAULTS, height: H, pts: back }) !== pr.key) darkened.push(`${pr.name}@${H}`);

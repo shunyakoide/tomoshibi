@@ -109,7 +109,7 @@ export function pointOps(
   sel: number | null,
   setSel: (i: number | null) => void,
 ) {
-  const pt = sel != null && p.pts?.[sel] ? p.pts[sel] : null;
+  const pt = sel != null && p.pts[sel] ? p.pts[sel] : null;
   // The first and last points ARE the opening, and the neck's radius — see "Profile model".
   const isEnd = pt != null && (sel === 0 || sel === p.pts.length - 1);
   // `outerR` needs two points to interpolate between; `fukuroSpline`'s div-0 guard is there because
@@ -137,7 +137,9 @@ export function pointOps(
     // it, a ◇ legally pinched to r8 beside the mouth BECAME an r8 mouth: 2mm of board where a rib
     // passes it instead of 20 (`ribMouthBand`), a koma shrunk to ⌀16, no clamp and no alert — and
     // then persist floored it back to 26 on the next reload, the shape changing under the user.
-    setP((o) => ({ ...o, pts: silhouetteFloors(o.pts.filter((_, j) => j !== sel), o.height) }));
+    // Re-checked on `o`: `canDelete` read the rendered `p`, and an update queued before this one
+    // (a second delete, an undo) can already have taken the list to the floor.
+    setP((o) => o.pts.length > LIMITS.pts[0] ? { ...o, pts: silhouetteFloors(o.pts.filter((_, j) => j !== sel), o.height) } : o);
     setSel(null);
   };
 
