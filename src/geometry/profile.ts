@@ -15,10 +15,9 @@ import type { Design, Handle, Pt } from "../types.ts";
 
 // ============ Profile (control-point spline) ============
 // The silhouette is a radius function joining the control-point array `pts` with monotone Hermite
-// interpolation (Fritsch–Carlson); the ◇ handles in the drawing edit `pts` directly. Lamp body
-// spline: P=[first control point, …, last control point]. Each point's tangent dr/dt
-// comes from the adjacent chords, clamped to the same sign as, and within 3× of, the adjacent chord
-// (no overshoot, no unwanted sharp curves); endpoints use the chord to the next point.
+// interpolation (Fritsch–Carlson); the ◇ handles in the drawing edit `pts` directly. Each point's
+// tangent dr/dt comes from the adjacent chords, clamped to the same sign as, and within 3× of, the
+// adjacent chord (no overshoot, no unwanted sharp curves); endpoints use the chord to the next point.
 function fukuroTangents(P: Pt[]): number[] {
   const n = P.length, d: number[] = new Array(n - 1), T: number[] = new Array(n);
   for (let i = 0; i < n - 1; i++) d[i] = (P[i + 1].r - P[i].r) / ((P[i + 1].t - P[i].t) || 1); // segment chord (dr/dt)
@@ -125,7 +124,7 @@ export function bakeBezierHandles(pts: Pt[]): Pt[] {
 // outside them at exactly their radius, so no flare or S-curve appears at the join.
 export function fukuroRange(p: Design): { lo: number; hi: number } {
   const pts = p.pts;
-  const nB = p.neckBot ?? true, nT = p.neckTop ?? true;
+  const nB = p.neckBot, nT = p.neckTop;
   return { lo: nB ? pts[0].t : 0, hi: nT ? pts[pts.length - 1].t : 1 };
 }
 // The design basis for neck/tab is the control-point radius, so toggling a neck does not change the
@@ -212,7 +211,7 @@ export function outerR(p: Design, t: number): number {
   t = Math.max(0, Math.min(1, t));
   const pts = p.pts;
   const fp = pts[0], lp = pts[pts.length - 1];
-  const nB = p.neckBot ?? true, nT = p.neckTop ?? true;
+  const nB = p.neckBot, nT = p.neckTop;
   // With a neck: widen the opening outward to the control point, then a vertical rectangle from
   // there to y=0/1. Without: the opening becomes the tab size (body end set to kR, no slanted taper).
   // kR is only asked for when a neck is off: komaR scans the whole body for its least radius, and

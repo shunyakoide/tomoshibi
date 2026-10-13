@@ -149,8 +149,8 @@ function coerceNums(p: Design): Design {
 
 /**
  * Boolean fields. `coerceNums` covers every numeric one and nothing covered these, so a hand-edited
- * or foreign file with `"neckBot": "false"` arrived as the STRING: truthy at `profile.ts`'s
- * `p.neckBot ?? true`, and written straight back out by `serializeState` — a `Design` permanently
+ * or foreign file with `"neckBot": "false"` arrived as the STRING: truthy where `profile.ts`
+ * reads it, and written straight back out by `serializeState` — a `Design` permanently
  * failing its own type. A wrong type falls back to DEFAULTS, the same answer the numeric path
  * gives, rather than to `!!value`, which would read `"false"` as true.
  */

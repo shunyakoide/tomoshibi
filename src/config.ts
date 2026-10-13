@@ -2,9 +2,9 @@ import type { Design, NumericDesignKey, Pt } from "./types.ts";
 
 /**
  * A shape preset: the control points a design starts from, plus its chip's label. Deliberately NOT
- * a Design — a preset says nothing about rib count or bamboo, and picking one replaces only
- * pts (TomoshibiStudio's onPick). `height` is optional because only a preset whose
- * identity is a RATIO rather than an outline may claim it; without it the maker's height is kept.
+ * a Design — a preset says nothing about rib count or bamboo, and picking one replaces `pts` and,
+ * for a preset that names one, `height` (`presetDesign`). `height` is optional because only a preset
+ * whose identity is a RATIO rather than an outline may claim it; without it the maker's height is kept.
  */
 export type Preset = { key: string; name: string; pts: Pt[]; height?: number };
 

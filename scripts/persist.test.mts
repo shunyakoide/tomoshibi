@@ -249,10 +249,10 @@ t("non-boolean flags → watertight", manifoldOK(r.p) === true);
 // reshaped the PRINTED parts (`joint.notch` narrowed the koma's notch below the rib it takes), and a
 // malformed `joint` threw inside `komaGeometry` during render on every load — before autosave could
 // ever write the record back clean. Only DEFAULTS' keys are read, so none of them survives.
-save({ p: { ...DEFAULTS, joint: { notch: "abc" }, noCrescent: true, noTabDent: true, junk: 1 }, bedW: 256, bedD: 256, printRibs: 1 });
+save({ p: { ...DEFAULTS, joint: { notch: "abc" }, noCrescent: true, noTabDent: true, rTop: 19, rBot: 74, junk: 1 }, bedW: 256, bedD: 256, printRibs: 1 });
 r = load();
-t("paper-only fields and unknown keys in a file → dropped",
-  ["joint", "noCrescent", "noTabDent", "junk"].every((k) => !(k in r.p)));
+t("paper-only fields, the removed rTop/rBot and unknown keys in a file → dropped",
+  ["joint", "noCrescent", "noTabDent", "rTop", "rBot", "junk"].every((k) => !(k in r.p)));
 t("a file carrying a malformed joint → still watertight, no throw", manifoldOK(r.p) === true);
 
 // ---- sanitize of Bézier tangent handles (ho/hi) ----
