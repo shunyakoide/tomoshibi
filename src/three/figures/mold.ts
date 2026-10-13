@@ -55,6 +55,7 @@ function higoWinding(p: Design, hot: boolean, near = false): THREE.Group {
     ring.position.y = y;
     g.add(ring);
   }
+  g.userData.reveal = hot;    // the guide's motion fades the step's rings in, one after another
   return g;
 }
 
@@ -254,6 +255,8 @@ export function moldOnStand(p: Design, hot: string | null, smooth: boolean, wash
   const mold = moldPieces(p, { hot: hot === "mold" ? "ribs" : null, smooth, rings: true, band: true, higo: true, washi });
   mold.rotation.z = Math.PI / 2;
   mold.position.set(p.height / 2, standCollarTop() + standSaddleH(p), 0);
+  // What the guide's motion lowers into the stand, though nothing here is highlighted.
+  mold.userData.moves = true;
   g.add(mold);
   return g;
 }
