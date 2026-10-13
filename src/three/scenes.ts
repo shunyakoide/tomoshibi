@@ -78,6 +78,10 @@ function seatTickLines(p: Design, k: number): THREE.Mesh {
 // legs, that being the app's other bent-wire part. Module-level and shared for `TICK_MAT`'s reason:
 // `buildScene` disposes geometries on rebuild, never materials.
 const WIRE_MAT = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3, envMapIntensity: 0.9 });
+// The lit view's bamboo ribs and legs, and the print view's plates: shared for TICK_MAT's reason.
+const HIGO_MAT = new THREE.MeshStandardMaterial({ color: 0xc2a266, roughness: 0.75, metalness: 0, emissive: 0x936026, emissiveIntensity: 0.7 });
+const LEG_MAT = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });   // graphite, so the legs read as iron, not lost in the dark background
+const PLATE_MAT = new THREE.MeshStandardMaterial({ color: 0x1e1e23, roughness: 0.9 });
 
 /**
  * The two opening hoops, seated where they seat: `fukuroRange` is where the BODY ends — the opening —
@@ -169,20 +173,15 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
   // Bamboo ribs sit inside the paper: centring on outerR puts the outer surface at outerR+higoD/2,
   // inside the skin at outerR+higoD, which also avoids Z-fighting. The warm emissive keeps them
   // from crushing to black in backlight.
-  const higoMat = new THREE.MeshStandardMaterial({
-    color: 0xc2a266, roughness: 0.75, metalness: 0, emissive: 0x936026, emissiveIntensity: 0.7,
-  });
   for (const { geo, y } of higoGeometries(p, { radial: 10 })) {
-    const ring = new THREE.Mesh(geo, higoMat);
+    const ring = new THREE.Mesh(geo, HIGO_MAT);
     ring.position.y = legH + y;
     s.group.add(ring);
   }
 
-  // Legs: splayed from the bottom rim (= the lower opening) to the floor. Graphite, so they read as
-  // black iron instead of sinking into the dark background.
-  const legMat = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });
+  // Legs: splayed from the bottom rim (= the lower opening) to the floor.
   const [rimR, rimY0] = prof[0], rimY = legH + rimY0;   // the skin's bottom rim, by construction
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, RIM_TUBE, 14, 96), legMat);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(rimR, RIM_TUBE, 14, 96), LEG_MAT);
   rim.rotation.x = Math.PI / 2; rim.position.y = rimY;
   s.group.add(rim);
   // The feet land further out than the root: a tripod spreading from the opening, not tapering in.
@@ -192,10 +191,10 @@ function buildLit(s: ViewportState, p: Design, viewChanged: boolean): void {
     const topP = new THREE.Vector3(r0 * Math.cos(a), rimY, r0 * Math.sin(a));
     const botP = new THREE.Vector3(r1 * Math.cos(a), 2, r1 * Math.sin(a));
     const dir = new THREE.Vector3().subVectors(botP, topP);
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, dir.length(), 12), legMat);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, dir.length(), 12), LEG_MAT);
     leg.position.copy(topP).addScaledVector(dir, 0.5);
     leg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
-    const foot = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 12), legMat);
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 12), LEG_MAT);
     foot.position.copy(botP);
     s.group.add(leg, foot);
   }
@@ -330,11 +329,10 @@ function buildPrint(s: ViewportState, p: Design, { printRibs, bedW, bedD }: Pick
   const pCols = Math.ceil(Math.sqrt(plates));
   const pRows = Math.ceil(plates / pCols);
   const platePos = (pl: number): [number, number] => [(pl % pCols) * (bedW + 40), Math.floor(pl / pCols) * (bedD + 40)];
-  const plateMat = new THREE.MeshStandardMaterial({ color: 0x1e1e23, roughness: 0.9 });
   const gridDivs = Math.max(2, Math.round(bedW / 32));   // ≈32mm cells
   for (let pl = 0; pl < plates; pl++) {
     const [px, pz] = platePos(pl);
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(bedW, 2, bedD), plateMat);
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(bedW, 2, bedD), PLATE_MAT);
     plate.position.set(px + bedW / 2, -1, pz + bedD / 2);
     const grid = new THREE.GridHelper(bedW, gridDivs, 0x3f3f46, 0x2c2c31);
     grid.scale.z = bedD / bedW;                          // stretch the depth to match a rectangular bed
@@ -368,7 +366,8 @@ export function buildScene(s: ViewportHandle, { p, view, viewChanged, printRibs,
   while (s.group.children.length) {
     const m = s.group.children[0];
     s.group.remove(m);
-    m.traverse((o) => { const g = (o as THREE.Mesh).geometry; if (g) g.dispose(); });
+    // GridHelper builds its own material per instance, so it is the one object freed whole.
+    m.traverse((o) => { if (o instanceof THREE.GridHelper) o.dispose(); else (o as THREE.Mesh).geometry?.dispose(); });
   }
   // Two views draw no 3D and are documents over this canvas: the section editor, and the cardboard
   // route's print view (PagePreview shows the template's own A4 pages).
