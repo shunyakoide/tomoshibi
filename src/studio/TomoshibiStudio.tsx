@@ -329,7 +329,8 @@ export default function TomoshibiStudio() {
             onOpen={(slug) => goPage(slug)} />
         )}
         {noteSlug && (
-          <NotePage slug={noteSlug} lang={lang} onClose={() => goPage(null)}
+          // Keyed: a note-to-note link would otherwise reuse the scrolled shell and open mid-article.
+          <NotePage key={noteSlug} slug={noteSlug} lang={lang} onClose={() => goPage(null)} onOpen={(slug) => goPage(slug)}
             onBackToNotes={() => goPage("notes")} onBackToGuide={() => goPage("guide")} />
         )}
       </div>

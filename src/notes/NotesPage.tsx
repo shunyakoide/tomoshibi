@@ -51,8 +51,8 @@ export function NotesIndexPage({ lang, onClose, onOpen }: {
   );
 }
 
-export function NotePage({ slug, lang, onClose, onBackToNotes, onBackToGuide }: {
-  slug: string; lang: Lang; onClose: () => void; onBackToNotes: () => void; onBackToGuide: () => void;
+export function NotePage({ slug, lang, onClose, onOpen, onBackToNotes, onBackToGuide }: {
+  slug: string; lang: Lang; onClose: () => void; onOpen: (slug: NoteSlug) => void; onBackToNotes: () => void; onBackToGuide: () => void;
 }) {
   const t = useT();
   const note = getNote(slug, lang);
@@ -74,7 +74,7 @@ export function NotePage({ slug, lang, onClose, onBackToNotes, onBackToGuide }: 
         {note ? (
           <>
             <p className={EYEBROW}>{note.category}</p>
-            <Markdown source={note.body} />
+            <Markdown source={note.body} onNote={onOpen} />
           </>
         ) : (
           <>

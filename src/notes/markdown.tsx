@@ -1,4 +1,6 @@
 import React from "react";
+import { routeHref } from "../studio/route.ts";
+import { isNoteSlug, type NoteSlug } from "./slugs.ts";
 
 type Block =
   | { kind: "h1" | "h2" | "h3"; text: string; id?: string }
@@ -9,7 +11,7 @@ const HEADING = /^(#{1,3})\s+(.+?)(?:\s+\{#([a-z0-9-]+)\})?$/i;
 const IMAGE = /^!\[(.*?)\]\((.*?)\)$/;
 const LINK = /\[([^\]]+)\]\(([^)]+)\)/g;
 
-export default function Markdown({ source }: { source: string }) {
+export default function Markdown({ source, onNote }: { source: string; onNote: (slug: NoteSlug) => void }) {
   return (
     <div className="flex flex-col gap-0">
       {blocks(source).map((b, i) => {
@@ -19,7 +21,7 @@ export default function Markdown({ source }: { source: string }) {
         if (b.kind === "ul") {
           return (
             <ul key={i} className="mt-2 mx-0 mb-12 pl-18 text-md leading-[1.8] text-text">
-              {b.items.map((it, j) => <li key={j}>{inline(it)}</li>)}
+              {b.items.map((it, j) => <li key={j}>{inline(it, onNote)}</li>)}
             </ul>
           );
         }
@@ -29,7 +31,7 @@ export default function Markdown({ source }: { source: string }) {
             <Figure key={i} src={img[2]} alt={img[1]} />
           );
         }
-        return <p key={i} className="mt-0 mx-0 mb-13 text-md leading-[1.85] text-text max-w-[68ch]">{inline(b.text)}</p>;
+        return <p key={i} className="mt-0 mx-0 mb-13 text-md leading-[1.85] text-text max-w-[68ch]">{inline(b.text, onNote)}</p>;
       })}
     </div>
   );
@@ -98,12 +100,18 @@ function blocks(source: string): Block[] {
   return out;
 }
 
-function inline(text: string): React.ReactNode[] {
+// A link to another note goes through the router like the index's cards do: a bare relative href
+// reloads the app, which drops the history `usePageRoute` counts and breaks under file://.
+function inline(text: string, onNote: (slug: NoteSlug) => void): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let last = 0;
   for (const m of text.matchAll(LINK)) {
     if (m.index > last) out.push(text.slice(last, m.index));
-    out.push(<a key={`${m.index}-${m[2]}`} href={m[2]} className="text-accent underline underline-offset-3">{m[1]}</a>);
+    const slug = m[2];
+    out.push(isNoteSlug(slug)
+      ? <a key={`${m.index}-${slug}`} href={routeHref(slug)} className="text-accent underline underline-offset-3"
+          onClick={(e) => { e.preventDefault(); onNote(slug); }}>{m[1]}</a>
+      : <a key={`${m.index}-${slug}`} href={slug} className="text-accent underline underline-offset-3">{m[1]}</a>);
     last = m.index + m[0].length;
   }
   out.push(text.slice(last));
