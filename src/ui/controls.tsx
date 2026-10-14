@@ -16,8 +16,8 @@ export function SectionLabel({ title, hint }: { title: string; hint?: string }) 
   const t = useT();
   return (
     <div className="flex items-baseline justify-between mb-10">
-      <b className="text-xs font-bold tracking-[0.14em] text-faint">{t(title)}</b>
-      {hint && <i className="text-xs not-italic text-faintest">{t(hint)}</i>}
+      <b className="text-xs font-bold tracking-[0.14em] text-head">{t(title)}</b>
+      {hint && <i className="text-xs not-italic text-fine">{t(hint)}</i>}
     </div>
   );
 }
@@ -212,14 +212,21 @@ export const SEG_SKIN = "rounded-md cursor-pointer bg-card text-text border bord
   + "font-sans text-base font-semibold hover:border-accent-45 "
   + "aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:border-accent";
 
-/** One option of a segmented control (edit mode, smooth/corner). */
-export function SegButton({ label, active, onClick }: {
-  label: string; active: boolean; onClick: () => void;
+// The same option for a SETTING rather than a mode: pressed is a tinted outline, not a fill, so it
+// does not outshout what the page is about. Spelled out in full rather than built from SEG_SKIN —
+// pressed utilities do not override each other by string order.
+const SEG_QUIET = "rounded-md cursor-pointer bg-card text-text border border-card-edge "
+  + "font-sans text-base font-semibold hover:border-accent-45 "
+  + "aria-pressed:bg-accent-08 aria-pressed:text-head aria-pressed:border-accent-45";
+
+/** One option of a segmented control (edit mode, smooth/corner; `quiet` for a setting). */
+export function SegButton({ label, active, onClick, quiet }: {
+  label: string; active: boolean; onClick: () => void; quiet?: boolean;
 }) {
   const t = useT();
   return (
     <button aria-pressed={active} onClick={onClick}
-      className={`flex-1 px-4 py-7 ${SEG_SKIN}`}>
+      className={`flex-1 px-4 py-7 ${quiet ? SEG_QUIET : SEG_SKIN}`}>
       {t(label)}
     </button>
   );
@@ -242,7 +249,7 @@ export function CTA({ label, onClick, outline }: { label: string; onClick: () =>
 }
 
 /** The small-print look. Shared with the export manifest, which is a note that is not a `Note`. */
-export const NOTE_SKIN = "text-xs leading-[1.6] text-faint [&_strong]:text-text";
+export const NOTE_SKIN = "text-xs leading-[1.6] text-fine [&_strong]:text-text";
 
 /**
  * Small note under a control or CTA. Accepts rich children, so it is not translated here.

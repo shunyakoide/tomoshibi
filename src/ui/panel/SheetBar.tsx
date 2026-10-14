@@ -24,9 +24,9 @@ export default function SheetBar({ ctl, maxDia, ribLen, topOpen, botOpen, warnRi
         aria-expanded={ctl.sheet !== "peek"}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ctl.cycleSheet(); } }}
         className="flex-auto flex items-center justify-center min-h-20 cursor-pointer">
-        <span className="flex flex-wrap justify-center gap-x-12 gap-y-0 font-mono text-sm text-faint">
+        <span className="flex flex-wrap justify-center gap-x-12 gap-y-0 font-mono text-sm text-fine">
           <span>⌀{maxDia}</span>
-          <span className={warnRib ? "text-warn" : "text-faint"}>{t("羽根板")} {ribLen}</span>
+          <span className={warnRib ? "text-warn" : "text-fine"}>{t("羽根板")} {ribLen}</span>
           <span>{t("開口")} {topOpen}/{botOpen}</span>
           <span>mm</span>
         </span>

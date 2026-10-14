@@ -43,7 +43,7 @@ export default function PointCard({ p, setP, sel, setSel, editMode, setEditMode 
               disabled:cursor-default">{t("この点を削除")}</button>
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-card-edge p-14 text-sm text-faint leading-[1.6]">{t("断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。")}</div>
+        <div className="rounded-lg border border-dashed border-card-edge p-14 text-sm text-fine leading-[1.6]">{t("断面図の点をクリックすると、数値・なめらか/角・削除がここに出ます。曲線上の緑の＋で点を追加できます。")}</div>
       )}
     </div>
   );

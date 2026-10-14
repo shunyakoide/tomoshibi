@@ -56,8 +56,8 @@ export default function PagePreview({ p, matT, mold, washiOpts }: {
                 template, which is the one thing they are not — they are a separate file, cut from
                 paper rather than board, and printed at a different moment. */}
             <div className={`flex items-baseline gap-8 pb-8 ${i ? "pt-28 narrow:pt-20" : ""}`}>
-              <b className="text-xs font-bold tracking-[0.14em] text-faint">{t(doc.title)}</b>
-              <i className="text-xs not-italic text-faintest">{t(doc.note)}</i>
+              <b className="text-xs font-bold tracking-[0.14em] text-head">{t(doc.title)}</b>
+              <i className="text-xs not-italic text-fine">{t(doc.note)}</i>
             </div>
             {/* **`auto-fill`, not `auto-fit`.** Both documents are laid out on their own grid, and
                 `auto-fit` collapses the tracks no page landed in and hands the survivors ALL the

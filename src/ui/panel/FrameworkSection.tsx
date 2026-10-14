@@ -15,7 +15,7 @@ export default function FrameworkSection({ p, setP, boardsMax, drag, setDrag }: 
         {p.boards}<span className="text-faintest font-normal">{t(" 枚")}</span>
       </Stepper>
       {boardsMax < 16 && p.boards >= boardsMax && (
-        <div className="text-sm leading-[1.5] text-faint pt-2 pb-4">
+        <div className="text-sm leading-[1.5] text-fine pt-2 pb-4">
           {t("この開口・板厚では最大 {n} 枚(コマのノッチが重なるため)。板を薄くすると増やせます", { n: Math.min(16, boardsMax) })}
         </div>
       )}
@@ -23,7 +23,7 @@ export default function FrameworkSection({ p, setP, boardsMax, drag, setDrag }: 
         key: "boardT", label: "板厚", value: p.boardT, display: p.boardT.toFixed(1),
         min: 1, max: 4, round: 0.2, unit: "mm", onChange: (v) => setP((o) => ({ ...o, boardT: v })),
       }} />
-      <div className="text-sm leading-[1.5] text-faint pt-2 pb-4">
+      <div className="text-sm leading-[1.5] text-fine pt-2 pb-4">
         {t("首の高さ・張り出しは断面図の◇(最外の制御点)を上下/左右にドラッグ")}
       </div>
     </div>
