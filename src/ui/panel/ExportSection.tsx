@@ -40,7 +40,7 @@ function BedGroup({ bedW, bedD, setBedW, setBedD, spiral, boards, nRibs, setPrin
         {spiral ? (
           <div className="flex items-center justify-between py-7">
             <span className="text-base text-text">{t("印刷する羽根板")}</span>
-            <span className="font-mono text-sm text-faint">{t("螺旋: 全")}{boards}{t("枚(各1枚)")}</span>
+            <span className="font-mono text-sm text-fine">{t("螺旋: 全")}{boards}{t("枚(各1枚)")}</span>
           </div>
         ) : (
           <Stepper label="印刷する羽根板" value={nRibs} min={1} max={boards} step={1} onChange={setPrintRibs}>

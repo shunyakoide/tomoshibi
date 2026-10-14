@@ -11,7 +11,7 @@ export default function Toolbar({ undo, redo, canUndo, canRedo }: UndoRedo) {
   const act: [() => void, boolean][] = [[undo, canUndo], [redo, canRedo]];
   return (
     <div className="flex flex-col gap-7 mb-14">
-      <span className="text-xs font-bold tracking-[0.14em] text-faint">{t("編集")}</span>
+      <span className="text-xs font-bold tracking-[0.14em] text-head">{t("編集")}</span>
       <div className="flex gap-6">
         {UNDO.map(([icon, label, keys], i) => (
           <Button key={label} disabled={!act[i][1]} onClick={act[i][0]} title={`${t(label)} (${keys})`}>

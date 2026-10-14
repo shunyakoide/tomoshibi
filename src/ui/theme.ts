@@ -33,11 +33,12 @@ export const RADII = {
 export const UI = {
   panel: "#fbf8f1", edge: "rgba(59,52,43,0.1)", head: "#3b342b",
   text: "#3b342b", sub: "#8a7c66", faint: "#a1937c", faintest: "#c0b298",
-  // Small print: the lightest of these warm greys still clearing WCAG AA (4.5:1) on card white.
+  // Small print: the lightest of these warm greys still clearing WCAG AA (4.5:1) on BOTH grounds —
+  // 4.97:1 on card white, 4.69:1 on the panel (#7f7159 was 4.49 there, a hair under).
   // `sub` and `faint` do NOT — 4.07:1 and 3.01:1 — so neither may colour text at body size or
-  // below. Both are still everywhere in the inspector at FS.xs–FS.sm; this token only covers the
-  // guide's own small print.
-  fine: "#7f7159",
+  // below. Readable small print in the guide and the inspector wears this; `faint` and `faintest`
+  // are left to what is not read as text — carets, units, the close ×, disabled controls.
+  fine: "#7c6e56",
   card: "#fff", cardEdge: "rgba(59,52,43,0.09)", warn: "#c23c12",
 };
 
