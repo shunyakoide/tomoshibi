@@ -21,6 +21,15 @@ import type { Handle } from "./drag.ts";
 import type { T } from "../../i18n.ts";
 import type { Design } from "../../types.ts";
 
+// A ground-coloured outline behind a label, so the dashed guides it sits on stop short of the
+// glyphs instead of striking them through ("26 -mm"). The mid tone of the canvas's own gradient.
+// A filled box was tried and is worse: its edge shows against the gradient and it clips the
+// descenders of the label stacked above.
+const HALO = { stroke: "#efe7d6", strokeWidth: 4, strokeLinejoin: "round", paintOrder: "stroke" } as const;
+// The unit, set 2px after the value rather than a whole monospace space (7px) after it: a gap the
+// halo cannot reach is where the guide showed through.
+const unit = <tspan dx="2">mm</tspan>;
+
 export default function SectionEditor({
   p, setP, accent, drag, setDrag, sel = null, setSel = () => {}, editMode = "move", compact = false, mold = p, t = (s) => s,
 }: {
@@ -202,11 +211,11 @@ export default function SectionEditor({
               <circle cx={h.x.toFixed(1)} cy={h.y.toFixed(1)} r={Math.max(14, hitPt).toFixed(1)} fill="transparent" />
               <circle cx={h.x.toFixed(1)} cy={h.y.toFixed(1)} r={rH.toFixed(1)} fill={active ? accent : C.handleFill} stroke={accent} strokeWidth={markStroke} />
               {showLabels && <text x={h.lx.toFixed(1)} y={(h.ly - 6).toFixed(1)} textAnchor={h.anchor}
-                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.base} fill={C.label}>{t(h.label)}</text>}
+                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.base} fill={C.label} {...HALO}>{t(h.label)}</text>}
               {/* Never dropped: on a phone it answers "how tall is this" and is the drag's only
                   feedback, the inspector that would otherwise show it being behind the sheet. */}
               {<text x={h.lx.toFixed(1)} y={(h.ly + 10).toFixed(1)} textAnchor={h.anchor}
-                fontFamily="'IBM Plex Mono',monospace" fontSize={FS.md} fontWeight="600" fill={active ? accent : C.value}>{p[h.key]} mm</text>}
+                fontFamily="'IBM Plex Mono',monospace" fontSize={FS.md} fontWeight="600" fill={active ? accent : C.value} {...HALO}>{p[h.key]}{unit}</text>}
             </g>
           );
         })}
@@ -239,13 +248,13 @@ export default function SectionEditor({
               fill={c.active || c.selected || c.end ? accent : C.handleFill} stroke={accent} strokeWidth={markStroke} />
             {c.end && showLabels && (
               <text x={(c.x + rPt + 9.5).toFixed(1)} y={(c.y - 8).toFixed(1)}
-                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.xs} fontWeight="600" fill={accent}>{t("開口/首")}</text>
+                fontFamily="'IBM Plex Sans JP',sans-serif" fontSize={FS.xs} fontWeight="600" fill={accent} {...HALO}>{t("開口/首")}</text>
             )}
             {/* Every point's radius, on both layouts: the sizes the section view is for, riding
                 inside `FIT_PAD.r`'s reservation, so showing all of them costs no scale. */}
             {<text x={(c.x + rPt + 9.5).toFixed(1)} y={(c.y + 4).toFixed(1)}
               fontFamily="'IBM Plex Mono',monospace" fontSize={FS.base} fontWeight="600"
-              fill={c.active ? accent : C.label}>{Math.round(c.pt.r)} mm</text>}
+              fill={c.active ? accent : C.label} {...HALO}>{Math.round(c.pt.r)}{unit}</text>}
           </g>
         ))}
 
