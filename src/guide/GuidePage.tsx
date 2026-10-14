@@ -142,8 +142,8 @@ export default function GuidePage({ route, onRoute, onClose, onGoPrint, onGoNote
         {/* The APP's route, not a page-local one: the guide and the print view it links to must be
             about the same mold. Hidden on paper, where the title already says which. */}
         <div role="group" aria-label={t("型の種類")} className={ROUTE_SEG}>
-          <SegButton label="3Dプリント" active={stl} onClick={() => onRoute("stl")} />
-          <SegButton label="段ボール" active={!stl} onClick={() => onRoute("paper")} />
+          <SegButton quiet label="3Dプリント" active={stl} onClick={() => onRoute("stl")} />
+          <SegButton quiet label="段ボール" active={!stl} onClick={() => onRoute("paper")} />
         </div>
         <p className={LEDE}>
           {t("型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図は一例で、大きさや枚数は設計によって変わります。")}

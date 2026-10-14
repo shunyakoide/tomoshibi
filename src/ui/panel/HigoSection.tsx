@@ -19,7 +19,7 @@ export default function HigoSection({ p, setP, drag, setDrag }: {
       }} />
       <div className="mt-4">
         <Checkbox checked={p.spiral ?? false} onToggle={() => setP((o) => ({ ...o, spiral: !(o.spiral ?? false) }))}
-          label={<>{t("螺旋巻き")} <span className="text-faint">{t("(溝を下へ連続させる)")}</span></>} />
+          label={<>{t("螺旋巻き")} <span className="text-fine">{t("(溝を下へ連続させる)")}</span></>} />
       </div>
     </div>
   );

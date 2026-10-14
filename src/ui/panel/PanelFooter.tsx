@@ -26,13 +26,13 @@ export default function PanelFooter({
       narrow:px-14 narrow:pt-10 narrow:pb-12">
       {!narrow && (
       <div className="grid grid-cols-[auto_1fr] gap-x-12 gap-y-5 text-base mb-14">
-        <span className="text-faint">{t("最大径")}</span>
+        <span className="text-fine">{t("最大径")}</span>
         <span className="font-mono font-semibold text-right">⌀{maxDia} mm</span>
-        <span className="text-faint">{t("羽根板の全長")}</span>
+        <span className="text-fine">{t("羽根板の全長")}</span>
         <span className={`font-mono font-semibold text-right${!bedRules || ribFits ? "" : " text-warn"}`}>
           {ribLen} mm
         </span>
-        <span className="text-faint">{t("上下の開口(半径)")}</span>
+        <span className="text-fine">{t("上下の開口(半径)")}</span>
         <span className="font-mono font-semibold text-right">{topOpen} / {botOpen} mm</span>
       </div>
       )}

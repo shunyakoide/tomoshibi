@@ -88,9 +88,9 @@ export default function OverflowMenu({ label, items }: { label: string; items: M
               <>
                 <span className="flex-auto min-w-0 flex flex-col gap-2">
                   {it.label}
-                  {it.hint && <em className="not-italic text-xs leading-[1.35] text-faint">{it.hint}</em>}
+                  {it.hint && <em className="not-italic text-xs leading-[1.35] text-fine">{it.hint}</em>}
                 </span>
-                {it.value && <span className="flex-none font-mono text-sm text-faint">{it.value}</span>}
+                {it.value && <span className="flex-none font-mono text-sm text-fine">{it.value}</span>}
                 {/* Drawn from the row's KIND, not typed into its label: every href row gets it, and a
                     translated label cannot lose it. */}
                 {it.href && <span aria-hidden="true" className="flex-none text-sm text-faint">↗</span>}
