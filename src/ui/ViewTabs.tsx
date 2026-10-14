@@ -20,9 +20,13 @@ const CHIP_BOX = "absolute left-16 flex gap-2 p-4 rounded-lg border backdrop-blu
 // No ink of its own: the unpressed colour is INHERITED from the chip box, which takes it from
 // `chipStyle` along with the ground it sits on. Hardcoding it here meant the two moved apart — the
 // box went dark in the lit view while the text stayed the light view's brown, at 3.3:1.
-const TAB_SKIN = "px-14 py-7 border-0 rounded-sm cursor-pointer transition-all duration-150 "
-  + "bg-transparent text-[color:inherit] font-sans text-base font-medium "
-  + "aria-pressed:bg-accent aria-pressed:text-[#fff] aria-pressed:font-bold";
+const TAB_BOX = "px-14 py-7 border-0 rounded-sm cursor-pointer transition-all duration-150 "
+  + "bg-transparent text-[color:inherit] font-sans text-base font-medium aria-pressed:font-bold ";
+// Filled accent for the view (where you ARE), a tinted outline for the route (a setting) — the same
+// split the phone's two selects make. Two filled rows stacked read as two places to be.
+const TAB_SKIN = TAB_BOX + "aria-pressed:bg-accent aria-pressed:text-[#fff]";
+const ROUTE_TAB_SKIN = TAB_BOX + "aria-pressed:bg-accent-08 aria-pressed:text-head "
+  + "aria-pressed:shadow-[inset_0_0_0_1px_var(--color-accent-45)]";
 
 /** Wide: two rows of chips floating over the canvas. */
 export function ViewChips({ view, setView, route, setRoute, isLit }: {
@@ -44,7 +48,7 @@ export function ViewChips({ view, setView, route, setRoute, isLit }: {
       {!isLit && (
         <div className={`${CHIP_BOX} top-62`} style={tone}>
           {ROUTES.map(([k, l]) => (
-            <button key={k} className={TAB_SKIN} aria-pressed={route === k} onClick={() => setRoute(k)}>{t(l)}</button>
+            <button key={k} className={ROUTE_TAB_SKIN} aria-pressed={route === k} onClick={() => setRoute(k)}>{t(l)}</button>
           ))}
         </div>
       )}

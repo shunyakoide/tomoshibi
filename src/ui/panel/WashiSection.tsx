@@ -24,7 +24,7 @@ export default function WashiSection({ boards, side, end, setSide, setEnd, gore 
       </Stepper>
       <div className="flex items-center justify-between py-7">
         <span className="text-base text-text">{t("1面のサイズ")}</span>
-        <span className="font-mono text-sm text-faint">
+        <span className="font-mono text-sm text-fine">
           {Math.round(2 * gore.wMax)} × {Math.round(gore.sTot + 2 * end)} mm × {boards}
         </span>
       </div>

@@ -167,7 +167,7 @@ export default function Welcome({ route = null, onPick, onClose }: {
         <div className="mt-18">
           <div className="flex items-baseline justify-between mb-8">
             <span className="text-sm text-sub">{t("どちらでつくりますか?")}</span>
-            <span className="text-xs text-faintest">{t("後からいつでも変更できます")}</span>
+            <span className="text-xs text-fine">{t("後からいつでも変更できます")}</span>
           </div>
           {/* Stacked, not side by side: full width reads as a button rather than a tile, and the two
               captions stop wrapping to different heights. */}
