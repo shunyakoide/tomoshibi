@@ -127,4 +127,4 @@ npm run preview    # ビルド結果を http://localhost:8174 で確認
 
 ## ライセンス
 
-[MIT](LICENSE) © 2026 Shunya Koide
+[MIT](LICENSE) © 2026 Shunya Koide。フォント由来の字形の帰属表示は [NOTICE](NOTICE) にあります。
