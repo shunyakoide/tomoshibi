@@ -14,7 +14,9 @@ build needs no network and no font files — only `fonttools` for the `Transform
 
 ## Where the outlines came from
 
-Both families are SIL OFL 1.1, which permits deriving artwork from their outlines.
+Both families are SIL OFL 1.1, which permits deriving artwork from their outlines. `glyphs.json` and
+`latin.json` are those outlines and stay under the OFL (see `NOTICE` and `LICENSE-OFL.txt` at the
+repo root); the SVGs and PNGs built from them are artwork and do not.
 
 | Element | Font |
 | --- | --- |

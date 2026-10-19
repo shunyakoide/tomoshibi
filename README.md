@@ -131,4 +131,4 @@ under `src/geometry/`, beside the values it constrains.
 
 ## License
 
-[MIT](LICENSE) © 2026 Shunya Koide
+[MIT](LICENSE) © 2026 Shunya Koide. Font-derived glyph outlines are credited in [NOTICE](NOTICE).
