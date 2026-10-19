@@ -1,19 +1,22 @@
 Tomoshibi
 Copyright (c) 2026 Shunya Koide — MIT License (see LICENSE)
 
-This project contains glyph outlines derived from the following fonts, each licensed under the
-SIL Open Font License, Version 1.1 (https://openfontlicense.org). The fonts themselves are not
-redistributed; only the outlines of the characters the app draws are.
+Glyph outlines extracted from the following fonts are licensed under the SIL Open Font License,
+Version 1.1, not the MIT License. The full text is in LICENSE-OFL.txt.
 
 - IBM Plex Sans JP and IBM Plex Mono
-  Copyright (c) 2017 IBM Corp. with Reserved Font Name "Plex"
+  Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"
   https://github.com/IBM/plex
-  Used in: src/io/pdf-glyphs.ts (PDF labels); the wordmark in tools/logo/, public/logo-*.svg
-  and src/ui/Logo.tsx
 
 - Shippori Mincho
-  Copyright 2020 The Shippori Mincho Project Authors (https://github.com/fontdasu/ShipporiMincho)
-  Used in: the 灯 mark in tools/logo/, public/*.svg and src/ui/Logo.tsx
+  Copyright 2021 The Shippori Mincho Project Authors (https://github.com/fontdasu/ShipporiMincho)
 
+Files under the OFL:
+- src/io/pdf-glyphs.ts      IBM Plex Sans JP outlines drawn on the printed templates
+- tools/logo/glyphs.json    Shippori Mincho outline of 灯
+- tools/logo/latin.json     IBM Plex Mono outlines of the wordmark
+
+The logo files built from those outlines (public/*.svg, public/*.png, src/ui/Logo.tsx) are artwork
+made with the fonts and are not themselves under the OFL; they are credited here as a courtesy.
 The web UI loads IBM Plex Sans JP and IBM Plex Mono from Google Fonts at runtime; they are not
 bundled.
