@@ -14,6 +14,12 @@ Then, while doomscrolling through Instagram Reels, I kept seeing people overseas
 
 What I want Tomoshibi to make possible is not reproducing a particular work, but learning from lantern structure and creating a washi lamp in your own shape.
 
+## Original designs and commercial use {#original-designs-and-commercial-use}
+
+Commercial use is welcome, including selling 3D-printed molds generated with Tomoshibi and original lanterns made using its molds or paper templates.
+
+I do not encourage copying existing products. Permission to use Tomoshibi commercially does not grant permission to reproduce or sell someone else’s products or designs.
+
 ## How to make the mold {#why-a-mold-helps}
 
 As I looked more closely at washi lights, I learned how important the mold and bamboo structure are in lantern-making. I started by researching that process, then thinking about how it could be reproduced at home.

@@ -132,3 +132,7 @@ under `src/geometry/`, beside the values it constrains.
 ## License
 
 [MIT](LICENSE) © 2026 Shunya Koide. Font-derived glyph outlines are credited in [NOTICE](NOTICE).
+
+Commercial use is welcome, including selling 3D-printed molds generated with Tomoshibi and original lanterns made using its molds or paper templates.
+
+I do not encourage copying existing products. Permission to use Tomoshibi commercially does not grant permission to reproduce or sell someone else’s products or designs.
