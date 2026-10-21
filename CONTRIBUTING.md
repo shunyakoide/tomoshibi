@@ -130,27 +130,13 @@ Add an entry to `PRESETS` in `src/config.ts` (a `key`, `name`, and a `pts` array
 control points). Then run `npm run check:manifold` — a new silhouette can expose
 degenerate cases, so it must sweep clean.
 
-## Cloudflare trial deployment
+## Deployment
 
-GitHub Pages (`.github/workflows/deploy.yml`) is the canonical site. A second copy runs on
-Cloudflare Workers' static assets at a `workers.dev` URL and at `tomoshibi.shunyakoide.com` (the
-custom domain in `wrangler.jsonc`'s `routes`). It uploads only `dist/` — no Worker script, no
-secrets. Because `base: "./"` makes the
-build position-independent, it is the same `npm run build` output Pages gets.
-
-```bash
-npm run preview:cloudflare  # build, then serve dist/ in the local Cloudflare runtime (:8175)
-npx wrangler login          # once
-npm run deploy:cloudflare   # build, then upload
-```
-
-Page routes (`/guide`, `/note-*`) rely on `not_found_handling: "single-page-application"`
-rather than on `dist/404.html`. After a deploy, open `/`, `/guide` and a note directly, not
-only by clicking through.
-
-`public/_headers` marks the trial `noindex`. When the site moves to its own domain, remove
-that header and update `og:url` / `og:image` in `index.html` and the links in both READMEs
-together.
+`.github/workflows/deploy.yml` publishes every push to `main` to GitHub Pages, served at
+https://tomoshibi.shunyakoide.com/ (the custom domain set in Settings → Pages); the old
+`shunyakoide.github.io/tomoshibi/` address redirects there. Page routes (`/guide`, `/note-*`)
+are served by the `404.html` copy from `vite.config.ts`, so after a change to routing open `/`,
+`/guide` and a note directly, not only by clicking through.
 
 ## Pull requests
 

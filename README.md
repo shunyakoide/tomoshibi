@@ -11,7 +11,7 @@ built on. Shape the cross-section and it writes the print-ready STLs — or, wit
 full-scale A4 template for cutting the same mold out of cardboard. No backend: everything runs
 client-side and the build output is static files.
 
-**→ [Open the app](https://shunyakoide.github.io/tomoshibi/)** — nothing to install.
+**→ [Open the app](https://tomoshibi.shunyakoide.com/)** — nothing to install.
 
 ![The section editor: an egg-shaped lantern profile with draggable control points, dimensions and a live rib outline](docs/screenshots/section.png)
 
