@@ -45,9 +45,9 @@ function spa404(): Plugin {
  * else in the page loads.
  *
  * With the slash, the relative asset tags resolve one directory too deep (`notes/assets/x.js`), and
- * both hosts answer that with an HTML page — GitHub Pages its 404, Cloudflare its SPA fallback — so
- * the bundle never runs and the page sits on "Loading…" forever. The router cannot fix it; it IS
- * the bundle. So this is an inline script, first in `<head>`, ahead of the asset tags.
+ * GitHub Pages answers that with its 404 page, so the bundle never runs and the page sits on
+ * "Loading…" forever. The router cannot fix it; it IS the bundle. So this is an inline script,
+ * first in `<head>`, ahead of the asset tags.
  *
  * Only a known route's slash goes: the mount itself (`/tomoshibi/`) ends in one too, and a
  * redirect that stripped that would send the app's root to the parent directory.
