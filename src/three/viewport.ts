@@ -129,9 +129,13 @@ export function createViewport(mount: HTMLElement): { state: ViewportState; disp
   scene.add(shadow);
 
   // Lit view: a warm pool of light on the floor, dark at the very centre (the body blocks the light
-  // directly below it) and bright in a ring around that.
+  // directly below it) and bright in a ring around that. Painted opaque, colour × alpha over black
+  // (black adds nothing under additive blending): WebKit dithers canvas gradients and stores them
+  // premultiplied, and un-premultiplying that for WebGL scattered green specks across the pool.
+  const poolStop = (r: number, g: number, b: number, a: number) =>
+    new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace).multiplyScalar(a).getStyle();
   const poolTex = gradientTexture([256, 256], (c) => c.createRadialGradient(128, 128, 6, 128, 128, 128),
-    [[0.0, "rgba(255,190,120,0.10)"], [0.28, "rgba(255,178,105,0.85)"], [1.0, "rgba(255,150,80,0.0)"]], true);
+    [[0.0, poolStop(255, 190, 120, 0.10)], [0.28, poolStop(255, 178, 105, 0.85)], [1.0, "#000"]], true);
   // Emission ramp for the lamp body: a wide bright plateau at mid-height, so no thin bright line
   // appears at the equator.
   const washiGrad = gradientTexture([4, 256], (c) => c.createLinearGradient(0, 0, 0, 256),
