@@ -74,13 +74,13 @@ function seatTickLines(p: Design, k: number): THREE.Mesh {
 }
 
 // The wire the cardboard route bends its hoops from — steel, so the one part on that route the maker
-// does not cut out of board does not read as a strip of board. The same colour as the lit view's
-// legs, that being the app's other bent-wire part. Module-level and shared for `TICK_MAT`'s reason:
-// `buildScene` disposes geometries on rebuild, never materials.
+// does not cut out of board does not read as a strip of board. Module-level and shared for
+// `TICK_MAT`'s reason: `buildScene` disposes geometries on rebuild, never materials.
 const WIRE_MAT = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3, envMapIntensity: 0.9 });
 // The lit view's bamboo ribs and legs, and the print view's plates: shared for TICK_MAT's reason.
 const HIGO_MAT = new THREE.MeshStandardMaterial({ color: 0xc2a266, roughness: 0.75, metalness: 0, emissive: 0x936026, emissiveIntensity: 0.7 });
-const LEG_MAT = new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.4, metalness: 0.3 });   // graphite, so the legs read as iron, not lost in the dark background
+// Silver wire. No metalness: the lit view has no environment for a metal to reflect, so it would go black.
+const LEG_MAT = new THREE.MeshStandardMaterial({ color: 0xd8dbe0, roughness: 0.3, metalness: 0, emissive: 0x8a8884 });
 const PLATE_MAT = new THREE.MeshStandardMaterial({ color: 0x1e1e23, roughness: 0.9 });
 
 /**
