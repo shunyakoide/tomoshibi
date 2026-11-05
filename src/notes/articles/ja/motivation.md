@@ -1,6 +1,7 @@
 ---
 title: Tomoshibiを作った理由
 summary: Akariへの憧れから、自分で和紙ランプを作るための型生成ツールを作るまで。
+cover: media/printed-mold.jpg
 category: 制作ノート
 ---
 

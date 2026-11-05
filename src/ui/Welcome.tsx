@@ -8,6 +8,7 @@
 import React, { useEffect, useRef } from "react";
 import { UI as ui, accent, accentA, useT } from "./theme.ts";
 import Logo from "./Logo.tsx";
+import { routeHref } from "../studio/route.ts";
 import type { Route } from "../types.ts";
 
 // Everything a keyboard can land on inside the card. `[tabindex="-1"]` is deliberately excluded:
@@ -75,8 +76,8 @@ const ROUTES: [Route, string, string][] = [
   ["paper", "段ボール", "A4 原寸の型紙を印刷 · 縦につないで大きく"],
 ];
 
-export default function Welcome({ route = null, onPick, onClose }: {
-  route?: Route | null; onPick: (r: Route) => void; onClose: () => void;
+export default function Welcome({ route = null, onPick, onClose, onGuide }: {
+  route?: Route | null; onPick: (r: Route) => void; onClose: () => void; onGuide: () => void;
 }) {
   const t = useT();
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -138,28 +139,48 @@ export default function Welcome({ route = null, onPick, onClose }: {
             with the outcome (a lantern, yours, any shape) makes that bullet unnecessary: the three
             steps below then SHOW that what this site hands you is the mold, which is what 「型から」
             says without stopping to define itself. */}
-        <div className="mt-8 text-md text-sub">{t("好きな形の和紙ランプを、型からつくれます")}</div>
+        {/* `text-text`, not `sub`: this is the one sentence that says what the site is, and in `sub`
+            it was the faintest text on the card (3.8:1 against the panel). */}
+        <div className="mt-8 text-lg text-text">{t("好きな形の和紙ランプを、型からつくれます")}</div>
 
-        {/* The three steps, with arrows between them */}
-        <div className="flex items-stretch gap-4 my-18 mb-16 bg-card border border-card-edge
-          rounded-2xl pt-14 px-10 pb-13
-          max-[480px]:flex-col max-[480px]:gap-2 max-[480px]:mt-14 max-[480px]:mb-13
-          max-[480px]:pt-11 max-[480px]:px-12 max-[480px]:pb-10">
-          {STEPS.map(([kind, title, caption], i) => (
-            <React.Fragment key={kind}>
-              {i > 0 && <div aria-hidden="true"
-                className="self-center text-faintest text-xl px-2
-                  max-[480px]:rotate-90 max-[480px]:origin-center max-[480px]:p-0
-                  max-[480px]:-my-1 max-[480px]:text-md max-[480px]:leading-none">→</div>}
-              <div className="flex-1 min-w-0 flex flex-col items-center gap-6 text-center py-4 px-6
-                max-[480px]:flex-row max-[480px]:items-center max-[480px]:gap-12
-                max-[480px]:text-left max-[480px]:p-2">
-                <StepIcon kind={kind} />
-                <div className="text-base font-bold max-[480px]:flex-none">{t(title)}</div>
-                <div className="text-xs text-sub leading-[1.45] max-[480px]:flex-auto">{t(caption)}</div>
-              </div>
-            </React.Fragment>
-          ))}
+        {/* The three steps, with arrows between them, and the guide as the panel's last row */}
+        <div className="my-18 mb-16 bg-card border border-card-edge rounded-2xl
+          max-[480px]:mt-14 max-[480px]:mb-13">
+          <div className="flex items-stretch gap-4 pt-14 px-10 pb-13
+            max-[480px]:flex-col max-[480px]:gap-2
+            max-[480px]:pt-11 max-[480px]:px-12 max-[480px]:pb-10">
+            {STEPS.map(([kind, title, caption], i) => (
+              <React.Fragment key={kind}>
+                {i > 0 && <div aria-hidden="true"
+                  className="self-center text-faintest text-xl px-2
+                    max-[480px]:rotate-90 max-[480px]:origin-center max-[480px]:p-0
+                    max-[480px]:-my-1 max-[480px]:text-md max-[480px]:leading-none">→</div>}
+                <div className="flex-1 min-w-0 flex flex-col items-center gap-6 text-center py-4 px-6
+                  max-[480px]:flex-row max-[480px]:items-center max-[480px]:gap-12
+                  max-[480px]:text-left max-[480px]:p-2">
+                  <StepIcon kind={kind} />
+                  <div className="text-base font-bold max-[480px]:flex-none">{t(title)}</div>
+                  <div className="text-xs text-fine leading-[1.45] max-[480px]:flex-auto">{t(caption)}</div>
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+          {/* The third step stands for most of the build — winding, pasting, drying, pulling the mold —
+              and the page that draws it was reachable only from ☰. It is the steps panel's own last
+              row, not a link beside it: it is "these steps, in full", and as a lone text link under
+              the panel it read as a footnote. Flat on the panel's ground rather than boxed like the
+              route buttons, so the card still has exactly two answers to its question.
+              Opening it does NOT close the card: a page holds the card back (`welcome && !page`), so
+              closing the guide brings the visitor back here to pick a route. */}
+          <a href={routeHref("guide")} onClick={(e) => { e.preventDefault(); onGuide(); }}
+            className="flex items-center gap-10 min-h-44 px-16 py-10 border-t border-card-edge rounded-b-2xl
+              text-text no-underline hover:bg-accent-06 group">
+            <span className="flex-auto min-w-0">
+              <b className="block text-md font-bold group-hover:text-accent">{t("作り方を見る")}</b>
+              <span className="block text-xs text-fine leading-[1.45]">{t("用意するもの、型の組み方から灯りのつけ方まで")}</span>
+            </span>
+            <span aria-hidden="true" className="flex-none text-accent text-lg leading-none">→</span>
+          </a>
         </div>
 
         {/* Two buttons rather than a segmented toggle: each is also the "start" action, so nobody
@@ -187,7 +208,7 @@ export default function Welcome({ route = null, onPick, onClose }: {
                   {t(title)}
                   <span aria-hidden="true" className="ml-auto text-accent text-lg leading-none">→</span>
                 </b>
-                <i className="text-xs not-italic leading-[1.45] text-sub">{t(caption)}</i>
+                <i className="text-xs not-italic leading-[1.45] text-fine">{t(caption)}</i>
               </button>
             ))}
           </div>

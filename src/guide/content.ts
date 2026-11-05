@@ -25,7 +25,7 @@ export type Way = {
 /** One step of the build. */
 type Step = {
   id: string; title: string; body: string; paperBody?: string; fig?: string; stl?: boolean;
-  options?: Way[]; notes?: { slug: NoteSlug; hash?: string; label: string }[];
+  options?: Way[]; notes?: { slug: NoteSlug; hash?: string }[];
 };
 /** One thing you supply yourself. `paper` overrides the fields the cardboard route reads
  *  differently — the wire is optional on the 3D route and not on the one that bends its own hoops. */
@@ -54,7 +54,7 @@ export const STEPS: Step[] = [
     id: "make", title: "部品をつくる",
     body: "「印刷」ビューから STL を書き出し、羽根板・コマ・支柱・土台・口輪を印刷します。コマと支柱は上下で同じ部品なので、スライサーで2つに複製してください。",
     paperBody: "「印刷」ビューから型紙 ZIP をダウンロードし、原寸(100%)で刷ります。段ボールに貼るか下敷きにして、線のとおりに切り出します。刃は新しいものを。",
-    notes: [{ slug: "note-motivation", hash: "#why-a-mold-helps", label: "Tomoshibiを作った理由" }],
+    notes: [{ slug: "note-motivation", hash: "#why-a-mold-helps" }],
   },
   {
     id: "ribsIn", title: "コマに羽根板を差す", fig: "ribsIn",
@@ -109,7 +109,7 @@ export const STEPS: Step[] = [
     // step must not name a part its own route never makes.
     id: "light", title: "灯りをつける",
     body: "灯具の付け方は{n}通りあります。どれを選んでも電球は和紙のすぐ内側に来るので、熱を持ちにくい LED にしてください。",
-    notes: [{ slug: "note-sockets", hash: "#pendant-socket", label: "足とソケットの付け方" }],
+    notes: [{ slug: "note-sockets", hash: "#pendant-socket" }],
     options: [
       {
         // No `detail`: there is no fitting to work through — you set the lamp down and drop the shade

@@ -1,6 +1,7 @@
 ---
 title: Why I made Tomoshibi
 summary: From wanting an Akari lamp to making a mold generator for building washi lamps at home.
+cover: media/printed-mold.jpg
 category: Build notes
 ---
 
