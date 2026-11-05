@@ -257,7 +257,7 @@ export default function TomoshibiStudio() {
           goPrint={() => setView("print")}
           maxDia={maxDia} ribLen={ribLen} topOpen={topOpen} botOpen={botOpen}
           ribFits={ribFits} bedRules={bedRules}
-          kitNote={kitNote} setKitNote={setKitNote}
+          kitNote={kitNote} setKitNote={setKitNote} onGuide={() => goPage("guide")}
           onDownloadStl={downloadKit} onDownloadPaper={downloadPaperKit} />
       }>
         <Toolbar undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} />
@@ -313,13 +313,13 @@ export default function TomoshibiStudio() {
         {/* Held back while a page is open, not dismissed: someone who arrives on a note's link came
             to read it, and the card introduces the app they meet when they close it. */}
         {welcome && !page && (
-          <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome}
+          <Welcome route={welcome === "help" ? route : null} onClose={closeWelcome} onGuide={() => goPage("guide")}
             onPick={(r) => { set("route", r); closeWelcome(); }} />
         )}
         {/* The guide's one outbound link closes it as well as switching the view: leaving the
             document open over the print view would hide the thing it just sent you to. */}
         {guide && (
-          <GuidePage route={route} onRoute={(r) => set("route", r)} onClose={() => goPage(null)}
+          <GuidePage lang={lang} route={route} onRoute={(r) => set("route", r)} onClose={() => goPage(null)}
             onGoPrint={() => { goPage(null); setView("print"); }}
             onGoNote={(slug, hash) => goPage(slug, hash)} />
         )}

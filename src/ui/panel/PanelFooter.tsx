@@ -7,17 +7,18 @@ import { CTA } from "../controls.tsx";
 import KitNote, { type KitNoteState } from "./KitNote.tsx";
 import { WASHI_PDF } from "../../config.ts";
 import { useT } from "../theme.ts";
+import { routeHref } from "../../studio/route.ts";
 import type { Route } from "../../types.ts";
 
 export default function PanelFooter({
   narrow, isPrint, route, goPrint, maxDia, ribLen, topOpen, botOpen, ribFits, bedRules,
-  kitNote, setKitNote, onDownloadStl, onDownloadPaper,
+  kitNote, setKitNote, onGuide, onDownloadStl, onDownloadPaper,
 }: {
   narrow: boolean; isPrint: boolean; route: Route; goPrint: () => void;
   maxDia: number; ribLen: number; topOpen: number; botOpen: number;
   ribFits: boolean; bedRules: boolean;
   kitNote: KitNoteState; setKitNote: React.Dispatch<React.SetStateAction<KitNoteState>>;
-  onDownloadStl: () => void; onDownloadPaper: () => void;
+  onDownloadStl: () => void; onDownloadPaper: () => void; onGuide: () => void;
 }) {
   const t = useT();
   const toggle = () => setKitNote((v) => (v === "open" ? "shut" : "open"));
@@ -64,6 +65,13 @@ export default function PanelFooter({
             <li><span className="font-mono">tomoshibi_config.json</span>{t(" — 設計のバックアップ")}</li>
           </KitNote>
         </>
+      )}
+      {/* After the download, not before: until then the next step is the button above. The guide
+          picks up exactly where the download leaves off. */}
+      {isPrint && kitNote !== null && (
+        <a href={routeHref("guide")} className="inline-flex items-center min-h-36 text-sm font-semibold
+          text-accent no-underline hover:underline"
+          onClick={(e) => { e.preventDefault(); onGuide(); }}>{t("作り方へ進む →")}</a>
       )}
     </div>
   );

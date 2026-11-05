@@ -24,6 +24,8 @@ import { Badge, Button, SegButton } from "../ui/controls.tsx";
 import type { Way } from "./content.ts";
 import type { NoteSlug } from "../notes/slugs.ts";
 import { routeHref } from "../studio/route.ts";
+import { getNote } from "../notes/content.ts";
+import type { Lang } from "../i18n.ts";
 import type { Route } from "../types.ts";
 
 /* The kit and parts cards. A class rather than a style object, so the box that goes with the
@@ -65,12 +67,11 @@ const STEP_H3 = "flex items-center gap-10 mt-2 mx-0 mb-8 text-xl font-bold text-
 const STEP_NUM = "flex-none w-24 h-24 rounded-full bg-accent text-[#fff] flex "
   + "items-center justify-center text-base font-bold";
 const WAY_UL = "list-none mt-16 mx-0 mb-0 p-0 flex flex-col gap-20";
-const NOTE_BOX = "mt-14 flex flex-wrap items-center gap-7 text-sm text-sub print:hidden";
-const NOTE_LINK = "inline-flex items-center min-h-26 px-8 rounded-md bg-accent-06 text-accent "
-  + "border border-accent-25 no-underline hover:bg-[#fffaf5] hover:border-accent-45";
+const BANNER = "group flex items-stretch gap-14 overflow-hidden bg-card border border-card-edge "
+  + "rounded-2xl text-text no-underline hover:border-accent-45 hover:bg-[#fffaf5] print:hidden";
 
-export default function GuidePage({ route, onRoute, onClose, onGoPrint, onGoNote }: {
-  route: Route; onRoute: (r: Route) => void; onClose: () => void; onGoPrint: () => void;
+export default function GuidePage({ lang, route, onRoute, onClose, onGoPrint, onGoNote }: {
+  lang: Lang; route: Route; onRoute: (r: Route) => void; onClose: () => void; onGoPrint: () => void;
   onGoNote: (slug: NoteSlug, hash?: string) => void;
 }) {
   const t = useT();
@@ -148,13 +149,9 @@ export default function GuidePage({ route, onRoute, onClose, onGoPrint, onGoNote
         <p className={LEDE}>
           {t("型を組み、竹ひごを巻き、和紙を貼って、乾いたら型を抜く。図は一例で、大きさや枚数は設計によって変わります。")}
         </p>
-        <div className={NOTE_BOX}>
-          <span>{t("補足")}</span>
-          <a href={routeHref("note-build")} className={NOTE_LINK}
-            onClick={(e) => { e.preventDefault(); onGoNote("note-build"); }}>
-            {t("和紙ランプ作りの流れ")}
-          </a>
-        </div>
+        {/* The one note that walks the whole build with photographs — the real thing this page only
+            draws. */}
+        <NoteBanner slug="note-build" lang={lang} onGoNote={onGoNote} className="mt-18" />
 
         <h2 className={H2}>{t("部品")}</h2>
         <ul className={GRID}>
@@ -217,17 +214,10 @@ export default function GuidePage({ route, onRoute, onClose, onGoPrint, onGoNote
                 {/* The count comes from the options actually offered here, not from the list: one
                     needs the leg sockets, and "three ways" over two sections is a visible lie. */}
                 <p className={STEP_P}>{t(!stl && s.paperBody ? s.paperBody : s.body, s.options && { n: options[s.id].length })}</p>
-                {s.notes && (
-                  <div className={NOTE_BOX}>
-                    <span>{t("関連ノート")}</span>
-                    {s.notes.map((n) => (
-                      <a key={`${n.slug}${n.hash ?? ""}`} href={routeHref(n.slug, n.hash)} className={NOTE_LINK}
-                        onClick={(e) => { e.preventDefault(); onGoNote(n.slug, n.hash); }}>
-                        {t(n.label)}
-                      </a>
-                    ))}
-                  </div>
-                )}
+                {s.notes?.map((n) => (
+                  <NoteBanner key={`${n.slug}${n.hash ?? ""}`} slug={n.slug} hash={n.hash} lang={lang}
+                    onGoNote={onGoNote} className="mt-14" />
+                ))}
                 {s.options && (
                   <ul className={WAY_UL}>
                     {options[s.id].map((o) => (
@@ -244,5 +234,36 @@ export default function GuidePage({ route, onRoute, onClose, onGoPrint, onGoNote
         </ol>
       </div>
     </div>
+  );
+}
+
+/**
+ * A note, as a banner: its cover photo, then the title and summary from its own frontmatter, so the
+ * banner cannot drift from the article. A banner rather than a chip beside 「補足」/「関連ノート」:
+ * as a chip it read as a footnote, and the notes are the photographs of a real build this page only
+ * draws. Hidden on paper, like the chips were.
+ */
+function NoteBanner({ slug, hash, lang, onGoNote, className }: {
+  slug: NoteSlug; hash?: string; lang: Lang; onGoNote: (slug: NoteSlug, hash?: string) => void; className: string;
+}) {
+  const t = useT();
+  const note = getNote(slug, lang);
+  if (!note) return null;
+  return (
+    <a href={routeHref(slug, hash)} className={`${BANNER} ${className}`}
+      onClick={(e) => { e.preventDefault(); onGoNote(slug, hash); }}>
+      {note.cover && (
+        <img src={`${routeHref(null)}${note.cover}`} alt="" loading="lazy"
+          className="flex-none w-112 self-stretch min-h-112 object-cover narrow:w-88 narrow:min-h-88" />
+      )}
+      <span className={`flex-auto min-w-0 py-14 pr-4 narrow:py-10 ${note.cover ? "" : "pl-16"}`}>
+        <span className="block mb-4 font-mono text-sm font-semibold tracking-[0.14em] uppercase text-accent">
+          {t("制作ノート")}
+        </span>
+        <strong className="block mb-4 text-lg font-bold text-head group-hover:text-accent">{note.title}</strong>
+        <span className="block text-md leading-[1.6] text-fine">{note.summary}</span>
+      </span>
+      <span aria-hidden="true" className="flex-none self-center pr-16 text-accent text-xl leading-none">→</span>
+    </a>
   );
 }

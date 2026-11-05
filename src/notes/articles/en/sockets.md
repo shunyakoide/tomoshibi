@@ -1,6 +1,7 @@
 ---
 title: Legs and how to mount the socket
 summary: The mold can make the shade, but lamp sockets are not the same everywhere. Two ways to mount one: a pendant socket, and a ceiling-mount holder.
+cover: media/socket-fitted-side.jpg
 category: Build notes
 ---
 

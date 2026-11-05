@@ -1,6 +1,7 @@
 ---
 title: How a washi lamp comes together
-summary: From choosing materials to pulling the mold out. Two ways to wind the bamboo, and the one I struggled with.
+summary: From materials and tools to a lit lamp: building the mold, winding the bamboo, pasting the washi. In photos of an actual build.
+cover: media/finished.jpg
 category: Build notes
 ---
 

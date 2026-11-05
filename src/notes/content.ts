@@ -12,6 +12,8 @@ type NoteMeta = {
   title: string;
   summary: string;
   category: string;
+  /** A photo from `public/`, shown on the guide's banner for this note. Optional. */
+  cover: string;
 };
 
 type NoteDoc = NoteMeta & {
@@ -42,9 +44,9 @@ function noteDoc(slug: NoteSlug, lang: Lang): NoteDoc {
  *  checkout would otherwise miss the opening fence and print the frontmatter as prose. */
 function parseFrontmatter(raw: string): Omit<NoteDoc, "slug"> {
   const src = raw.replace(/\r\n/g, "\n");
-  if (!src.startsWith("---\n")) return { title: "", summary: "", category: "", body: src.trim() };
+  if (!src.startsWith("---\n")) return { title: "", summary: "", category: "", cover: "", body: src.trim() };
   const end = src.indexOf("\n---", 4);
-  if (end < 0) return { title: "", summary: "", category: "", body: src.trim() };
+  if (end < 0) return { title: "", summary: "", category: "", cover: "", body: src.trim() };
   const head = src.slice(4, end).trim().split("\n");
   const meta: Record<string, string> = {};
   for (const line of head) {
@@ -56,6 +58,7 @@ function parseFrontmatter(raw: string): Omit<NoteDoc, "slug"> {
     title: meta.title ?? "",
     summary: meta.summary ?? "",
     category: meta.category ?? "",
+    cover: meta.cover ?? "",
     body: src.slice(end + 5).trim(),
   };
 }

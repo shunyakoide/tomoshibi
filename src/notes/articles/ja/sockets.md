@@ -1,6 +1,7 @@
 ---
 title: 足とソケットの付け方
 summary: 火袋は型で作れても、ライトの留め方は世界共通ではありません。ペンダントソケットとレセップ、二通りの付け方。
+cover: media/socket-fitted-side.jpg
 category: 制作ノート
 ---
 
