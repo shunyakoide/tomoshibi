@@ -5,6 +5,7 @@ import {
   standCollarTop, standSaddleH, standSlotSep, ringGeometry, ringLegs, wireRingGeometry, hoopTurn, washiSurface, seatTicks2D,
 } from "../geometry.ts";
 import { fitOnBed } from "../bed.ts";
+import { printParts, printedRibs, ribRange, type PartKey } from "../parts.ts";
 import { ribGeo } from "./figures/mold.ts";
 import { higoGeometries } from "./higo.ts";
 import type { ViewportHandle, ViewportState } from "./viewport.ts";
@@ -306,25 +307,26 @@ function packPlates(
 
 // ---- print: every part laid flat on plates ----
 function buildPrint(s: ViewportState, p: Design, { printRibs, bedW, bedD }: Pick<SceneOpts, "printRibs" | "bedW" | "bedD">): void {
-  // Spiral winding gives every rib different groove positions, so all must be printed; otherwise
-  // the ribs are identical and the user prints one and duplicates it.
-  const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
-  const ribs: PrintPart[] = [];
-  for (let k = 0; k < nRibs; k++) ribs.push({ geo: ribGeometry(p, k), mat: s.ribMat });
-  // Koma and posts are identical top/bottom, so one of each is enough (duplicated in the slicer).
-  // The base plate's length follows the body height, so it gets its own plate, keeping the post
-  // placement fixed. Each group is packed separately, matching how the STLs are exported.
-  const groups = [
-    ribs,
-    [{ geo: komaGeometry(p), mat: s.komaMat }],
-    [{ geo: standGeometry(p), mat: s.standMat }],
-    [{ geo: boardGeometry(p), mat: s.standMat }],
-    // Opening rings: rigid rings set into the finished lantern's openings. One each.
-    [{ geo: ringGeometry(p, false), mat: s.komaMat }, { geo: ringGeometry(p, true), mat: s.komaMat }],
-  ];
+  // Material and plate group per part. Each group is packed separately, matching how the STLs are
+  // exported; the base plate's length follows the body height, so it gets its own plate, keeping the
+  // post placement fixed. The two rings share one. Keyed by `PartKey`, so a new part does not
+  // compile until it has a place here.
+  const look: Record<PartKey, { mat: THREE.Material; group: string }> = {
+    rib: { mat: s.ribMat, group: "rib" },
+    koma: { mat: s.komaMat, group: "koma" },
+    stand: { mat: s.standMat, group: "stand" },
+    board: { mat: s.standMat, group: "board" },
+    ringBot: { mat: s.komaMat, group: "ring" },
+    ringTop: { mat: s.komaMat, group: "ring" },
+  };
+  const groups = new Map<string, PrintPart[]>();   // insertion order = kit order
+  for (const x of printParts(p, ribRange(printedRibs(p, printRibs)))) {
+    const { mat, group } = look[x.key];
+    groups.set(group, [...(groups.get(group) ?? []), { geo: x.geo, mat }]);
+  }
   const placed: PlacedPart[] = [];
   let plates = 0;
-  for (const g of groups) plates = packPlates(g, plates, placed, bedW, bedD);
+  for (const g of groups.values()) plates = packPlates(g, plates, placed, bedW, bedD);
 
   const pCols = Math.ceil(Math.sqrt(plates));
   const pRows = Math.ceil(plates / pCols);

@@ -19,6 +19,7 @@ import type * as THREE from "three";
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import os from "node:os";
 import * as G from "../src/geometry.ts";
+import { printParts } from "../src/parts.ts";
 import { PRESETS, DEFAULTS, LIMITS, T_GAP } from "../src/config.ts";
 import { neckFloor } from "../src/ui/pointEdit.ts";
 import { paperP } from "../src/papercraft.ts";   // the cardboard route's own design: the hoop there is bent wire
@@ -111,11 +112,8 @@ function checkParts(p: Design): Result[] {
   const results: Result[] = [];
   const push = (name: string, geom: THREE.BufferGeometry) => results.push({ name, ...checkGeom(geom) });
   try {
-    for (const k of [0, 1, Math.floor(p.boards / 2)]) push(`rib(k=${k})`, G.ribGeometry(p, k));
-    push("koma", G.komaGeometry(p));
-    push("stand", G.standGeometry(p));
-    push("board", G.boardGeometry(p));
-    push("ring.bot", G.ringGeometry(p, false)); push("ring.top", G.ringGeometry(p, true)); // opening rings
+    // Every printed part, through the same list the kit exports — ribs at a spread of indices.
+    for (const x of printParts(p, [0, 1, Math.floor(p.boards / 2)])) push(x.key === "rib" ? `rib(k=${x.k})` : x.key, x.geo);
   } catch (e) { return [{ name: "EXCEPTION", ok: false, reason: (e as Error).message }]; }
   return results;
 }

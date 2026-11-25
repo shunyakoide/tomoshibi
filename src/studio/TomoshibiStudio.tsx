@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { maxBoards } from "../geometry.ts";
+import { printedRibs } from "../parts.ts";
 import * as kit from "./kit.ts";
 import { useFigures, buildAlerts } from "./derived.ts";
 import { AlertBar } from "../ui/Alerts.tsx";
@@ -124,8 +125,7 @@ export default function TomoshibiStudio() {
   // cardboard PDF. Clearing on the route, not on the export, because ☰ →はじめかた can switch it too.
   useEffect(() => { setKitNote(null); }, [route]);
 
-  // Ribs to print (1..boards). With spiral winding every rib differs, so all are exported.
-  const nRibs = p.spiral ? p.boards : Math.min(printRibs, p.boards);
+  const nRibs = printedRibs(p, printRibs);
 
   // ---- Exports ----
   // Each is an arrow so `moldSrc` and `washiOpts`, declared below, are read at click time rather
