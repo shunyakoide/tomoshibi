@@ -17,14 +17,25 @@
  */
 import type * as THREE from "three";
 import crypto from "node:crypto";
-import * as G from "../src/geometry.ts";
+import { printParts, type PartKey } from "../src/parts.ts";
 import { PRESETS, DEFAULTS } from "../src/config.ts";
 import { FRESH } from "../src/studio/persist.ts";   // the state a first visit opens on
+import type { Design } from "../src/types.ts";
 
 const hash = (g: THREE.BufferGeometry) => {
   const a = g.getAttribute("position").array;
   const q = Buffer.from(Float64Array.from(a, (x: number) => Math.round(x * 1e6)).buffer);
   return crypto.createHash("sha1").update(q).digest("hex").slice(0, 12);
+};
+
+// Tags keep their historical spelling so a diff against a baseline taken before `parts.ts` existed
+// stays meaningful. A `Record`, so a new part fails the typecheck here until it is hashed too.
+const TAG: Record<PartKey, string> = {
+  rib: "rib  ", koma: "koma ", stand: "stand", board: "board", ringBot: "ring.bot", ringTop: "ring.top",
+};
+// Rib 0 stands for the ribs: on a non-spiral design they are one shape.
+const hashParts = (tag: string, p: Design) => {
+  for (const x of printParts(p, [0])) out.push(`${tag} ${TAG[x.key]} ${hash(x.geo)}`);
 };
 
 const out: string[] = [];
@@ -34,27 +45,11 @@ for (const preset of PRESETS)
       for (const fit of [0, 0.3])
         for (const higoD of [1.5, 2, 3]) {
           const p = { ...DEFAULTS, ...preset, height, boards, fit, higoD };
-          const tag = `${preset.key} h${height} b${boards} fit${fit} hd${higoD}`;
-          out.push(`${tag} rib   ${hash(G.ribGeometry(p, 0))}`);
-          out.push(`${tag} koma  ${hash(G.komaGeometry(p))}`);
-          out.push(`${tag} stand ${hash(G.standGeometry(p))}`);
-          out.push(`${tag} board ${hash(G.boardGeometry(p))}`);
-          // The opening rings are parts too. Left out, a change in geometry/ring.ts could move every
-          // ring vertex and still merge as "zero hash diff" — the one gate whose whole job is to
-          // prove a refactor changed nothing, blind to a fifth of what it ships.
-          out.push(`${tag} ring.bot ${hash(G.ringGeometry(p, false))}`);
-          out.push(`${tag} ring.top ${hash(G.ringGeometry(p, true))}`);
+          hashParts(`${preset.key} h${height} b${boards} fit${fit} hd${higoD}`, p);
         }
 // And the design the app actually OPENS on. Everything above merges a preset over `DEFAULTS`, so it
 // hashes the presets' own point lists — which is not a state the app is ever in: `OPENING_MIN` floors
 // two of the three the moment they are picked, and `FRESH` floors the starting design the same way.
 // The one design every visitor gets was the one design this gate could not see.
-for (const [tag, p] of [["fresh", FRESH.p]] as [string, typeof FRESH.p][]) {
-  out.push(`${tag} rib   ${hash(G.ribGeometry(p, 0))}`);
-  out.push(`${tag} koma  ${hash(G.komaGeometry(p))}`);
-  out.push(`${tag} stand ${hash(G.standGeometry(p))}`);
-  out.push(`${tag} board ${hash(G.boardGeometry(p))}`);
-  out.push(`${tag} ring.bot ${hash(G.ringGeometry(p, false))}`);
-  out.push(`${tag} ring.top ${hash(G.ringGeometry(p, true))}`);
-}
+hashParts("fresh", FRESH.p);
 console.log(out.join("\n"));

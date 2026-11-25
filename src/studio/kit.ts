@@ -4,10 +4,8 @@
  *
  * Named `kit.ts` rather than `exports.ts`: "export" already means something else on every line.
  */
-import type * as THREE from "three";
-import {
-  maxRadius, ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry,
-} from "../geometry.ts";
+import { maxRadius } from "../geometry.ts";
+import { printParts, ribRange, type PartKey } from "../parts.ts";
 import { exportZip, zipBundle, downloadFile, type Part } from "../io/stl.ts";
 import { paperPDF, washiPDF } from "../papercraft.ts";
 import { serializeState, parseImport, STORAGE_KEY, FRESH, type SavedState } from "./persist.ts";
@@ -15,28 +13,29 @@ import { WASHI_PDF } from "../config.ts";
 import type { T } from "../i18n.ts";
 import type { Design } from "../types.ts";
 
+// File name per non-rib part. Keyed by `PartKey`, so a part added to `printParts` fails the build
+// here until it has a file. Koma and post are printed twice — the name says so.
+const FILE: Record<Exclude<PartKey, "rib">, string> = {
+  koma: "tomoshibi_koma_print2.stl",
+  stand: "tomoshibi_stand_column_print2.stl",
+  board: "tomoshibi_stand_base.stl",
+  ringBot: "tomoshibi_ring_bottom.stl",
+  ringTop: "tomoshibi_ring_top.stl",
+};
+
 /** The STL kit: every printed part, the design as a backup, and the washi template. */
 export function downloadKit(s: SavedState, nRibs: number, t: T): void {
   const { p, washiSide, washiEnd } = s;
+  const parts = printParts(p, ribRange(nRibs));
   // Rib file layout. Spiral: one rib per file (tomoshibi_rib_01.stl …), placeable individually in
-  // the slicer. Otherwise the ribs are identical and go in one file (print one, duplicate it).
-  let ribEntries: Part[];
-  if (p.spiral) {
-    ribEntries = [];
-    for (let k = 0; k < nRibs; k++) {
-      const g = ribGeometry(p, k);
-      g.translate(0, p.tabLen, p.boardT / 2);
-      ribEntries.push({ name: `tomoshibi_rib_${String(k + 1).padStart(2, "0")}.stl`, geos: [g] });
-    }
-  } else {
-    const w = maxRadius(p) + 12, ribs: THREE.BufferGeometry[] = [];
-    for (let k = 0; k < nRibs; k++) {
-      const g = ribGeometry(p, k);
-      g.translate(k * w, p.tabLen, p.boardT / 2);
-      ribs.push(g);
-    }
-    ribEntries = [{ name: `tomoshibi_ribs_x${nRibs}.stl`, geos: ribs }];
-  }
+  // the slicer. Otherwise the ribs are identical and go in one file, side by side (print one,
+  // duplicate it).
+  const w = maxRadius(p) + 12;
+  const ribs = parts.filter((x) => x.key === "rib");
+  for (const r of ribs) r.geo.translate(p.spiral ? 0 : r.k * w, p.tabLen, p.boardT / 2);
+  const ribEntries: Part[] = p.spiral
+    ? ribs.map((r) => ({ name: `tomoshibi_rib_${String(r.k + 1).padStart(2, "0")}.stl`, geos: [r.geo] }))
+    : [{ name: `tomoshibi_ribs_x${nRibs}.stl`, geos: ribs.map((r) => r.geo) }];
   // The config JSON rides along so the ZIP is itself a design backup — the WHOLE record, through the
   // same serializer as 「バックアップを保存」, so a restore from the ZIP loses no setting.
   // The washi template too: its panel width follows the rib count you are about to print and,
@@ -45,13 +44,7 @@ export function downloadKit(s: SavedState, nRibs: number, t: T): void {
   const cfg = serializeState(s);
   exportZip([
     ...ribEntries,
-    // Koma and posts are identical top and bottom, so one of each (duplicated in the slicer).
-    { name: "tomoshibi_koma_print2.stl", geos: [komaGeometry(p)] },
-    { name: "tomoshibi_stand_column_print2.stl", geos: [standGeometry(p)] },
-    { name: "tomoshibi_stand_base.stl", geos: [boardGeometry(p)] },
-    // Opening rings: set into the finished lantern's openings to hold the bamboo and washi.
-    { name: "tomoshibi_ring_bottom.stl", geos: [ringGeometry(p, false)] },
-    { name: "tomoshibi_ring_top.stl", geos: [ringGeometry(p, true)] },
+    ...parts.flatMap((x) => (x.key === "rib" ? [] : [{ name: FILE[x.key], geos: [x.geo] }])),
   ], "tomoshibi_kit.zip", [
     { name: "tomoshibi_config.json", bytes: new TextEncoder().encode(cfg) },
     { name: WASHI_PDF, bytes: washiPDF(p, { side: washiSide, end: washiEnd }, undefined, t) },

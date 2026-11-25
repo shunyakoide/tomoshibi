@@ -10,14 +10,14 @@
  * Not named `figures.ts`: `three/figures.ts` is the guide's off-screen drawings.
  */
 import { useMemo } from "react";
-import type * as THREE from "three";
 import {
   maxRadius, outerR, standBoardLength,
-  ribGeometry, komaGeometry, standGeometry, boardGeometry, ringGeometry, ringLegsFit, ribPullFit, ribMouthBand,
+  ringLegsFit, ribPullFit, ribMouthBand,
   washiGore,
 } from "../geometry.ts";
 import { paperFit, paperP, templateOverflow } from "../papercraft.ts";
 import { fitOnBed } from "../bed.ts";
+import { printParts, type PartKey } from "../parts.ts";
 import { LIMITS } from "../config.ts";
 import type { T } from "../i18n.ts";
 import type { Design, Route } from "../types.ts";
@@ -55,26 +55,26 @@ export function useFigures(p: Design, m: {
 
   // Real footprint of every printed part (rebuilt only when the design changes). Actual bounding
   // boxes rather than "rib along depth, base along width", which broke on non-square (W≠D) beds: the
-  // fit test can then use a 90° turn or a diagonal tilt, per part.
-  const bedFit = useMemo(() => {
-    const dim = (g: THREE.BufferGeometry): [number, number] => { g.computeBoundingBox(); const b = g.boundingBox!; return [b.max.x - b.min.x, b.max.y - b.min.y]; };
-    const rb = dim(ringGeometry(p, false)), rt = dim(ringGeometry(p, true));
-    return {
-      rib: dim(ribGeometry(p, 0)), koma: dim(komaGeometry(p)), col: dim(standGeometry(p)),
-      base: dim(boardGeometry(p)), ring: Math.max(...rb) >= Math.max(...rt) ? rb : rt,
-    };
-  }, [p]);
-  const overParts = ([["羽根板", bedFit.rib], ["コマ", bedFit.koma], ["柱", bedFit.col], ["連結板", bedFit.base], ["開口リング", bedFit.ring]] as [string, [number, number]][])
-    .filter(([, d]) => !fitOnBed(d, bedW, bedD).fits)
-    .map(([name, d]) => t("{name} {n}mm", { name: t(name), n: Math.round(Math.max(...d)) }));
-  const ribFits = fitOnBed(bedFit.rib, bedW, bedD).fits;
-  const ribLen = Math.round(Math.max(...bedFit.rib));   // rib overall length, for the summary
-  const ribBaseOver = !ribFits || !fitOnBed(bedFit.base, bedW, bedD).fits;
+  // fit test can then use a 90° turn or a diagonal tilt, per part. One rib stands for all of them.
+  const bedFit = useMemo(() => printParts(p, [0]).map((x) => {
+    x.geo.computeBoundingBox();
+    const b = x.geo.boundingBox!;
+    return { key: x.key, label: x.label, dim: [b.max.x - b.min.x, b.max.y - b.min.y] as [number, number] };
+  }), [p]);
+  const dimOf = (key: PartKey) => bedFit.find((x) => x.key === key)!.dim;
+  // One line per name: the two rings are one 「開口リング」, quoted at the larger overhang.
+  const over = new Map<string, number>();
+  for (const x of bedFit) if (!fitOnBed(x.dim, bedW, bedD).fits) over.set(x.label, Math.max(over.get(x.label) ?? 0, ...x.dim));
+  const overParts = [...over].map(([name, n]) => t("{name} {n}mm", { name: t(name), n: Math.round(n) }));
+  const rib = dimOf("rib"), base = dimOf("board");
+  const ribFits = fitOnBed(rib, bedW, bedD).fits;
+  const ribLen = Math.round(Math.max(...rib));   // rib overall length, for the summary
+  const ribBaseOver = !ribFits || !fitOnBed(base, bedW, bedD).fits;
   // Tallest body at which BOTH length-driven parts still fit (usually the rib: wider than the base,
   // so it hits the diagonal limit sooner). Widths don't depend on height, so heights are tested
   // without rebuilding geometry, and fit is monotonic in height — walk up, stop at the first miss.
   const heightLimit = useMemo(() => {
-    const ribW = Math.min(...bedFit.rib), baseW = Math.min(...bedFit.base);
+    const ribW = Math.min(...rib), baseW = Math.min(...base);
     const baseConst = Math.round(standBoardLength(p) - p.height);   // base length minus height
     // 0 = no height fits at all: the parts are too WIDE, and the hint then stays away rather than
     // telling someone to shrink a body that was never the problem. (Seeded with the minimum it read
@@ -86,7 +86,7 @@ export function useFigures(p: Design, m: {
       limit = h;
     }
     return limit;
-  }, [bedFit, p, bedW, bedD]);
+  }, [rib, base, p, bedW, bedD]);
 
   // The cardboard counterpart to the bed-overflow check. Cheap enough to run every render, and
   // deliberately NOT limited to the print view: every way out of it (fewer ribs, thinner material, a
